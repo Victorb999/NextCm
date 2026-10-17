@@ -24,6 +24,7 @@ import sqlite3
 import struct
 import sys
 import time
+import unicodedata
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_SRC = os.path.join(ROOT, "data", "raw", "clz-25-26")
@@ -78,6 +79,14 @@ NONPLAYER_ATTRIBUTES = [
     "patience", "physiotherapy", "pressing", "resources", "tactics", "youngsters",
 ]
 
+# Bits de `people.positions` (posições naturais, valor >= 15). Espelhado em core/src/search.rs.
+NATURAL_POSITION = 15
+POSITION_BITS = {
+    "goalkeeper": 1, "sweeper": 2, "defender": 2, "wing_back": 4,
+    "defensive_midfielder": 8, "midfielder": 16, "attacking_midfielder": 32, "attacker": 64,
+    "right_side": 128, "left_side": 256, "central": 512,
+}
+
 MENTAL = [
     "adaptability", "ambition", "determination", "loyalty",
     "pressure", "professionalism", "sportsmanship", "temperament",
@@ -105,6 +114,12 @@ def text(b, o, size):
 def ref(v):
     """IDs negativos (-1, -2) significam 'nenhum'."""
     return v if v >= 0 else None
+
+
+def fold(s):
+    """Minúsculas sem acento, para busca: 'Paquetá' -> 'paqueta'."""
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in s if not unicodedata.combining(c)).lower()
 
 
 def nz(v):
@@ -216,6 +231,8 @@ CREATE TABLE jobs (id INTEGER PRIMARY KEY, name TEXT);
 CREATE TABLE people (
     id INTEGER PRIMARY KEY,
     display_name TEXT NOT NULL, first_name TEXT, second_name TEXT, common_name TEXT,
+    search_name TEXT NOT NULL,       -- nome comum + completo, minúsculo e sem acento
+    list_name TEXT NOT NULL,         -- como nas listas do CM: "Sobrenome, Nome" ou o nome comum
     birth_date TEXT, birth_year INTEGER,
     nation_id INTEGER, second_nation_id INTEGER,
     international_apps INTEGER, international_goals INTEGER,
@@ -223,7 +240,11 @@ CREATE TABLE people (
     club_id INTEGER, club_job INTEGER,
     club_joined TEXT, contract_expires TEXT, wage INTEGER,
     {", ".join(f"{a} INTEGER" for a in MENTAL)},
-    is_player INTEGER NOT NULL, is_non_player INTEGER NOT NULL
+    is_player INTEGER NOT NULL, is_non_player INTEGER NOT NULL,
+    -- Colunas derivadas só para ordenar/filtrar rápido na busca:
+    ability INTEGER,                 -- CA do jogador, senão CA do staff
+    birth_sort TEXT,                 -- birth_date, ou 'AAAA-07-01' quando só há o ano
+    positions INTEGER NOT NULL       -- bitmask de POSITION_BITS
 );
 
 CREATE TABLE players (
@@ -254,6 +275,9 @@ INDEXES = """
 CREATE INDEX idx_people_club ON people(club_id);
 CREATE INDEX idx_people_nation ON people(nation_id);
 CREATE INDEX idx_people_name ON people(display_name COLLATE NOCASE);
+CREATE INDEX idx_people_list_name ON people(list_name COLLATE NOCASE);
+CREATE INDEX idx_people_ability ON people(ability DESC, display_name);
+CREATE INDEX idx_people_birth ON people(birth_sort DESC, display_name);
 CREATE INDEX idx_clubs_nation ON clubs(nation_id);
 CREATE INDEX idx_clubs_division ON clubs(division_id);
 CREATE INDEX idx_clubs_reserve_division ON clubs(reserve_division_id);
@@ -356,6 +380,8 @@ def people(r, first, second, common):
 
         row = {"id": pid, "display_name": display,
                "first_name": fn or None, "second_name": sn or None, "common_name": cn or None,
+               "search_name": fold(f"{cn} {fn} {sn}".strip()),
+               "list_name": cn or (f"{sn}, {fn}" if sn and fn else display),
                "birth_date": r.date(b, 16), "birth_year": r.year(i16(b, 24)),
                "nation_id": ref(i32(b, 26)), "second_nation_id": ref(i32(b, 30)),
                "international_apps": u8(b, 34), "international_goals": u8(b, 35),
@@ -369,6 +395,9 @@ def people(r, first, second, common):
             row["birth_year"] = int(row["birth_date"][:4])
         for n, attr in enumerate(MENTAL):
             row[attr] = nz(u8(b, 86 + n))
+        row["birth_sort"] = row["birth_date"] or (f"{row['birth_year']}-07-01" if row["birth_year"] else None)
+        row["ability"] = None
+        row["positions"] = 0
         people_rows.append(row)
 
         if player_ptr in players:
@@ -383,6 +412,10 @@ def people(r, first, second, common):
                 prow[attr] = nz(u8(p, 27 + n))
             prow["morale"] = nz(u8(p, 69))
             player_rows.append(prow)
+            row["ability"] = prow["current_ability"]
+            for pos, bit in POSITION_BITS.items():
+                if (prow[f"pos_{pos}"] or 0) >= NATURAL_POSITION:
+                    row["positions"] |= bit
 
         if nonplayer_ptr in non_players:
             p = non_players[nonplayer_ptr]
@@ -394,6 +427,8 @@ def people(r, first, second, common):
                 nrow[attr] = nz(u8(p, 14 + n))
             nrow["preferred_formation"] = u8(p, 67)
             nonplayer_rows.append(nrow)
+            if row["ability"] is None:
+                row["ability"] = nrow["current_ability"]
 
     return people_rows, player_rows, nonplayer_rows
 
@@ -449,11 +484,12 @@ def main():
         "career_history": insert(db, "career_history", career_history(r)),
     }
     db.executescript(INDEXES)
+    db.execute("ANALYZE")  # estatísticas para o planejador escolher bons índices
     insert(db, "meta", ({"key": k, "value": str(v)} for k, v in {
         "source": os.path.basename(os.path.normpath(args.src)),
         "year_offset": args.year_offset,
         "extracted_at": dt.datetime.now().isoformat(timespec="seconds"),
-        "schema_version": 1,
+        "schema_version": 6,
     }.items()))
     db.commit()
     db.close()

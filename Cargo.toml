@@ -1,0 +1,7 @@
+[workspace]
+resolver = "3"
+members = ["core", "game/src-tauri"]
+
+# Dependências (SQLite incluso) otimizadas mesmo no `tauri dev`; nosso código continua rápido de compilar.
+[profile.dev.package."*"]
+opt-level = 3
