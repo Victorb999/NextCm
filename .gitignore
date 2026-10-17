@@ -1,0 +1,12 @@
+# Dados originais do CM / patch (pesados e não redistribuíveis)
+*.dat
+*.sqlite
+*.sqlite-journal
+scripts/jogadores_db.json
+
+# Rust
+target/
+
+# Python
+__pycache__/
+*.pyc
