@@ -53,6 +53,8 @@ pub struct PlayerDetails {
 pub struct StaffDetails {
     pub current_ability: Option<i32>,
     pub potential_ability: Option<i32>,
+    pub current_reputation: Option<i32>,
+    pub world_reputation: Option<i32>,
     /// Atributos 1–20 como o perfil do CM mostra: os 8 relativos convertidos com o CA
     /// (ver `attributes.rs`), os demais como no banco.
     pub attributes: Attributes,
@@ -292,6 +294,8 @@ impl World {
                 Ok(StaffDetails {
                     current_ability,
                     potential_ability: r.get("potential_ability")?,
+                    current_reputation: r.get("current_reputation")?,
+                    world_reputation: r.get("world_reputation")?,
                     attributes: displayed_staff_attributes(&attributes, current_ability),
                     raw_attributes: attributes,
                 })

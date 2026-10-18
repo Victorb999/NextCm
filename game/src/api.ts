@@ -1,5 +1,6 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import type { ClubProfile } from './bindings/ClubProfile'
+import type { ClubTactics } from './bindings/ClubTactics'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import type { CompetitionProfile } from './bindings/CompetitionProfile'
 import type { NationListItem } from './bindings/NationListItem'
@@ -40,6 +41,7 @@ export const api = {
   listNations: once(() => call<NationOption[]>('list_nations')),
   getPerson: (id: number) => call<PersonProfile>('get_person', { id }),
   getClub: (id: number) => call<ClubProfile>('get_club', { id }),
+  getClubTactics: (id: number) => call<ClubTactics>('get_club_tactics', { id }),
   listCompetitions: once(() => call<CompetitionListItem[]>('list_competitions')),
   getCompetition: (id: number) => call<CompetitionProfile>('get_competition', { id }),
   listNationsFull: once(() => call<NationListItem[]>('list_nations_full')),

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::{
-    ClubProfile, CompetitionListItem, CompetitionProfile, ContinentRef, NationListItem, NationOption, NationProfile,
+    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, NationListItem, NationOption, NationProfile,
     PersonProfile, SearchQuery, SearchResult, World};
 use tauri::{Manager, State};
 
@@ -62,6 +62,7 @@ world_command!(list_competitions() -> Vec<CompetitionListItem>);
 world_command!(get_competition(id: i32) -> CompetitionProfile);
 world_command!(list_nations_full() -> Vec<NationListItem>);
 world_command!(get_nation(id: i32) -> NationProfile);
+world_command!(get_club_tactics(id: i32) -> ClubTactics);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -87,6 +88,7 @@ pub fn run() {
       list_nations,
       get_person,
       get_club,
+      get_club_tactics,
       list_continents,
       list_competitions,
       get_competition,

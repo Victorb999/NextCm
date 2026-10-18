@@ -217,18 +217,22 @@ export default function ClubPage({ id }: { id: number }) {
         {club && tab === 'info' && <Info c={club} />}
       </div>
 
-      {/* Atalhos inferiores do CM; ficam ativos quando as telas existirem */}
+      {/* Atalhos inferiores do CM; Treino e Último Jogo chegam na Fase 3 */}
       <div className="mt-1.5">
         <Tabs
           tabs={[
-            { key: 'tactics', label: 'Tácticas', disabled: true },
+            { key: 'tactics', label: 'Tácticas' },
             { key: 'training', label: 'Treino', disabled: true },
             { key: 'last', label: 'Último Jogo', disabled: true },
             { key: 'division', label: division?.shortName ?? '-', disabled: !division },
-            { key: 'history', label: 'Historial', disabled: true },
+            { key: 'history', label: 'Historial' },
           ]}
           active=""
-          onChange={(k) => k === 'division' && division && nav.go({ kind: 'competition', id: division.id })}
+          onChange={(k) => {
+            if (k === 'division' && division) nav.go({ kind: 'competition', id: division.id })
+            if (k === 'tactics') nav.go({ kind: 'tactics', id })
+            if (k === 'history') nav.go({ kind: 'clubHistory', id })
+          }}
         />
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

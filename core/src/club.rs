@@ -47,6 +47,17 @@ pub struct StaffMember {
     pub current_ability: Option<i32>,
 }
 
+/// Títulos e vice-campeonatos do clube numa competição (do historial das competições).
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct Honour {
+    pub competition: CompetitionRef,
+    /// Anos, do mais recente para o mais antigo.
+    pub won: Vec<i32>,
+    pub runner_up: Vec<i32>,
+}
+
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -58,6 +69,9 @@ pub struct ClubProfile {
     pub division: Option<CompetitionRef>,
     /// No patch CLZ: o campeonato estadual.
     pub reserve_division: Option<CompetitionRef>,
+    /// Divisão e posição na temporada anterior.
+    pub last_division: Option<CompetitionRef>,
+    pub last_position: Option<i32>,
     pub stadium: Option<String>,
     pub stadium_capacity: Option<i32>,
     pub reputation: Option<i32>,
@@ -65,6 +79,8 @@ pub struct ClubProfile {
     pub rivals: Vec<ClubRef>,
     pub players: Vec<SquadPlayer>,
     pub staff: Vec<StaffMember>,
+    /// Competições com título ou vice, as com mais títulos primeiro.
+    pub honours: Vec<Honour>,
 }
 
 /// Ordem dos bits de `people.positions` (GR=1, D=2, AL=4, MD=8, M=16, MA=32, A=64):
@@ -95,13 +111,13 @@ impl World {
         let Some(club) = self.club_ref(Some(id))? else {
             return Err(Error::NotFound(format!("clube {id}")));
         };
-        type Row = (bool, Option<i32>, Option<String>, Option<i32>, Option<i32>, Option<String>, Option<i32>, Option<i32>, Option<i32>, [Option<i32>; 3]);
-        let (is_national, nation_id, nation, division, reserve, stadium, capacity, reputation, cash, rivals): Row = self
+        type Row = (bool, Option<i32>, Option<String>, Option<i32>, Option<i32>, Option<String>, Option<i32>, Option<i32>, Option<i32>, [Option<i32>; 3], Option<i32>, Option<i32>);
+        let (is_national, nation_id, nation, division, reserve, stadium, capacity, reputation, cash, rivals, last_division, last_position): Row = self
             .conn
             .prepare_cached(
                 "SELECT c.is_national_team, c.nation_id, n.name, c.division_id, c.reserve_division_id,
                         s.name, s.capacity, c.reputation, c.cash,
-                        c.rival1_id, c.rival2_id, c.rival3_id
+                        c.rival1_id, c.rival2_id, c.rival3_id, c.last_division_id, c.last_position
                  FROM clubs c
                  LEFT JOIN nations n ON n.id = c.nation_id
                  LEFT JOIN stadiums s ON s.id = c.stadium_id
@@ -119,6 +135,8 @@ impl World {
                     r.get(7)?,
                     r.get(8)?,
                     [r.get(9)?, r.get(10)?, r.get(11)?],
+                    r.get(12)?,
+                    r.get(13)?,
                 ))
             })?;
 
@@ -188,6 +206,33 @@ impl World {
             rival_refs.extend(self.club_ref(Some(rival))?);
         }
 
+        let mut honours: Vec<Honour> = Vec::new();
+        let rows: Vec<(i32, i32, bool)> = self
+            .conn
+            .prepare_cached(
+                "SELECT competition_id, year, winner_id = ?1 FROM competition_history
+                 WHERE (winner_id = ?1 OR runner_up_id = ?1) AND year IS NOT NULL
+                 ORDER BY year DESC",
+            )?
+            .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        for (comp, year, won) in rows {
+            let i = match honours.iter().position(|h| h.competition.id == comp) {
+                Some(i) => i,
+                None => {
+                    let Some(competition) = self.competition_ref(Some(comp))? else { continue };
+                    honours.push(Honour { competition, won: Vec::new(), runner_up: Vec::new() });
+                    honours.len() - 1
+                }
+            };
+            // O historial do patch repete alguns anos; cada ano conta uma vez
+            let years = if won { &mut honours[i].won } else { &mut honours[i].runner_up };
+            if !years.contains(&year) {
+                years.push(year);
+            }
+        }
+        honours.sort_by(|a, b| b.won.len().cmp(&a.won.len()).then(b.runner_up.len().cmp(&a.runner_up.len())));
+
         Ok(ClubProfile {
             club,
             is_national_team: is_national,
@@ -195,6 +240,8 @@ impl World {
             nation,
             division: self.competition_ref(division)?,
             reserve_division: self.competition_ref(reserve)?,
+            last_division: self.competition_ref(last_division)?,
+            last_position: last_position.filter(|p| *p > 0),
             stadium,
             stadium_capacity: capacity.filter(|c| *c > 0),
             reputation,
@@ -202,6 +249,7 @@ impl World {
             rivals: rival_refs,
             players,
             staff,
+            honours,
         })
     }
 }

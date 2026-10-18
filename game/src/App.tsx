@@ -6,6 +6,7 @@ import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import CascadeMenu from './components/CascadeMenu'
 import { competitionsMenu } from './competitionsMenu'
 import { NavProvider, useNav } from './nav'
+import ClubHistoryPage from './pages/ClubHistoryPage'
 import ClubPage from './pages/ClubPage'
 import CompetitionPage from './pages/CompetitionPage'
 import CompetitionsPage from './pages/CompetitionsPage'
@@ -13,6 +14,7 @@ import NationPage from './pages/NationPage'
 import NationsPage from './pages/NationsPage'
 import PersonPage from './pages/PersonPage'
 import SearchPage from './pages/SearchPage'
+import TacticsPage from './pages/TacticsPage'
 
 // Data inicial do jogo (patch CLZ 25-26). Passa a vir do save na Fase 3.
 const GAME_DATE = new Date(2025, 6, 1)
@@ -146,6 +148,8 @@ function Screens() {
       </div>
       {current.kind === 'person' && <PersonPage key={current.id} id={current.id} />}
       {current.kind === 'club' && <ClubPage key={current.id} id={current.id} />}
+      {current.kind === 'tactics' && <TacticsPage key={current.id} id={current.id} />}
+      {current.kind === 'clubHistory' && <ClubHistoryPage key={current.id} id={current.id} />}
       {current.kind === 'competitions' && <CompetitionsPage />}
       {current.kind === 'competition' && <CompetitionPage key={current.id} id={current.id} />}
       {current.kind === 'nations' && <NationsPage />}

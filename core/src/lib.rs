@@ -8,13 +8,15 @@ mod competition;
 mod nation;
 mod person;
 mod search;
+mod tactics;
 mod world;
 
-pub use club::{ClubProfile, CompetitionRef, SquadPlayer, StaffMember};
+pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry};
 pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};
 pub use search::{PersonKind, PersonSummary, Position, SearchQuery, SearchResult, SearchSort, Side};
+pub use tactics::{ClubTactics, TacticPlayer, TacticSlot, FORMATIONS};
 pub use world::{NationOption, World};
 
 #[derive(Debug)]

@@ -28,6 +28,7 @@ fn call(world: &World, cmd: &str, args: &Value) -> Result<Value, String> {
         "list_competitions" => json(serde_json::to_value(world.list_competitions().map_err(e)?)),
         "get_competition" => json(serde_json::to_value(world.get_competition(id()?).map_err(e)?)),
         "list_nations_full" => json(serde_json::to_value(world.list_nations_full().map_err(e)?)),
+        "get_club_tactics" => json(serde_json::to_value(world.get_club_tactics(id()?).map_err(e)?)),
         "get_nation" => json(serde_json::to_value(world.get_nation(id()?).map_err(e)?)),
         _ => Err(format!("comando desconhecido: {cmd}")),
     }
