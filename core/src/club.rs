@@ -53,6 +53,7 @@ pub struct StaffMember {
 pub struct ClubProfile {
     pub club: ClubRef,
     pub is_national_team: bool,
+    pub nation_id: Option<i32>,
     pub nation: Option<String>,
     pub division: Option<CompetitionRef>,
     /// No patch CLZ: o campeonato estadual.
@@ -94,11 +95,11 @@ impl World {
         let Some(club) = self.club_ref(Some(id))? else {
             return Err(Error::NotFound(format!("clube {id}")));
         };
-        type Row = (bool, Option<String>, Option<i32>, Option<i32>, Option<String>, Option<i32>, Option<i32>, Option<i32>, [Option<i32>; 3]);
-        let (is_national, nation, division, reserve, stadium, capacity, reputation, cash, rivals): Row = self
+        type Row = (bool, Option<i32>, Option<String>, Option<i32>, Option<i32>, Option<String>, Option<i32>, Option<i32>, Option<i32>, [Option<i32>; 3]);
+        let (is_national, nation_id, nation, division, reserve, stadium, capacity, reputation, cash, rivals): Row = self
             .conn
             .prepare_cached(
-                "SELECT c.is_national_team, n.name, c.division_id, c.reserve_division_id,
+                "SELECT c.is_national_team, c.nation_id, n.name, c.division_id, c.reserve_division_id,
                         s.name, s.capacity, c.reputation, c.cash,
                         c.rival1_id, c.rival2_id, c.rival3_id
                  FROM clubs c
@@ -116,7 +117,8 @@ impl World {
                     r.get(5)?,
                     r.get(6)?,
                     r.get(7)?,
-                    [r.get(8)?, r.get(9)?, r.get(10)?],
+                    r.get(8)?,
+                    [r.get(9)?, r.get(10)?, r.get(11)?],
                 ))
             })?;
 
@@ -189,6 +191,7 @@ impl World {
         Ok(ClubProfile {
             club,
             is_national_team: is_national,
+            nation_id,
             nation,
             division: self.competition_ref(division)?,
             reserve_division: self.competition_ref(reserve)?,

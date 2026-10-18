@@ -70,9 +70,11 @@ function Info({ c }: { c: ClubProfile }) {
   const nav = useNav()
   const rows: [string, ReactNode][] = [
     ['Nome', c.club.name],
-    ['Nação', c.nation ?? '-'],
-    ['Divisão', c.division?.name ?? '-'],
-    ...(c.reserveDivision ? ([['Estadual', c.reserveDivision.name]] as [string, ReactNode][]) : []),
+    ['Nação', c.nationId !== null && c.nation ? <Link key="l1" onClick={() => nav.go({ kind: 'nation', id: c.nationId! })}>{c.nation}</Link> : '-'],
+    ['Divisão', c.division ? <Link key="l2" onClick={() => nav.go({ kind: 'competition', id: c.division!.id })}>{c.division.name}</Link> : '-'],
+    ...(c.reserveDivision
+      ? ([['Estadual', <Link key="l3" onClick={() => nav.go({ kind: 'competition', id: c.reserveDivision!.id })}>{c.reserveDivision.name}</Link>]] as [string, ReactNode][])
+      : []),
     ['Estádio', c.stadium ? `${c.stadium}${c.stadiumCapacity ? ` (${c.stadiumCapacity.toLocaleString('pt-BR')})` : ''}` : '-'],
     ['Reputação', c.reputation ?? '-'],
     ['Saldo', money(c.cash)],
@@ -82,7 +84,7 @@ function Info({ c }: { c: ClubProfile }) {
         ? c.rivals.map((r, i) => (
             <span key={r.id}>
               {i > 0 && ', '}
-              <Link onClick={() => nav.go({ kind: 'club', id: r.id })} className="text-cm-magenta">
+              <Link key="l4" onClick={() => nav.go({ kind: 'club', id: r.id })} className="text-cm-magenta">
                 {r.shortName}
               </Link>
             </span>
@@ -222,11 +224,11 @@ export default function ClubPage({ id }: { id: number }) {
             { key: 'tactics', label: 'Tácticas', disabled: true },
             { key: 'training', label: 'Treino', disabled: true },
             { key: 'last', label: 'Último Jogo', disabled: true },
-            { key: 'division', label: division?.shortName ?? '-', disabled: true },
+            { key: 'division', label: division?.shortName ?? '-', disabled: !division },
             { key: 'history', label: 'Historial', disabled: true },
           ]}
           active=""
-          onChange={() => {}}
+          onChange={(k) => k === 'division' && division && nav.go({ kind: 'competition', id: division.id })}
         />
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

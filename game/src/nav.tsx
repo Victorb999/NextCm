@@ -1,9 +1,16 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
 // Navegação entre telas com histórico, como os botões ◀ ▶ e Atrás/Seguinte do CM.
 
-export type Screen = { kind: 'search' } | { kind: 'person'; id: number } | { kind: 'club'; id: number }
+export type Screen =
+  | { kind: 'search' }
+  | { kind: 'person'; id: number }
+  | { kind: 'club'; id: number }
+  | { kind: 'competitions' }
+  | { kind: 'competition'; id: number }
+  | { kind: 'nations' }
+  | { kind: 'nation'; id: number }
 
 type Nav = {
   current: Screen
@@ -52,4 +59,19 @@ export function useNav() {
   const nav = useContext(NavContext)
   if (!nav) throw new Error('useNav fora do NavProvider')
   return nav
+}
+
+/** Esc / Backspace voltam para a tela anterior (fora de campos de texto). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useEscBack() {
+  const nav = useNav()
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === 'Escape' || e.key === 'Backspace') && !(document.activeElement instanceof HTMLInputElement)) {
+        nav.back()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [nav])
 }

@@ -4,11 +4,15 @@
 
 pub mod attributes;
 mod club;
+mod competition;
+mod nation;
 mod person;
 mod search;
 mod world;
 
 pub use club::{ClubProfile, CompetitionRef, SquadPlayer, StaffMember};
+pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry};
+pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};
 pub use search::{PersonKind, PersonSummary, Position, SearchQuery, SearchResult, SearchSort, Side};
 pub use world::{NationOption, World};

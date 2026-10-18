@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use nextcm_core::{ClubProfile, NationOption, PersonProfile, SearchQuery, SearchResult, World};
+use nextcm_core::{
+    ClubProfile, CompetitionListItem, CompetitionProfile, ContinentRef, NationListItem, NationOption, NationProfile,
+    PersonProfile, SearchQuery, SearchResult, World};
 use tauri::{Manager, State};
 
 /// Banco do mundo, aberto uma vez no início. `rusqlite::Connection` não é `Sync`.
@@ -44,6 +46,23 @@ async fn get_club(state: State<'_, AppState>, id: i32) -> Result<ClubProfile, St
     world.get_club(id).map_err(|e| e.to_string())
 }
 
+/// Gera um comando Tauri que só delega para um método de `World`.
+macro_rules! world_command {
+    ($name:ident ( $($arg:ident : $ty:ty),* ) -> $out:ty) => {
+        #[tauri::command]
+        async fn $name(state: State<'_, AppState>, $($arg: $ty),*) -> Result<$out, String> {
+            let world = state.world.lock().map_err(|e| e.to_string())?;
+            world.$name($($arg),*).map_err(|e| e.to_string())
+        }
+    };
+}
+
+world_command!(list_continents() -> Vec<ContinentRef>);
+world_command!(list_competitions() -> Vec<CompetitionListItem>);
+world_command!(get_competition(id: i32) -> CompetitionProfile);
+world_command!(list_nations_full() -> Vec<NationListItem>);
+world_command!(get_nation(id: i32) -> NationProfile);
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -63,7 +82,17 @@ pub fn run() {
       app.manage(AppState { world: Mutex::new(world) });
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![search_people, list_nations, get_person, get_club])
+    .invoke_handler(tauri::generate_handler![
+      search_people,
+      list_nations,
+      get_person,
+      get_club,
+      list_continents,
+      list_competitions,
+      get_competition,
+      list_nations_full,
+      get_nation,
+    ])
     .run(tauri::generate_context!())
     .expect("error while building tauri application");
 }

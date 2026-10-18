@@ -4,6 +4,10 @@ import type { ReactNode } from 'react'
 import { inTauri } from './api'
 import { NavProvider, useNav } from './nav'
 import ClubPage from './pages/ClubPage'
+import CompetitionPage from './pages/CompetitionPage'
+import CompetitionsPage from './pages/CompetitionsPage'
+import NationPage from './pages/NationPage'
+import NationsPage from './pages/NationsPage'
 import PersonPage from './pages/PersonPage'
 import SearchPage from './pages/SearchPage'
 
@@ -61,12 +65,8 @@ function SideBar() {
       <SideButton disabled title="Disponível na Fase 3" className="!text-cm-pink">
         Treinador
       </SideButton>
-      <SideButton disabled title="Em breve">
-        Competições
-      </SideButton>
-      <SideButton disabled title="Em breve">
-        Nações &amp; Clubes
-      </SideButton>
+      <SideButton onClick={() => nav.go({ kind: 'competitions' })}>Competições</SideButton>
+      <SideButton onClick={() => nav.go({ kind: 'nations' })}>Nações &amp; Clubes</SideButton>
       <SideButton onClick={() => nav.go({ kind: 'search' })}>Procurar</SideButton>
       <SideButton disabled title="Em breve" className="!text-cm-yellow">
         Opções Jogo
@@ -110,6 +110,10 @@ function Screens() {
       </div>
       {current.kind === 'person' && <PersonPage key={current.id} id={current.id} />}
       {current.kind === 'club' && <ClubPage key={current.id} id={current.id} />}
+      {current.kind === 'competitions' && <CompetitionsPage />}
+      {current.kind === 'competition' && <CompetitionPage key={current.id} id={current.id} />}
+      {current.kind === 'nations' && <NationsPage />}
+      {current.kind === 'nation' && <NationPage key={current.id} id={current.id} />}
     </>
   )
 }

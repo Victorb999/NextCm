@@ -4,7 +4,7 @@ import type { CompetitionRef } from "./CompetitionRef";
 import type { SquadPlayer } from "./SquadPlayer";
 import type { StaffMember } from "./StaffMember";
 
-export type ClubProfile = { club: ClubRef, isNationalTeam: boolean, nation: string | null, division: CompetitionRef | null, 
+export type ClubProfile = { club: ClubRef, isNationalTeam: boolean, nationId: number | null, nation: string | null, division: CompetitionRef | null, 
 /**
  * No patch CLZ: o campeonato estadual.
  */
