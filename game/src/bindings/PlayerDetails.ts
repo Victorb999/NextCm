@@ -14,6 +14,11 @@ positionLong: string,
  */
 preferredFoot: string | null, morale: number | null, 
 /**
- * Atributos técnicos/físicos (tabela players) + mentais (tabela people).
+ * Atributos 1–20 como o perfil do CM mostra: os 18 relativos já convertidos com o CA
+ * (ver `attributes.rs`), os demais como no banco.
  */
-attributes: { [key in string]: number | null }, };
+attributes: { [key in string]: number | null }, 
+/**
+ * Valores do banco, sem conversão: técnicos/físicos (tabela players) + mentais (people).
+ */
+rawAttributes: { [key in string]: number | null }, };

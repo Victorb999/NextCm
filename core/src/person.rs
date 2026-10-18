@@ -4,6 +4,7 @@ use rusqlite::{OptionalExtension, Row};
 use serde::Serialize;
 use ts_rs::TS;
 
+use crate::attributes::displayed_attributes;
 use crate::search::{NATURAL_POSITION, position_label};
 use crate::{Error, Result, World};
 
@@ -39,8 +40,11 @@ pub struct PlayerDetails {
     /// "Direito", "Esquerdo" ou "Qualquer".
     pub preferred_foot: Option<String>,
     pub morale: Option<i32>,
-    /// Atributos técnicos/físicos (tabela players) + mentais (tabela people).
+    /// Atributos 1–20 como o perfil do CM mostra: os 18 relativos já convertidos com o CA
+    /// (ver `attributes.rs`), os demais como no banco.
     pub attributes: Attributes,
+    /// Valores do banco, sem conversão: técnicos/físicos (tabela players) + mentais (people).
+    pub raw_attributes: Attributes,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -247,9 +251,10 @@ impl World {
                     attributes.get("right_foot").copied().flatten(),
                 );
                 attributes.extend(mental.clone());
+                let current_ability = r.get("current_ability")?;
                 Ok(PlayerDetails {
                     squad_number: r.get("squad_number")?,
-                    current_ability: r.get("current_ability")?,
+                    current_ability,
                     potential_ability: r.get("potential_ability")?,
                     home_reputation: r.get("home_reputation")?,
                     current_reputation: r.get("current_reputation")?,
@@ -258,7 +263,8 @@ impl World {
                     position_long: position_long(&pos),
                     preferred_foot: foot,
                     morale: r.get("morale")?,
-                    attributes,
+                    attributes: displayed_attributes(&attributes, current_ability, pos[0]),
+                    raw_attributes: attributes,
                 })
             })
             .optional()?;
@@ -347,4 +353,40 @@ mod tests {
         assert!(!pl.attributes.keys().any(|k| k.starts_with("pos_")));
         assert!(!p.career.is_empty());
     }
+
+    fn player(w: &World, name: &str) -> PlayerDetails {
+        let q = crate::SearchQuery { text: Some(name.into()), ..Default::default() };
+        let id = w.search_people(&q).unwrap().items[0].id;
+        w.get_person(id).unwrap().player.unwrap()
+    }
+
+    /// Atributos convertidos (ver `attributes.rs`) de jogadores conhecidos do patch CLZ 25-26.
+    /// No jogo, o Yamal aparece com Finalização 18 e Remates Longe 9: o CM simula ~6 meses
+    /// (treino, evolução do CA) antes da 1ª tela, o que a conversão do banco não reproduz.
+    #[test]
+    fn known_players_attributes() {
+        let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let w = World::open(&path).unwrap();
+        let shown = |pl: &PlayerDetails, k: &str| pl.attributes[k].unwrap();
+        let raw = |pl: &PlayerDetails, k: &str| pl.raw_attributes[k].unwrap();
+
+        let yamal = player(&w, "lamine yamal");
+        assert_eq!((raw(&yamal, "finishing"), raw(&yamal, "long_shots")), (11, 2));
+        assert_eq!((shown(&yamal, "finishing"), shown(&yamal, "long_shots")), (16, 8));
+        assert!((18 - shown(&yamal, "finishing")).abs() <= 2);
+        assert!((9 - shown(&yamal, "long_shots")).abs() <= 2);
+        assert_eq!(shown(&yamal, "dribbling"), 20);
+        assert_eq!(shown(&yamal, "handling"), 1);
+        assert_eq!(shown(&yamal, "pace"), raw(&yamal, "pace")); // físicos não mudam
+
+        let haaland = player(&w, "erling haaland");
+        assert_eq!(shown(&haaland, "finishing"), 20);
+        assert_eq!(shown(&haaland, "positioning"), 11); // 1 no banco
+
+        // GR: Jogo de Mãos e Reflexos pela fórmula normal; Finalização pela "low" (CA/10).
+        let gk = player(&w, "marc-andre ter stegen");
+        assert_eq!((shown(&gk, "handling"), shown(&gk, "reflexes")), (17, 20));
+        assert_eq!(shown(&gk, "finishing"), 4);
+    }
 }
+

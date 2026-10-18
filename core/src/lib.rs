@@ -2,6 +2,7 @@
 //!
 //! Fase 2: só leitura do `world.sqlite` gerado por `scripts/extract.py`.
 
+pub mod attributes;
 mod person;
 mod search;
 mod world;
