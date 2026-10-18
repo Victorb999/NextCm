@@ -4,7 +4,7 @@ use rusqlite::{OptionalExtension, Row};
 use serde::Serialize;
 use ts_rs::TS;
 
-use crate::attributes::displayed_attributes;
+use crate::attributes::{displayed_attributes, displayed_staff_attributes};
 use crate::search::{NATURAL_POSITION, position_label};
 use crate::{Error, Result, World};
 
@@ -53,7 +53,11 @@ pub struct PlayerDetails {
 pub struct StaffDetails {
     pub current_ability: Option<i32>,
     pub potential_ability: Option<i32>,
+    /// Atributos 1–20 como o perfil do CM mostra: os 8 relativos convertidos com o CA
+    /// (ver `attributes.rs`), os demais como no banco.
     pub attributes: Attributes,
+    /// Valores do banco, sem conversão (non_players + mentais de people).
+    pub raw_attributes: Attributes,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -284,10 +288,12 @@ impl World {
                       "current_reputation", "world_reputation", "preferred_formation"],
                 )?;
                 attributes.extend(mental.clone());
+                let current_ability = r.get("current_ability")?;
                 Ok(StaffDetails {
-                    current_ability: r.get("current_ability")?,
+                    current_ability,
                     potential_ability: r.get("potential_ability")?,
-                    attributes,
+                    attributes: displayed_staff_attributes(&attributes, current_ability),
+                    raw_attributes: attributes,
                 })
             })
             .optional()?;
@@ -393,5 +399,19 @@ mod tests {
         assert_eq!((shown(&gk, "handling"), shown(&gk, "reflexes")), (17, 20));
         assert_eq!(shown(&gk, "finishing"), 4);
     }
-}
 
+    /// Staff: os 8 relativos convertidos (Guardiola, CA 190, no patch CLZ 25-26).
+    #[test]
+    fn known_staff_attributes() {
+        let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let w = World::open(&path).unwrap();
+        let q = crate::SearchQuery { text: Some("pep guardiola".into()), kind: Some(crate::PersonKind::Staff), ..Default::default() };
+        let id = w.search_people(&q).unwrap().items[0].id;
+        let st = w.get_person(id).unwrap().staff.unwrap();
+        assert_eq!(st.current_ability, Some(190));
+        assert_eq!(st.raw_attributes["coaching"], Some(5));
+        assert_eq!(st.attributes["coaching"], Some(9));
+        assert_eq!(st.attributes["tactics"], Some(20));
+        assert_eq!(st.attributes["discipline"], st.raw_attributes["discipline"]);
+    }
+}

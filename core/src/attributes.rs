@@ -203,6 +203,29 @@ pub fn displayed_attributes(raw: &Attributes, ca: Option<i32>, gk: Option<i32>) 
     out
 }
 
+/// Os 8 atributos relativos do staff, na ordem das células 13–20 do vetor
+/// (`database_non_player_to_attribute_vector`, 0x53a8b0). As células 0–12 (Attacking,
+/// Business, Coaching Technique, Directness, Discipline, Free Roles, Interference, Marking,
+/// Offside, Patience, Pressing, Resources, Youngsters) são mostradas como estão no banco.
+pub const STAFF_RELATIVE: [&str; 8] = [
+    "coaching_gks", "coaching", "judgement", "judging_potential", "man_handling", "motivating",
+    "physiotherapy", "tactics",
+];
+
+/// Atributos de staff como o perfil do CM 01/02 mostra. Ao criar o jogo, os relativos viram
+/// intrínsecos com a mesma conta dos jogadores (0x538ac6), mas sem as normalizações; a
+/// exibição (`non_player_attribute_rating`, 0x544410) é a fórmula "normal" de [`displayed`].
+pub fn displayed_staff_attributes(raw: &Attributes, ca: Option<i32>) -> Attributes {
+    let mut out = raw.clone();
+    let Some(ca) = ca.filter(|ca| (1..=200).contains(ca)) else { return out };
+    for k in STAFF_RELATIVE {
+        if let Some(Some(v)) = raw.get(k) {
+            out.insert(k.into(), Some(displayed(initial_intrinsic(*v, ca), ca, false)));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,6 +254,21 @@ mod tests {
         assert_eq!(initial_intrinsic(20, 1), 99); // 199 / 2
         assert_eq!(initial_intrinsic(1, 200), -95);
         assert_eq!(initial_intrinsic(20, -100), 100); // limite de ±200 antes da divisão
+    }
+
+    #[test]
+    fn staff_relative_attributes() {
+        // Pep Guardiola no banco 25-26 (CA 190): o CA se cancela, x = 10 + v/2.
+        let raw = attrs(&[("coaching", 5), ("coaching_gks", 1), ("motivating", 15), ("tactics", 20),
+                          ("business", 1), ("discipline", 15)]);
+        let shown = displayed_staff_attributes(&raw, Some(190));
+        assert_eq!(shown["coaching"], Some(9));
+        assert_eq!(shown["coaching_gks"], Some(7));
+        assert_eq!(shown["motivating"], Some(16));
+        assert_eq!(shown["tactics"], Some(20));
+        // Absolutos ficam como no banco
+        assert_eq!(shown["business"], Some(1));
+        assert_eq!(shown["discipline"], Some(15));
     }
 
     fn attrs(pairs: &[(&str, i32)]) -> Attributes {
