@@ -5,6 +5,7 @@ import { api, hasBackend } from './api'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import CascadeMenu, { type MenuNode } from './components/CascadeMenu'
 import type { Fixture } from './bindings/Fixture'
+import type { StandingRow } from './bindings/StandingRow'
 import { DialogFrame, Overlay } from './components/Dialog'
 import Loading from './components/Loading'
 import MatchDay from './components/MatchDay'
@@ -60,6 +61,9 @@ function SideButton({
 
 type Menu = { kind: 'competitions' | 'manager'; x: number; y: number }
 
+/** O que o ecrã do dia de jogo precisa: o jogo, os jogos do dia e a tabela de antes. */
+type MatchDayData = { fixture: Fixture; dayGames: Fixture[]; table: StandingRow[]; tableAfter: StandingRow[] }
+
 /** Coluna de navegação à esquerda, como no CM 01/02. */
 function SideBar({
   onOptions,
@@ -67,6 +71,7 @@ function SideBar({
   notify,
   onProcessing,
   onMatch,
+  matchStep,
 }: {
   onOptions: () => void
   onExit: () => void
@@ -74,7 +79,9 @@ function SideBar({
   /** "A processar…" enquanto o Continuar Jogo corre. */
   onProcessing: (busy: boolean) => void
   /** O treinador jogou hoje: mostra o dia de jogo. */
-  onMatch: (f: Fixture) => void
+  onMatch: (m: MatchDayData) => void
+  /** Com o dia de jogo aberto, o Continuar Jogo faz o papel do Seguinte (não avança o dia). */
+  matchStep?: () => void
 }) {
   const nav = useNav()
   const game = useGame()
@@ -99,17 +106,27 @@ function SideBar({
   }
 
   const advance = async () => {
+    if (matchStep) return matchStep()
     if (busy) return
     setBusy(true)
     onProcessing(true)
     try {
-      const before = info?.unreadNews ?? 0
+      // A tabela antes do dia, para as posições no ecrã "Jogos de Hoje"
+      const clubId = info?.club.id
+      const upcoming = clubId ? (await api.clubFixtures(clubId)).find((f) => f.homeGoals === null) : undefined
+      const tableBefore = upcoming ? await api.leagueTable(upcoming.competitionId) : []
       const next = await api.continueGame()
       game.update(next)
       // Se o clube do treinador jogou hoje: ecrã do dia de jogo e depois os Resultados
       const played = (await api.clubFixtures(next.club.id)).find((f) => f.date === next.date && f.homeGoals !== null)
-      if (played) onMatch(played)
-      else if (next.unreadNews > before) nav.go({ kind: 'news' })
+      if (played) {
+        const dayGames = (await api.listFixtures(played.competitionId)).filter((f) => f.date === next.date)
+        const tableAfter = await api.leagueTable(played.competitionId)
+        onMatch({ fixture: played, dayGames, table: tableBefore, tableAfter })
+      } else if (next.unreadNews > 0) {
+        // Como no CM: havendo mensagens por ler, o Continuar abre a caixa de mensagens
+        nav.go({ kind: 'news' })
+      }
     } catch (e) {
       notify(String(e))
     } finally {
@@ -300,10 +317,13 @@ function Shell() {
   const [exiting, setExiting] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
-  const [match, setMatch] = useState<Fixture | null>(null)
+  const [match, setMatch] = useState<MatchDayData | null>(null)
+  // Cada Continuar Jogo com o dia de jogo aberto avança uma fase (como o Seguinte)
+  const [matchStep, setMatchStep] = useState(0)
   const nav = useNav()
   const closeMatch = useCallback(() => {
-    if (match) nav.go({ kind: 'competition', id: match.competitionId, tab: 'results' })
+    // Depois dos resultados do dia, como no CM: a caixa de mensagens (com a notícia do jogo)
+    if (match) nav.go({ kind: 'news' })
     setMatch(null)
   }, [match, nav])
 
@@ -321,6 +341,7 @@ function Shell() {
         notify={setNotice}
         onProcessing={setProcessing}
         onMatch={setMatch}
+        matchStep={match ? () => setMatchStep((n) => n + 1) : undefined}
       />
       <main className="cm-backdrop relative min-w-0 flex-1">
         {!hasBackend && (
@@ -335,7 +356,17 @@ function Shell() {
         {exiting && <ExitDialog onCancel={() => setExiting(false)} notify={setNotice} />}
         {options && <OptionsDialog onClose={() => setOptions(false)} />}
         {processing && <Loading title="Continuar Jogo" detail="A processar…" delay={250} />}
-        {match && <MatchDay fixture={match} onDone={closeMatch} />}
+        {match && game.info && (
+          <MatchDay
+            fixture={match.fixture}
+            dayGames={match.dayGames}
+            table={match.table}
+            tableAfter={match.tableAfter}
+            own={game.info.club.id}
+            step={matchStep}
+            onDone={closeMatch}
+          />
+        )}
         {notice && (
           <div className="absolute left-1/2 top-16 z-50 -translate-x-1/2 border-2 border-black bg-cm-yellow px-4 py-1 font-title text-[17px] font-bold text-black">
             {notice}

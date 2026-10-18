@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, NewGame, NewsItem, PersonProfile, Result, SaveSummary, Selection,
+    MatchPreview, ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, NewGame, NewsItem, PersonProfile, Result, SaveSummary, Selection,
     StandingRow, World, list_saves,
 };
 
@@ -153,6 +153,11 @@ impl Session {
     /// Calendário e resultados de uma competição viva.
     pub fn list_fixtures(&self, id: i32) -> Result<Vec<Fixture>> {
         Ok(self.game.as_ref().map(|g| g.fixtures(id)).unwrap_or_default())
+    }
+
+    /// Ficha do "Próximo Jogo".
+    pub fn match_preview(&self, id: i32) -> Result<MatchPreview> {
+        self.game()?.match_preview(id)
     }
 
     /// Partidas de um clube, por data.

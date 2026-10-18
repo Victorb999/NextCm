@@ -40,3 +40,22 @@ export function matchDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   return `${WEEKDAYS_SHORT[new Date(y, m - 1, d).getDay()]} ${d}.${m}.${y}`
 }
+
+const WEEKDAYS_LONG = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+const MONTHS_LONG = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+/** "2025-08-02" -> "Sáb 2 Ago" (calendários do CM). */
+export function shortDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return `${WEEKDAYS_SHORT[new Date(y, m - 1, d).getDay()]} ${d} ${MONTHS_SHORT[m - 1]}`
+}
+
+/** "2025-08-02" -> "Sábado 2 Agosto", com "(hoje)"/"(amanhã)" em relação a `today`. */
+export function longDate(iso: string, today?: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const base = `${WEEKDAYS_LONG[new Date(y, m - 1, d).getDay()]} ${d} ${MONTHS_LONG[m - 1]}`
+  if (!today) return base
+  const days = Math.round((Date.UTC(y, m - 1, d) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)
+  return days === 0 ? `${base} (hoje)` : days === 1 ? `${base} (amanhã)` : base
+}

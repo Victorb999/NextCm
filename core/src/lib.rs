@@ -21,7 +21,7 @@ mod world;
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry};
 pub use engine::{expected_goals, TeamStrength};
-pub use game::{delete_save, list_saves, Game, GameInfo, NewGame, NewsItem, SaveSummary};
+pub use game::{delete_save, list_saves, Game, GameInfo, MatchPreview, NewGame, NewsItem, SaveSummary};
 pub use league::{Fixture, StandingRow, SERIE_A};
 pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};

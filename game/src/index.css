@@ -51,6 +51,12 @@ body {
 }
 
 @layer components {
+  /* A fonte de título herda 18px de altura de linha do texto normal; nos tamanhos grandes
+     isso cortava a parte de baixo das letras (o "g" de Botafogo) com o truncate. */
+  .font-title {
+    line-height: 1.3;
+  }
+
   /* Fundo das telas: escuro com leve textura, como o mapa-múndi do tema */
   .cm-backdrop {
     background-color: #161616;

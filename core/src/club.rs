@@ -78,6 +78,11 @@ pub struct ClubProfile {
     pub last_position: Option<i32>,
     pub stadium: Option<String>,
     pub stadium_capacity: Option<i32>,
+    /// Cidade do estádio e lugares sentados.
+    pub stadium_city: Option<String>,
+    pub stadium_seated: Option<i32>,
+    /// "Profissional", "Semi-profissional" ou "Amador".
+    pub status: Option<String>,
     pub reputation: Option<i32>,
     pub cash: Option<i32>,
     pub rivals: Vec<ClubRef>,
@@ -208,6 +213,16 @@ impl World {
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
 
+        // Cidade do estádio, lugares sentados e estatuto profissional
+        let (stadium_city, seated, professional_status): (Option<String>, Option<i32>, Option<i32>) = self
+            .conn
+            .prepare_cached(
+                "SELECT ci.name, s.seating_capacity, c.professional_status FROM clubs c
+                 LEFT JOIN stadiums s ON s.id = c.stadium_id LEFT JOIN cities ci ON ci.id = s.city_id
+                 WHERE c.id = ?",
+            )?
+            .query_row([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+
         let mut rival_refs = Vec::new();
         for rival in rivals.into_iter().flatten() {
             rival_refs.extend(self.club_ref(Some(rival))?);
@@ -251,6 +266,14 @@ impl World {
             last_position: last_position.filter(|p| *p > 0),
             stadium,
             stadium_capacity: capacity.filter(|c| *c > 0),
+            stadium_city,
+            stadium_seated: seated.filter(|c| *c > 0),
+            status: match professional_status {
+                Some(1) => Some("Profissional".into()),
+                Some(2) => Some("Semi-profissional".into()),
+                Some(3) => Some("Amador".into()),
+                _ => None,
+            },
             reputation,
             cash,
             rivals: rival_refs,

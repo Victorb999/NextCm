@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::{
-    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, NationListItem, NationOption,
+    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, MatchPreview, NationListItem, NationOption,
     NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, Selection, SearchResult, Session, StandingRow, World};
 use tauri::{Manager, State};
 
@@ -62,6 +62,7 @@ session_command!(get_person(id: i32) -> PersonProfile);
 session_command!(get_club(id: i32) -> ClubProfile);
 session_command!(get_club_tactics(id: i32) -> ClubTactics);
 session_command!(game_info() -> Option<GameInfo>);
+session_command!(match_preview(id: i32) -> MatchPreview);
 session_command!(list_saves() -> Vec<SaveSummary>);
 session_command!(save_game() -> GameInfo);
 session_command!(advance_day() -> GameInfo);
@@ -162,6 +163,7 @@ pub fn run() {
       set_tactics,
       toggle_player,
       delete_save,
+      match_preview,
     ])
     .run(tauri::generate_context!())
     .expect("error while building tauri application");

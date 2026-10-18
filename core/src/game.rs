@@ -156,6 +156,26 @@ pub struct SaveSummary {
     pub saved_at: i64,
 }
 
+/// "Próximo Jogo" do CM: onde, quando, o último confronto, o tempo e as notícias de cada lado.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchPreview {
+    pub fixture: Fixture,
+    /// Estádio e cidade do clube da casa.
+    pub venue: Option<String>,
+    pub city: Option<String>,
+    /// Último jogo entre os dois nesta save (o mais recente).
+    pub last_meeting: Option<Fixture>,
+    /// Ex.: "Seco, 24°C" (sorteado com a seed e a partida, igual sempre que se abre).
+    pub weather: String,
+    /// "Normais", "Molhado"...
+    pub pitch: String,
+    /// Lesionados e suspensos de cada lado.
+    pub home_news: Vec<String>,
+    pub away_news: Vec<String>,
+}
+
 pub struct Game {
     world: World,
     path: PathBuf,
@@ -698,6 +718,80 @@ impl Game {
             home_goals: m.result.map(|r| r.0 as i32),
             away_goals: m.result.map(|r| r.1 as i32),
         }
+    }
+
+    /// Ficha do "Próximo Jogo" para uma partida.
+    pub fn match_preview(&self, fixture_id: i32) -> Result<MatchPreview> {
+        let m = self
+            .matches
+            .iter()
+            .find(|m| m.id == fixture_id)
+            .ok_or_else(|| Error::NotFound(format!("partida {fixture_id}")))?;
+        let (venue, city): (Option<String>, Option<String>) = self.world.conn.query_row(
+            "SELECT s.name, ci.name FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id
+             LEFT JOIN cities ci ON ci.id = s.city_id WHERE c.id = ?",
+            [m.home_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        let last_meeting = self
+            .matches
+            .iter()
+            .filter(|o| {
+                o.result.is_some()
+                    && o.date < m.date
+                    && ((o.home_id == m.home_id && o.away_id == m.away_id) || (o.home_id == m.away_id && o.away_id == m.home_id))
+            })
+            .max_by(|a, b| a.date.cmp(&b.date))
+            .map(|o| self.fixture(o));
+
+        // Tempo: estação do ano no Brasil e um sorteio fixo por partida
+        let mut rng = engine::match_rng(self.seed ^ 0x7E47_4E52, m.id);
+        let roll = |rng: &mut ChaCha8Rng| engine::uniform(rng);
+        let month: u32 = m.date.get(5..7).and_then(|v| v.parse().ok()).unwrap_or(7);
+        let (min, max) = match month {
+            12 | 1 | 2 => (24, 34),
+            3..=5 => (20, 30),
+            6..=8 => (14, 26),
+            _ => (18, 29),
+        };
+        let temp = min + (roll(&mut rng) * (max - min + 1) as f64) as i32;
+        let sky = roll(&mut rng);
+        let (weather, pitch) = if sky < 0.55 {
+            ("Seco", "Normais")
+        } else if sky < 0.78 {
+            ("Nublado", "Normais")
+        } else if sky < 0.95 {
+            ("Chuva", "Molhado")
+        } else {
+            ("Chuva forte", "Encharcado")
+        };
+
+        let news = |club: i32| -> Result<Vec<String>> {
+            let mut out = Vec::new();
+            let mut ids: Vec<i32> =
+                self.squads.traits.iter().filter(|(_, t)| t.club_id == club).map(|(&id, _)| id).collect();
+            ids.sort_unstable();
+            for id in ids {
+                let st = self.squads.state(id);
+                if let Some(injury) = &st.injury {
+                    let back = st.injury_until.as_deref().map(cm_date).unwrap_or_default();
+                    out.push(format!("{} lesionado ({}, regresso a {back})", self.person_name(id)?, injury.to_lowercase()));
+                } else if st.suspended > 0 {
+                    out.push(format!("{} suspenso", self.person_name(id)?));
+                }
+            }
+            Ok(out)
+        };
+        Ok(MatchPreview {
+            fixture: self.fixture(m),
+            venue,
+            city,
+            last_meeting,
+            weather: format!("{weather}, {temp}°C"),
+            pitch: pitch.into(),
+            home_news: news(m.home_id)?,
+            away_news: news(m.away_id)?,
+        })
     }
 
     /// Calendário de uma competição viva, por jornada (vazio nas outras).
@@ -1449,6 +1543,21 @@ mod tests {
         let again = g.club_tactics(palmeiras).unwrap();
         assert!(again.custom);
         assert_eq!(again.starters[at].role, "M C");
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn match_preview_has_venue_and_is_stable() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("preview");
+        let palmeiras = 7568;
+        let g = Game::create(&world, &dir, &new_game(palmeiras), 6).unwrap();
+        let first = g.club_fixtures(palmeiras)[0].clone();
+        let p = g.match_preview(first.id).unwrap();
+        assert!(p.venue.is_some() && p.city.is_some());
+        assert!(p.last_meeting.is_none(), "1ª jornada: ainda não se defrontaram");
+        assert_eq!(p.weather, g.match_preview(first.id).unwrap().weather, "o tempo não muda ao reabrir");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

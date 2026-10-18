@@ -5,7 +5,7 @@ import type { ClubRef } from '../bindings/ClubRef'
 import type { CompetitionProfile } from '../bindings/CompetitionProfile'
 import type { Fixture } from '../bindings/Fixture'
 import type { StandingRow } from '../bindings/StandingRow'
-import { FixtureRows } from '../components/Fixtures'
+import { FixtureRows, RoundGames } from '../components/Fixtures'
 import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
 import { continentPt } from '../continents'
 import { matchDate } from '../format'
@@ -127,7 +127,7 @@ function byRound(fixtures: Fixture[]): Map<number, Fixture[]> {
 }
 
 /** Calendário: uma jornada de cada vez, com ◀ ▶; abre na próxima por jogar. */
-function Calendar({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
+function Calendar({ fixtures, table, own }: { fixtures: Fixture[]; table: StandingRow[]; own?: number }) {
   const rounds = byRound(fixtures)
   const last = Math.max(...rounds.keys())
   const next = fixtures.find((f) => f.homeGoals === null)?.round ?? last
@@ -146,8 +146,8 @@ function Calendar({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
           ▶
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <FixtureRows fixtures={games} own={own} />
+      <div className="min-h-0 flex-1 overflow-auto pt-1">
+        <RoundGames fixtures={games} table={table} own={own} />
       </div>
     </div>
   )
@@ -228,7 +228,7 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
           </div>
         )}
         {comp && tab === 'table' && <Table c={comp} rows={table} own={own} />}
-        {tab === 'fixtures' && fixtures.length > 0 && <Calendar fixtures={fixtures} own={own} />}
+        {tab === 'fixtures' && fixtures.length > 0 && <Calendar fixtures={fixtures} table={table} own={own} />}
         {tab === 'results' && <Results fixtures={fixtures} own={own} />}
         {comp && tab === 'history' && <History c={comp} />}
       </div>

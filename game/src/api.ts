@@ -5,6 +5,7 @@ import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import type { CompetitionProfile } from './bindings/CompetitionProfile'
 import type { Fixture } from './bindings/Fixture'
 import type { GameInfo } from './bindings/GameInfo'
+import type { MatchPreview } from './bindings/MatchPreview'
 import type { NewGame } from './bindings/NewGame'
 import type { NewsItem } from './bindings/NewsItem'
 import type { SaveSummary } from './bindings/SaveSummary'
@@ -60,6 +61,7 @@ export const api = {
   newGame: (game: NewGame) => call<GameInfo>('new_game', { game }),
   loadGame: (file: string) => call<GameInfo>('load_game', { file }),
   deleteSave: (file: string) => call<null>('delete_save', { file }),
+  matchPreview: (id: number) => call<MatchPreview>('match_preview', { id }),
   saveGame: () => call<GameInfo>('save_game'),
   closeGame: () => call<null>('close_game'),
   advanceDay: () => call<GameInfo>('advance_day'),

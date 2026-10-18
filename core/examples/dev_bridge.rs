@@ -44,6 +44,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "get_competition" => out(serde_json::to_value(world.get_competition(id()?).map_err(e)?)),
         "list_nations_full" => out(serde_json::to_value(world.list_nations_full().map_err(e)?)),
         "get_nation" => out(serde_json::to_value(world.get_nation(id()?).map_err(e)?)),
+        "match_preview" => out(serde_json::to_value(session.match_preview(id()?).map_err(e)?)),
         "game_info" => out(serde_json::to_value(session.game_info().map_err(e)?)),
         "list_saves" => out(serde_json::to_value(session.list_saves().map_err(e)?)),
         "new_game" => {

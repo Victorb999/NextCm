@@ -13,7 +13,15 @@ reserveDivision: CompetitionRef | null,
 /**
  * Divisão e posição na temporada anterior.
  */
-lastDivision: CompetitionRef | null, lastPosition: number | null, stadium: string | null, stadiumCapacity: number | null, reputation: number | null, cash: number | null, rivals: Array<ClubRef>, players: Array<SquadPlayer>, staff: Array<StaffMember>, 
+lastDivision: CompetitionRef | null, lastPosition: number | null, stadium: string | null, stadiumCapacity: number | null, 
+/**
+ * Cidade do estádio e lugares sentados.
+ */
+stadiumCity: string | null, stadiumSeated: number | null, 
+/**
+ * "Profissional", "Semi-profissional" ou "Amador".
+ */
+status: string | null, reputation: number | null, cash: number | null, rivals: Array<ClubRef>, players: Array<SquadPlayer>, staff: Array<StaffMember>, 
 /**
  * Competições com título ou vice, as com mais títulos primeiro.
  */

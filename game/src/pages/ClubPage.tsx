@@ -4,8 +4,7 @@ import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
 import type { ClubTactics } from '../bindings/ClubTactics'
 import type { Fixture } from '../bindings/Fixture'
-import type { StandingRow } from '../bindings/StandingRow'
-import { ClubFixtureList, MatchPanel } from '../components/Fixtures'
+import { ClubFixtureList, MatchInfo } from '../components/Fixtures'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import { money, shortListName } from '../format'
 import { useGame } from '../game'
@@ -17,7 +16,7 @@ const TABS = [
   { key: 'transfers', label: 'Transferências', disabled: true },
   { key: 'next', label: 'Próximo Jogo' },
   { key: 'fixtures', label: 'Calendário' },
-  { key: 'info', label: 'Informação Geral' },
+  { key: 'info', label: 'Finanças & Info' },
 ]
 
 type View = 'players' | 'staff'
@@ -101,41 +100,61 @@ function SquadGrid({
   )
 }
 
+/** Finanças pela palavra, como o CM (o banco guarda o saldo em euros). */
+function financesLabel(cash: number | null) {
+  if (cash === null) return '-'
+  if (cash >= 50_000_000) return 'Rico'
+  if (cash >= 10_000_000) return 'Seguro'
+  if (cash >= 1_000_000) return 'Razoável'
+  if (cash >= 0) return 'Apertado'
+  return 'Em dívida'
+}
+
+/** "Finanças & Info" → Informação Geral do CM: dados do clube e a lista do staff. */
 function Info({ c }: { c: ClubProfile }) {
   const nav = useNav()
-  const rows: [string, ReactNode][] = [
-    ['Nome', c.club.name],
-    ['Nação', c.nationId !== null && c.nation ? <Link key="l1" onClick={() => nav.go({ kind: 'nation', id: c.nationId! })}>{c.nation}</Link> : '-'],
-    ['Divisão', c.division ? <Link key="l2" onClick={() => nav.go({ kind: 'competition', id: c.division!.id })}>{c.division.name}</Link> : '-'],
-    ...(c.reserveDivision
-      ? ([['Estadual', <Link key="l3" onClick={() => nav.go({ kind: 'competition', id: c.reserveDivision!.id })}>{c.reserveDivision.name}</Link>]] as [string, ReactNode][])
-      : []),
-    ['Estádio', c.stadium ? `${c.stadium}${c.stadiumCapacity ? ` (${c.stadiumCapacity.toLocaleString('pt-BR')})` : ''}` : '-'],
-    ['Reputação', c.reputation ?? '-'],
-    ['Saldo', money(c.cash)],
-    [
-      'Rivais',
-      c.rivals.length
-        ? c.rivals.map((r, i) => (
-            <span key={r.id}>
-              {i > 0 && ', '}
-              <Link key="l4" onClick={() => nav.go({ kind: 'club', id: r.id })} className="text-cm-magenta">
-                {r.shortName}
-              </Link>
-            </span>
-          ))
-        : '-',
-    ],
-    ['Jogadores / Staff', `${c.players.length} / ${c.staff.length}`],
-  ]
+  const row = (label: string, value: ReactNode) => (
+    <div key={label} className="flex min-h-[26px] items-baseline gap-4">
+      <span className="w-60 shrink-0 font-title text-[21px] leading-tight text-white">{label}</span>
+      <span className="flex-1 text-[15px] text-cm-yellow">{value}</span>
+    </div>
+  )
+  const competition = c.division?.name
   return (
-    <div className="mx-auto mt-4 w-full max-w-2xl px-1.5">
-      {rows.map(([k, v]) => (
-        <div key={k} className="flex h-8 items-center justify-between border-b border-cm-line bg-black/50 px-3 text-[15px]">
-          <span className="text-white">{k}</span>
-          <span className="font-bold text-cm-yellow">{v}</span>
-        </div>
-      ))}
+    <div className="min-h-0 flex-1 overflow-auto px-4 pb-3">
+      <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Informação Geral</div>
+      {row('País', c.nationId !== null && c.nation ? <Link onClick={() => nav.go({ kind: 'nation', id: c.nationId! })}>{c.nation}</Link> : '-')}
+      {row('Estatuto', `${c.status ?? '-'}${competition ? ` (${competition})` : ''}`)}
+      {row('Finanças', `${financesLabel(c.cash)} · saldo ${money(c.cash)}`)}
+      {row('Estádio', [c.stadium, c.stadiumCity].filter(Boolean).join(', ') || '-')}
+      {row(
+        'Lotação',
+        c.stadiumCapacity
+          ? `${c.stadiumCapacity.toLocaleString('pt-BR')}${c.stadiumSeated === c.stadiumCapacity ? ' - todos lugares sentados' : c.stadiumSeated ? ` (${c.stadiumSeated.toLocaleString('pt-BR')} sentados)` : ''}`
+          : '-',
+      )}
+      {row('Reputação', c.reputation ?? '-')}
+      {c.reserveDivision &&
+        row('Estadual', <Link onClick={() => nav.go({ kind: 'competition', id: c.reserveDivision!.id })}>{c.reserveDivision.name}</Link>)}
+      {row(
+        'Rivais',
+        c.rivals.length
+          ? c.rivals.map((r, i) => (
+              <span key={r.id}>
+                {i > 0 && ', '}
+                <Link onClick={() => nav.go({ kind: 'club', id: r.id })}>{r.shortName}</Link>
+              </span>
+            ))
+          : '-',
+      )}
+      <div className="mb-1 mt-3 inline-block border-b-2 border-cm-orange font-title text-[20px] font-bold text-cm-orange">Staff</div>
+      {c.staff.map((s) =>
+        row(
+          // "Sobrenome, Nome" -> "Nome Sobrenome", como na lista do CM
+          s.listName.includes(', ') ? s.listName.split(', ').reverse().join(' ') : s.listName,
+          <Link onClick={() => nav.go({ kind: 'person', id: s.id })}>{s.job ?? '-'}</Link>,
+        ),
+      )}
     </div>
   )
 }
@@ -145,7 +164,6 @@ export default function ClubPage({ id }: { id: number }) {
   const game = useGame()
   const [club, setClub] = useState<ClubProfile | null>(null)
   const [fixtures, setFixtures] = useState<Fixture[]>([])
-  const [table, setTable] = useState<StandingRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('squad')
   const [view, setView] = useState<View>('players')
@@ -166,7 +184,6 @@ export default function ClubPage({ id }: { id: number }) {
     api.clubFixtures(id).then(
       (fs) => {
         setFixtures(fs)
-        if (fs.length) api.leagueTable(fs[0].competitionId).then(setTable, () => {})
       },
       () => {},
     )
@@ -358,8 +375,12 @@ export default function ClubPage({ id }: { id: number }) {
           </>
         )}
         {club && tab === 'info' && <Info c={club} />}
-        {tab === 'next' && <MatchPanel fixture={nextMatch} table={table} empty="Não há mais jogos marcados." />}
-        {tab === 'last' && <MatchPanel fixture={lastMatch} table={table} empty="Ainda não jogou." />}
+        {tab === 'next' && (
+          <MatchInfo key="next" clubId={id} fixtures={fixtures} start={nextMatch ? fixtures.indexOf(nextMatch) : fixtures.length} empty="Não há mais jogos marcados." />
+        )}
+        {tab === 'last' && (
+          <MatchInfo key="last" clubId={id} fixtures={fixtures} start={lastMatch ? fixtures.indexOf(lastMatch) : -1} empty="Ainda não jogou." />
+        )}
         {tab === 'fixtures' && <ClubFixtureList clubId={id} fixtures={fixtures} />}
       </div>
 
