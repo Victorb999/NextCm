@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api, hasBackend } from './api'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
@@ -80,7 +80,7 @@ function SideBar({
   onProcessing: (busy: boolean) => void
   /** O treinador jogou hoje: mostra o dia de jogo. */
   onMatch: (m: MatchDayData) => void
-  /** Com o dia de jogo aberto, o Continuar Jogo faz o papel do Seguinte (não avança o dia). */
+  /** Com um dia de jogo pendente, o Continuar Jogo volta a ele / faz o papel do Seguinte (não avança o dia). */
   matchStep?: () => void
 }) {
   const nav = useNav()
@@ -185,7 +185,7 @@ function SideBar({
         Continuar Jogo
       </SideButton>
       {info ? (
-        <SideButton onClick={toggle('manager')} className="!text-cm-pink" title={info.club.name}>
+        <SideButton disabled={!browsing} onClick={toggle('manager')} className="!text-cm-pink" title={info.club.name}>
           <span className="line-clamp-2 break-words">{info.managerName}</span>
         </SideButton>
       ) : (
@@ -317,14 +317,27 @@ function Shell() {
   const [exiting, setExiting] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
+  const nav = useNav()
   const [match, setMatch] = useState<MatchDayData | null>(null)
   // Cada Continuar Jogo com o dia de jogo aberto avança uma fase (como o Seguinte)
   const [matchStep, setMatchStep] = useState(0)
-  const nav = useNav()
+  // Navegar pela coluna durante o dia de jogo põe-no em espera (escondido); o Continuar volta a ele
+  const [matchHidden, setMatchHidden] = useState(false)
+  const matchScreen = useRef<string | null>(null)
+  useEffect(() => {
+    const here = JSON.stringify(nav.current)
+    if (!match) {
+      matchScreen.current = null
+      return
+    }
+    if (matchScreen.current === null) matchScreen.current = here
+    else if (matchScreen.current !== here) setMatchHidden(true)
+  }, [match, nav])
   const closeMatch = useCallback(() => {
     // Depois dos resultados do dia, como no CM: a caixa de mensagens (com a notícia do jogo)
     if (match) nav.go({ kind: 'news' })
     setMatch(null)
+    setMatchHidden(false)
   }, [match, nav])
 
   useEffect(() => {
@@ -341,7 +354,17 @@ function Shell() {
         notify={setNotice}
         onProcessing={setProcessing}
         onMatch={setMatch}
-        matchStep={match ? () => setMatchStep((n) => n + 1) : undefined}
+        matchStep={
+          match
+            ? () => {
+                if (matchHidden) {
+                  // Volta ao dia de jogo onde estava, a partir da tela atual
+                  matchScreen.current = JSON.stringify(nav.current)
+                  setMatchHidden(false)
+                } else setMatchStep((n) => n + 1)
+              }
+            : undefined
+        }
       />
       <main className="cm-backdrop relative min-w-0 flex-1">
         {!hasBackend && (
@@ -356,7 +379,7 @@ function Shell() {
         {exiting && <ExitDialog onCancel={() => setExiting(false)} notify={setNotice} />}
         {options && <OptionsDialog onClose={() => setOptions(false)} />}
         {processing && <Loading title="Continuar Jogo" detail="A processar…" delay={250} />}
-        {match && game.info && (
+        {match && game.info && !matchHidden && (
           <MatchDay
             fixture={match.fixture}
             dayGames={match.dayGames}

@@ -56,7 +56,7 @@ function DayList({
     </span>
   )
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-cm-screen">
+    <div className="cm-backdrop absolute inset-0 z-50 flex flex-col">
       <div className="shrink-0 p-1.5 pb-1">
         <div
           className="flex h-14 items-center justify-center border-2 border-black bg-[#1e9cf0] font-title text-[30px] font-bold text-white"
@@ -68,7 +68,8 @@ function DayList({
       <div className="mx-1.5 flex h-12 shrink-0 items-center justify-center bg-black/60 font-title text-[26px] font-bold text-cm-yellow">
         {title} · {fixture.round}ª jornada
       </div>
-      <div className="min-h-0 flex-1 overflow-auto px-6 pt-4">
+      {/* Painel escuro e meio transparente sobre o fundo, como nas outras telas */}
+      <div className="mx-1.5 mt-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-cm-panel/80 px-5 pt-4">
         {games.map((f) => (
           <div key={f.id} className="flex h-[30px] items-center gap-3">
             <span className="cm-cell h-[22px] w-11 shrink-0 text-center text-[13px] leading-[20px] text-white">{pos(f.home.id)}</span>
@@ -180,12 +181,12 @@ export default function MatchDay({
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex cursor-pointer flex-col bg-cm-screen" onClick={next}>
+    <div className="cm-backdrop absolute inset-0 z-50 flex cursor-pointer flex-col" onClick={next}>
       <div className="flex shrink-0 gap-1 p-1.5">
         <ScoreBand club={fixture.home} goals={finished ? fixture.homeGoals : null} side="home" />
         <ScoreBand club={fixture.away} goals={finished ? fixture.awayGoals : null} side="away" />
       </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8">
+      <div className="mx-1.5 mb-1.5 flex flex-1 flex-col items-center justify-center gap-4 border border-cm-line bg-cm-panel/80 px-8">
         <div className="text-cm-yellow">
           {fixture.competition} · {fixture.round}ª jornada
         </div>
