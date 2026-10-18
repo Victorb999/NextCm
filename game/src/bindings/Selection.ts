@@ -14,10 +14,15 @@ formation: number,
  */
 starters: Array<number | null>, 
 /**
- * Até 7 suplentes.
+ * Até [`BENCH`] suplentes.
  */
 bench: Array<number>, instructions: Instructions, 
 /**
  * O adjunto escolhe a equipa antes de cada jogo.
  */
-auto: boolean, };
+auto: boolean, 
+/**
+ * Posições livres (x, y) de cada titular, quando o treinador as mexeu no campo;
+ * vazio = as da formação.
+ */
+positions: Array<[number, number]>, };

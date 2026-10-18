@@ -21,7 +21,8 @@ use crate::{Error, Result, World, date};
 
 /// Versão do formato do save; saves de outra versão são recusados até haver migração.
 /// 2: tabela `fixtures` (marco 3.2). 3: estado dos jogadores e a escolha da equipa (3.3).
-pub const SAVE_VERSION: i32 = 3;
+/// 4: posições livres no campo (`selection_players.x/y`) e titulares na ordem do CM.
+pub const SAVE_VERSION: i32 = 4;
 
 /// Quantos dias "Continuar Jogo" avança no máximo quando não acontece nada.
 const MAX_IDLE_DAYS: i32 = 42;
@@ -82,11 +83,14 @@ CREATE TABLE selection (
     counter_attack INTEGER NOT NULL,
     tight_marking INTEGER NOT NULL
 );
--- slot 0–10: titulares (pela ordem das funções da formação); 100–106: suplentes
+-- slot 0–10: titulares (na ordem das funções, como na lista do CM); 100–108: suplentes.
+-- x/y: posição livre no campo, quando o treinador a mexeu.
 CREATE TABLE selection_players (
     club_id INTEGER NOT NULL,
     slot INTEGER NOT NULL,
     person_id INTEGER,
+    x INTEGER,
+    y INTEGER,
     PRIMARY KEY (club_id, slot)
 );
 ";
@@ -242,6 +246,7 @@ impl Game {
             let matches = league::round_robin(SERIE_A, &ids, world.start_year(), 1, &mut ChaCha8Rng::seed_from_u64(seed as u64));
             let clubs = club_refs(&world, &ids)?;
             let competitions = competition_names(&world, &matches)?;
+            fix_squad_numbers(&world, &ids, seed)?;
             let squads = Squads { states: HashMap::new(), traits: Squads::load_traits(&world, &ids)? };
 
             let welcome = welcome_news(&world, &club, &display, &start)?;
@@ -284,7 +289,9 @@ impl Game {
             .map_err(|_| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?
             .ok_or_else(|| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?;
         let (version, name, date, seed, manager_id, club_id) = row;
-        if version != SAVE_VERSION {
+        if version == 3 {
+            migrate_v3(&world, club_id)?;
+        } else if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
             )));
@@ -341,6 +348,7 @@ impl Game {
                 }))
             })?
             .collect::<rusqlite::Result<_>>()?;
+        fix_squad_numbers(&world, &ids, seed)?;
         let squads = Squads { states, traits: Squads::load_traits(&world, &ids)? };
         let selection = load_selection(&world, club_id)?;
         Ok(Game {
@@ -407,12 +415,13 @@ impl Game {
                     self.club_id, sel.formation, sel.auto, mentality, passing, tackling, i.pressing, i.offside_trap, i.counter_attack, i.tight_marking
                 ],
             )?;
-            let mut stmt = tx.prepare("INSERT INTO selection_players (club_id, slot, person_id) VALUES (?, ?, ?)")?;
+            let mut stmt = tx.prepare("INSERT INTO selection_players (club_id, slot, person_id, x, y) VALUES (?, ?, ?, ?, ?)")?;
             for (slot, pid) in sel.starters.iter().enumerate() {
-                stmt.execute(params![self.club_id, slot as i32, pid])?;
+                let xy = sel.positions.get(slot);
+                stmt.execute(params![self.club_id, slot as i32, pid, xy.map(|p| p[0]), xy.map(|p| p[1])])?;
             }
             for (i, pid) in sel.bench.iter().enumerate() {
-                stmt.execute(params![self.club_id, 100 + i as i32, pid])?;
+                stmt.execute(params![self.club_id, 100 + i as i32, pid, None::<i32>, None::<i32>])?;
             }
         }
         tx.commit()?;
@@ -562,6 +571,13 @@ impl Game {
         };
         t.editable = true;
         Ok(t)
+    }
+
+    /// Põe ou tira um jogador da escolha e mostra como fica (sem gravar).
+    pub fn toggle_player(&self, sel: &Selection, player: i32) -> Result<ClubTactics> {
+        let mut sel = sel.clone();
+        self.world.toggle_player(self.club_id, &mut sel, player)?;
+        self.preview_selection(&sel)
     }
 
     /// Grava a escolha do treinador (Ok na tela de Tácticas).
@@ -878,17 +894,92 @@ fn load_selection(world: &World, club_id: i32) -> Result<Option<Selection>> {
         tight_marking: flags[3],
     };
     let mut starters = vec![None; 11];
+    let mut positions = vec![[0, 0]; 11];
+    let mut custom = 0;
     let mut bench = Vec::new();
-    let mut stmt = world.conn.prepare("SELECT slot, person_id FROM selection_players WHERE club_id = ? ORDER BY slot")?;
-    for row in stmt.query_map([club_id], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, Option<i32>>(1)?)))? {
-        let (slot, pid) = row?;
+    let mut stmt = world.conn.prepare("SELECT slot, person_id, x, y FROM selection_players WHERE club_id = ? ORDER BY slot")?;
+    let rows = stmt.query_map([club_id], |r| {
+        Ok((r.get::<_, i32>(0)?, r.get::<_, Option<i32>>(1)?, r.get::<_, Option<i32>>(2)?, r.get::<_, Option<i32>>(3)?))
+    })?;
+    for row in rows {
+        let (slot, pid, x, y) = row?;
         match slot {
-            0..=10 => starters[slot as usize] = pid,
+            0..=10 => {
+                starters[slot as usize] = pid;
+                if let (Some(x), Some(y)) = (x, y) {
+                    positions[slot as usize] = [x, y];
+                    custom += 1;
+                }
+            }
             100.. => bench.extend(pid),
             _ => {}
         }
     }
-    Ok(Some(Selection { formation, starters, bench, instructions, auto }))
+    let positions = if custom == 11 { positions } else { Vec::new() };
+    Ok(Some(Selection { formation, starters, bench, instructions, auto, positions }))
+}
+
+/// Save do formato 3 → 4: colunas x/y e os titulares reordenados para a ordem do CM
+/// (antes ficavam pela ordem da formação).
+fn migrate_v3(world: &World, club_id: i32) -> Result<()> {
+    let tx = world.conn.unchecked_transaction()?;
+    tx.execute_batch("ALTER TABLE selection_players ADD COLUMN x INTEGER; ALTER TABLE selection_players ADD COLUMN y INTEGER;")?;
+    let formation: Option<i32> =
+        tx.query_row("SELECT formation FROM selection WHERE club_id = ?", [club_id], |r| r.get(0)).optional()?;
+    if let Some(formation) = formation {
+        let old: HashMap<i32, Option<i32>> = tx
+            .prepare("SELECT slot, person_id FROM selection_players WHERE club_id = ? AND slot <= 10")?
+            .query_map([club_id], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        tx.execute("DELETE FROM selection_players WHERE club_id = ? AND slot <= 10", [club_id])?;
+        for (k, from) in crate::tactics::cm_order_permutation(formation).into_iter().enumerate() {
+            let pid = old.get(&(from as i32)).copied().flatten();
+            tx.execute("INSERT INTO selection_players (club_id, slot, person_id) VALUES (?, ?, ?)", params![club_id, k as i32, pid])?;
+        }
+    }
+    tx.execute("UPDATE game SET version = ?", [SAVE_VERSION])?;
+    tx.commit()?;
+    Ok(())
+}
+
+/// Números de camisola únicos em cada clube vivo. O banco do patch repete números (o
+/// Palmeiras tem dois 4 e dois 6) e deixa muitos jogadores sem número: quem tem mais CA
+/// fica com o número, e os outros (e quem não tinha) recebem um número livre sorteado
+/// com a seed do jogo (guarda-redes preferem 1, 12, 22, 23...).
+fn fix_squad_numbers(world: &World, clubs: &[i32], seed: i64) -> Result<()> {
+    let mut stmt = world.conn.prepare(
+        "SELECT pl.person_id, pl.squad_number, pl.pos_goalkeeper FROM players pl JOIN people p ON p.id = pl.person_id
+         WHERE p.club_id = ? ORDER BY pl.current_ability DESC, pl.person_id",
+    )?;
+    for &club in clubs {
+        let rows: Vec<(i32, Option<i32>, Option<i32>)> =
+            stmt.query_map([club], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
+        let mut used = std::collections::HashSet::new();
+        let mut missing = Vec::new();
+        for (id, n, gk) in rows {
+            match n.filter(|n| (1..=99).contains(n)) {
+                Some(n) if used.insert(n) => {}
+                _ => missing.push((id, crate::tactics::is_goalkeeper(gk))),
+            }
+        }
+        let mut rng = ChaCha8Rng::seed_from_u64((seed as u64) ^ (club as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15));
+        for (id, gk) in missing {
+            let preferred: Vec<i32> = if gk { vec![1, 12, 22, 23, 13, 31, 33] } else { Vec::new() };
+            let free = match preferred.into_iter().find(|n| !used.contains(n)) {
+                Some(n) => n,
+                None => {
+                    // Um número livre ao acaso entre 2 e 40 (senão até 99)
+                    let pool: Vec<i32> = (2..=40).filter(|n| !used.contains(n)).collect();
+                    let pool = if pool.is_empty() { (41..=99).filter(|n| !used.contains(n)).collect() } else { pool };
+                    let Some(&n) = pool.get((rand_core::RngCore::next_u64(&mut rng) % pool.len().max(1) as u64) as usize) else { continue };
+                    n
+                }
+            };
+            used.insert(free);
+            world.conn.execute("UPDATE players SET squad_number = ? WHERE person_id = ?", params![free, id])?;
+        }
+    }
+    Ok(())
 }
 
 fn league_club_ids(world: &World, division_id: i32) -> Result<Vec<i32>> {
@@ -1210,6 +1301,150 @@ mod tests {
         assert!(new_gk.fit.unwrap() >= 15, "entra outro GR");
         // A escolha gravada não muda: o titular volta quando estiver bom
         assert_eq!(g.selection.as_ref().unwrap().starters[0], Some(gk));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn starters_get_tired_and_keep_their_place() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("tired");
+        let botafogo = g_club(&world, "Botafogo");
+        let mut g = Game::create(&world, &dir, &new_game(botafogo), 11).unwrap();
+        let ids = |t: &ClubTactics| t.starters.iter().filter_map(|s| s.player.as_ref().map(|p| p.id)).collect::<Vec<_>>();
+        let before = ids(&g.club_tactics(botafogo).unwrap());
+        // Até ao dia do 1º jogo do Botafogo
+        while g.club_fixtures(botafogo).iter().all(|f| f.home_goals.is_none()) {
+            g.advance_day().unwrap();
+        }
+        let after = g.club_tactics(botafogo).unwrap();
+        // Quem jogou (sem lesão/suspensão) cansou; os suplentes não
+        for s in &after.starters {
+            let p = s.player.as_ref().unwrap();
+            if before.contains(&p.id) && !p.injured && !p.suspended {
+                assert!(p.condition.unwrap() < 85, "{} jogou e está a {:?}", p.list_name, p.condition);
+            }
+        }
+        for p in &after.bench {
+            assert_eq!(p.condition, Some(100), "{} não jogou", p.list_name);
+        }
+        // O adjunto mantém o onze (só troca lesionados/suspensos)
+        let kept = ids(&after).iter().filter(|id| before.contains(id)).count();
+        assert!(kept >= 9, "o onze mudou demais: {kept} de 11");
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn g_club(world: &Path, short: &str) -> i32 {
+        let w = World::open(world).unwrap();
+        w.conn.query_row("SELECT id FROM clubs WHERE short_name = ? AND division_id = 65", [short], |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn toggle_and_unique_numbers() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("toggle");
+        let palmeiras = 7568;
+        let g = Game::create(&world, &dir, &new_game(palmeiras), 3).unwrap();
+
+        // Números de camisola sem repetidos no plantel
+        let club = g.world().get_club(palmeiras).unwrap();
+        assert!(club.players.iter().all(|p| p.squad_number.is_some()), "todos com número");
+        let mut numbers: Vec<i32> = club.players.iter().filter_map(|p| p.squad_number).collect();
+        let total = numbers.len();
+        numbers.sort_unstable();
+        numbers.dedup();
+        assert_eq!(numbers.len(), total, "números repetidos");
+
+        // Tirar o GR deixa a função vazia; pôr de volta um GR reserva ocupa essa função
+        let t = g.club_tactics(palmeiras).unwrap();
+        let sel = t.selection();
+        let gk = sel.starters[0].unwrap();
+        let out = g.toggle_player(&sel, gk).unwrap();
+        assert!(out.starters[0].player.is_none() && !out.auto);
+        let reserve_gk = t.reserves.iter().find(|p| p.position == "GR").unwrap().id;
+        let back = g.toggle_player(&out.selection(), reserve_gk).unwrap();
+        assert_eq!(back.starters[0].player.as_ref().unwrap().id, reserve_gk);
+        // Com o onze completo, quem entra vai para o banco (se houver lugar)
+        let mut full = back.selection();
+        full.bench.truncate(6);
+        let outsider = back.reserves.iter().find(|p| !full.bench.contains(&p.id)).unwrap().id;
+        let benched = g.toggle_player(&full, outsider).unwrap();
+        assert!(benched.bench.iter().any(|p| p.id == outsider));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn free_positions_change_roles_and_order() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("positions");
+        let palmeiras = 7568;
+        let mut g = Game::create(&world, &dir, &new_game(palmeiras), 5).unwrap();
+        let t = g.club_tactics(palmeiras).unwrap();
+        // 4-4-2 na ordem do CM: o último é um avançado (A C)
+        assert_eq!(t.starters[10].role, "A C");
+        let striker = t.starters[10].player.as_ref().unwrap().id;
+        // Arrastar o avançado para o meio-campo: vira médio e a lista reordena
+        let mut sel = t.selection();
+        sel.positions = t.starters.iter().map(|s| [s.x, s.y]).collect();
+        sel.positions[10] = [50, 45];
+        sel.auto = false;
+        let moved = g.set_selection(sel).unwrap();
+        assert!(moved.custom);
+        let at = moved.starters.iter().position(|s| s.player.as_ref().is_some_and(|p| p.id == striker)).unwrap();
+        assert_eq!(moved.starters[at].role, "M C");
+        let roles: Vec<&str> = moved.starters.iter().map(|s| s.role.as_str()).collect();
+        assert_eq!(roles.iter().filter(|r| **r == "A C").count(), 1);
+        assert!(at < 10, "a lista segue a ordem das funções");
+        // Gravar e carregar mantém as posições
+        g.save().unwrap();
+        let path = g.path().to_path_buf();
+        drop(g);
+        let g = Game::load(&path).unwrap();
+        let again = g.club_tactics(palmeiras).unwrap();
+        assert!(again.custom);
+        assert_eq!(again.starters[at].role, "M C");
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn version_3_saves_are_migrated() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("migrate");
+        let palmeiras = 7568;
+        let mut g = Game::create(&world, &dir, &new_game(palmeiras), 8).unwrap();
+        let mut sel = g.club_tactics(palmeiras).unwrap().selection();
+        sel.auto = false;
+        let expected = g.set_selection(sel.clone()).unwrap();
+        g.save().unwrap();
+        let path = g.path().to_path_buf();
+        drop(g);
+
+        // Volta o arquivo ao formato 3: sem x/y e titulares na ordem antiga da formação
+        {
+            let w = World::open_save(&path).unwrap();
+            let perm = crate::tactics::cm_order_permutation(sel.formation);
+            let mut old = vec![None; 11];
+            for (k, &from) in perm.iter().enumerate() {
+                old[from] = sel.starters[k];
+            }
+            w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
+            w.conn
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; UPDATE game SET version = 3;")
+                .unwrap();
+            for (slot, pid) in old.iter().enumerate() {
+                w.conn
+                    .execute("INSERT INTO selection_players (club_id, slot, person_id) VALUES (?, ?, ?)", params![palmeiras, slot as i32, pid])
+                    .unwrap();
+            }
+        }
+
+        let g = Game::load(&path).unwrap();
+        let t = g.club_tactics(palmeiras).unwrap();
+        let ids = |t: &ClubTactics| t.starters.iter().map(|s| (s.role.clone(), s.player.as_ref().map(|p| p.id))).collect::<Vec<_>>();
+        assert_eq!(ids(&t), ids(&expected), "cada jogador fica na sua função");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

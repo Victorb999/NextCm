@@ -9,7 +9,7 @@ export type ClubTactics = { clubId: number, clubName: string, formation: string,
  */
 formationIndex: number, coachId: number | null, coach: string | null, starters: Array<TacticSlot>, 
 /**
- * Suplentes (até 7, com um GR quando houver).
+ * Suplentes (até [`BENCH`], com um GR quando houver).
  */
 bench: Array<TacticPlayer>, 
 /**
@@ -23,4 +23,8 @@ editable: boolean,
 /**
  * O adjunto escolhe a equipa.
  */
-auto: boolean, };
+auto: boolean, 
+/**
+ * O treinador mexeu nas posições (o CM mostra "*" no nome da táctica).
+ */
+custom: boolean, };

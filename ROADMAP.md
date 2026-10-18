@@ -220,18 +220,21 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 #### Marco 3.3 — O seu time (detalhe)
 
 **Escolha da equipa** (só o clube do treinador; os outros continuam com o adjunto automático)
-- Formação (as 10 do CM), 11 titulares, até 7 suplentes; o resto do plantel fica nas reservas.
-- Na tela de Tácticas: clicar num jogador e depois noutro troca os dois (titular ↔ titular, titular ↔ suplente ou reserva), como no CM. O core recalcula a nota de cada um na nova função a cada troca; Ok grava, Cancelar descarta.
+- Formação (as 10 do CM), 11 titulares, banco fixo de 9 suplentes (SB1–SB9, como no patch CLZ); o resto do plantel fica nas reservas.
+- Posições livres: arrastar um titular para um lugar vazio do campo muda a posição dele, e a função sai da zona e da coluna do campo (um avançado posto no meio-campo vira médio). A táctica mexida aparece com "*" (ex.: 4-4-2*); "Repor as posições" volta à formação. A lista dos titulares segue sempre a ordem do CM: GR, defesas (esquerda, direita, centro), médios, avançados.
+- Trocar é só arrastando (na lista ou no campo das Tácticas, e no Plantel do clube, que mostra as casas GR, DD… e SB1–SB7 como no CM). Clicar no número ou na casa de um jogador põe/tira da equipa: quem entra vai para a função vazia onde joga melhor, senão para o banco. As mudanças valem na hora; o Cancelar das Tácticas volta ao que estava ao abrir a tela. Jogador fora da posição: a função aparece em laranja.
 - "Adjunto escolhe a equipa": volta à escolha automática, refeita antes de cada jogo. Ao mexer na equipa, o adjunto deixa de escolher.
 - No dia do jogo, um titular lesionado ou suspenso é trocado pelo adjunto (o melhor suplente para a função, senão das reservas), com notícia.
 - Tabelas novas no save: `selection` (formação, instruções, adjunto) e `selection_players` (função → jogador). `SAVE_VERSION` passa a 3.
+- Números de camisola únicos: o banco do patch repete números e deixa muitos jogadores sem número; no jogo, quem tem mais CA fica com o número e os outros (e quem não tinha) recebem um número livre sorteado com a seed (guarda-redes preferem 1, 12, 22…).
+- `SAVE_VERSION` 4 (posições livres em `selection_players.x/y`); saves do formato 3 são migrados ao carregar.
 
 **Instruções à Equipa** (o diálogo verde do CM)
 - Mentalidade (Defensivo/Normal/Atacante), Passe (Misto/Curto/Directo/Longo), Desarme (Normal/Suave/Duro), Pressão, Defesa em Linha, Contra-Ataque e Defesa Intensa (Não/Sim).
 - No motor v1 viram ajustes pequenos (±2 a 6%) na força dos setores; Desarme e Pressão também mexem nos cartões e no cansaço. Os batedores de livres/cantos e o organizador ficam para o 3.4, quando o motor tiver lances.
 
 **Estado dos jogadores** (dos clubes das competições vivas)
-- **Condição** (0–100%): cada titular perde 20–28% num jogo (menos com mais Resistência, +3% com Pressão) e recupera 4–9% por dia (Forma Natural). Rende `75% + 25% × condição` no motor. O adjunto (e a IA) evita titulares abaixo de 75%.
+- **Condição** (0–100%): cada titular perde 20–28% num jogo (menos com mais Resistência, +3% com Pressão) e recupera 4–9% por dia (Forma Natural). Rende `75% + 25% × condição` no motor. O adjunto (e a IA) só tira do onze quem está abaixo de 60% (um jogo tira no máximo ~31%, então o onze não muda depois de cada jogo).
 - **Moral** (1–20, todos começam em 12: o campo do banco está quase sempre vazio): vitória +2, empate +0, derrota −2 para quem jogou e ±1 para o resto do plantel; volta devagar para 12. Rende de 95% a 105%. Nas telas, por palavras: Excelente, Muito Boa, Boa, Razoável, Fraca, Muito Fraca, Péssima.
 - **Lesões**: por titular e jogo, ~0,6–1,8% conforme a Propensão a Lesões (≈ 0,3 lesões por jogo); 70% leves (3–14 dias), 25% médias (15–45), 5% graves (46–120). Voltam com 80% de condição.
 - **Cartões**: amarelos por Poisson (média ~2 por equipa, mais com Desarme Duro, Agressividade e Maldade), vermelho ~5% por equipa. 3 amarelos = 1 jogo de suspensão (a contagem zera); vermelho = 1 jogo.

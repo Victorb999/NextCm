@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
+import type { ClubTactics } from '../bindings/ClubTactics'
 import type { Fixture } from '../bindings/Fixture'
 import type { StandingRow } from '../bindings/StandingRow'
 import { ClubFixtureList, MatchPanel } from '../components/Fixtures'
@@ -9,6 +10,7 @@ import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Scre
 import { money, shortListName } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
+import { BENCH, selectionOf, spotOf, swap, useDragSwap, type Spot } from '../selection'
 
 const TABS = [
   { key: 'squad', label: 'Plantel' },
@@ -34,8 +36,13 @@ const CRITERIA: { key: Criterion; label: string }[] = [
   { key: 'ability', label: 'Habilidade' },
 ]
 
-/** Uma linha do plantel: [número] [Int] Nome ... posição */
-type Entry = { id: number; number: ReactNode; badge: ReactNode; name: string; detail: string }
+/** Uma linha do plantel: [número] [lugar/Int] Nome ... posição */
+type Entry = { id: number; number: ReactNode; badge: ReactNode; name: string; detail: string; spot?: Spot }
+
+type Bind = { 'data-spot': string; onMouseDown: (e: React.MouseEvent) => void }
+
+/** "D D" -> "DD", "M C" -> "MC": a sigla curta da função, como nas casas do plantel do CM. */
+const shortRole = (role: string) => role.replace(' ', '')
 
 const byNullsLast = (a: number | null, b: number | null) => (a ?? 999) - (b ?? 999)
 
@@ -44,28 +51,52 @@ function SquadGrid({
   selected,
   onSelect,
   onOpen,
+  bind,
+  onToggle,
 }: {
   entries: Entry[]
   selected: number
   onSelect: (i: number) => void
   onOpen: (e: Entry) => void
+  /** Só no clube do treinador: arrastar para mudar o lugar na equipa. */
+  bind?: (spot: Spot, label: string) => Bind
+  /** Só no clube do treinador: clicar no número ou na casa põe/tira da equipa. */
+  onToggle?: (e: Entry) => void
 }) {
   return (
     <div className="grid grid-cols-2 gap-x-3 px-2">
-      {entries.map((e, i) => (
+      {entries.map((e, i) => {
+        const drag = bind && e.spot ? bind(e.spot, e.name) : undefined
+        return (
         <div
           key={e.id}
           data-row={i}
-          onMouseDown={() => onSelect(i)}
+          data-spot={drag?.['data-spot']}
+          onMouseDown={drag?.onMouseDown}
+          onClick={() => onSelect(i)}
           onDoubleClick={() => onOpen(e)}
-          className={`flex h-[26px] items-center gap-1 ${i === selected ? 'bg-cm-sel' : ''}`}
+          className={`flex h-[26px] items-center gap-1 ${i === selected ? 'bg-cm-sel' : ''} ${drag ? 'cursor-grab' : ''}`}
         >
-          <span className="flex h-[22px] w-10 shrink-0 items-center justify-center bg-[#262626] text-white">{e.number}</span>
-          <span className="flex h-[22px] w-8 shrink-0 items-center justify-center bg-[#262626] text-xs text-white">{e.badge}</span>
+          <span
+            onMouseDown={onToggle && ((ev) => ev.stopPropagation())}
+            onClick={onToggle && (() => onToggle(e))}
+            className={`flex h-[22px] w-10 shrink-0 items-center justify-center bg-[#262626] text-white ${onToggle ? 'cursor-pointer' : ''}`}
+          >
+            {e.number}
+          </span>
+          <span
+            onMouseDown={onToggle && ((ev) => ev.stopPropagation())}
+            onClick={onToggle && (() => onToggle(e))}
+            title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
+            className={`flex h-[22px] w-9 shrink-0 items-center justify-center bg-[#262626] text-xs text-cm-yellow ${onToggle ? 'cursor-pointer' : ''}`}
+          >
+            {e.badge}
+          </span>
           <span className="ml-1 flex-1 truncate font-title text-[18px] text-white">{e.name}</span>
           <span className={`w-28 shrink-0 truncate ${i === selected ? 'text-white' : 'text-cm-yellow'}`}>{e.detail}</span>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -120,7 +151,9 @@ export default function ClubPage({ id }: { id: number }) {
   const [view, setView] = useState<View>('players')
   const [criterion, setCriterion] = useState<Criterion>('position')
   const [selected, setSelected] = useState(0)
+  const [tactics, setTactics] = useState<ClubTactics | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  const mine = game.mode === 'game' && game.info?.club.id === id
 
   useEffect(() => {
     api.getClub(id).then(setClub, (e) => setError(String(e)))
@@ -138,6 +171,39 @@ export default function ClubPage({ id }: { id: number }) {
       () => {},
     )
   }, [id, date])
+  // No clube do treinador, a escolha da equipa (para as casas GR, DD... SB1 do plantel)
+  useEffect(() => {
+    if (mine) api.getClubTactics(id).then(setTactics, () => {})
+  }, [id, mine, date])
+
+  const drag = useDragSwap({
+    enabled: mine && !!tactics,
+    onClick: () => {},
+    onDrop: async (from, to) => {
+      if (!tactics) return
+      try {
+        setTactics(await api.setTactics(swap(selectionOf(tactics), from, to)))
+        const info = await api.gameInfo()
+        if (info) game.update(info)
+      } catch (e) {
+        setError(String(e))
+      }
+    },
+  })
+
+  const toggle = async (e: Entry) => {
+    if (!tactics) return
+    try {
+      const next = await api.togglePlayer(selectionOf(tactics), e.id)
+      setTactics(await api.setTactics(selectionOf(next)))
+      const info = await api.gameInfo()
+      if (info) game.update(info)
+      setError(null)
+    } catch (err) {
+      setError(String(err))
+    }
+  }
+
   const nextMatch = fixtures.find((f) => f.homeGoals === null)
   const lastMatch = fixtures.filter((f) => f.homeGoals !== null).at(-1)
 
@@ -153,15 +219,29 @@ export default function ClubPage({ id }: { id: number }) {
     if (criterion === 'number') players.sort((a, b) => byNullsLast(a.squadNumber, b.squadNumber) || name(a, b))
     if (criterion === 'age') players.sort((a, b) => byNullsLast(a.age, b.age) || name(a, b))
     if (criterion === 'ability') players.sort((a, b) => (b.currentAbility ?? 0) - (a.currentAbility ?? 0) || name(a, b))
-    return players.map((p) => ({
+    const sel = tactics && selectionOf(tactics)
+    return players.map((p) => {
+      const spot = sel ? spotOf(sel, p.id) : undefined
+      // Casa na equipa (GR, DD... e SB1–SB7 nos suplentes); senão Les/Sus/Int como no CM
+      const place =
+        spot?.kind === 'starter' ? shortRole(tactics!.starters[spot.index].role) : spot?.kind === 'bench' ? `SB${spot.index + 1}` : null
+      return {
       id: p.id,
+      spot,
       number: criterion === 'age' ? (p.age ?? '') : criterion === 'ability' ? (p.currentAbility ?? '') : (p.squadNumber ?? ''),
       // Num jogo em curso, os indisponíveis aparecem como no CM: "Les" / "Sus"
-      badge: p.injured ? <span className="font-bold text-[#ff5050]">Les</span> : p.suspended ? <span className="font-bold text-[#ff5050]">Sus</span> : p.international ? 'Int' : '',
+      badge: p.injured ? (
+        <span className="bg-[#b8560c] px-0.5 font-bold text-white">Les</span>
+      ) : p.suspended ? (
+        <span className="bg-[#9c0000] px-0.5 font-bold text-white">Sus</span>
+      ) : (
+        (place ?? '')
+      ),
       name: shortListName(p.listName),
       detail: p.position,
-    }))
-  }, [club, view, criterion])
+      }
+    })
+  }, [club, view, criterion, tactics])
 
   const open = (e: Entry | undefined) => e && nav.go({ kind: 'person', id: e.id })
 
@@ -232,9 +312,45 @@ export default function ClubPage({ id }: { id: number }) {
             <div className="shrink-0 py-1.5 text-center font-title text-xl font-bold text-cm-yellow">
               {view === 'staff' ? 'Staff' : CRITERIA.find((c) => c.key === criterion)!.label}
             </div>
+            {/* Casas da equipa: arraste um jogador para uma casa (ou para outro jogador) para mudar o lugar */}
+            {mine && tactics && view === 'players' && (
+              <div className="flex shrink-0 flex-wrap gap-0.5 px-2 pb-1.5">
+                {tactics.starters.map((s, i) => {
+                  const b = drag.bind({ kind: 'starter', index: i }, shortRole(s.role))
+                  return (
+                    <span key={`s${i}`} {...b} title={s.player?.listName ?? 'vazio'} className="min-w-[38px] cursor-grab bg-cm-head px-1 text-center text-[12px] text-cm-yellow">
+                      {shortRole(s.role)}
+                    </span>
+                  )
+                })}
+                {/* Banco fixo de 9, como no CM: arraste um jogador para uma casa SB vazia para o pôr no banco */}
+                {Array.from({ length: BENCH }, (_, i) => {
+                  const p = tactics.bench[i]
+                  const b = drag.bind({ kind: 'bench', index: i }, `SB${i + 1}`)
+                  return (
+                    <span
+                      key={`b${i}`}
+                      {...b}
+                      title={p?.listName ?? 'vazio'}
+                      className={`min-w-[38px] cursor-grab px-1 text-center text-[12px] ${p ? 'bg-cm-head text-cm-yellow' : 'bg-[#2a1a45] text-[#8a63c4]'}`}
+                    >
+                      SB{i + 1}
+                    </span>
+                  )
+                })}
+                <span className="ml-2 self-center text-[11px] text-[#aab3c4]">Arraste para trocar · clique no número ou na casa para pôr/tirar</span>
+              </div>
+            )}
             <div ref={gridRef} className="min-h-0 flex-1 overflow-auto pb-2">
               {entries.length ? (
-                <SquadGrid entries={entries} selected={selected} onSelect={setSelected} onOpen={open} />
+                <SquadGrid
+                  entries={entries}
+                  selected={selected}
+                  onSelect={setSelected}
+                  onOpen={open}
+                  bind={mine && tactics ? drag.bind : undefined}
+                  onToggle={mine && tactics && view === 'players' ? (e) => void toggle(e) : undefined}
+                />
               ) : (
                 <div className="p-6 text-center text-cm-magenta">Ninguém registado.</div>
               )}
@@ -267,6 +383,7 @@ export default function ClubPage({ id }: { id: number }) {
         />
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+      {drag.ghost}
     </div>
   )
 }

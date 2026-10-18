@@ -85,6 +85,12 @@ async fn preview_tactics(state: State<'_, AppState>, selection: Selection) -> Re
 }
 
 #[tauri::command]
+async fn toggle_player(state: State<'_, AppState>, selection: Selection, player: i32) -> Result<ClubTactics, String> {
+    let session = state.session.lock().map_err(|e| e.to_string())?;
+    session.toggle_player(&selection, player).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn set_tactics(state: State<'_, AppState>, selection: Selection) -> Result<ClubTactics, String> {
     let mut session = state.session.lock().map_err(|e| e.to_string())?;
     session.set_tactics(selection).map_err(|e| e.to_string())
@@ -146,6 +152,9 @@ pub fn run() {
       league_table,
       list_fixtures,
       club_fixtures,
+      preview_tactics,
+      set_tactics,
+      toggle_player,
     ])
     .run(tauri::generate_context!())
     .expect("error while building tauri application");

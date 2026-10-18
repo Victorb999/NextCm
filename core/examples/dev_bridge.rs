@@ -30,6 +30,11 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let sel: Selection = serde_json::from_value(args["selection"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.preview_tactics(&sel).map_err(e)?))
         }
+        "toggle_player" => {
+            let sel: Selection = serde_json::from_value(args["selection"].clone()).map_err(|e| e.to_string())?;
+            let player = args["player"].as_i64().ok_or("falta player")? as i32;
+            out(serde_json::to_value(session.toggle_player(&sel, player).map_err(e)?))
+        }
         "set_tactics" => {
             let sel: Selection = serde_json::from_value(args["selection"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.set_tactics(sel).map_err(e)?))

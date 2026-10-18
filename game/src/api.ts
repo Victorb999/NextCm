@@ -72,4 +72,5 @@ export const api = {
   readNews: (id: number) => call<GameInfo>('read_news', { id }),
   previewTactics: (selection: Selection) => call<ClubTactics>('preview_tactics', { selection }),
   setTactics: (selection: Selection) => call<ClubTactics>('set_tactics', { selection }),
+  togglePlayer: (selection: Selection, player: number) => call<ClubTactics>('toggle_player', { selection, player }),
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
 import type { ClubTactics } from '../bindings/ClubTactics'
@@ -8,10 +8,15 @@ import InstructionsDialog from '../components/InstructionsDialog'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
+import { BENCH, selectionOf, swap, useDragSwap, type Spot } from '../selection'
 
 // Formações na ordem do core (FORMATIONS em core/src/tactics.rs); a 0 ("não definida") não aparece
 const FORMATIONS = ['4-4-2', '5-3-2 Líbero', '5-3-2', '4-4-2', '4-3-3', '4-2-4', '3-5-2', '4-1-2-1-2', '4-5-1', '3-4-3']
-const FORMATION_OPTIONS = FORMATIONS.map((label, i) => ({ key: String(i), label })).slice(1)
+// Menu Tácticas, como no CM: Instruções à Equipa e as tácticas pré-definidas
+const TACTICS_MENU = [
+  { key: 'instructions', label: 'Instruções à Equipa' },
+  ...FORMATIONS.map((label, i) => ({ key: String(i), label: `Pré-definida: ${label}` })).slice(1),
+]
 
 /** "Sobrenome, Nome" -> "Sobrenome" (como os nomes no campo do CM). */
 const surname = (listName: string) => listName.split(', ')[0]
@@ -22,150 +27,142 @@ const fullName = (listName: string) => {
   return first ? `${first} ${last}` : last
 }
 
-/** Lugar de um jogador na escolha: titular (função), suplente ou reserva. */
-type Spot = { kind: 'starter'; index: number } | { kind: 'bench'; index: number } | { kind: 'reserve'; id: number }
+/** "D D" -> "DD": a sigla curta da função. */
+const shortRole = (role: string) => role.replace(' ', '')
 
-const sameSpot = (a: Spot | null, b: Spot) =>
-  !!a && a.kind === b.kind && (a.kind === 'reserve' ? a.id === (b as { id: number }).id : a.index === (b as { index: number }).index)
-
-const selectionOf = (t: ClubTactics): Selection => ({
-  formation: t.formationIndex,
-  starters: t.starters.map((s) => s.player?.id ?? null),
-  bench: t.bench.map((p) => p.id),
-  instructions: t.instructions,
-  auto: t.auto,
-})
-
-function idAt(sel: Selection, spot: Spot): number | null {
-  if (spot.kind === 'starter') return sel.starters[spot.index] ?? null
-  if (spot.kind === 'bench') return sel.bench[spot.index] ?? null
-  return spot.id
-}
-
-/** Troca dois jogadores de lugar, como no CM. Quem sai do onze ou do banco vai para as reservas. */
-function swap(sel: Selection, a: Spot, b: Spot): Selection {
-  const next: Selection = { ...sel, starters: [...sel.starters], bench: [...sel.bench], auto: false }
-  const ia = idAt(sel, a)
-  const ib = idAt(sel, b)
-  const put = (spot: Spot, id: number | null) => {
-    if (spot.kind === 'starter') next.starters[spot.index] = id
-    else if (spot.kind === 'bench') {
-      if (id === null) next.bench.splice(spot.index, 1)
-      else next.bench[spot.index] = id
-    }
-  }
-  // Reserva ↔ reserva não muda nada
-  if (a.kind === 'reserve' && b.kind === 'reserve') return sel
-  // Pôr primeiro o lugar de índice maior no banco, para o splice não deslocar o outro
-  const order: [Spot, number | null][] = [
-    [a, ib],
-    [b, ia],
-  ]
-  order.sort(([x], [y]) => (y.kind === 'bench' ? y.index : -1) - (x.kind === 'bench' ? x.index : -1))
-  for (const [spot, id] of order) put(spot, id)
-  return next
-}
+/** Fora da posição: nota na função abaixo de 15 (mostrada em laranja). */
+const outOfPosition = (p: TacticPlayer | null | undefined) => !!p && p.fit !== null && p.fit < 15
 
 function conditionColour(c: number | null) {
-  if (c === null) return 'text-cm-yellow'
-  if (c >= 90) return 'text-cm-yellow'
+  if (c === null || c >= 90) return 'text-cm-yellow'
   if (c >= 75) return 'text-cm-orange'
   return 'text-[#ff4040]'
 }
 
+type Bind = { 'data-spot': string; onMouseDown: (e: React.MouseEvent) => void }
+
 function Row({
   p,
   kind,
-  role,
-  selected,
-  onClick,
+  place,
+  bind,
+  onToggle,
 }: {
   p: TacticPlayer
   kind: 'starter' | 'bench' | 'reserve'
-  role?: string
-  selected: boolean
-  onClick: () => void
+  /** Função (titular) ou SB1–SB7 (suplente). */
+  place: string
+  bind: Bind
+  onToggle?: () => void
 }) {
   const nav = useNav()
-  const out = kind === 'starter' && p.fit !== null && p.fit < 15
-  const text = kind === 'bench' ? 'text-[#8a5ad8]' : kind === 'reserve' ? 'text-[#8a8a8a]' : out ? 'text-[#ff5050]' : 'text-white'
+  const text = kind === 'bench' ? 'text-[#8a5ad8]' : kind === 'reserve' ? 'text-[#8a8a8a]' : 'text-white'
+  const toggle =
+    onToggle &&
+    ((e: React.MouseEvent) => {
+      e.stopPropagation()
+      onToggle()
+    })
   return (
     <div
-      onMouseDown={onClick}
+      {...bind}
       onDoubleClick={() => nav.go({ kind: 'person', id: p.id })}
-      className={`flex h-[19px] cursor-pointer items-center gap-2 px-1 text-[13.5px] ${selected ? 'bg-cm-sel' : ''}`}
-      title={role ? `${role}${p.fit !== null ? ` · nota ${p.fit}` : ''}` : undefined}
+      className="flex h-[19px] cursor-grab items-center gap-2 px-1 text-[13.5px]"
     >
-      <span className={`w-7 shrink-0 text-center tabular-nums ${kind === 'bench' ? 'bg-[#1d2d8a] text-white' : 'text-white'}`}>
+      {/* Número e casa: clicar põe/tira da equipa */}
+      <span
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={toggle}
+        title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
+        className={`w-7 shrink-0 cursor-pointer text-center tabular-nums ${kind === 'bench' ? 'bg-[#1d2d8a] text-white' : 'text-white'}`}
+      >
         {p.squadNumber ?? ''}
       </span>
-      <span className={`flex-1 truncate ${selected ? 'text-white' : text}`}>{fullName(p.listName)}</span>
+      <span
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={toggle}
+        className={`w-9 shrink-0 cursor-pointer text-center text-[11px] ${
+          kind === 'starter' && outOfPosition(p) ? 'bg-[#7a3d00] text-cm-orange' : 'bg-[#262626] text-cm-yellow'
+        }`}
+        title={kind === 'starter' && p.fit !== null ? `Nota na função: ${p.fit}` : undefined}
+      >
+        {place}
+      </span>
+      <span className={`flex-1 truncate ${text}`}>{fullName(p.listName)}</span>
       {(p.injured || p.suspended) && (
         <span className="shrink-0 bg-[#9c0000] px-1 text-[11px] font-bold text-white">{p.injured ? 'Les' : 'Sus'}</span>
       )}
-      <span className={`w-24 shrink-0 truncate ${selected ? 'text-white' : text}`}>{p.position}</span>
-      <span className={`w-10 shrink-0 text-right ${selected ? 'text-white' : conditionColour(p.condition)}`}>
-        {p.condition ?? 100}%
-      </span>
+      <span className={`w-24 shrink-0 truncate ${text}`}>{p.position}</span>
+      <span className={`w-10 shrink-0 text-right ${conditionColour(p.condition)}`}>{p.condition ?? 100}%</span>
     </div>
   )
 }
 
 /** Campo com a formação, como a "Vista Geral" do CM. */
-function Pitch({ t, selected, onPick }: { t: ClubTactics; selected: Spot | null; onPick: (s: Spot) => void }) {
+function Pitch({ t, bind }: { t: ClubTactics; bind: (s: Spot, label: string) => Bind }) {
   return (
-    <div className="relative min-h-0 flex-1 overflow-hidden border border-[#1d5a1d] bg-[repeating-linear-gradient(0deg,#1f6b22_0_36px,#1c6420_36px_72px)]">
+    <div
+      data-pitch
+      className="relative min-h-0 flex-1 overflow-hidden border border-[#1d5a1d] bg-[repeating-linear-gradient(0deg,#1f6b22_0_36px,#1c6420_36px_72px)]"
+    >
       {/* Linhas do campo */}
       <div className="pointer-events-none absolute inset-2 border border-white/40" />
       <div className="pointer-events-none absolute left-2 right-2 top-1/2 border-t border-white/40" />
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40" />
       <div className="pointer-events-none absolute left-1/2 top-2 h-[16%] w-[44%] -translate-x-1/2 border border-t-0 border-white/40" />
       <div className="pointer-events-none absolute bottom-2 left-1/2 h-[16%] w-[44%] -translate-x-1/2 border border-b-0 border-white/40" />
-      {t.starters.map((s, i) => {
-        const spot: Spot = { kind: 'starter', index: i }
-        const sel = sameSpot(selected, spot)
-        const out = s.player?.fit !== null && s.player?.fit !== undefined && s.player.fit < 15
-        return (
-          <div
-            key={i}
-            onMouseDown={() => t.editable && onPick(spot)}
-            className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center ${t.editable ? 'cursor-pointer' : ''}`}
-            style={{ left: `${s.x}%`, top: `${s.y}%` }}
-            title={s.role}
+      {t.starters.map((s, i) => (
+        <div
+          key={i}
+          {...bind({ kind: 'starter', index: i }, s.player ? surname(s.player.listName) : s.role)}
+          className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center ${t.editable ? 'cursor-grab' : ''}`}
+          style={{ left: `${s.x}%`, top: `${s.y}%` }}
+          title={s.role}
+        >
+          <span
+            className={`flex h-6 w-6 items-center justify-center rounded-full border border-black text-[12px] font-bold ${
+              s.role === 'GR' ? 'bg-[#0f9a2a] text-white' : s.player ? 'bg-white text-black' : 'bg-transparent text-white'
+            }`}
           >
-            <span
-              className={`flex h-6 w-6 items-center justify-center rounded-full border text-[12px] font-bold ${
-                sel ? 'border-cm-yellow bg-cm-sel text-white' : s.role === 'GR' ? 'border-black bg-[#0f9a2a] text-white' : 'border-black bg-white text-black'
-              }`}
-            >
-              {s.player?.squadNumber ?? ''}
-            </span>
-            <span
-              className={`whitespace-nowrap text-[13px] font-bold [text-shadow:1px_1px_0_#000] ${out ? 'text-[#ff6060]' : 'text-cm-yellow'}`}
-            >
-              {s.player ? surname(s.player.listName) : s.role}
-            </span>
-          </div>
-        )
-      })}
+            {s.player?.squadNumber ?? ''}
+          </span>
+          <span
+            className={`whitespace-nowrap text-[13px] font-bold [text-shadow:1px_1px_0_#000] ${
+              outOfPosition(s.player) ? 'text-cm-orange' : s.player ? 'text-cm-yellow' : 'text-white/70'
+            }`}
+          >
+            {s.player ? surname(s.player.listName) : shortRole(s.role)}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }
 
-/** Tela "Tácticas <clube>": a do treinador é editável (trocas, formação, instruções); as outras só mostram. */
+/**
+ * Tela "Tácticas <clube>". No clube do treinador as mudanças valem na hora (arrastar troca,
+ * clicar no número ou na casa põe/tira da equipa); Cancelar volta ao que estava ao abrir.
+ */
 export default function TacticsPage({ id }: { id: number }) {
   const nav = useNav()
   const game = useGame()
   useEscBack()
   const [t, setT] = useState<ClubTactics | null>(null)
-  const [draft, setDraft] = useState<Selection | null>(null)
   const [club, setClub] = useState<ClubProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [selected, setSelected] = useState<Spot | null>(null)
   const [instructions, setInstructions] = useState(false)
+  // A escolha ao abrir a tela, para o Cancelar
+  const original = useRef<Selection | null>(null)
+  const changed = useRef(false)
 
   useEffect(() => {
-    api.getClubTactics(id).then(setT, (e) => setError(String(e)))
+    api.getClubTactics(id).then(
+      (tt) => {
+        original.current = selectionOf(tt)
+        setT(tt)
+      },
+      (e) => setError(String(e)),
+    )
     api.getClub(id).then(setClub, () => {})
   }, [id])
 
@@ -173,33 +170,47 @@ export default function TacticsPage({ id }: { id: number }) {
   const name = club?.club.shortName ?? t?.clubName ?? ''
   const editable = !!t?.editable
 
-  /** Mostra como fica a equipa com `sel` (o core recalcula as notas na função). */
-  const preview = async (sel: Selection) => {
+  /** Grava a escolha já (a táctica do jogo muda na hora) e mostra o resultado. */
+  const apply = async (sel: Selection) => {
     try {
-      const next = await api.previewTactics(sel)
-      setT(next)
-      setDraft(selectionOf(next))
+      setT(await api.setTactics(sel))
+      changed.current = true
       setError(null)
+      const info = await api.gameInfo()
+      if (info) game.update(info)
     } catch (e) {
       setError(String(e))
     }
   }
 
-  const pick = (spot: Spot) => {
-    if (!t || !editable) return
-    if (!selected) return setSelected(spot)
-    if (sameSpot(selected, spot)) return setSelected(null)
-    const from = draft ?? selectionOf(t)
-    // Uma reserva só pode trocar com quem está no onze ou no banco
-    if (selected.kind === 'reserve' && spot.kind === 'reserve') return setSelected(spot)
-    setSelected(null)
-    void preview(swap(from, selected, spot))
+  const toggle = async (player: number) => {
+    if (!t) return
+    try {
+      const next = await api.togglePlayer(selectionOf(t), player)
+      await apply(selectionOf(next))
+    } catch (e) {
+      setError(String(e))
+    }
   }
 
-  const ok = async () => {
-    if (draft) {
+  const drag = useDragSwap({
+    enabled: editable,
+    onDrop: (from, to) => {
+      if (t) void apply(swap(selectionOf(t), from, to))
+    },
+    // Soltar um titular num lugar vazio do campo muda a posição (e a função) dele
+    onDropPitch: (from, x, y) => {
+      if (!t || from.kind !== 'starter' || t.starters[from.index].role === 'GR') return
+      const positions = t.starters.map((s) => [s.x, s.y] as [number, number])
+      positions[from.index] = [Math.round(Math.min(96, Math.max(4, x))), Math.round(Math.min(85, Math.max(4, y)))]
+      void apply({ ...selectionOf(t), positions, auto: false })
+    },
+  })
+
+  const cancel = async () => {
+    if (changed.current && original.current) {
       try {
-        await api.setTactics(draft)
+        await api.setTactics(original.current)
         const info = await api.gameInfo()
         if (info) game.update(info)
       } catch (e) {
@@ -209,7 +220,8 @@ export default function TacticsPage({ id }: { id: number }) {
     nav.back()
   }
 
-  const base = t && (draft ?? selectionOf(t))
+  const label = (p: TacticPlayer | null | undefined, fallback: string) => (p ? surname(p.listName) : fallback)
+  const toggler = (p: TacticPlayer) => (editable ? () => void toggle(p.id) : undefined)
 
   return (
     <div className="flex h-full flex-col">
@@ -217,10 +229,13 @@ export default function TacticsPage({ id }: { id: number }) {
       <div className="flex shrink-0 items-center gap-1 px-1.5">
         <PurpleMenu
           label="Tácticas"
-          options={FORMATION_OPTIONS}
-          value={t ? String(t.formationIndex) : undefined}
+          options={TACTICS_MENU}
+          value={t && !t.custom ? String(t.formationIndex) : undefined}
           disabled={!editable}
-          onChange={(k) => base && void preview({ ...base, formation: Number(k), auto: false })}
+          onChange={(k) => {
+            if (k === 'instructions') setInstructions(true)
+            else if (t) void apply({ ...selectionOf(t), formation: Number(k), positions: [], auto: false })
+          }}
         />
         <PurpleMenu label="Vêr" options={[]} disabled />
         <div className="flex-1" />
@@ -232,13 +247,13 @@ export default function TacticsPage({ id }: { id: number }) {
           label="Editar"
           align="right"
           options={[
-            { key: 'instructions', label: 'Instruções à Equipa' },
             { key: 'auto', label: 'Adjunto escolhe a equipa' },
+            { key: 'reset', label: 'Repor as posições da táctica' },
           ]}
           disabled={!editable}
           onChange={(k) => {
-            if (k === 'instructions') setInstructions(true)
-            if (k === 'auto' && base) void preview({ ...base, auto: true })
+            if (k === 'auto' && t) void apply({ ...selectionOf(t), auto: true, positions: [] })
+            if (k === 'reset' && t) void apply({ ...selectionOf(t), positions: [] })
           }}
         />
       </div>
@@ -248,6 +263,7 @@ export default function TacticsPage({ id }: { id: number }) {
           <div className="flex min-h-0 w-[50%] flex-col">
             <div className="flex h-10 shrink-0 items-center justify-center gap-2 bg-black/70 font-title text-[20px] font-bold text-cm-yellow">
               {t.formation}
+              {t.custom && '*'}
               {t.coach && (
                 <span className="text-[14px] font-normal text-white">
                   (
@@ -262,29 +278,50 @@ export default function TacticsPage({ id }: { id: number }) {
               {t.starters.map((s, i) => {
                 const spot: Spot = { kind: 'starter', index: i }
                 return s.player ? (
-                  <Row key={`s${i}`} p={s.player} kind="starter" role={s.role} selected={sameSpot(selected, spot)} onClick={() => pick(spot)} />
-                ) : (
-                  <div
+                  <Row
                     key={`s${i}`}
-                    onMouseDown={() => pick(spot)}
-                    className={`flex h-[19px] items-center px-9 text-[13px] italic text-[#ff6060] ${sameSpot(selected, spot) ? 'bg-cm-sel' : ''}`}
-                  >
-                    {s.role} — sem jogador
+                    p={s.player}
+                    kind="starter"
+                    place={shortRole(s.role)}
+                    bind={drag.bind(spot, label(s.player, s.role))}
+                    onToggle={toggler(s.player)}
+                  />
+                ) : (
+                  <div key={`s${i}`} {...drag.bind(spot, s.role)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
+                    <span className="w-7 shrink-0" />
+                    <span className="w-9 shrink-0 bg-[#262626] text-center text-[11px] text-cm-yellow">{shortRole(s.role)}</span>
+                    <span className="italic text-[#8a8a8a]">— vazio: arraste alguém para aqui —</span>
                   </div>
                 )
               })}
               <div className="my-0.5 border-t border-cm-line" />
-              {t.bench.map((p, i) => {
+              {/* Banco fixo de 9: as casas vazias também recebem jogadores arrastados */}
+              {Array.from({ length: editable ? BENCH : t.bench.length }, (_, i) => {
+                const p = t.bench[i]
                 const spot: Spot = { kind: 'bench', index: i }
-                return <Row key={`b${p.id}`} p={p} kind="bench" selected={sameSpot(selected, spot)} onClick={() => pick(spot)} />
+                return p ? (
+                  <Row key={`b${p.id}`} p={p} kind="bench" place={`SB${i + 1}`} bind={drag.bind(spot, label(p, ''))} onToggle={toggler(p)} />
+                ) : (
+                  <div key={`b-empty${i}`} {...drag.bind(spot, `SB${i + 1}`)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
+                    <span className="w-7 shrink-0 bg-[#1d2d8a]" />
+                    <span className="w-9 shrink-0 bg-[#262626] text-center text-[11px] text-cm-yellow">SB{i + 1}</span>
+                    <span className="italic text-[#6a5a8a]">— vazio —</span>
+                  </div>
+                )
               })}
               {editable && t.reserves.length > 0 && (
                 <>
                   <div className="my-0.5 border-t border-cm-line" />
-                  {t.reserves.map((p) => {
-                    const spot: Spot = { kind: 'reserve', id: p.id }
-                    return <Row key={`r${p.id}`} p={p} kind="reserve" selected={sameSpot(selected, spot)} onClick={() => pick(spot)} />
-                  })}
+                  {t.reserves.map((p) => (
+                    <Row
+                      key={`r${p.id}`}
+                      p={p}
+                      kind="reserve"
+                      place=""
+                      bind={drag.bind({ kind: 'reserve', id: p.id }, label(p, ''))}
+                      onToggle={toggler(p)}
+                    />
+                  ))}
                 </>
               )}
             </div>
@@ -300,28 +337,29 @@ export default function TacticsPage({ id }: { id: number }) {
               onChange={() => {}}
             />
             <div className="mt-1 flex min-h-0 flex-1 flex-col">
-              <Pitch t={t} selected={selected} onPick={pick} />
+              <Pitch t={t} bind={drag.bind} />
             </div>
             {editable && (
               <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
-                Clique num jogador e depois noutro para trocar. Duplo clique abre o perfil.
+                Arraste para trocar ou para um lugar vazio do campo · clique no número ou na casa para pôr/tirar · duplo clique abre o perfil
               </div>
             )}
           </div>
         </div>
       )}
       {!t && <div className="flex-1" />}
+      {drag.ghost}
       {instructions && t && (
         <InstructionsDialog
           initial={t.instructions}
           onCancel={() => setInstructions(false)}
           onOk={(i) => {
             setInstructions(false)
-            if (base) void preview({ ...base, instructions: i })
+            void apply({ ...selectionOf(t), instructions: i })
           }}
         />
       )}
-      <BottomBar left="Cancelar" right="Ok" onLeft={nav.canBack ? nav.back : undefined} onRight={() => void ok()} />
+      <BottomBar left="Cancelar" right="Ok" onLeft={() => void cancel()} onRight={() => nav.back()} />
     </div>
   )
 }

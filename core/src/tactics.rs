@@ -170,11 +170,94 @@ pub struct Selection {
     pub formation: i32,
     /// Um jogador por função da formação (11), na ordem de `ClubTactics::starters`.
     pub starters: Vec<Option<i32>>,
-    /// Até 7 suplentes.
+    /// Até [`BENCH`] suplentes.
     pub bench: Vec<i32>,
     pub instructions: Instructions,
     /// O adjunto escolhe a equipa antes de cada jogo.
     pub auto: bool,
+    /// Posições livres (x, y) de cada titular, quando o treinador as mexeu no campo;
+    /// vazio = as da formação.
+    #[serde(default)]
+    pub positions: Vec<[i32; 2]>,
+}
+
+/// Suplentes no banco (o patch CLZ usa 9, como o CM 01/02 com a Coalizão).
+pub const BENCH: usize = 9;
+
+/// Função de quem está em (x, y) no campo (x 0–100 da esquerda para a direita, y 0–100
+/// do ataque para a baliza): a zona dá a posição e a coluna dá o lado. As formações
+/// pré-definidas caem todas nas funções delas (ver o teste `formations_roles_follow_the_pitch`).
+pub fn role_at(x: i32, y: i32) -> (usize, usize) {
+    let side = if x < 25 {
+        LEFT
+    } else if x > 75 {
+        RIGHT
+    } else {
+        CENTRE
+    };
+    let wide = !(22..=78).contains(&x);
+    let pos = if y >= 88 {
+        GR
+    } else if y >= 80 {
+        L
+    } else if y >= 64 {
+        D
+    } else if y >= 48 && wide {
+        AL
+    } else if y >= 55 {
+        MD
+    } else if y >= 40 {
+        M
+    } else if y >= 26 {
+        MA
+    } else {
+        A
+    };
+    if pos == GR || pos == L { (pos, CENTRE) } else { (pos, side) }
+}
+
+/// Ordem das funções na lista, como no CM: GR, líbero, defesas, alas, médios defensivos,
+/// médios, médios ofensivos, avançados; em cada linha, esquerda, direita e depois o centro.
+fn slot_order(&(pos, side, x, _): &Slot) -> (usize, usize, i32) {
+    let line = [0, 1, 2, 4, 5, 6, 7, 3][pos];
+    let side = match side {
+        LEFT => 0,
+        RIGHT => 1,
+        _ => 2,
+    };
+    (line, side, x)
+}
+
+/// Para migrar escolhas gravadas antes da ordem do CM (save formato 3): `perm[k]` é a
+/// função da formação (na ordem antiga) que fica em `k` na ordem nova.
+pub(crate) fn cm_order_permutation(formation: i32) -> Vec<usize> {
+    let layout = slots(formation.clamp(0, FORMATIONS.len() as i32 - 1) as usize);
+    let mut idx: Vec<usize> = (0..layout.len()).collect();
+    idx.sort_by_key(|&i| slot_order(&layout[i]));
+    idx
+}
+
+/// É guarda-redes natural (nota 15+ na posição).
+pub(crate) fn is_goalkeeper(rating: Option<i32>) -> bool {
+    rating.unwrap_or(0) >= 15
+}
+
+/// Funções da escolha: as posições livres do treinador (se as mexeu) ou as da formação.
+fn layout_for(sel: &Selection) -> Vec<Slot> {
+    if sel.positions.len() == 11 {
+        sel.positions
+            .iter()
+            .map(|&[x, y]| {
+                let (x, y) = (x.clamp(4, 96), y.clamp(4, 96));
+                let (pos, side) = role_at(x, y);
+                (pos, side, x, y)
+            })
+            .collect()
+    } else {
+        let mut layout = slots(sel.formation.clamp(0, FORMATIONS.len() as i32 - 1) as usize);
+        layout.sort_by_key(slot_order);
+        layout
+    }
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -218,7 +301,7 @@ pub struct ClubTactics {
     pub coach_id: Option<i32>,
     pub coach: Option<String>,
     pub starters: Vec<TacticSlot>,
-    /// Suplentes (até 7, com um GR quando houver).
+    /// Suplentes (até [`BENCH`], com um GR quando houver).
     pub bench: Vec<TacticPlayer>,
     /// O resto do plantel.
     pub reserves: Vec<TacticPlayer>,
@@ -227,6 +310,8 @@ pub struct ClubTactics {
     pub editable: bool,
     /// O adjunto escolhe a equipa.
     pub auto: bool,
+    /// O treinador mexeu nas posições (o CM mostra "*" no nome da táctica).
+    pub custom: bool,
 }
 
 impl ClubTactics {
@@ -238,14 +323,16 @@ impl ClubTactics {
             bench: self.bench.iter().map(|p| p.id).collect(),
             instructions: self.instructions,
             auto: self.auto,
+            positions: if self.custom { self.starters.iter().map(|s| [s.x, s.y]).collect() } else { Vec::new() },
         }
     }
 }
 
 const NO_STATE: Availability = Availability { condition: 100, morale: 12, injured: false, suspended: false };
 
-/// Abaixo disto o adjunto só põe o jogador se não houver outro.
-pub const MIN_CONDITION: i32 = 75;
+/// Abaixo disto o adjunto só põe o jogador se não houver outro. Um jogo tira no máximo
+/// ~31%, então um só jogo nunca tira ninguém do onze: só a sequência de jogos seguidos.
+pub const MIN_CONDITION: i32 = 60;
 
 struct Candidate {
     id: i32,
@@ -267,14 +354,15 @@ impl Candidate {
         p.min(self.pos[side].unwrap_or(1))
     }
 
-    /// Quanto vale pôr o jogador na função: o CA pesa a adaptação (nota 20 = CA inteiro)
-    /// e, num jogo em curso, a condição (cansado só entra se não houver outro).
+    /// Quanto vale pôr o jogador na função: o CA pesa a adaptação (nota 20 = CA inteiro).
+    /// Num jogo em curso, quem está cansado (abaixo de [`MIN_CONDITION`]) só entra se não
+    /// houver outro; acima disso a condição não conta, para o onze não mudar a cada jogo.
     fn score(&self, slot: Slot) -> i64 {
         let fit = self.fit(slot);
         // Fora da posição (nota < 15) vale metade; sem divisão inteira, para a nota 1 não zerar
         let factor = if fit >= 15 { 2 * fit } else { fit } as i64;
         let tired = if self.state.condition < MIN_CONDITION { 4 } else { 1 };
-        self.ca as i64 * factor * self.state.condition.max(1) as i64 / 100 / tired
+        self.ca as i64 * factor / tired
     }
 
     fn player(&self, fit: Option<i32>) -> TacticPlayer {
@@ -372,7 +460,8 @@ impl World {
             pool.into_iter().partition(|c| c.state.can_play());
 
         // Escolha gulosa: o melhor par (função, jogador) de todos, até fechar o onze
-        let layout = slots(formation);
+        let mut layout = slots(formation);
+        layout.sort_by_key(slot_order);
         let mut chosen: Vec<Option<TacticPlayer>> = vec![None; layout.len()];
         let mut open: Vec<usize> = (0..layout.len()).collect();
         while !open.is_empty() && !available.is_empty() {
@@ -396,7 +485,7 @@ impl World {
         if let Some(i) = available.iter().position(|c| c.pos[GR].unwrap_or(1) >= 15) {
             bench.push(available.remove(i).player(None));
         }
-        let take = 7usize.saturating_sub(bench.len()).min(available.len());
+        let take = BENCH.saturating_sub(bench.len()).min(available.len());
         bench.extend(available.drain(..take).map(|c| c.player(None)));
         let reserves = available.iter().chain(&unavailable).map(|c| c.player(None)).collect();
 
@@ -417,22 +506,24 @@ impl World {
             instructions,
             editable: false,
             auto: true,
+            custom: false,
         })
     }
 
     /// A táctica de uma escolha do treinador. Recusa jogadores de fora do plantel,
-    /// repetidos, onze com tamanho errado ou mais de 7 suplentes.
+    /// repetidos, onze com tamanho errado ou suplentes a mais. Os titulares saem por ordem
+    /// das funções (GR, defesas, médios, avançados), como na lista do CM.
     pub fn tactics_from_selection(&self, id: i32, sel: &Selection, state: Option<&SquadState>) -> Result<ClubTactics> {
         let formation = usize::try_from(sel.formation)
             .ok()
             .filter(|&f| f < FORMATIONS.len())
             .ok_or_else(|| Error::Invalid("Formação desconhecida.".into()))?;
-        let layout = slots(formation);
+        let layout = layout_for(sel);
         if sel.starters.len() != layout.len() {
             return Err(Error::Invalid(format!("A equipa tem de ter {} titulares.", layout.len())));
         }
-        if sel.bench.len() > 7 {
-            return Err(Error::Invalid("No máximo 7 suplentes.".into()));
+        if sel.bench.len() > BENCH {
+            return Err(Error::Invalid(format!("No máximo {BENCH} suplentes.")));
         }
         let Squad { club_name, coach, pool } = self.squad(id, state)?;
         let mut seen = std::collections::HashSet::new();
@@ -445,10 +536,11 @@ impl World {
             }
         }
         let find = |pid: i32| pool.iter().find(|c| c.id == pid).unwrap();
-        let starters = layout
+        let mut pairs: Vec<(Slot, Option<i32>)> = layout.into_iter().zip(sel.starters.iter().copied()).collect();
+        pairs.sort_by_key(|(slot, _)| slot_order(slot));
+        let starters = pairs
             .iter()
-            .zip(&sel.starters)
-            .map(|(&slot, pid)| {
+            .map(|&(slot, pid)| {
                 let (pos, side, x, y) = slot;
                 TacticSlot {
                     role: role_label(pos, side),
@@ -476,7 +568,41 @@ impl World {
             instructions: sel.instructions,
             editable: false,
             auto: sel.auto,
+            custom: sel.positions.len() == 11,
         })
+    }
+
+    /// Põe ou tira um jogador da equipa (clicar na casa ou no número, como no CM): quem
+    /// está no onze ou no banco sai; quem está de fora entra na função vazia onde joga
+    /// melhor, senão no banco (até [`BENCH`]).
+    pub fn toggle_player(&self, id: i32, sel: &mut Selection, player: i32) -> Result<()> {
+        sel.auto = false;
+        if let Some(i) = sel.starters.iter().position(|s| *s == Some(player)) {
+            sel.starters[i] = None;
+            return Ok(());
+        }
+        if let Some(i) = sel.bench.iter().position(|&b| b == player) {
+            sel.bench.remove(i);
+            return Ok(());
+        }
+        let Squad { pool, .. } = self.squad(id, None)?;
+        let c = pool
+            .iter()
+            .find(|c| c.id == player)
+            .ok_or_else(|| Error::Invalid("Esse jogador não é do plantel.".into()))?;
+        let layout = layout_for(sel);
+        sel.starters.resize(layout.len(), None);
+        let empty = (0..layout.len())
+            .filter(|&i| sel.starters[i].is_none())
+            .max_by_key(|&i| (c.fit(layout[i]), std::cmp::Reverse(i)));
+        if let Some(i) = empty {
+            sel.starters[i] = Some(player);
+        } else if sel.bench.len() < BENCH {
+            sel.bench.push(player);
+        } else {
+            return Err(Error::Invalid("O onze e o banco estão completos: tire alguém primeiro.".into()));
+        }
+        Ok(())
     }
 
     /// Antes do jogo: troca os titulares lesionados/suspensos (e as funções vazias) pelo
@@ -484,7 +610,7 @@ impl World {
     /// `saiu` é `None` quando a função estava vazia.
     pub fn cover_unavailable(&self, id: i32, sel: &mut Selection, state: &SquadState) -> Result<Vec<(Option<i32>, i32)>> {
         let Squad { pool, .. } = self.squad(id, Some(state))?;
-        let layout = slots(sel.formation.clamp(0, FORMATIONS.len() as i32 - 1) as usize);
+        let layout = layout_for(sel);
         sel.starters.resize(layout.len(), None);
         let can_play = |pid: i32| pool.iter().any(|c| c.id == pid && c.state.can_play());
         let mut changes = Vec::new();
@@ -514,6 +640,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn formations_roles_follow_the_pitch() {
+        for f in 1..FORMATIONS.len() {
+            for (pos, side, x, y) in slots(f) {
+                assert_eq!(role_at(x, y), (pos, side), "{} em ({x}, {y})", FORMATIONS[f]);
+            }
+        }
+        // Um avançado arrastado para o meio-campo vira médio
+        assert_eq!(role_at(50, 45), (M, CENTRE));
+        assert_eq!(role_at(85, 20), (A, RIGHT));
+    }
+
+    #[test]
+    fn starters_come_in_cm_order() {
+        let mut layout = slots(3);
+        layout.sort_by_key(slot_order);
+        let roles: Vec<String> = layout.iter().map(|&(p, s, ..)| role_label(p, s)).collect();
+        assert_eq!(roles, ["GR", "D E", "D D", "D C", "D C", "M E", "M D", "M C", "M C", "A C", "A C"]);
+    }
+
+    #[test]
     fn every_formation_has_eleven() {
         for f in 0..FORMATIONS.len() {
             assert_eq!(slots(f).len(), 11, "{}", FORMATIONS[f]);
@@ -532,9 +678,9 @@ mod tests {
         assert!(t.starters.iter().all(|s| s.player.is_some()));
         assert_eq!(t.starters[0].role, "GR");
         assert!(t.starters[0].player.as_ref().unwrap().fit.unwrap() >= 15);
-        assert_eq!(t.bench.len(), 7);
+        assert_eq!(t.bench.len(), BENCH);
         let ids: std::collections::HashSet<_> =
             t.starters.iter().filter_map(|s| s.player.as_ref().map(|p| p.id)).chain(t.bench.iter().map(|p| p.id)).collect();
-        assert_eq!(ids.len(), 18, "ninguém aparece duas vezes");
+        assert_eq!(ids.len(), 11 + BENCH, "ninguém aparece duas vezes");
     }
 }

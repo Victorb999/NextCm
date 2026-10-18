@@ -73,6 +73,11 @@ impl Session {
         self.game()?.preview_selection(selection)
     }
 
+    /// Põe ou tira um jogador da escolha (sem gravar).
+    pub fn toggle_player(&self, selection: &Selection, player: i32) -> Result<ClubTactics> {
+        self.game()?.toggle_player(selection, player)
+    }
+
     /// Grava a escolha do treinador.
     pub fn set_tactics(&mut self, selection: Selection) -> Result<ClubTactics> {
         self.game_mut()?.set_selection(selection)
