@@ -31,7 +31,7 @@ DEFAULT_SRC = os.path.join(ROOT, "data", "raw", "clz-25-26")
 DEFAULT_OUT = os.path.join(ROOT, "data", "world.sqlite")
 
 # IDs das tabelas no index.dat
-T_CLUB, T_NAT_CLUB, T_CONTINENT, T_NATION, T_STADIUM = 0, 1, 3, 4, 5
+T_CLUB, T_NAT_CLUB, T_COLOUR, T_CONTINENT, T_NATION, T_STADIUM = 0, 1, 2, 3, 4, 5
 T_STAFF, T_NONPLAYER, T_PLAYER = 6, 9, 10
 T_CLUB_COMP, T_FIRST_NAMES, T_SECOND_NAMES, T_COMMON_NAMES = 12, 13, 14, 15
 T_NATION_COMP, T_STAFF_HISTORY, T_CLUB_COMP_HISTORY, T_NATION_COMP_HISTORY = 16, 17, 19, 20
@@ -223,7 +223,9 @@ CREATE TABLE clubs (
     division_id INTEGER, last_division_id INTEGER, last_position INTEGER,
     reserve_division_id INTEGER,    -- no patch CLZ: campeonato estadual
     professional_status INTEGER, cash INTEGER, stadium_id INTEGER, reputation INTEGER,
-    rival1_id INTEGER, rival2_id INTEGER, rival3_id INTEGER
+    rival1_id INTEGER, rival2_id INTEGER, rival3_id INTEGER,
+    -- Cores do uniforme principal e reserva, em hex ('#rrggbb')
+    home_fg TEXT, home_bg TEXT, away_fg TEXT, away_bg TEXT
 );
 
 CREATE TABLE jobs (id INTEGER PRIMARY KEY, name TEXT);
@@ -349,7 +351,14 @@ def competition_history(r):
                    "runner_up_id": ref(runner_up), "third_id": ref(third)}
 
 
+def colours(r):
+    """colour.dat: id, nome[51], r, g, b -> {id: '#rrggbb'}"""
+    return {i32(b, 0): "#" + b[55:58].hex() for _, b in r.table(T_COLOUR, 58)}
+
+
 def clubs(r):
+    palette = colours(r)
+    colour = lambda b, o: palette.get(i32(b, o))
     for tid, national in ((T_CLUB, 0), (T_NAT_CLUB, 1)):
         for _, b in r.table(tid, 581):
             yield {"id": i32(b, 0), "is_national_team": national,
@@ -360,7 +369,9 @@ def clubs(r):
                    "cash": i32(b, 101), "stadium_id": ref(i32(b, 105)),
                    "reputation": i16(b, 128),
                    "rival1_id": ref(i32(b, 179)), "rival2_id": ref(i32(b, 183)),
-                   "rival3_id": ref(i32(b, 187))}
+                   "rival3_id": ref(i32(b, 187)),
+                   "home_fg": colour(b, 131), "home_bg": colour(b, 135),
+                   "away_fg": colour(b, 139), "away_bg": colour(b, 143)}
 
 
 def people(r, first, second, common):
@@ -489,7 +500,7 @@ def main():
         "source": os.path.basename(os.path.normpath(args.src)),
         "year_offset": args.year_offset,
         "extracted_at": dt.datetime.now().isoformat(timespec="seconds"),
-        "schema_version": 6,
+        "schema_version": 7,
     }.items()))
     db.commit()
     db.close()

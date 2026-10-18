@@ -2,9 +2,11 @@
 //!
 //! Fase 2: só leitura do `world.sqlite` gerado por `scripts/extract.py`.
 
+mod person;
 mod search;
 mod world;
 
+pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};
 pub use search::{PersonKind, PersonSummary, Position, SearchQuery, SearchResult, SearchSort, Side};
 pub use world::{NationOption, World};
 

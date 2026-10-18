@@ -6,7 +6,7 @@ use unicode_normalization::UnicodeNormalization;
 use crate::{Result, World};
 
 /// Valor mínimo (1–20) para considerar uma posição "natural".
-const NATURAL_POSITION: i32 = 15;
+pub(crate) const NATURAL_POSITION: i32 = 15;
 const MAX_LIMIT: u32 = 200;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -139,7 +139,7 @@ fn fold(s: &str) -> String {
         .to_lowercase()
 }
 
-fn position_label(p: &[Option<i32>; 12]) -> String {
+pub(crate) fn position_label(p: &[Option<i32>; 12]) -> String {
     let natural = |i: usize| p[i].unwrap_or(0) >= NATURAL_POSITION;
     if natural(0) {
         return "GR".into();

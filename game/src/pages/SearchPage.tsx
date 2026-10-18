@@ -7,6 +7,7 @@ import type { PersonSummary } from '../bindings/PersonSummary'
 import type { SearchResult } from '../bindings/SearchResult'
 import type { SearchSort } from '../bindings/SearchSort'
 import { BottomBar, Tabs, TitleBand } from '../components/Screen'
+import { useNav } from '../nav'
 import FilterDialog from './FilterDialog'
 import { EMPTY_FILTERS, describe, toQuery, type Filters } from './searchFilters'
 
@@ -32,11 +33,24 @@ function useDebounced<T>(value: T, ms: number) {
 // PA negativo no CM = faixa aleatória definida pelo jogo
 const ability = (v: number | null) => (v === null || v <= 0 ? '-' : v)
 
-function Row({ p, index, selected, onSelect }: { p: PersonSummary; index: number; selected: boolean; onSelect: () => void }) {
+function Row({
+  p,
+  index,
+  selected,
+  onSelect,
+  onOpen,
+}: {
+  p: PersonSummary
+  index: number
+  selected: boolean
+  onSelect: () => void
+  onOpen: () => void
+}) {
   return (
     <tr
       className={`h-[22px] border-b border-cm-line ${selected ? 'bg-cm-sel' : ''}`}
       onMouseDown={onSelect}
+      onDoubleClick={onOpen}
       data-row={index}
     >
       <td className="truncate px-2 text-white">{p.listName}</td>
@@ -72,7 +86,8 @@ function PageButton({ label, onClick, disabled }: { label: string; onClick: () =
   )
 }
 
-export default function SearchPage() {
+export default function SearchPage({ active }: { active: boolean }) {
+  const nav = useNav()
   const [kind, setKind] = useState<PersonKind>('players')
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [sort, setSort] = useState<SearchSort>('ability')
@@ -127,10 +142,13 @@ export default function SearchPage() {
   const count = result?.items.length ?? 0
   const players = kind === 'players'
 
+  const open = (p: PersonSummary | undefined) => p && nav.go({ kind: 'person', id: p.id })
+
   // Teclado: setas movem a seleção, PageUp/PageDown trocam de página, digitar busca por nome, Esc limpa
   useEffect(() => {
-    if (dialog) return
+    if (dialog || !active) return
     const onKey = (e: KeyboardEvent) => {
+      if (e.altKey) return // Alt+setas = navegação entre telas
       const inField = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLSelectElement
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
@@ -139,6 +157,8 @@ export default function SearchPage() {
           tableRef.current?.querySelector(`[data-row="${next}"]`)?.scrollIntoView({ block: 'nearest' })
           return next
         })
+      } else if (e.key === 'Enter' && !(document.activeElement instanceof HTMLSelectElement)) {
+        open(result?.items[selected])
       } else if (e.key === 'PageDown' && page + 1 < pages) {
         e.preventDefault()
         goPage(page + 1)
@@ -226,7 +246,14 @@ export default function SearchPage() {
             </thead>
             <tbody>
               {result?.items.map((p, i) => (
-                <Row key={p.id} p={p} index={i} selected={i === selected} onSelect={() => setSelected(i)} />
+                <Row
+                  key={p.id}
+                  p={p}
+                  index={i}
+                  selected={i === selected}
+                  onSelect={() => setSelected(i)}
+                  onOpen={() => open(p)}
+                />
               ))}
             </tbody>
           </table>
@@ -236,7 +263,7 @@ export default function SearchPage() {
         </div>
       </div>
 
-      <BottomBar />
+      <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
 
       {dialog && (
         <FilterDialog

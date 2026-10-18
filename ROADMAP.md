@@ -162,7 +162,9 @@ Só começa com a Fase 2 estável. O detalhamento será feito quando chegarmos a
 3. [x] Workspace Cargo com `core/` (nextcm-core) e `game/src-tauri/`.
 4. [x] Comandos `search_people` e `list_nations` + tela de busca (nome sem acento, tipo, nação, posição, idade, ordenação, paginação).
 5. [x] Visual Studio Build Tools instalado; `cargo test -p nextcm-core` (11 testes) e `npm run tauri dev` funcionando.
-6. [ ] Telas de Clube, Jogador, Competição e Nação, com links entre elas.
+6. [x] Perfil de Jogador/Staff (abas Perfil, Contrato, Historial; cores do clube na faixa), aberto com duplo clique/Enter; navegação ◀ ▶ / Atrás-Seguinte / Alt+setas.
+7. [ ] Converter atributos "intrínsecos" do banco para os valores que o CM mostra (ex.: Finalização do Yamal = 11 no banco, 18 no jogo).
+8. [ ] Telas de Clube (plantel), Competição e Nação, com links entre elas.
 
 > **Windows:** o Rust precisa do linker do MSVC. No Git Bash, o `link` do próprio Git atrapalha; rode `cargo` pelo PowerShell.
 > Tipos TS em `game/src/bindings/` são gerados pelo `cargo test -p nextcm-core` (ts-rs) — não editar à mão.

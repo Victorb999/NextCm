@@ -1,6 +1,9 @@
 import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { inTauri } from './api'
+import { NavProvider, useNav } from './nav'
+import PersonPage from './pages/PersonPage'
 import SearchPage from './pages/SearchPage'
 
 // Data inicial do jogo (patch CLZ 25-26). Passa a vir do save na Fase 3.
@@ -8,9 +11,21 @@ const GAME_DATE = new Date(2025, 6, 1)
 
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 
-function SideButton({ children, className = '', disabled, title }: { children: ReactNode; className?: string; disabled?: boolean; title?: string }) {
+function SideButton({
+  children,
+  className = '',
+  disabled,
+  title,
+  onClick,
+}: {
+  children: ReactNode
+  className?: string
+  disabled?: boolean
+  title?: string
+  onClick?: () => void
+}) {
   return (
-    <button disabled={disabled} title={title} className={`cm-side-btn min-h-[46px] ${className}`}>
+    <button disabled={disabled} title={title} onClick={onClick} className={`cm-side-btn min-h-[46px] ${className}`}>
       {children}
     </button>
   )
@@ -18,6 +33,7 @@ function SideButton({ children, className = '', disabled, title }: { children: R
 
 /** Coluna de navegação à esquerda, como no CM 01/02. */
 function SideBar() {
+  const nav = useNav()
   const d = GAME_DATE
   return (
     <aside className="flex w-[86px] shrink-0 flex-col gap-1 bg-gradient-to-b from-[#4f5d77] to-cm-side p-1">
@@ -26,10 +42,15 @@ function SideBar() {
         <span>{`${d.getDate()}.${d.getMonth() + 1}.${String(d.getFullYear()).slice(2)}`}</span>
       </div>
       <div className="flex gap-1">
-        <button className="cm-side-btn h-9 flex-1 text-cm-yellow" disabled aria-label="Voltar">
+        <button className="cm-side-btn h-9 flex-1 text-cm-yellow" disabled={!nav.canBack} onClick={nav.back} aria-label="Voltar">
           <ArrowLeft size={16} strokeWidth={3} />
         </button>
-        <button className="cm-side-btn h-9 flex-1 text-cm-yellow" disabled aria-label="Avançar">
+        <button
+          className="cm-side-btn h-9 flex-1 text-cm-yellow"
+          disabled={!nav.canForward}
+          onClick={nav.forward}
+          aria-label="Avançar"
+        >
           <ArrowRight size={16} strokeWidth={3} />
         </button>
       </div>
@@ -45,12 +66,12 @@ function SideBar() {
       <SideButton disabled title="Em breve">
         Nações &amp; Clubes
       </SideButton>
-      <SideButton>Procurar</SideButton>
+      <SideButton onClick={() => nav.go({ kind: 'search' })}>Procurar</SideButton>
       <SideButton disabled title="Em breve" className="!text-cm-yellow">
         Opções Jogo
       </SideButton>
       <div className="flex flex-1 items-end justify-center pb-3">
-        <span className="font-title text-3xl font-bold tracking-widest text-[#5f6c84] [writing-mode:vertical-rl] rotate-180">
+        <span className="rotate-180 font-title text-3xl font-bold tracking-widest text-[#5f6c84] [writing-mode:vertical-rl]">
           NEXTCM
         </span>
       </div>
@@ -58,19 +79,54 @@ function SideBar() {
   )
 }
 
+function Screens() {
+  const nav = useNav()
+  const { current } = nav
+
+  // Alt+← / Alt+→ e o botão "voltar" do mouse navegam no histórico
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === 'ArrowLeft') nav.back()
+      if (e.altKey && e.key === 'ArrowRight') nav.forward()
+    }
+    const onMouse = (e: MouseEvent) => {
+      if (e.button === 3) nav.back()
+      if (e.button === 4) nav.forward()
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('mouseup', onMouse)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('mouseup', onMouse)
+    }
+  }, [nav])
+
+  return (
+    <>
+      {/* A pesquisa fica montada para manter filtros, página e seleção ao voltar */}
+      <div className={current.kind === 'search' ? 'h-full' : 'hidden'}>
+        <SearchPage active={current.kind === 'search'} />
+      </div>
+      {current.kind === 'person' && <PersonPage key={current.id} id={current.id} />}
+    </>
+  )
+}
+
 export default function App() {
   return (
-    <div className="flex h-full">
-      <SideBar />
-      <main className="cm-backdrop min-w-0 flex-1">
-        {inTauri ? (
-          <SearchPage />
-        ) : (
-          <div className="p-6 text-[#aab3c4]">
-            Esta tela lê o banco pelo Rust. Abra pelo app desktop: <code className="text-cm-yellow">npm run tauri dev</code>
-          </div>
-        )}
-      </main>
-    </div>
+    <NavProvider>
+      <div className="flex h-full">
+        <SideBar />
+        <main className="cm-backdrop min-w-0 flex-1">
+          {inTauri ? (
+            <Screens />
+          ) : (
+            <div className="p-6 text-[#aab3c4]">
+              Esta tela lê o banco pelo Rust. Abra pelo app desktop: <code className="text-cm-yellow">npm run tauri dev</code>
+            </div>
+          )}
+        </main>
+      </div>
+    </NavProvider>
   )
 }

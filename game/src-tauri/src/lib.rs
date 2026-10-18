@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use nextcm_core::{NationOption, SearchQuery, SearchResult, World};
+use nextcm_core::{NationOption, PersonProfile, SearchQuery, SearchResult, World};
 use tauri::{Manager, State};
 
 /// Banco do mundo, aberto uma vez no início. `rusqlite::Connection` não é `Sync`.
@@ -32,6 +32,12 @@ async fn list_nations(state: State<'_, AppState>) -> Result<Vec<NationOption>, S
     world.list_nations().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn get_person(state: State<'_, AppState>, id: i32) -> Result<PersonProfile, String> {
+    let world = state.world.lock().map_err(|e| e.to_string())?;
+    world.get_person(id).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -51,7 +57,7 @@ pub fn run() {
       app.manage(AppState { world: Mutex::new(world) });
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![search_people, list_nations])
+    .invoke_handler(tauri::generate_handler![search_people, list_nations, get_person])
     .run(tauri::generate_context!())
     .expect("error while building tauri application");
 }
