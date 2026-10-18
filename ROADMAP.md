@@ -150,7 +150,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | Marco | Entrega | Pronto quando |
 |---|---|---|
 | ✅ **3.1** Novo jogo e tempo | Criar/gravar/carregar jogo, treinador no clube, "Continuar" avança a data, Notícias | Dá para começar um jogo no Palmeiras, avançar uns dias, gravar, fechar e carregar |
-| **3.2** Série A jogável | Calendário (turno e returno), Match Engine v1 (força por setor → Poisson, RNG com seed), resultados, classificação real, Próximo/Último Jogo | Uma temporada inteira da Série A até o campeão |
+| ✅ **3.2** Série A jogável | Calendário (turno e returno), Match Engine v1 (força por setor → Poisson, RNG com seed), resultados, classificação real, Próximo/Último Jogo | Uma temporada inteira da Série A até o campeão |
 | **3.3** O seu time | Escolher o onze e editar a táctica, condição física, moral, lesões, suspensões | O onze escolhido muda os resultados |
 | **3.4** Fim de época | Subidas/descidas, envelhecimento e evolução do CA, contratos, regens; CLI `sim` com 10 épocas | 10 épocas seguidas sem UI, com números plausíveis |
 | **3.5** Mais competições | Série B, Copa do Brasil, estaduais, Libertadores, ligas europeias; regulamentos num arquivo de dados por competição | Calendário brasileiro completo numa época |
@@ -185,6 +185,36 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 
 **Feito (3.1):** `core/src/game.rs` (save, treinador, notícias), `core/src/date.rs` (datas sem dependências), `core/src/session.rs` (mundo base + jogo aberto, usado pelo Tauri e pela ponte de dev), CLI `cargo run -p nextcm-core --bin sim -- <clube> <dias>` (criar o jogo leva ~0,5 s; 365 dias, ~8 ms). Telas: menu inicial, Novo Jogo (treinador → clube), Carregar Jogo, Notícias, menu amarelo do treinador (Plantel, Tácticas, Historial, Notícias, Pesquisa, Perfil, Gravar Jogo, Sair para o Menu) e aviso de alterações por gravar ao sair. Saves de dev em `data/saves/`, saves do app em `<app data>/saves/`.
 
+
+#### Marco 3.2 — Série A jogável (detalhe)
+
+**Calendário**
+- Só a Série A (`division_id = 65`, 20 clubes) está viva; as outras ligas continuam paradas até o 3.5.
+- Turno e returno pelo método do círculo (38 jornadas, cada clube 19 vezes em casa); o returno repete o turno com o mando trocado. A ordem dos clubes é sorteada com a seed do jogo, então cada jogo novo tem um calendário diferente.
+- Jornadas aos fins de semana a partir do primeiro sábado de agosto (2.8.2025): metade dos jogos ao sábado, metade ao domingo. Pausa de fim de ano sem jornadas entre 20.12 e 17.1. A época acaba em maio de 2026.
+- Tabela nova no save, `fixtures` (competição, jornada, data, casa, fora, golos). `SAVE_VERSION` passa a 2; saves do 3.1 são recusados com mensagem.
+
+**Match Engine v1** (`core/src/engine.rs`)
+- Força por setor (GR, defesa, meio, ataque): média do CA dos titulares de `World::get_club_tactics`, ajustado pela nota na função (inteiro com 20, 95% com 15, 62–88% fora da posição).
+- Golos esperados: `base × (ataque ÷ defesa adversária)^3 × (2 × posse do meio-campo)^1,5`, com base 1,42 em casa e 0,92 fora. Golos sorteados por Poisson.
+- RNG `ChaCha8Rng` de cada partida = seed do jogo misturada com o id da partida: o resultado não depende da ordem em que os jogos são simulados.
+
+**Tempo e notícias**
+- `Game::advance_day` joga as partidas do dia, guarda os resultados e gera notícias: o resultado do jogo do treinador (com a posição na tabela) e, no fim da liga, o campeão (com a posição final do treinador). Ao criar o jogo, notícia com o calendário e o primeiro adversário.
+- "Continuar Jogo" (`Game::advance_to_next_event`) avança até haver notícia, até à véspera do próximo jogo do treinador (para ver o Próximo Jogo) ou no máximo 6 semanas.
+
+**Classificação**
+- Calculada dos resultados (`core/src/league.rs`): J V E D M S P e os últimos 5 resultados. Desempate do Brasileirão: pontos, vitórias, saldo, golos marcados.
+
+**Telas**
+- Competição → **Classificação** com os dados reais (o clube do treinador em rosa); abas **Calendário** (uma jornada de cada vez, com ◀ ▶, abre na próxima por jogar) e **Resultados** (jornadas disputadas, da mais recente).
+- Clube → **Próximo Jogo** e **Último Jogo** (os dois clubes com as cores, resultado, posição, pontos e forma) e **Calendário** do clube (data, jornada, casa/fora, resultado em V/E/D).
+
+**Core e testes**
+- Calendário completo e justo (380 jogos, cada par uma vez em casa de cada um, um jogo por clube por jornada, fins de semana, pausa), classificação e desempates, Poisson com média certa, mesma seed = mesmo resultado.
+- Temporada inteira (`full_season_is_deterministic_and_coherent`): duas corridas com a mesma seed dão os mesmos 380 resultados; 38 jogos por clube; soma dos pontos = 3 × jogos com vencedor + 2 × empates; golos marcados = sofridos; Continuar Jogo pára na véspera e depois do 1º jogo.
+
+**Feito (3.2):** `core/src/engine.rs`, `core/src/league.rs`, calendário e partidas em `core/src/game.rs`, comandos `continue_game`, `league_table`, `list_fixtures` e `club_fixtures` (Tauri e ponte de dev). A CLI `cargo run -p nextcm-core --release --bin sim -- [clube] [dias|epoca] [seed] [épocas]` joga a época e imprime a tabela; com várias épocas mostra a média de posição e pontos. Em 20 épocas: 2,57 golos por jogo, 48% vitórias em casa, 24% empates, 28% vitórias fora; Flamengo (o maior CA) com 13 títulos e média de 80 pontos, Palmeiras 3,6º em média, Remo/Chapecoense/Athletico em baixo. Uma época leva ~0,6 s; cada "Continuar Jogo" ~20 ms na ponte de dev. Ajuste em `core/src/tactics.rs`: a escolha do onze truncava a nota fora da posição para 0 e, no empate, ficava com o pior jogador (o Athletico punha um médio de CA 60 a titular); agora desempata pelo CA.
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)

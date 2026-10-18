@@ -152,7 +152,8 @@ impl Candidate {
     /// Quanto vale pôr o jogador na função: o CA pesa a adaptação (nota 20 = CA inteiro).
     fn score(&self, slot: Slot) -> i32 {
         let fit = self.fit(slot);
-        let factor = if fit >= 15 { fit } else { fit / 2 };
+        // Fora da posição (nota < 15) vale metade; sem divisão inteira, para a nota 1 não zerar
+        let factor = if fit >= 15 { 2 * fit } else { fit };
         self.ca * factor
     }
 
@@ -232,8 +233,9 @@ impl World {
             let (si, pi) = open
                 .iter()
                 .enumerate()
-                .flat_map(|(si, &s)| pool.iter().enumerate().map(move |(pi, c)| (si, pi, c.score(layout[s]))))
-                .max_by_key(|&(_, _, score)| score)
+                .flat_map(|(si, &s)| pool.iter().enumerate().map(move |(pi, c)| (si, pi, (c.score(layout[s]), c.ca))))
+                // Empate: o de maior CA (e, entre iguais, o primeiro da lista)
+                .max_by_key(|&(si, pi, key)| (key, std::cmp::Reverse((pi, si))))
                 .map(|(si, pi, _)| (si, pi))
                 .unwrap();
             let slot = open.remove(si);

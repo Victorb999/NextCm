@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::{Error, Game, GameInfo, NewGame, NewsItem, Result, SaveSummary, World, list_saves};
+use crate::{Error, Fixture, Game, GameInfo, NewGame, NewsItem, Result, SaveSummary, StandingRow, World, list_saves};
 
 pub struct Session {
     world_path: PathBuf,
@@ -78,6 +78,28 @@ impl Session {
         let game = self.game_mut()?;
         game.advance_day()?;
         game.info()
+    }
+
+    /// "Continuar Jogo": avança até o próximo evento (jogo do treinador, notícia...).
+    pub fn continue_game(&mut self) -> Result<GameInfo> {
+        let game = self.game_mut()?;
+        game.advance_to_next_event()?;
+        game.info()
+    }
+
+    /// Classificação real de uma competição viva; vazia sem jogo ou numa competição parada.
+    pub fn league_table(&self, id: i32) -> Result<Vec<StandingRow>> {
+        Ok(self.game.as_ref().map(|g| g.table(id)).unwrap_or_default())
+    }
+
+    /// Calendário e resultados de uma competição viva.
+    pub fn list_fixtures(&self, id: i32) -> Result<Vec<Fixture>> {
+        Ok(self.game.as_ref().map(|g| g.fixtures(id)).unwrap_or_default())
+    }
+
+    /// Partidas de um clube, por data.
+    pub fn club_fixtures(&self, id: i32) -> Result<Vec<Fixture>> {
+        Ok(self.game.as_ref().map(|g| g.club_fixtures(id)).unwrap_or_default())
     }
 
     pub fn list_news(&self) -> Result<Vec<NewsItem>> {

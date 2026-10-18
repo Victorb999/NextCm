@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::{
-    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, GameInfo, NationListItem, NationOption,
-    NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, SearchResult, Session, World};
+    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, NationListItem, NationOption,
+    NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, SearchResult, Session, StandingRow, World};
 use tauri::{Manager, State};
 
 /// Mundo base e jogo aberto. `rusqlite::Connection` não é `Sync`, daí o Mutex.
@@ -67,6 +67,10 @@ session_command!(save_game() -> GameInfo);
 session_command!(advance_day() -> GameInfo);
 session_command!(list_news() -> Vec<NewsItem>);
 session_command!(read_news(id: i32) -> GameInfo);
+session_command!(continue_game() -> GameInfo);
+session_command!(league_table(id: i32) -> Vec<StandingRow>);
+session_command!(list_fixtures(id: i32) -> Vec<Fixture>);
+session_command!(club_fixtures(id: i32) -> Vec<Fixture>);
 
 #[tauri::command]
 async fn new_game(state: State<'_, AppState>, game: NewGame) -> Result<GameInfo, String> {
@@ -126,6 +130,10 @@ pub fn run() {
       advance_day,
       list_news,
       read_news,
+      continue_game,
+      league_table,
+      list_fixtures,
+      club_fixtures,
     ])
     .run(tauri::generate_context!())
     .expect("error while building tauri application");

@@ -3,6 +3,7 @@ import type { ClubProfile } from './bindings/ClubProfile'
 import type { ClubTactics } from './bindings/ClubTactics'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import type { CompetitionProfile } from './bindings/CompetitionProfile'
+import type { Fixture } from './bindings/Fixture'
 import type { GameInfo } from './bindings/GameInfo'
 import type { NewGame } from './bindings/NewGame'
 import type { NewsItem } from './bindings/NewsItem'
@@ -13,6 +14,7 @@ import type { NationOption } from './bindings/NationOption'
 import type { PersonProfile } from './bindings/PersonProfile'
 import type { SearchQuery } from './bindings/SearchQuery'
 import type { SearchResult } from './bindings/SearchResult'
+import type { StandingRow } from './bindings/StandingRow'
 
 export const inTauri = isTauri()
 
@@ -59,6 +61,12 @@ export const api = {
   saveGame: () => call<GameInfo>('save_game'),
   closeGame: () => call<null>('close_game'),
   advanceDay: () => call<GameInfo>('advance_day'),
+  /** Avança até o próximo evento (jogo do treinador, notícia...). */
+  continueGame: () => call<GameInfo>('continue_game'),
+  /** Classificação real; vazia sem jogo ou numa competição parada. */
+  leagueTable: (id: number) => call<StandingRow[]>('league_table', { id }),
+  listFixtures: (id: number) => call<Fixture[]>('list_fixtures', { id }),
+  clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),
   listNews: () => call<NewsItem[]>('list_news'),
   readNews: (id: number) => call<GameInfo>('read_news', { id }),
 }

@@ -86,7 +86,7 @@ function SideBar({ onOptions, onExit, notify }: { onOptions: () => void; onExit:
     setBusy(true)
     try {
       const before = info?.unreadNews ?? 0
-      const next = await api.advanceDay()
+      const next = await api.continueGame()
       game.update(next)
       if (next.unreadNews > before) nav.go({ kind: 'news' })
     } catch (e) {
@@ -142,7 +142,7 @@ function SideBar({ onOptions, onExit, notify }: { onOptions: () => void; onExit:
           <ArrowRight size={16} strokeWidth={3} />
         </button>
       </div>
-      <SideButton disabled={!info || busy} title={info ? 'Avança um dia' : 'Comece ou carregue um jogo'} onClick={() => void advance()}>
+      <SideButton disabled={!info || busy} title={info ? 'Avança até ao próximo evento' : 'Comece ou carregue um jogo'} onClick={() => void advance()}>
         Continuar Jogo
       </SideButton>
       {info ? (

@@ -1,12 +1,15 @@
 //! nextcm-core: dados e regras do NextCM, sem dependência do Tauri.
 //!
-//! Fase 2: só leitura do `world.sqlite` gerado por `scripts/extract.py`.
+//! Fase 2: leitura do `world.sqlite` gerado por `scripts/extract.py`.
+//! Fase 3: jogo em curso (save, calendário, match engine).
 
 pub mod attributes;
 mod club;
 mod competition;
 pub mod date;
+mod engine;
 mod game;
+mod league;
 mod nation;
 mod person;
 mod search;
@@ -16,7 +19,9 @@ mod world;
 
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry};
+pub use engine::{expected_goals, TeamStrength};
 pub use game::{list_saves, Game, GameInfo, NewGame, NewsItem, SaveSummary};
+pub use league::{Fixture, StandingRow, SERIE_A};
 pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};
 pub use search::{PersonKind, PersonSummary, Position, SearchQuery, SearchResult, SearchSort, Side};

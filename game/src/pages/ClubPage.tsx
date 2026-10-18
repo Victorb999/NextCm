@@ -2,15 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
+import type { Fixture } from '../bindings/Fixture'
+import type { StandingRow } from '../bindings/StandingRow'
+import { ClubFixtureList, MatchPanel } from '../components/Fixtures'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import { money, shortListName } from '../format'
+import { useGame } from '../game'
 import { useNav } from '../nav'
 
 const TABS = [
   { key: 'squad', label: 'Plantel' },
   { key: 'transfers', label: 'Transferências', disabled: true },
-  { key: 'next', label: 'Próximo Jogo', disabled: true },
-  { key: 'fixtures', label: 'Calendário', disabled: true },
+  { key: 'next', label: 'Próximo Jogo' },
+  { key: 'fixtures', label: 'Calendário' },
   { key: 'info', label: 'Informação Geral' },
 ]
 
@@ -107,7 +111,10 @@ function Info({ c }: { c: ClubProfile }) {
 
 export default function ClubPage({ id }: { id: number }) {
   const nav = useNav()
+  const game = useGame()
   const [club, setClub] = useState<ClubProfile | null>(null)
+  const [fixtures, setFixtures] = useState<Fixture[]>([])
+  const [table, setTable] = useState<StandingRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('squad')
   const [view, setView] = useState<View>('players')
@@ -118,6 +125,21 @@ export default function ClubPage({ id }: { id: number }) {
   useEffect(() => {
     api.getClub(id).then(setClub, (e) => setError(String(e)))
   }, [id])
+
+  // Jogos do clube e a tabela da competição, recarregados a cada dia do jogo
+  const date = game.info?.date
+  useEffect(() => {
+    if (!date) return
+    api.clubFixtures(id).then(
+      (fs) => {
+        setFixtures(fs)
+        if (fs.length) api.leagueTable(fs[0].competitionId).then(setTable, () => {})
+      },
+      () => {},
+    )
+  }, [id, date])
+  const nextMatch = fixtures.find((f) => f.homeGoals === null)
+  const lastMatch = fixtures.filter((f) => f.homeGoals !== null).at(-1)
 
   const entries: Entry[] = useMemo(() => {
     if (!club) return []
@@ -170,7 +192,11 @@ export default function ClubPage({ id }: { id: number }) {
   return (
     <div className="flex h-full flex-col">
       <TitleBand title={club?.club.name ?? ''} fg={colours.fg} bg={colours.bg} />
-      <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      <Tabs
+        tabs={TABS.map((t) => (t.key === 'next' || t.key === 'fixtures' ? { ...t, disabled: fixtures.length === 0 } : t))}
+        active={tab}
+        onChange={setTab}
+      />
 
       {tab === 'squad' && (
         <div className="flex shrink-0 items-center gap-1 px-1.5 pt-2">
@@ -215,20 +241,24 @@ export default function ClubPage({ id }: { id: number }) {
           </>
         )}
         {club && tab === 'info' && <Info c={club} />}
+        {tab === 'next' && <MatchPanel fixture={nextMatch} table={table} empty="Não há mais jogos marcados." />}
+        {tab === 'last' && <MatchPanel fixture={lastMatch} table={table} empty="Ainda não jogou." />}
+        {tab === 'fixtures' && <ClubFixtureList clubId={id} fixtures={fixtures} />}
       </div>
 
-      {/* Atalhos inferiores do CM; Treino e Último Jogo chegam na Fase 3 */}
+      {/* Atalhos inferiores do CM; o Treino chega no marco 3.3 */}
       <div className="mt-1.5">
         <Tabs
           tabs={[
             { key: 'tactics', label: 'Tácticas' },
             { key: 'training', label: 'Treino', disabled: true },
-            { key: 'last', label: 'Último Jogo', disabled: true },
+            { key: 'last', label: 'Último Jogo', disabled: !lastMatch },
             { key: 'division', label: division?.shortName ?? '-', disabled: !division },
             { key: 'history', label: 'Historial' },
           ]}
-          active=""
+          active={tab === 'last' ? 'last' : ''}
           onChange={(k) => {
+            if (k === 'last') setTab('last')
             if (k === 'division' && division) nav.go({ kind: 'competition', id: division.id })
             if (k === 'tactics') nav.go({ kind: 'tactics', id })
             if (k === 'history') nav.go({ kind: 'clubHistory', id })

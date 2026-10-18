@@ -3,15 +3,21 @@ import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { ClubRef } from '../bindings/ClubRef'
 import type { CompetitionProfile } from '../bindings/CompetitionProfile'
+import type { Fixture } from '../bindings/Fixture'
+import type { StandingRow } from '../bindings/StandingRow'
+import { FixtureRows } from '../components/Fixtures'
 import PickList from '../components/PickList'
 import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
 import { continentPt } from '../continents'
+import { matchDate } from '../format'
+import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
 const TABS = [
   { key: 'clubs', label: 'Clubes' },
   { key: 'table', label: 'Classificação' },
-  { key: 'fixtures', label: 'Calendário', disabled: true },
+  { key: 'fixtures', label: 'Calendário' },
+  { key: 'results', label: 'Resultados' },
   { key: 'stats', label: 'Estatísticas', disabled: true },
   { key: 'history', label: 'Historial' },
 ]
@@ -62,10 +68,15 @@ function History({ c }: { c: CompetitionProfile }) {
   )
 }
 
-/** Classificação antes da 1ª jornada: todos a zero, por ordem alfabética, como no CM. */
-function Table({ c }: { c: CompetitionProfile }) {
+/** Classificação: a real quando a competição está viva no jogo; senão, a de pré-temporada
+ * (todos a zero, por ordem alfabética), como no CM. */
+function Table({ c, rows, own }: { c: CompetitionProfile; rows: StandingRow[]; own?: number }) {
   const nav = useNav()
-  const clubs = [...c.clubs].sort((a, b) => a.club.shortName.localeCompare(b.club.shortName))
+  const shown: { club: ClubRef; values: number[] }[] = rows.length
+    ? rows.map((r) => ({ club: r.club, values: [r.played, r.won, r.drawn, r.lost, r.goalsFor, r.goalsAgainst, r.points] }))
+    : [...c.clubs]
+        .sort((a, b) => a.club.shortName.localeCompare(b.club.shortName))
+        .map((r) => ({ club: r.club, values: [0, 0, 0, 0, 0, 0, 0] }))
   const cols = ['J', 'V', 'E', 'D', 'M', 'S', 'P']
   return (
     <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
@@ -83,17 +94,23 @@ function Table({ c }: { c: CompetitionProfile }) {
           </tr>
         </thead>
         <tbody>
-          {clubs.map((row, i) => (
+          {shown.map((row, i) => (
             <tr key={row.club.id} className="h-[23px]">
               <td className="border border-cm-tabline bg-black/60 text-center text-white">{i + 1}º</td>
               <td className="px-3">
-                <Link onClick={() => nav.go({ kind: 'club', id: row.club.id })} className="font-title text-[17px] text-white">
+                <Link
+                  onClick={() => nav.go({ kind: 'club', id: row.club.id })}
+                  className={`font-title text-[17px] ${row.club.id === own ? 'text-cm-pink' : 'text-white'}`}
+                >
                   {row.club.shortName}
                 </Link>
               </td>
-              {cols.map((h) => (
-                <td key={h} className={`text-center tabular-nums text-white ${h === 'P' ? 'border border-cm-tabline bg-black/60' : ''}`}>
-                  0
+              {row.values.map((v, j) => (
+                <td
+                  key={cols[j]}
+                  className={`text-center tabular-nums text-white ${j === 6 ? 'border border-cm-tabline bg-black/60' : ''}`}
+                >
+                  {v}
                 </td>
               ))}
             </tr>
@@ -104,10 +121,63 @@ function Table({ c }: { c: CompetitionProfile }) {
   )
 }
 
+/** Jornadas agrupadas: número da jornada → jogos. */
+function byRound(fixtures: Fixture[]): Map<number, Fixture[]> {
+  const rounds = new Map<number, Fixture[]>()
+  for (const f of fixtures) rounds.set(f.round, [...(rounds.get(f.round) ?? []), f])
+  return rounds
+}
+
+/** Calendário: uma jornada de cada vez, com ◀ ▶; abre na próxima por jogar. */
+function Calendar({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
+  const rounds = byRound(fixtures)
+  const last = Math.max(...rounds.keys())
+  const next = fixtures.find((f) => f.homeGoals === null)?.round ?? last
+  const [round, setRound] = useState(next)
+  const games = rounds.get(round) ?? []
+  return (
+    <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
+      <div className="flex shrink-0 items-center justify-center gap-2 py-1.5">
+        <button className="cm-purple h-6 w-10" disabled={round <= 1} onClick={() => setRound(round - 1)} aria-label="Jornada anterior">
+          ◀
+        </button>
+        <div className="w-72 text-center font-title text-xl font-bold text-cm-yellow">
+          {round}ª jornada{games[0] ? ` · ${matchDate(games[0].date).slice(4)}` : ''}
+        </div>
+        <button className="cm-purple h-6 w-10" disabled={round >= last} onClick={() => setRound(round + 1)} aria-label="Jornada seguinte">
+          ▶
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <FixtureRows fixtures={games} own={own} />
+      </div>
+    </div>
+  )
+}
+
+/** Resultados: jornadas já disputadas, da mais recente para a mais antiga. */
+function Results({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
+  const rounds = [...byRound(fixtures.filter((f) => f.homeGoals !== null)).entries()].reverse()
+  if (rounds.length === 0) return <div className="p-6 text-center text-cm-magenta">Ainda não há resultados.</div>
+  return (
+    <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
+      {rounds.map(([round, games]) => (
+        <div key={round}>
+          <div className="pb-1 pt-2 text-center font-title text-lg font-bold text-cm-yellow">{round}ª jornada</div>
+          <FixtureRows fixtures={games} own={own} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function CompetitionPage({ id }: { id: number }) {
   const nav = useNav()
+  const game = useGame()
   useEscBack()
   const [comp, setComp] = useState<CompetitionProfile | null>(null)
+  const [table, setTable] = useState<StandingRow[]>([])
+  const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('clubs')
 
@@ -121,6 +191,15 @@ export default function CompetitionPage({ id }: { id: number }) {
     )
   }, [id])
 
+  // Classificação e calendário reais (só nas competições vivas do jogo); recarrega a cada dia
+  const date = game.info?.date
+  useEffect(() => {
+    if (!date) return
+    api.leagueTable(id).then(setTable, () => {})
+    api.listFixtures(id).then(setFixtures, () => {})
+  }, [id, date])
+
+  const own = game.info?.club.id
   const where: ReactNode = comp?.nation ? (
     <Link onClick={() => nav.go({ kind: 'nation', id: comp.nationId! })}>{comp.nation}</Link>
   ) : (
@@ -131,7 +210,12 @@ export default function CompetitionPage({ id }: { id: number }) {
     <div className="flex h-full flex-col">
       <TitleBand title={comp?.name ?? ''} fg="#ffffff" bg="#1e9cf0" />
       <Tabs
-        tabs={TABS.map((t) => (t.key === 'table' ? { ...t, disabled: !comp || comp.clubs.length === 0 } : t))}
+        tabs={TABS.map((t) => {
+          if (t.key === 'table') return { ...t, disabled: !comp || (comp.clubs.length === 0 && table.length === 0) }
+          if (t.key === 'fixtures') return { ...t, disabled: fixtures.length === 0 }
+          if (t.key === 'results') return { ...t, disabled: !fixtures.some((f) => f.homeGoals !== null) }
+          return t
+        })}
         active={tab}
         onChange={setTab}
       />
@@ -164,7 +248,9 @@ export default function CompetitionPage({ id }: { id: number }) {
             />
           </>
         )}
-        {comp && tab === 'table' && <Table c={comp} />}
+        {comp && tab === 'table' && <Table c={comp} rows={table} own={own} />}
+        {tab === 'fixtures' && fixtures.length > 0 && <Calendar fixtures={fixtures} own={own} />}
+        {tab === 'results' && <Results fixtures={fixtures} own={own} />}
         {comp && tab === 'history' && <History c={comp} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

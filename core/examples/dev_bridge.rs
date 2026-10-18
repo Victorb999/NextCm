@@ -49,6 +49,10 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "advance_day" => out(serde_json::to_value(session.advance_day().map_err(e)?)),
         "list_news" => out(serde_json::to_value(session.list_news().map_err(e)?)),
         "read_news" => out(serde_json::to_value(session.read_news(id()?).map_err(e)?)),
+        "continue_game" => out(serde_json::to_value(session.continue_game().map_err(e)?)),
+        "league_table" => out(serde_json::to_value(session.league_table(id()?).map_err(e)?)),
+        "list_fixtures" => out(serde_json::to_value(session.list_fixtures(id()?).map_err(e)?)),
+        "club_fixtures" => out(serde_json::to_value(session.club_fixtures(id()?).map_err(e)?)),
         _ => Err(format!("comando desconhecido: {cmd}")),
     }
 }

@@ -32,3 +32,11 @@ export function shortListName(listName: string): string {
   const i = listName.indexOf(', ')
   return i < 0 ? listName : `${listName.slice(0, i)}, ${listName[i + 2] ?? ''}`
 }
+
+const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+/** "2025-08-02" -> "Sáb 2.8.2025" (calendários e jogos). */
+export function matchDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return `${WEEKDAYS_SHORT[new Date(y, m - 1, d).getDay()]} ${d}.${m}.${y}`
+}
