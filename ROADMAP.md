@@ -145,17 +145,18 @@ Primeiro os dados, depois a enciclopédia navegável, só então o jogo. **Nenhu
 **Pronto quando:** dá pra ir de "Brasil" até o perfil de qualquer jogador do Brasileirão clicando, e a busca responde em menos de ~200 ms.
 
 ### Fase 3 — Transformar em jogo
-Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e as regras ficam no core em Rust (testes + CLI) antes de ganharem tela. Até o marco 4, só o Brasileirão Série A está "vivo"; as outras ligas ficam paradas.
+Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e as regras ficam no core em Rust (testes + CLI) antes de ganharem tela. Até o marco 3.5, só o Brasileirão Série A está "vivo"; as outras ligas entram no 3.6.
 
 | Marco | Entrega | Pronto quando |
 |---|---|---|
 | ✅ **3.1** Novo jogo e tempo | Criar/gravar/carregar jogo, treinador no clube, "Continuar" avança a data, Notícias | Dá para começar um jogo no Palmeiras, avançar uns dias, gravar, fechar e carregar |
 | ✅ **3.2** Série A jogável | Calendário (turno e returno), Match Engine v1 (força por setor → Poisson, RNG com seed), resultados, classificação real, Próximo/Último Jogo | Uma temporada inteira da Série A até o campeão |
-| **3.3** O seu time | Escolher o onze e editar a táctica, condição física, moral, lesões, suspensões | O onze escolhido muda os resultados |
-| **3.4** Fim de época | Subidas/descidas, envelhecimento e evolução do CA, contratos, regens; CLI `sim` com 10 épocas | 10 épocas seguidas sem UI, com números plausíveis |
-| **3.5** Mais competições | Série B, Copa do Brasil, estaduais, Libertadores, ligas europeias; regulamentos num arquivo de dados por competição | Calendário brasileiro completo numa época |
-| **3.6** Mercado | Transferências e empréstimos com IA, finanças, propostas | Clubes compram e vendem entre si |
-| **3.7** Polimento | Relato ao vivo do jogo, notícias completas, ofertas de emprego, férias | — |
+| **3.3** O seu time | Escolher o onze, os suplentes e editar a táctica (formação, funções, instruções à equipa como no diálogo do CM), condição física, moral, lesões, suspensões | O onze e a táctica escolhidos mudam os resultados |
+| **3.4** Dia de jogo | Match Engine v2 por eventos (remates, defesas, golos, cartões, substituições, minuto a minuto, mesma seed = mesmo jogo) e a tela da partida do CM: placar e relógio, relato em texto com velocidade ajustável, estatísticas, escalações; intervalo com mudança de táctica e substituições; resultados da jornada no fim | Ver um jogo do Palmeiras do início ao fim, mexer na equipa ao intervalo, e as médias do 3.2 (golos, vantagem em casa) continuam a bater na CLI |
+| **3.5** Fim de época | Subidas/descidas, envelhecimento e evolução do CA, contratos, regens; CLI `sim` com 10 épocas | 10 épocas seguidas sem UI, com números plausíveis |
+| **3.6** Mais competições | Série B, Copa do Brasil, estaduais, Libertadores, ligas europeias; regulamentos num arquivo de dados por competição | Calendário brasileiro completo numa época |
+| **3.7** Mercado | Transferências e empréstimos com IA, finanças, propostas | Clubes compram e vendem entre si |
+| **3.8** Polimento | Notícias completas, ofertas de emprego, férias | — |
 
 #### Marco 3.1 — Novo jogo e tempo (detalhe)
 
@@ -189,7 +190,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 #### Marco 3.2 — Série A jogável (detalhe)
 
 **Calendário**
-- Só a Série A (`division_id = 65`, 20 clubes) está viva; as outras ligas continuam paradas até o 3.5.
+- Só a Série A (`division_id = 65`, 20 clubes) está viva; as outras ligas continuam paradas até o 3.6.
 - Turno e returno pelo método do círculo (38 jornadas, cada clube 19 vezes em casa); o returno repete o turno com o mando trocado. A ordem dos clubes é sorteada com a seed do jogo, então cada jogo novo tem um calendário diferente.
 - Jornadas aos fins de semana a partir do primeiro sábado de agosto (2.8.2025): metade dos jogos ao sábado, metade ao domingo. Pausa de fim de ano sem jornadas entre 20.12 e 17.1. A época acaba em maio de 2026.
 - Tabela nova no save, `fixtures` (competição, jornada, data, casa, fora, golos). `SAVE_VERSION` passa a 2; saves do 3.1 são recusados com mensagem.
@@ -231,7 +232,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 9. [x] Telas Competições (por continente), Competição (clubes e historial de campeões), Nações & Clubes e Nação (clubes por divisão, competições, seleção); botões da coluna ligados e links entre todas as telas.
 10. [x] Fechar a Fase 2: o critério "do Brasil até qualquer jogador do Brasileirão só clicando" foi conferido (Nações & Clubes → Brazil → Palmeiras → Veiga → Brazil, e Competições → Sul Americanas → Brazil → Série A → clube → jogador). Ajustes: o botão **Competições** abre o menu amarelo em cascata do CM (Internacionais, Internacionais-Clubes, continentes → nações → competições; "Todas as Competições" abre a tela antiga). A nação no perfil virou link, as listas de nações e competições ficam em cache (sem "Nada para mostrar" piscando) e a faixa de título tem contorno preto e azul-ciano nas competições, como no CM.
 11. [x] Telas que só dependem do banco:
-    - **Tácticas** (clube → Tácticas): a formação preferida do treinador principal (`preferred_formation`, na ordem da lista do cm0102ed: 0 = não definida, 1 = 5-3-2 Líbero, 2 = 5-3-2, 3 = 4-4-2, 4 = 4-3-3, 5 = 4-2-4, 6 = 3-5-2, 7 = 4-1-2-1-2, 8 = 4-5-1, 9 = 3-4-3). O onze é escolhido em `core/src/tactics.rs` pelo melhor par função × jogador (nota de posição e lado × CA), mais 7 suplentes com um GR. Tem a lista e o campo da "Vista Geral". Editar a táctica fica para a Fase 3.5.
+    - **Tácticas** (clube → Tácticas): a formação preferida do treinador principal (`preferred_formation`, na ordem da lista do cm0102ed: 0 = não definida, 1 = 5-3-2 Líbero, 2 = 5-3-2, 3 = 4-4-2, 4 = 4-3-3, 5 = 4-2-4, 6 = 3-5-2, 7 = 4-1-2-1-2, 8 = 4-5-1, 9 = 3-4-3). O onze é escolhido em `core/src/tactics.rs` pelo melhor par função × jogador (nota de posição e lado × CA), mais 7 suplentes com um GR. Tem a lista e o campo da "Vista Geral". Editar a táctica fica para o marco 3.3.
     - **Historial do clube** (clube → Historial): títulos e vices por competição, tirados do historial das competições, e a posição da época anterior.
     - **Competição → Classificação:** tabela de pré-temporada, toda a zero e em ordem alfabética.
     - Reputação actual e mundial no perfil do staff.
