@@ -145,14 +145,45 @@ Primeiro os dados, depois a enciclopédia navegável, só então o jogo. **Nenhu
 **Pronto quando:** dá pra ir de "Brasil" até o perfil de qualquer jogador do Brasileirão clicando, e a busca responde em menos de ~200 ms.
 
 ### Fase 3 — Transformar em jogo
-Só começa com a Fase 2 estável. O detalhamento será feito quando chegarmos aqui; o rascunho:
-- **3.1** Novo jogo: escolher clube, copiar `world.sqlite` → save; salvar/carregar.
-- **3.2** Calendário e botão "Continuar" (simulação em thread do Rust, progresso via eventos).
-- **3.3** Match Engine v1 probabilístico (força por setor → gols esperados → Poisson, RNG seedado) + uma liga jogável com classificação.
-- **3.4** Todas as ligas e copas; condição física, moral, lesões.
-- **3.5** Tática (formação e funções).
-- **3.6** Envelhecimento/evolução CA/PA, contratos, finanças, transferências com IA, regens.
-- **3.7** CLI `sim` para rodar temporadas sem UI (balanceamento e benchmark).
+Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e as regras ficam no core em Rust (testes + CLI) antes de ganharem tela. Até o marco 4, só o Brasileirão Série A está "vivo"; as outras ligas ficam paradas.
+
+| Marco | Entrega | Pronto quando |
+|---|---|---|
+| ✅ **3.1** Novo jogo e tempo | Criar/gravar/carregar jogo, treinador no clube, "Continuar" avança a data, Notícias | Dá para começar um jogo no Palmeiras, avançar uns dias, gravar, fechar e carregar |
+| **3.2** Série A jogável | Calendário (turno e returno), Match Engine v1 (força por setor → Poisson, RNG com seed), resultados, classificação real, Próximo/Último Jogo | Uma temporada inteira da Série A até o campeão |
+| **3.3** O seu time | Escolher o onze e editar a táctica, condição física, moral, lesões, suspensões | O onze escolhido muda os resultados |
+| **3.4** Fim de época | Subidas/descidas, envelhecimento e evolução do CA, contratos, regens; CLI `sim` com 10 épocas | 10 épocas seguidas sem UI, com números plausíveis |
+| **3.5** Mais competições | Série B, Copa do Brasil, estaduais, Libertadores, ligas europeias; regulamentos num arquivo de dados por competição | Calendário brasileiro completo numa época |
+| **3.6** Mercado | Transferências e empréstimos com IA, finanças, propostas | Clubes compram e vendem entre si |
+| **3.7** Polimento | Relato ao vivo do jogo, notícias completas, ofertas de emprego, férias | — |
+
+#### Marco 3.1 — Novo jogo e tempo (detalhe)
+
+**Save**
+- Novo jogo = cópia do `world.sqlite` para a pasta de saves: `<app data>/saves/<nome>.sqlite` no Tauri, `data/saves/` na ponte de dev. O save é o próprio SQLite, aberto para escrita. O `world.sqlite` original nunca muda.
+- Tabelas novas no save: `game` (uma linha: versão do formato, nome do jogo, data atual, seed do RNG, id do treinador e do clube) e `news` (data, tipo, título, texto, lida).
+- O estado em memória (`Game` no core) é gravado no SQLite ao "Gravar Jogo". Sair sem gravar descarta o que mudou desde a última gravação.
+- O formato tem número de versão; um save de versão antiga é recusado com mensagem clara, até existir migração.
+
+**Treinador**
+- Como no CM, o treinador entra no banco como pessoa nova (nome, data de nascimento, nacionalidade), com cargo Treinador no clube escolhido. O treinador anterior fica sem clube.
+
+**Tempo**
+- O jogo começa em 1.7.2025 (data do patch). "Continuar Jogo" avança um dia. Sem jogos no 3.1, o dia só muda a data e entrega as notícias do dia.
+- O avanço roda no core; a UI só recebe a data e as notícias novas. No 3.2 passa a rodar em thread com eventos de progresso.
+
+**Telas**
+- **Início** (quando não há jogo aberto), com Novo Jogo, Carregar Jogo, Explorar Base de Dados (a enciclopédia da Fase 2) e Opções.
+- **Novo Jogo**: nome, apelido, nascimento e nacionalidade do treinador; depois a escolha do clube (nação → clube, com reputação e divisão).
+- **Carregar Jogo**: lista de saves com nome, clube, data do jogo e data da gravação.
+- **Notícias para <treinador>**: abas Todas/Mensagens/Competições/Lesões e Suspensões, lista e texto da notícia, Ler Próxima. No 3.1 só há a mensagem de boas-vindas da direção.
+- **Coluna esquerda**: data do jogo, "Continuar Jogo" ligado, botão do treinador (rosa, com o nome) e o menu amarelo do CM: Plantel, Tácticas, Notícias, Pesquisa, Historial, Gravar Jogo, Retirar-se.
+
+**Core e testes**
+- `core/src/game/`: criar, abrir, gravar e avançar o dia. Testes: novo jogo cria o save e põe o treinador no clube, gravar e reabrir dá o mesmo estado, avançar N dias dá a data certa.
+- `core/src/bin/sim.rs` (início da CLI): cria um jogo temporário e avança N dias.
+
+**Feito (3.1):** `core/src/game.rs` (save, treinador, notícias), `core/src/date.rs` (datas sem dependências), `core/src/session.rs` (mundo base + jogo aberto, usado pelo Tauri e pela ponte de dev), CLI `cargo run -p nextcm-core --bin sim -- <clube> <dias>` (criar o jogo leva ~0,5 s; 365 dias, ~8 ms). Telas: menu inicial, Novo Jogo (treinador → clube), Carregar Jogo, Notícias, menu amarelo do treinador (Plantel, Tácticas, Historial, Notícias, Pesquisa, Perfil, Gravar Jogo, Sair para o Menu) e aviso de alterações por gravar ao sair. Saves de dev em `data/saves/`, saves do app em `<app data>/saves/`.
 
 ---
 

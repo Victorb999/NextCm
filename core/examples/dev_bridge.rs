@@ -9,34 +9,55 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::thread;
 
-use nextcm_core::{SearchQuery, World};
+use nextcm_core::{NewGame, SearchQuery, Session, World};
 use serde_json::Value;
 
-fn call(world: &World, cmd: &str, args: &Value) -> Result<Value, String> {
+fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String> {
     let id = || args["id"].as_i64().map(|v| v as i32).ok_or("falta id".to_string());
-    let json = |r: Result<Value, serde_json::Error>| r.map_err(|e| e.to_string());
     let e = |e: nextcm_core::Error| e.to_string();
+    let out = |v: Result<Value, serde_json::Error>| v.map_err(|e| e.to_string());
+    let world = session.db();
     match cmd {
         "search_people" => {
             let q: SearchQuery = serde_json::from_value(args["query"].clone()).map_err(|e| e.to_string())?;
-            json(serde_json::to_value(world.search_people(&q).map_err(e)?))
+            out(serde_json::to_value(world.search_people(&q).map_err(e)?))
         }
-        "list_nations" => json(serde_json::to_value(world.list_nations().map_err(e)?)),
-        "get_person" => json(serde_json::to_value(world.get_person(id()?).map_err(e)?)),
-        "get_club" => json(serde_json::to_value(world.get_club(id()?).map_err(e)?)),
-        "list_continents" => json(serde_json::to_value(world.list_continents().map_err(e)?)),
-        "list_competitions" => json(serde_json::to_value(world.list_competitions().map_err(e)?)),
-        "get_competition" => json(serde_json::to_value(world.get_competition(id()?).map_err(e)?)),
-        "list_nations_full" => json(serde_json::to_value(world.list_nations_full().map_err(e)?)),
-        "get_club_tactics" => json(serde_json::to_value(world.get_club_tactics(id()?).map_err(e)?)),
-        "get_nation" => json(serde_json::to_value(world.get_nation(id()?).map_err(e)?)),
+        "list_nations" => out(serde_json::to_value(world.list_nations().map_err(e)?)),
+        "get_person" => out(serde_json::to_value(world.get_person(id()?).map_err(e)?)),
+        "get_club" => out(serde_json::to_value(world.get_club(id()?).map_err(e)?)),
+        "get_club_tactics" => out(serde_json::to_value(world.get_club_tactics(id()?).map_err(e)?)),
+        "list_continents" => out(serde_json::to_value(world.list_continents().map_err(e)?)),
+        "list_competitions" => out(serde_json::to_value(world.list_competitions().map_err(e)?)),
+        "get_competition" => out(serde_json::to_value(world.get_competition(id()?).map_err(e)?)),
+        "list_nations_full" => out(serde_json::to_value(world.list_nations_full().map_err(e)?)),
+        "get_nation" => out(serde_json::to_value(world.get_nation(id()?).map_err(e)?)),
+        "game_info" => out(serde_json::to_value(session.game_info().map_err(e)?)),
+        "list_saves" => out(serde_json::to_value(session.list_saves().map_err(e)?)),
+        "new_game" => {
+            let g: NewGame = serde_json::from_value(args["game"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.new_game(&g).map_err(e)?))
+        }
+        "load_game" => {
+            let file = args["file"].as_str().ok_or("falta file")?;
+            out(serde_json::to_value(session.load_game(file).map_err(e)?))
+        }
+        "save_game" => out(serde_json::to_value(session.save_game().map_err(e)?)),
+        "close_game" => {
+            session.close_game();
+            Ok(Value::Null)
+        }
+        "advance_day" => out(serde_json::to_value(session.advance_day().map_err(e)?)),
+        "list_news" => out(serde_json::to_value(session.list_news().map_err(e)?)),
+        "read_news" => out(serde_json::to_value(session.read_news(id()?).map_err(e)?)),
         _ => Err(format!("comando desconhecido: {cmd}")),
     }
 }
 
 fn main() {
     let path = World::locate(&std::env::current_dir().unwrap()).expect("data/world.sqlite não encontrado");
-    let world = World::open(&path).expect("não abriu o world.sqlite");
+    // Saves de dev ficam em data/saves (fora do git, como o world.sqlite)
+    let saves = path.parent().unwrap().join("saves");
+    let mut session = Session::open(&path, &saves).expect("não abriu o world.sqlite");
     let listener = TcpListener::bind("127.0.0.1:1421").expect("porta 1421 ocupada");
     println!("dev_bridge em http://127.0.0.1:1421 ({})", path.display());
 
@@ -50,7 +71,7 @@ fn main() {
         }
     });
     for (cmd, args, reply) in rx {
-        let res = match call(&world, &cmd, &args) {
+        let res = match call(&mut session, &cmd, &args) {
             Ok(v) => ("200 OK", v.to_string()),
             Err(msg) => ("500 Internal Server Error", Value::String(msg).to_string()),
         };

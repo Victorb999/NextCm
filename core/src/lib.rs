@@ -5,17 +5,22 @@
 pub mod attributes;
 mod club;
 mod competition;
+pub mod date;
+mod game;
 mod nation;
 mod person;
 mod search;
+mod session;
 mod tactics;
 mod world;
 
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry};
+pub use game::{list_saves, Game, GameInfo, NewGame, NewsItem, SaveSummary};
 pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};
 pub use search::{PersonKind, PersonSummary, Position, SearchQuery, SearchResult, SearchSort, Side};
+pub use session::Session;
 pub use tactics::{ClubTactics, TacticPlayer, TacticSlot, FORMATIONS};
 pub use world::{NationOption, World};
 
@@ -23,6 +28,9 @@ pub use world::{NationOption, World};
 pub enum Error {
     Sqlite(rusqlite::Error),
     NotFound(String),
+    Io(std::io::Error),
+    /// Pedido inválido (ex.: nome de save repetido), com a mensagem para o utilizador.
+    Invalid(String),
 }
 
 impl std::fmt::Display for Error {
@@ -30,11 +38,19 @@ impl std::fmt::Display for Error {
         match self {
             Error::Sqlite(e) => write!(f, "erro no banco: {e}"),
             Error::NotFound(what) => write!(f, "não encontrado: {what}"),
+            Error::Io(e) => write!(f, "erro de arquivo: {e}"),
+            Error::Invalid(msg) => write!(f, "{msg}"),
         }
     }
 }
 
 impl std::error::Error for Error {}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Error::Io(e)
+    }
+}
 
 impl From<rusqlite::Error> for Error {
     fn from(e: rusqlite::Error) -> Self {

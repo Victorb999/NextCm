@@ -11,15 +11,24 @@ export type PickGroup = { title?: ReactNode; items: PickItem[] }
 export default function PickList({
   groups,
   onOpen,
+  onSelect,
   empty = 'Nada para mostrar.',
 }: {
   groups: PickGroup[]
   onOpen: (item: PickItem) => void
+  /** Avisado quando a seleção muda (clique ou setas). */
+  onSelect?: (item: PickItem) => void
   empty?: string
 }) {
   const [selected, setSelected] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
   const flat = groups.flatMap((g) => g.items)
+  const current = flat[selected]
+
+  useEffect(() => {
+    if (current) onSelect?.(current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

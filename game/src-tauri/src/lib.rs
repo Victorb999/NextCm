@@ -2,13 +2,13 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::{
-    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, NationListItem, NationOption, NationProfile,
-    PersonProfile, SearchQuery, SearchResult, World};
+    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, GameInfo, NationListItem, NationOption,
+    NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, SearchResult, Session, World};
 use tauri::{Manager, State};
 
-/// Banco do mundo, aberto uma vez no início. `rusqlite::Connection` não é `Sync`.
+/// Mundo base e jogo aberto. `rusqlite::Connection` não é `Sync`, daí o Mutex.
 struct AppState {
-    world: Mutex<World>,
+    session: Mutex<Session>,
 }
 
 /// Onde está o world.sqlite: variável NEXTCM_DB, senão `data/world.sqlite`
@@ -24,45 +24,67 @@ fn world_path() -> Option<PathBuf> {
 // Comandos `async` rodam fora da thread da janela, então a interface nunca trava.
 #[tauri::command]
 async fn search_people(state: State<'_, AppState>, query: SearchQuery) -> Result<SearchResult, String> {
-    let world = state.world.lock().map_err(|e| e.to_string())?;
-    world.search_people(&query).map_err(|e| e.to_string())
+    let session = state.session.lock().map_err(|e| e.to_string())?;
+    session.db().search_people(&query).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-async fn list_nations(state: State<'_, AppState>) -> Result<Vec<NationOption>, String> {
-    let world = state.world.lock().map_err(|e| e.to_string())?;
-    world.list_nations().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn get_person(state: State<'_, AppState>, id: i32) -> Result<PersonProfile, String> {
-    let world = state.world.lock().map_err(|e| e.to_string())?;
-    world.get_person(id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn get_club(state: State<'_, AppState>, id: i32) -> Result<ClubProfile, String> {
-    let world = state.world.lock().map_err(|e| e.to_string())?;
-    world.get_club(id).map_err(|e| e.to_string())
-}
-
-/// Gera um comando Tauri que só delega para um método de `World`.
+/// Gera um comando Tauri que só delega para um método de `World` (no banco do jogo aberto).
 macro_rules! world_command {
     ($name:ident ( $($arg:ident : $ty:ty),* ) -> $out:ty) => {
         #[tauri::command]
         async fn $name(state: State<'_, AppState>, $($arg: $ty),*) -> Result<$out, String> {
-            let world = state.world.lock().map_err(|e| e.to_string())?;
-            world.$name($($arg),*).map_err(|e| e.to_string())
+            let session = state.session.lock().map_err(|e| e.to_string())?;
+            session.db().$name($($arg),*).map_err(|e| e.to_string())
         }
     };
 }
 
+world_command!(list_nations() -> Vec<NationOption>);
+world_command!(get_person(id: i32) -> PersonProfile);
+world_command!(get_club(id: i32) -> ClubProfile);
 world_command!(list_continents() -> Vec<ContinentRef>);
 world_command!(list_competitions() -> Vec<CompetitionListItem>);
 world_command!(get_competition(id: i32) -> CompetitionProfile);
 world_command!(list_nations_full() -> Vec<NationListItem>);
 world_command!(get_nation(id: i32) -> NationProfile);
 world_command!(get_club_tactics(id: i32) -> ClubTactics);
+
+/// Gera um comando Tauri que delega para um método de `Session` (jogo em curso).
+macro_rules! session_command {
+    ($name:ident ( $($arg:ident : $ty:ty),* ) -> $out:ty) => {
+        #[tauri::command]
+        async fn $name(state: State<'_, AppState>, $($arg: $ty),*) -> Result<$out, String> {
+            #[allow(unused_mut)]
+            let mut session = state.session.lock().map_err(|e| e.to_string())?;
+            session.$name($($arg),*).map_err(|e| e.to_string())
+        }
+    };
+}
+
+session_command!(game_info() -> Option<GameInfo>);
+session_command!(list_saves() -> Vec<SaveSummary>);
+session_command!(save_game() -> GameInfo);
+session_command!(advance_day() -> GameInfo);
+session_command!(list_news() -> Vec<NewsItem>);
+session_command!(read_news(id: i32) -> GameInfo);
+
+#[tauri::command]
+async fn new_game(state: State<'_, AppState>, game: NewGame) -> Result<GameInfo, String> {
+    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    session.new_game(&game).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn load_game(state: State<'_, AppState>, file: String) -> Result<GameInfo, String> {
+    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    session.load_game(&file).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn close_game(state: State<'_, AppState>) -> Result<(), String> {
+    state.session.lock().map_err(|e| e.to_string())?.close_game();
+    Ok(())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -78,9 +100,10 @@ pub fn run() {
       let path = world_path().ok_or(
         "world.sqlite não encontrado. Rode `python scripts/extract.py` ou defina NEXTCM_DB.",
       )?;
-      log::info!("abrindo {}", path.display());
-      let world = World::open(&path)?;
-      app.manage(AppState { world: Mutex::new(world) });
+      let saves = app.path().app_data_dir()?.join("saves");
+      log::info!("abrindo {} (saves em {})", path.display(), saves.display());
+      let session = Session::open(&path, &saves)?;
+      app.manage(AppState { session: Mutex::new(session) });
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
@@ -94,6 +117,15 @@ pub fn run() {
       get_competition,
       list_nations_full,
       get_nation,
+      game_info,
+      list_saves,
+      new_game,
+      load_game,
+      save_game,
+      close_game,
+      advance_day,
+      list_news,
+      read_news,
     ])
     .run(tauri::generate_context!())
     .expect("error while building tauri application");

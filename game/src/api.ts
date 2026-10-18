@@ -3,6 +3,10 @@ import type { ClubProfile } from './bindings/ClubProfile'
 import type { ClubTactics } from './bindings/ClubTactics'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import type { CompetitionProfile } from './bindings/CompetitionProfile'
+import type { GameInfo } from './bindings/GameInfo'
+import type { NewGame } from './bindings/NewGame'
+import type { NewsItem } from './bindings/NewsItem'
+import type { SaveSummary } from './bindings/SaveSummary'
 import type { NationListItem } from './bindings/NationListItem'
 import type { NationProfile } from './bindings/NationProfile'
 import type { NationOption } from './bindings/NationOption'
@@ -46,4 +50,15 @@ export const api = {
   getCompetition: (id: number) => call<CompetitionProfile>('get_competition', { id }),
   listNationsFull: once(() => call<NationListItem[]>('list_nations_full')),
   getNation: (id: number) => call<NationProfile>('get_nation', { id }),
+
+  // Jogo em curso (Fase 3)
+  gameInfo: () => call<GameInfo | null>('game_info'),
+  listSaves: () => call<SaveSummary[]>('list_saves'),
+  newGame: (game: NewGame) => call<GameInfo>('new_game', { game }),
+  loadGame: (file: string) => call<GameInfo>('load_game', { file }),
+  saveGame: () => call<GameInfo>('save_game'),
+  closeGame: () => call<null>('close_game'),
+  advanceDay: () => call<GameInfo>('advance_day'),
+  listNews: () => call<NewsItem[]>('list_news'),
+  readNews: (id: number) => call<GameInfo>('read_news', { id }),
 }

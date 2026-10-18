@@ -132,7 +132,7 @@ pub struct SearchResult {
 }
 
 /// Minúsculas sem acento, igual ao `fold()` do extract.py.
-fn fold(s: &str) -> String {
+pub(crate) fn fold(s: &str) -> String {
     s.nfkd()
         .filter(|c| !unicode_normalization::char::is_combining_mark(*c))
         .collect::<String>()

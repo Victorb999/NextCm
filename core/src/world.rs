@@ -23,13 +23,19 @@ pub struct NationOption {
 
 impl World {
     pub fn open(path: &Path) -> Result<Self> {
+        Self::open_with(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+    }
+
+    /// Abre um save (cópia do mundo) para leitura e escrita.
+    pub(crate) fn open_save(path: &Path) -> Result<Self> {
+        Self::open_with(path, OpenFlags::SQLITE_OPEN_READ_WRITE)
+    }
+
+    fn open_with(path: &Path, mode: OpenFlags) -> Result<Self> {
         if !path.exists() {
             return Err(Error::NotFound(path.display().to_string()));
         }
-        let conn = Connection::open_with_flags(
-            path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-        )?;
+        let conn = Connection::open_with_flags(path, mode | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
         // O banco inteiro (~70 MB) cabe na memória: buscas com filtro ficam ~10x mais rápidas.
         conn.execute_batch("PRAGMA cache_size = -131072; PRAGMA mmap_size = 268435456;")?;
         let year_offset: i32 = conn

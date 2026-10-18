@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 
 export type Screen =
   | { kind: 'search' }
+  | { kind: 'news' }
   | { kind: 'person'; id: number }
   | { kind: 'club'; id: number }
   | { kind: 'tactics'; id: number }
