@@ -1,5 +1,7 @@
 // Formatos de exibição no estilo do CM 01/02.
 
+import { CURRENCIES, WAGES, getSettings } from './settings'
+
 /** "2007-07-13" -> "13.7.2007" */
 export function cmDate(iso: string | null | undefined): string {
   if (!iso) return '-'
@@ -7,14 +9,22 @@ export function cmDate(iso: string | null | undefined): string {
   return `${d}.${m}.${y}`
 }
 
-/** 11000 -> "€11K", 2500000 -> "€2.5M" */
+/** Valor em euros (como no banco) na moeda escolhida: 11000 -> "€11K", 2500000 -> "€2.5M". */
 export function money(v: number | null | undefined): string {
   if (!v) return '-'
+  const c = CURRENCIES.find((c) => c.key === getSettings().currency) ?? CURRENCIES[0]
   const sign = v < 0 ? '-' : ''
-  const a = Math.abs(v)
-  if (a >= 1_000_000) return `${sign}€${(a / 1_000_000).toFixed(a % 1_000_000 ? 1 : 0)}M`
-  if (a >= 1_000) return `${sign}€${Math.round(a / 1_000)}K`
-  return `${sign}€${a}`
+  const a = Math.round(Math.abs(v) * c.rate)
+  if (a >= 1_000_000) return `${sign}${c.symbol}${(a / 1_000_000).toFixed(a % 1_000_000 >= 50_000 ? 1 : 0)}M`
+  if (a >= 1_000) return `${sign}${c.symbol}${Math.round(a / 1_000)}K`
+  return `${sign}${c.symbol}${a}`
+}
+
+/** Salário semanal do banco no período escolhido: "€10K p/s" ou, com `long`, "€43K por mês". */
+export function wage(weekly: number | null | undefined, long = false): string {
+  if (!weekly) return '-'
+  const w = WAGES.find((w) => w.key === getSettings().wages) ?? WAGES[0]
+  return `${money(weekly * w.factor)} ${long ? w.long : w.suffix}`
 }
 
 /** "de Arrascaeta, Giorgian" -> "de Arrascaeta, G" (como no plantel do CM); nomes comuns ficam iguais. */

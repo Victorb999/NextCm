@@ -4,8 +4,10 @@ import type { ReactNode } from 'react'
 import { api, hasBackend } from './api'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import CascadeMenu from './components/CascadeMenu'
+import OptionsDialog from './components/OptionsDialog'
 import { competitionsMenu } from './competitionsMenu'
 import { NavProvider, useNav } from './nav'
+import { useSettings } from './settings'
 import ClubHistoryPage from './pages/ClubHistoryPage'
 import ClubPage from './pages/ClubPage'
 import CompetitionPage from './pages/CompetitionPage'
@@ -48,7 +50,7 @@ function SideButton({
 }
 
 /** Coluna de navegação à esquerda, como no CM 01/02. */
-function SideBar() {
+function SideBar({ onOptions }: { onOptions: () => void }) {
   const nav = useNav()
   const d = GAME_DATE
   const [comps, setComps] = useState<CompetitionListItem[] | null>(null)
@@ -60,7 +62,7 @@ function SideBar() {
     if (hasBackend) api.listCompetitions().then(setComps, () => {})
   }, [])
   return (
-    <aside className="flex w-[86px] shrink-0 flex-col gap-1 bg-gradient-to-b from-[#4f5d77] to-cm-side p-1">
+    <aside className="flex w-[86px] shrink-0 flex-col gap-1 bg-gradient-to-b from-cm-sidetop to-cm-side p-1">
       <div className="cm-side-btn min-h-[46px] flex-col font-bold text-cm-yellow">
         <span>{WEEKDAYS[d.getDay()]}</span>
         <span>{`${d.getDate()}.${d.getMonth() + 1}.${String(d.getFullYear()).slice(2)}`}</span>
@@ -106,11 +108,11 @@ function SideBar() {
       )}
       <SideButton onClick={() => nav.go({ kind: 'nations' })}>Nações &amp; Clubes</SideButton>
       <SideButton onClick={() => nav.go({ kind: 'search' })}>Procurar</SideButton>
-      <SideButton disabled title="Em breve" className="!text-cm-yellow">
+      <SideButton onClick={onOptions} className="!text-cm-yellow">
         Opções Jogo
       </SideButton>
       <div className="flex flex-1 items-end justify-center pb-3">
-        <span className="rotate-180 font-title text-3xl font-bold tracking-widest text-[#5f6c84] [writing-mode:vertical-rl]">
+        <span className="rotate-180 font-title text-3xl font-bold tracking-widest text-cm-sidemark [writing-mode:vertical-rl]">
           NEXTCM
         </span>
       </div>
@@ -159,11 +161,15 @@ function Screens() {
 }
 
 export default function App() {
+  // Ler as definições aqui faz a árvore redesenhar quando mudam (moeda, salários...)
+  useSettings()
+  const [options, setOptions] = useState(false)
   return (
     <NavProvider>
       <div className="flex h-full">
-        <SideBar />
-        <main className="cm-backdrop min-w-0 flex-1">
+        <SideBar onOptions={() => setOptions((o) => !o)} />
+        <main className="cm-backdrop relative min-w-0 flex-1">
+          {options && <OptionsDialog onClose={() => setOptions(false)} />}
           {hasBackend ? (
             <Screens />
           ) : (

@@ -9,10 +9,13 @@ export default {
           screen: '#161616', // fundo das telas
           panel: '#0d0d0d', // painéis de lista
           line: '#2c2c2c', // divisórias
-          side: '#45526a', // coluna esquerda
-          sidebtn: '#39455a', // botões da coluna
-          sidelight: '#8792a7', // relevo claro
-          sidedark: '#1d2430', // relevo escuro
+          // Coluna esquerda: personalizável em Opções Jogo (variáveis em settings.ts)
+          side: 'var(--cm-side)',
+          sidetop: 'var(--cm-side-top)',
+          sidebtn: 'var(--cm-sidebtn)', // botões da coluna
+          sidelight: 'var(--cm-sidelight)', // relevo claro
+          sidedark: 'var(--cm-sidedark)', // relevo escuro
+          sidemark: 'var(--cm-side-mark)', // "NEXTCM" na vertical
           tab: '#202020', // abas
           tabline: '#474747',
           purple: '#5b1fa6', // botões roxos / Atrás-Seguinte
@@ -30,7 +33,7 @@ export default {
       },
       fontFamily: {
         sans: ['Tahoma', 'Verdana', 'sans-serif'],
-        title: ['"Trebuchet MS"', 'Tahoma', 'sans-serif'],
+        title: ['var(--cm-title-font)'],
       },
       fontSize: {
         cm: ['13px', '18px'],

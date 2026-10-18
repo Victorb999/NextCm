@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Valores padrão; Opções Jogo sobrescreve (settings.ts) */
+  --cm-side: #45526a;
+  --cm-side-top: #4f5d77;
+  --cm-sidebtn: #39455a;
+  --cm-sidelight: #8792a7;
+  --cm-sidedark: #1d2430;
+  --cm-side-mark: #5f6c84;
+  --cm-title-font: 'Trebuchet MS', Tahoma, sans-serif;
+}
+
 html,
 body,
 #root {
@@ -47,6 +58,15 @@ body {
       radial-gradient(ellipse at 30% 35%, rgba(255, 255, 255, 0.05), transparent 45%),
       radial-gradient(ellipse at 75% 60%, rgba(255, 255, 255, 0.04), transparent 40%),
       repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 4px);
+  }
+  /* Fundo escolhido em Opções Jogo */
+  [data-bg='plain'] .cm-backdrop {
+    background-image: none;
+  }
+  [data-bg='image'] .cm-backdrop {
+    background-image: var(--cm-bg-image);
+    background-size: cover;
+    background-position: center;
   }
 
   /* Botões da coluna esquerda */

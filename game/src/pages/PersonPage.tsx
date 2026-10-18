@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { PersonProfile } from '../bindings/PersonProfile'
 import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
-import { cmDate, money } from '../format'
+import { cmDate, wage } from '../format'
 import { useNav } from '../nav'
 
 // Atributos na ordem e com os nomes do perfil do CM 01/02 em português.
@@ -175,7 +175,7 @@ function Profile({ p }: { p: PersonProfile }) {
               ability?.potentialAbility && ability.potentialAbility > 0 ? ability.potentialAbility : '-',
               ability?.currentReputation ?? '-',
               ability?.worldReputation ?? '-',
-              p.wage ? `${money(p.wage)} p/s` : '-',
+              wage(p.wage),
               cmDate(p.contractExpires),
             ],
           ]}
@@ -196,7 +196,7 @@ function Contract({ p }: { p: PersonProfile }) {
     ['Função', p.job ?? '-'],
     ['No clube desde', cmDate(p.clubJoined)],
     ['Contrato até', cmDate(p.contractExpires)],
-    ['Salário', p.wage ? `${money(p.wage)} por semana` : '-'],
+    ['Salário', wage(p.wage, true)],
     [
       'Nacionalidade',
       p.nation ? (
