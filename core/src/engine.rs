@@ -68,7 +68,21 @@ impl TeamStrength {
             counts[sector] += 1;
         }
         let avg = |i: usize| if counts[i] == 0 { EMPTY_SLOT } else { sums[i] / counts[i] as f64 };
-        TeamStrength { gk: avg(0), defence: avg(1), midfield: avg(2), attack: avg(3) }.with(&t.instructions)
+        let mut s = TeamStrength { gk: avg(0), defence: avg(1), midfield: avg(2), attack: avg(3) };
+        // Setas de movimento: cada titular que corre para a frente dá +1% no ataque e tira
+        // 0,5% na defesa; quem recua faz o contrário (provisório, até ao motor por lances).
+        for slot in &t.starters {
+            if let Some([_, ry]) = slot.run {
+                if ry < slot.y - 4 {
+                    s.attack *= 1.01;
+                    s.defence *= 0.995;
+                } else if ry > slot.y + 4 {
+                    s.defence *= 1.01;
+                    s.attack *= 0.995;
+                }
+            }
+        }
+        s.with(&t.instructions)
     }
 
     /// Ajustes pequenos das Instruções à Equipa (provisórios; o 3.4 dá-lhes lances de verdade).

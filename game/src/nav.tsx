@@ -11,7 +11,7 @@ export type Screen =
   | { kind: 'tactics'; id: number }
   | { kind: 'clubHistory'; id: number }
   | { kind: 'competitions' }
-  | { kind: 'competition'; id: number }
+  | { kind: 'competition'; id: number; tab?: string }
   | { kind: 'nations' }
   | { kind: 'nation'; id: number }
 

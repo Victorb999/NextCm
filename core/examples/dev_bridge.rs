@@ -54,6 +54,11 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let file = args["file"].as_str().ok_or("falta file")?;
             out(serde_json::to_value(session.load_game(file).map_err(e)?))
         }
+        "delete_save" => {
+            let file = args["file"].as_str().ok_or("falta file")?;
+            session.delete_save(file).map_err(e)?;
+            Ok(Value::Null)
+        }
         "save_game" => out(serde_json::to_value(session.save_game().map_err(e)?)),
         "close_game" => {
             session.close_game();

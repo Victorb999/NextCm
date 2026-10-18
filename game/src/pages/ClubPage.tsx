@@ -80,7 +80,7 @@ function SquadGrid({
           <span
             onMouseDown={onToggle && ((ev) => ev.stopPropagation())}
             onClick={onToggle && (() => onToggle(e))}
-            className={`flex h-[22px] w-10 shrink-0 items-center justify-center bg-[#262626] text-white ${onToggle ? 'cursor-pointer' : ''}`}
+            className={`flex h-[22px] w-10 shrink-0 items-center justify-center cm-cell text-white ${onToggle ? 'cursor-pointer' : ''}`}
           >
             {e.number}
           </span>
@@ -88,7 +88,7 @@ function SquadGrid({
             onMouseDown={onToggle && ((ev) => ev.stopPropagation())}
             onClick={onToggle && (() => onToggle(e))}
             title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
-            className={`flex h-[22px] w-9 shrink-0 items-center justify-center bg-[#262626] text-xs text-cm-yellow ${onToggle ? 'cursor-pointer' : ''}`}
+            className={`flex h-[22px] w-9 shrink-0 items-center justify-center cm-cell text-xs text-cm-yellow ${onToggle ? 'cursor-pointer' : ''}`}
           >
             {e.badge}
           </span>
@@ -318,7 +318,7 @@ export default function ClubPage({ id }: { id: number }) {
                 {tactics.starters.map((s, i) => {
                   const b = drag.bind({ kind: 'starter', index: i }, shortRole(s.role))
                   return (
-                    <span key={`s${i}`} {...b} title={s.player?.listName ?? 'vazio'} className="min-w-[38px] cursor-grab bg-cm-head px-1 text-center text-[12px] text-cm-yellow">
+                    <span key={`s${i}`} {...b} title={s.player?.listName ?? 'vazio'} className="cm-chip min-w-[38px] cursor-grab px-1 text-center text-[12px]">
                       {shortRole(s.role)}
                     </span>
                   )
@@ -332,7 +332,7 @@ export default function ClubPage({ id }: { id: number }) {
                       key={`b${i}`}
                       {...b}
                       title={p?.listName ?? 'vazio'}
-                      className={`min-w-[38px] cursor-grab px-1 text-center text-[12px] ${p ? 'bg-cm-head text-cm-yellow' : 'bg-[#2a1a45] text-[#8a63c4]'}`}
+                      className={`min-w-[38px] cursor-grab px-1 text-center text-[12px] ${p ? 'cm-chip' : 'cm-chip !bg-[#2a1a45] !text-[#8a63c4]'}`}
                     >
                       SB{i + 1}
                     </span>

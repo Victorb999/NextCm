@@ -103,6 +103,12 @@ async fn load_game(state: State<'_, AppState>, file: String) -> Result<GameInfo,
 }
 
 #[tauri::command]
+async fn delete_save(state: State<'_, AppState>, file: String) -> Result<(), String> {
+    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    session.delete_save(&file).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn close_game(state: State<'_, AppState>) -> Result<(), String> {
     state.session.lock().map_err(|e| e.to_string())?.close_game();
     Ok(())
@@ -155,6 +161,7 @@ pub fn run() {
       preview_tactics,
       set_tactics,
       toggle_player,
+      delete_save,
     ])
     .run(tauri::generate_context!())
     .expect("error while building tauri application");

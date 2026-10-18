@@ -25,4 +25,9 @@ auto: boolean,
  * Posições livres (x, y) de cada titular, quando o treinador as mexeu no campo;
  * vazio = as da formação.
  */
-positions: Array<[number, number]>, };
+positions: Array<[number, number]>, 
+/**
+ * Setas de movimento (botão direito no campo): para onde cada titular corre, alinhado
+ * com `starters`; vazio ou `None` = sem seta.
+ */
+runs: Array<[number, number] | null>, };

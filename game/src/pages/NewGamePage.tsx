@@ -3,6 +3,7 @@ import { api } from '../api'
 import type { NationOption } from '../bindings/NationOption'
 import type { NationProfile } from '../bindings/NationProfile'
 import { DialogFrame, DialogRow, Overlay } from '../components/Dialog'
+import Loading from '../components/Loading'
 import PickList, { type PickGroup, type PickItem } from '../components/PickList'
 import { useGame } from '../game'
 import { useNav } from '../nav'
@@ -20,6 +21,12 @@ function parseBirth(text: string): string | null | undefined {
 }
 
 const FIELD = 'cm-field h-7 w-72 text-[15px]'
+
+/** Máscara dd.mm.aaaa: só dígitos, com os pontos postos sozinhos. */
+function maskDate(text: string): string {
+  const d = text.replace(/\D/g, '').slice(0, 8)
+  return [d.slice(0, 2), d.slice(2, 4), d.slice(4)].filter(Boolean).join('.')
+}
 
 /** "Novo Jogo": 1) dados do treinador, 2) escolha do clube. */
 export default function NewGamePage() {
@@ -126,7 +133,14 @@ export default function NewGamePage() {
               <input className={FIELD} value={form.lastName} onChange={(e) => set({ lastName: e.target.value })} />
             </DialogRow>
             <DialogRow label="Data de Nascimento">
-              <input className={FIELD} placeholder="dd.mm.aaaa" value={form.birth} onChange={(e) => set({ birth: e.target.value })} />
+              <input
+                className={FIELD}
+                placeholder="dd.mm.aaaa"
+                inputMode="numeric"
+                maxLength={10}
+                value={form.birth}
+                onChange={(e) => set({ birth: maskDate(e.target.value) })}
+              />
             </DialogRow>
             <DialogRow label="Nacionalidade">{nationSelect(form.nationId, (id) => set({ nationId: id }))}</DialogRow>
             {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
@@ -161,6 +175,7 @@ export default function NewGamePage() {
           {nation && <PickList key={nation.id} groups={groups} onSelect={setClub} onOpen={(c) => void start(c)} empty="Nenhum clube com liga nesta nação." />}
         </div>
       </DialogFrame>
+      {busy && <Loading title="Novo Jogo" detail="A criar o jogo e o calendário…" />}
     </Overlay>
   )
 }

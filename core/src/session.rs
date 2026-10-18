@@ -87,6 +87,16 @@ impl Session {
         self.game.as_ref().map(Game::info).transpose()
     }
 
+    /// Apaga um jogo gravado (não o que está aberto).
+    pub fn delete_save(&mut self, file: &str) -> Result<()> {
+        if let Some(g) = &self.game {
+            if g.path().file_name().and_then(|n| n.to_str()) == Some(file) {
+                return Err(Error::Invalid("Não é possível apagar o jogo que está aberto.".into()));
+            }
+        }
+        crate::delete_save(&self.saves_dir, file)
+    }
+
     pub fn list_saves(&self) -> Result<Vec<SaveSummary>> {
         list_saves(&self.saves_dir)
     }

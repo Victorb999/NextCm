@@ -179,6 +179,10 @@ pub struct Selection {
     /// vazio = as da formação.
     #[serde(default)]
     pub positions: Vec<[i32; 2]>,
+    /// Setas de movimento (botão direito no campo): para onde cada titular corre, alinhado
+    /// com `starters`; vazio ou `None` = sem seta.
+    #[serde(default)]
+    pub runs: Vec<Option<[i32; 2]>>,
 }
 
 /// Suplentes no banco (o patch CLZ usa 9, como o CM 01/02 com a Coalizão).
@@ -287,6 +291,8 @@ pub struct TacticSlot {
     pub x: i32,
     pub y: i32,
     pub player: Option<TacticPlayer>,
+    /// Seta de movimento: para onde corre (acima = ataca, abaixo = recua).
+    pub run: Option<[i32; 2]>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -324,6 +330,7 @@ impl ClubTactics {
             instructions: self.instructions,
             auto: self.auto,
             positions: if self.custom { self.starters.iter().map(|s| [s.x, s.y]).collect() } else { Vec::new() },
+            runs: self.starters.iter().map(|s| s.run).collect(),
         }
     }
 }
@@ -499,7 +506,7 @@ impl World {
             starters: layout
                 .iter()
                 .zip(chosen)
-                .map(|(&(pos, side, x, y), player)| TacticSlot { role: role_label(pos, side), x, y, player })
+                .map(|(&(pos, side, x, y), player)| TacticSlot { role: role_label(pos, side), x, y, player, run: None })
                 .collect(),
             bench,
             reserves,
@@ -536,11 +543,13 @@ impl World {
             }
         }
         let find = |pid: i32| pool.iter().find(|c| c.id == pid).unwrap();
-        let mut pairs: Vec<(Slot, Option<i32>)> = layout.into_iter().zip(sel.starters.iter().copied()).collect();
-        pairs.sort_by_key(|(slot, _)| slot_order(slot));
+        let run = |i: usize| sel.runs.get(i).copied().flatten().map(|[x, y]| [x.clamp(2, 98), y.clamp(2, 98)]);
+        let mut pairs: Vec<(Slot, Option<i32>, Option<[i32; 2]>)> =
+            layout.into_iter().zip(sel.starters.iter().copied()).enumerate().map(|(i, (slot, pid))| (slot, pid, run(i))).collect();
+        pairs.sort_by_key(|(slot, ..)| slot_order(slot));
         let starters = pairs
             .iter()
-            .map(|&(slot, pid)| {
+            .map(|&(slot, pid, run)| {
                 let (pos, side, x, y) = slot;
                 TacticSlot {
                     role: role_label(pos, side),
@@ -550,6 +559,7 @@ impl World {
                         let c = find(pid);
                         c.player(Some(c.fit(slot)))
                     }),
+                    run,
                 }
             })
             .collect();

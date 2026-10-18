@@ -30,6 +30,7 @@ export const selectionOf = (t: ClubTactics): Selection => ({
   auto: t.auto,
   // Posições livres só quando o treinador as mexeu (senão valem as da formação)
   positions: t.custom ? t.starters.map((s) => [s.x, s.y] as [number, number]) : [],
+  runs: t.starters.map((s) => s.run),
 })
 
 /** Número de suplentes no banco (BENCH no core). */

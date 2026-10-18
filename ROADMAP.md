@@ -227,7 +227,9 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 - No dia do jogo, um titular lesionado ou suspenso é trocado pelo adjunto (o melhor suplente para a função, senão das reservas), com notícia.
 - Tabelas novas no save: `selection` (formação, instruções, adjunto) e `selection_players` (função → jogador). `SAVE_VERSION` passa a 3.
 - Números de camisola únicos: o banco do patch repete números e deixa muitos jogadores sem número; no jogo, quem tem mais CA fica com o número e os outros (e quem não tinha) recebem um número livre sorteado com a seed (guarda-redes preferem 1, 12, 22…).
-- `SAVE_VERSION` 4 (posições livres em `selection_players.x/y`); saves do formato 3 são migrados ao carregar.
+- Setas de movimento: botão direito e arrastar a partir de um titular desenha a seta tracejada do CM (para cima ataca, para baixo recua; soltar nele próprio apaga). No motor v1, cada seta para a frente dá +1% no ataque e −0,5% na defesa (e o contrário para trás), até o 3.4 lhes dar lances.
+- `SAVE_VERSION` 5 (posições livres em `selection_players.x/y`, setas em `run_x/run_y`); saves dos formatos 3 e 4 são migrados ao carregar.
+- Interface: casas e abas com o relevo ("entalhe") do CM; Apagar no Carregar Jogo (com confirmação; não apaga o jogo aberto); máscara dd.mm.aaaa na data de nascimento; ecrãs de carregamento ao criar/carregar o jogo e no Continuar Jogo; ecrã "Dia de Jogo" (relógio de 0' a 90' e o resultado) que leva aos Resultados da jornada; a competição abre direto na Classificação (sem a aba Clubes).
 
 **Instruções à Equipa** (o diálogo verde do CM)
 - Mentalidade (Defensivo/Normal/Atacante), Passe (Misto/Curto/Directo/Longo), Desarme (Normal/Suave/Duro), Pressão, Defesa em Linha, Contra-Ataque e Defesa Intensa (Não/Sim).

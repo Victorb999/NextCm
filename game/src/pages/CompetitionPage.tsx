@@ -6,7 +6,6 @@ import type { CompetitionProfile } from '../bindings/CompetitionProfile'
 import type { Fixture } from '../bindings/Fixture'
 import type { StandingRow } from '../bindings/StandingRow'
 import { FixtureRows } from '../components/Fixtures'
-import PickList from '../components/PickList'
 import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
 import { continentPt } from '../continents'
 import { matchDate } from '../format'
@@ -14,7 +13,6 @@ import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
 const TABS = [
-  { key: 'clubs', label: 'Clubes' },
   { key: 'table', label: 'Classificação' },
   { key: 'fixtures', label: 'Calendário' },
   { key: 'results', label: 'Resultados' },
@@ -171,7 +169,8 @@ function Results({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
   )
 }
 
-export default function CompetitionPage({ id }: { id: number }) {
+/** Competição: abre na Classificação (ou na aba pedida, ex.: Resultados depois de um jogo). */
+export default function CompetitionPage({ id, initialTab }: { id: number; initialTab?: string }) {
   const nav = useNav()
   const game = useGame()
   useEscBack()
@@ -179,17 +178,18 @@ export default function CompetitionPage({ id }: { id: number }) {
   const [table, setTable] = useState<StandingRow[]>([])
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState('clubs')
+  const [tab, setTab] = useState(initialTab ?? 'table')
 
   useEffect(() => {
     api.getCompetition(id).then(
       (c) => {
         setComp(c)
-        if (c.clubs.length === 0 && c.history.length > 0) setTab('history')
+        // Sem participantes (ex.: Libertadores fora do jogo): só há o historial
+        if (!initialTab && c.clubs.length === 0 && c.history.length > 0) setTab('history')
       },
       (e) => setError(String(e)),
     )
-  }, [id])
+  }, [id, initialTab])
 
   // Classificação e calendário reais (só nas competições vivas do jogo); recarrega a cada dia
   const date = game.info?.date
@@ -226,27 +226,6 @@ export default function CompetitionPage({ id }: { id: number }) {
             {where} · Reputação {comp.reputation}
             {comp.kind === 'national' && ' · Seleções'}
           </div>
-        )}
-        {comp && tab === 'clubs' && (
-          <>
-            <div className="shrink-0 py-1 text-center font-title text-xl font-bold text-cm-yellow">
-              {comp.clubs.length} clubes
-            </div>
-            <PickList
-              groups={[
-                {
-                  items: comp.clubs.map((c) => ({
-                    id: c.club.id,
-                    label: c.club.shortName,
-                    // Nação só faz sentido em competições continentais/mundiais
-                    detail: comp.nationId === null ? (c.nation ?? '') : undefined,
-                  })),
-                },
-              ]}
-              onOpen={(c) => nav.go({ kind: 'club', id: c.id })}
-              empty="Sem lista de participantes (definida a cada temporada)."
-            />
-          </>
         )}
         {comp && tab === 'table' && <Table c={comp} rows={table} own={own} />}
         {tab === 'fixtures' && fixtures.length > 0 && <Calendar fixtures={fixtures} own={own} />}

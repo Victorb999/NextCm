@@ -22,7 +22,8 @@ use crate::{Error, Result, World, date};
 /// Versão do formato do save; saves de outra versão são recusados até haver migração.
 /// 2: tabela `fixtures` (marco 3.2). 3: estado dos jogadores e a escolha da equipa (3.3).
 /// 4: posições livres no campo (`selection_players.x/y`) e titulares na ordem do CM.
-pub const SAVE_VERSION: i32 = 4;
+/// 5: setas de movimento (`selection_players.run_x/run_y`).
+pub const SAVE_VERSION: i32 = 5;
 
 /// Quantos dias "Continuar Jogo" avança no máximo quando não acontece nada.
 const MAX_IDLE_DAYS: i32 = 42;
@@ -91,6 +92,8 @@ CREATE TABLE selection_players (
     person_id INTEGER,
     x INTEGER,
     y INTEGER,
+    run_x INTEGER,
+    run_y INTEGER,
     PRIMARY KEY (club_id, slot)
 );
 ";
@@ -289,9 +292,20 @@ impl Game {
             .map_err(|_| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?
             .ok_or_else(|| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?;
         let (version, name, date, seed, manager_id, club_id) = row;
+        let mut version = version;
         if version == 3 {
             migrate_v3(&world, club_id)?;
-        } else if version != SAVE_VERSION {
+            version = 4;
+        }
+        if version == 4 {
+            world.conn.execute_batch(
+                "ALTER TABLE selection_players ADD COLUMN run_x INTEGER;
+                 ALTER TABLE selection_players ADD COLUMN run_y INTEGER;
+                 UPDATE game SET version = 5;",
+            )?;
+            version = 5;
+        }
+        if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
             )));
@@ -415,13 +429,18 @@ impl Game {
                     self.club_id, sel.formation, sel.auto, mentality, passing, tackling, i.pressing, i.offside_trap, i.counter_attack, i.tight_marking
                 ],
             )?;
-            let mut stmt = tx.prepare("INSERT INTO selection_players (club_id, slot, person_id, x, y) VALUES (?, ?, ?, ?, ?)")?;
+            let mut stmt = tx.prepare(
+                "INSERT INTO selection_players (club_id, slot, person_id, x, y, run_x, run_y) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            )?;
             for (slot, pid) in sel.starters.iter().enumerate() {
                 let xy = sel.positions.get(slot);
-                stmt.execute(params![self.club_id, slot as i32, pid, xy.map(|p| p[0]), xy.map(|p| p[1])])?;
+                let run = sel.runs.get(slot).copied().flatten();
+                stmt.execute(params![
+                    self.club_id, slot as i32, pid, xy.map(|p| p[0]), xy.map(|p| p[1]), run.map(|r| r[0]), run.map(|r| r[1])
+                ])?;
             }
             for (i, pid) in sel.bench.iter().enumerate() {
-                stmt.execute(params![self.club_id, 100 + i as i32, pid, None::<i32>, None::<i32>])?;
+                stmt.execute(params![self.club_id, 100 + i as i32, pid, None::<i32>, None::<i32>, None::<i32>, None::<i32>])?;
             }
         }
         tx.commit()?;
@@ -897,15 +916,25 @@ fn load_selection(world: &World, club_id: i32) -> Result<Option<Selection>> {
     let mut positions = vec![[0, 0]; 11];
     let mut custom = 0;
     let mut bench = Vec::new();
-    let mut stmt = world.conn.prepare("SELECT slot, person_id, x, y FROM selection_players WHERE club_id = ? ORDER BY slot")?;
+    let mut runs = vec![None; 11];
+    let mut stmt =
+        world.conn.prepare("SELECT slot, person_id, x, y, run_x, run_y FROM selection_players WHERE club_id = ? ORDER BY slot")?;
     let rows = stmt.query_map([club_id], |r| {
-        Ok((r.get::<_, i32>(0)?, r.get::<_, Option<i32>>(1)?, r.get::<_, Option<i32>>(2)?, r.get::<_, Option<i32>>(3)?))
+        Ok((
+            r.get::<_, i32>(0)?,
+            r.get::<_, Option<i32>>(1)?,
+            r.get::<_, Option<i32>>(2)?,
+            r.get::<_, Option<i32>>(3)?,
+            r.get::<_, Option<i32>>(4)?,
+            r.get::<_, Option<i32>>(5)?,
+        ))
     })?;
     for row in rows {
-        let (slot, pid, x, y) = row?;
+        let (slot, pid, x, y, rx, ry) = row?;
         match slot {
             0..=10 => {
                 starters[slot as usize] = pid;
+                runs[slot as usize] = rx.zip(ry).map(|(x, y)| [x, y]);
                 if let (Some(x), Some(y)) = (x, y) {
                     positions[slot as usize] = [x, y];
                     custom += 1;
@@ -916,7 +945,7 @@ fn load_selection(world: &World, club_id: i32) -> Result<Option<Selection>> {
         }
     }
     let positions = if custom == 11 { positions } else { Vec::new() };
-    Ok(Some(Selection { formation, starters, bench, instructions, auto, positions }))
+    Ok(Some(Selection { formation, starters, bench, instructions, auto, positions, runs }))
 }
 
 /// Save do formato 3 → 4: colunas x/y e os titulares reordenados para a ordem do CM
@@ -937,7 +966,7 @@ fn migrate_v3(world: &World, club_id: i32) -> Result<()> {
             tx.execute("INSERT INTO selection_players (club_id, slot, person_id) VALUES (?, ?, ?)", params![club_id, k as i32, pid])?;
         }
     }
-    tx.execute("UPDATE game SET version = ?", [SAVE_VERSION])?;
+    tx.execute("UPDATE game SET version = 4", [])?;
     tx.commit()?;
     Ok(())
 }
@@ -947,7 +976,9 @@ fn migrate_v3(world: &World, club_id: i32) -> Result<()> {
 /// fica com o número, e os outros (e quem não tinha) recebem um número livre sorteado
 /// com a seed do jogo (guarda-redes preferem 1, 12, 22, 23...).
 fn fix_squad_numbers(world: &World, clubs: &[i32], seed: i64) -> Result<()> {
-    let mut stmt = world.conn.prepare(
+    // Uma transação só: centenas de UPDATEs soltos fariam um commit (e um fsync) cada
+    let tx = world.conn.unchecked_transaction()?;
+    let mut stmt = tx.prepare(
         "SELECT pl.person_id, pl.squad_number, pl.pos_goalkeeper FROM players pl JOIN people p ON p.id = pl.person_id
          WHERE p.club_id = ? ORDER BY pl.current_ability DESC, pl.person_id",
     )?;
@@ -976,9 +1007,11 @@ fn fix_squad_numbers(world: &World, clubs: &[i32], seed: i64) -> Result<()> {
                 }
             };
             used.insert(free);
-            world.conn.execute("UPDATE players SET squad_number = ? WHERE person_id = ?", params![free, id])?;
+            tx.execute("UPDATE players SET squad_number = ? WHERE person_id = ?", params![free, id])?;
         }
     }
+    drop(stmt);
+    tx.commit()?;
     Ok(())
 }
 
@@ -1057,6 +1090,17 @@ fn welcome_news(world: &World, club: &ClubRef, manager: &str, date: &str) -> Res
         ),
         read: false,
     })
+}
+
+/// Apaga um jogo gravado de `dir` (só pelo nome do arquivo, nunca um caminho qualquer).
+pub fn delete_save(dir: &Path, file: &str) -> Result<()> {
+    let name = Path::new(file).file_name().ok_or_else(|| Error::Invalid("Arquivo inválido.".into()))?;
+    let path = dir.join(name);
+    if path.extension().and_then(|e| e.to_str()) != Some("sqlite") || !path.exists() {
+        return Err(Error::Invalid("Esse jogo gravado não existe.".into()));
+    }
+    std::fs::remove_file(&path)?;
+    Ok(())
 }
 
 /// Jogos gravados em `dir`, do mais recente para o mais antigo. Arquivos que não são
@@ -1410,6 +1454,36 @@ mod tests {
     }
 
     #[test]
+    fn runs_are_saved_and_count_in_the_engine() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("runs");
+        let palmeiras = 7568;
+        let mut g = Game::create(&world, &dir, &new_game(palmeiras), 4).unwrap();
+        let t = g.club_tactics(palmeiras).unwrap();
+        let mut sel = t.selection();
+        sel.auto = false;
+        // Os dois laterais (2 e 3 na ordem do CM) sobem pelo corredor
+        sel.runs = vec![None; 11];
+        for i in [1, 2] {
+            sel.runs[i] = Some([t.starters[i].x, t.starters[i].y - 30]);
+        }
+        let with = g.set_selection(sel.clone()).unwrap();
+        assert_eq!(with.starters[1].run, sel.runs[1]);
+        let (a, b) = (TeamStrength::from_tactics(&t), TeamStrength::from_tactics(&with));
+        assert!(b.attack > a.attack && b.defence < a.defence);
+        g.save().unwrap();
+        let path = g.path().to_path_buf();
+        drop(g);
+        let g = Game::load(&path).unwrap();
+        assert_eq!(g.club_tactics(palmeiras).unwrap().starters[2].run, sel.runs[2]);
+        drop(g);
+        assert!(delete_save(&dir, "../world.sqlite").is_err());
+        delete_save(&dir, path.file_name().unwrap().to_str().unwrap()).unwrap();
+        assert!(list_saves(&dir).unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn version_3_saves_are_migrated() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let dir = temp_dir("migrate");
@@ -1432,7 +1506,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

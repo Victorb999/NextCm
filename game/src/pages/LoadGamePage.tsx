@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { SaveSummary } from '../bindings/SaveSummary'
 import { DialogFrame, Overlay } from '../components/Dialog'
+import Loading from '../components/Loading'
 import { cmDate } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
@@ -21,6 +22,7 @@ export default function LoadGamePage() {
   const [selected, setSelected] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirm, setConfirm] = useState<SaveSummary | null>(null)
 
   useEffect(() => {
     api.listSaves().then(setSaves, (e) => setError(String(e)))
@@ -38,9 +40,25 @@ export default function LoadGamePage() {
     }
   }
 
+  /** Apaga o jogo gravado (depois de confirmar) e atualiza a lista. */
+  const remove = async (s: SaveSummary) => {
+    setConfirm(null)
+    try {
+      await api.deleteSave(s.file)
+      const list = await api.listSaves()
+      setSaves(list)
+      setSelected((i) => Math.min(i, Math.max(0, list.length - 1)))
+      setError(null)
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (confirm || busy) return
       if (e.key === 'Escape') game.setMode('start')
+      if (e.key === 'Delete' && saves?.[selected]) setConfirm(saves[selected])
       if (e.key === 'Enter') void load(saves?.[selected])
       if (e.key === 'ArrowDown') setSelected((i) => Math.min((saves?.length ?? 1) - 1, i + 1))
       if (e.key === 'ArrowUp') setSelected((i) => Math.max(0, i - 1))
@@ -58,6 +76,17 @@ export default function LoadGamePage() {
         onCancel={() => game.setMode('start')}
         onOk={saves?.length ? () => void load(saves[selected]) : undefined}
         okLabel={busy ? 'A carregar…' : 'Ok'}
+        header={
+          <div className="flex shrink-0 justify-end px-1 pt-1.5">
+            <button
+              className="cm-purple h-6 w-32"
+              disabled={!saves?.length || busy}
+              onClick={() => saves?.[selected] && setConfirm(saves[selected])}
+            >
+              Apagar
+            </button>
+          </div>
+        }
       >
         {error && <div className="mb-2 bg-red-900 px-2 py-1 text-white">{error}</div>}
         {saves && saves.length === 0 && <div className="p-6 text-center text-cm-yellow">Nenhum jogo gravado.</div>}
@@ -91,6 +120,17 @@ export default function LoadGamePage() {
           </table>
         )}
       </DialogFrame>
+      {confirm && (
+        <Overlay>
+          <DialogFrame title="Apagar Jogo" width={480} onCancel={() => setConfirm(null)} onOk={() => void remove(confirm)} okLabel="Apagar">
+            <div className="py-3 text-center font-title text-[18px] text-white">
+              Apagar o jogo <span className="text-cm-yellow">{confirm.name}</span> ({confirm.clubName})?
+              <div className="pt-1 text-[14px] text-[#d8c8f4]">Não dá para desfazer.</div>
+            </div>
+          </DialogFrame>
+        </Overlay>
+      )}
+      {busy && <Loading title="Carregar Jogo" detail={`A carregar ${saves?.[selected]?.name ?? 'o jogo'}…`} />}
     </Overlay>
   )
 }

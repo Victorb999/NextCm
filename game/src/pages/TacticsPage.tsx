@@ -74,7 +74,7 @@ function Row({
         onMouseDown={(e) => e.stopPropagation()}
         onClick={toggle}
         title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
-        className={`w-7 shrink-0 cursor-pointer text-center tabular-nums ${kind === 'bench' ? 'bg-[#1d2d8a] text-white' : 'text-white'}`}
+        className={`w-7 shrink-0 cursor-pointer text-center tabular-nums cm-cell ${kind === 'bench' ? '!bg-[#1d2d8a] text-white' : 'text-white'}`}
       >
         {p.squadNumber ?? ''}
       </span>
@@ -82,7 +82,7 @@ function Row({
         onMouseDown={(e) => e.stopPropagation()}
         onClick={toggle}
         className={`w-9 shrink-0 cursor-pointer text-center text-[11px] ${
-          kind === 'starter' && outOfPosition(p) ? 'bg-[#7a3d00] text-cm-orange' : 'bg-[#262626] text-cm-yellow'
+          kind === 'starter' && outOfPosition(p) ? 'cm-cell !bg-[#7a3d00] text-cm-orange' : 'cm-cell text-cm-yellow'
         }`}
         title={kind === 'starter' && p.fit !== null ? `Nota na função: ${p.fit}` : undefined}
       >
@@ -98,11 +98,42 @@ function Row({
   )
 }
 
-/** Campo com a formação, como a "Vista Geral" do CM. */
-function Pitch({ t, bind }: { t: ClubTactics; bind: (s: Spot, label: string) => Bind }) {
+/** Seta tracejada (em % do campo), como as setas de movimento do CM. */
+function Arrow({ from, to, live }: { from: [number, number]; to: [number, number]; live?: boolean }) {
+  // Ponta da seta: dois traços curtos para trás a partir do alvo
+  const [x1, y1] = from
+  const [x2, y2] = to
+  const a = Math.atan2(y2 - y1, x2 - x1)
+  const head = (d: number) => [x2 - 3 * Math.cos(a + d), y2 - 3 * Math.sin(a + d)]
+  const [hx1, hy1] = head(0.5)
+  const [hx2, hy2] = head(-0.5)
+  const colour = live ? '#ffff40' : '#ffffff'
+  return (
+    <g stroke={colour} strokeWidth={1.5} fill="none" vectorEffect="non-scaling-stroke">
+      <line x1={x1} y1={y1} x2={x2} y2={y2} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
+      <polyline points={`${hx1},${hy1} ${x2},${y2} ${hx2},${hy2}`} vectorEffect="non-scaling-stroke" />
+    </g>
+  )
+}
+
+/** Campo com a formação, como a "Vista Geral" do CM. Botão direito e arrastar a partir de
+ * um jogador desenha a seta de movimento (para cima ataca, para baixo recua). */
+function Pitch({
+  t,
+  bind,
+  run,
+  onRunStart,
+}: {
+  t: ClubTactics
+  bind: (s: Spot, label: string) => Bind
+  /** Seta a ser desenhada agora (botão direito em curso). */
+  run: { index: number; x: number; y: number } | null
+  onRunStart: (index: number) => void
+}) {
   return (
     <div
       data-pitch
+      onContextMenu={(e) => e.preventDefault()}
       className="relative min-h-0 flex-1 overflow-hidden border border-[#1d5a1d] bg-[repeating-linear-gradient(0deg,#1f6b22_0_36px,#1c6420_36px_72px)]"
     >
       {/* Linhas do campo */}
@@ -111,10 +142,24 @@ function Pitch({ t, bind }: { t: ClubTactics; bind: (s: Spot, label: string) => 
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40" />
       <div className="pointer-events-none absolute left-1/2 top-2 h-[16%] w-[44%] -translate-x-1/2 border border-t-0 border-white/40" />
       <div className="pointer-events-none absolute bottom-2 left-1/2 h-[16%] w-[44%] -translate-x-1/2 border border-b-0 border-white/40" />
-      {t.starters.map((s, i) => (
+      <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {t.starters.map((s, i) =>
+          s.run && run?.index !== i ? <Arrow key={i} from={[s.x, s.y]} to={[s.run[0], s.run[1]]} /> : null,
+        )}
+        {run && <Arrow from={[t.starters[run.index].x, t.starters[run.index].y]} to={[run.x, run.y]} live />}
+      </svg>
+      {t.starters.map((s, i) => {
+        const b = bind({ kind: 'starter', index: i }, s.player ? surname(s.player.listName) : s.role)
+        return (
         <div
           key={i}
-          {...bind({ kind: 'starter', index: i }, s.player ? surname(s.player.listName) : s.role)}
+          {...b}
+          onMouseDown={(e) => {
+            if (e.button === 2 && t.editable && s.role !== 'GR') {
+              e.preventDefault()
+              onRunStart(i)
+            } else b.onMouseDown(e)
+          }}
           className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center ${t.editable ? 'cursor-grab' : ''}`}
           style={{ left: `${s.x}%`, top: `${s.y}%` }}
           title={s.role}
@@ -134,7 +179,8 @@ function Pitch({ t, bind }: { t: ClubTactics; bind: (s: Spot, label: string) => 
             {s.player ? surname(s.player.listName) : shortRole(s.role)}
           </span>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -192,6 +238,41 @@ export default function TacticsPage({ id }: { id: number }) {
       setError(String(e))
     }
   }
+
+  // Seta de movimento a ser desenhada com o botão direito
+  const [run, setRun] = useState<{ index: number; x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (!run) return
+    const pitch = document.querySelector('[data-pitch]')
+    if (!pitch) return
+    const at = (e: MouseEvent) => {
+      const r = pitch.getBoundingClientRect()
+      const clamp = (v: number) => Math.round(Math.min(98, Math.max(2, v)))
+      return [clamp(((e.clientX - r.left) / r.width) * 100), clamp(((e.clientY - r.top) / r.height) * 100)]
+    }
+    const move = (e: MouseEvent) => {
+      const [x, y] = at(e)
+      setRun((cur) => cur && { ...cur, x, y })
+    }
+    const up = (e: MouseEvent) => {
+      const [x, y] = at(e)
+      const index = run.index
+      setRun(null)
+      if (!t) return
+      const slot = t.starters[index]
+      const runs = t.starters.map((s) => s.run)
+      // Soltar em cima do próprio jogador apaga a seta
+      runs[index] = Math.hypot(x - slot.x, y - slot.y) < 5 ? null : [x, y]
+      void apply({ ...selectionOf(t), runs, auto: false })
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run?.index])
 
   const drag = useDragSwap({
     enabled: editable,
@@ -289,7 +370,7 @@ export default function TacticsPage({ id }: { id: number }) {
                 ) : (
                   <div key={`s${i}`} {...drag.bind(spot, s.role)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
                     <span className="w-7 shrink-0" />
-                    <span className="w-9 shrink-0 bg-[#262626] text-center text-[11px] text-cm-yellow">{shortRole(s.role)}</span>
+                    <span className="cm-cell w-9 shrink-0 text-center text-[11px] text-cm-yellow">{shortRole(s.role)}</span>
                     <span className="italic text-[#8a8a8a]">— vazio: arraste alguém para aqui —</span>
                   </div>
                 )
@@ -303,8 +384,8 @@ export default function TacticsPage({ id }: { id: number }) {
                   <Row key={`b${p.id}`} p={p} kind="bench" place={`SB${i + 1}`} bind={drag.bind(spot, label(p, ''))} onToggle={toggler(p)} />
                 ) : (
                   <div key={`b-empty${i}`} {...drag.bind(spot, `SB${i + 1}`)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
-                    <span className="w-7 shrink-0 bg-[#1d2d8a]" />
-                    <span className="w-9 shrink-0 bg-[#262626] text-center text-[11px] text-cm-yellow">SB{i + 1}</span>
+                    <span className="cm-cell w-7 shrink-0 !bg-[#1d2d8a]">&nbsp;</span>
+                    <span className="cm-cell w-9 shrink-0 text-center text-[11px] text-cm-yellow">SB{i + 1}</span>
                     <span className="italic text-[#6a5a8a]">— vazio —</span>
                   </div>
                 )
@@ -337,11 +418,16 @@ export default function TacticsPage({ id }: { id: number }) {
               onChange={() => {}}
             />
             <div className="mt-1 flex min-h-0 flex-1 flex-col">
-              <Pitch t={t} bind={drag.bind} />
+              <Pitch
+                t={t}
+                bind={drag.bind}
+                run={run}
+                onRunStart={(index) => setRun({ index, x: t.starters[index].x, y: t.starters[index].y })}
+              />
             </div>
             {editable && (
               <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
-                Arraste para trocar ou para um lugar vazio do campo · clique no número ou na casa para pôr/tirar · duplo clique abre o perfil
+                Arraste para trocar ou para um lugar vazio · botão direito e arrastar faz a seta (atacar/recuar) · clique no número para pôr/tirar
               </div>
             )}
           </div>

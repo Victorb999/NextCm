@@ -4,7 +4,10 @@ import type { ReactNode } from 'react'
 import { api, hasBackend } from './api'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import CascadeMenu, { type MenuNode } from './components/CascadeMenu'
+import type { Fixture } from './bindings/Fixture'
 import { DialogFrame, Overlay } from './components/Dialog'
+import Loading from './components/Loading'
+import MatchDay from './components/MatchDay'
 import OptionsDialog from './components/OptionsDialog'
 import { competitionsMenu } from './competitionsMenu'
 import { GameProvider, useGame } from './game'
@@ -58,7 +61,21 @@ function SideButton({
 type Menu = { kind: 'competitions' | 'manager'; x: number; y: number }
 
 /** Coluna de navegação à esquerda, como no CM 01/02. */
-function SideBar({ onOptions, onExit, notify }: { onOptions: () => void; onExit: () => void; notify: (msg: string) => void }) {
+function SideBar({
+  onOptions,
+  onExit,
+  notify,
+  onProcessing,
+  onMatch,
+}: {
+  onOptions: () => void
+  onExit: () => void
+  notify: (msg: string) => void
+  /** "A processar…" enquanto o Continuar Jogo corre. */
+  onProcessing: (busy: boolean) => void
+  /** O treinador jogou hoje: mostra o dia de jogo. */
+  onMatch: (f: Fixture) => void
+}) {
   const nav = useNav()
   const game = useGame()
   const [comps, setComps] = useState<CompetitionListItem[] | null>(null)
@@ -84,15 +101,20 @@ function SideBar({ onOptions, onExit, notify }: { onOptions: () => void; onExit:
   const advance = async () => {
     if (busy) return
     setBusy(true)
+    onProcessing(true)
     try {
       const before = info?.unreadNews ?? 0
       const next = await api.continueGame()
       game.update(next)
-      if (next.unreadNews > before) nav.go({ kind: 'news' })
+      // Se o clube do treinador jogou hoje: ecrã do dia de jogo e depois os Resultados
+      const played = (await api.clubFixtures(next.club.id)).find((f) => f.date === next.date && f.homeGoals !== null)
+      if (played) onMatch(played)
+      else if (next.unreadNews > before) nav.go({ kind: 'news' })
     } catch (e) {
       notify(String(e))
     } finally {
       setBusy(false)
+      onProcessing(false)
     }
   }
 
@@ -227,7 +249,9 @@ function Screens() {
       {current.kind === 'tactics' && <TacticsPage key={current.id} id={current.id} />}
       {current.kind === 'clubHistory' && <ClubHistoryPage key={current.id} id={current.id} />}
       {current.kind === 'competitions' && <CompetitionsPage />}
-      {current.kind === 'competition' && <CompetitionPage key={current.id} id={current.id} />}
+      {current.kind === 'competition' && (
+        <CompetitionPage key={`${current.id}-${current.tab ?? ''}`} id={current.id} initialTab={current.tab} />
+      )}
       {current.kind === 'nations' && <NationsPage />}
       {current.kind === 'nation' && <NationPage key={current.id} id={current.id} />}
     </>
@@ -275,6 +299,13 @@ function Shell() {
   const [options, setOptions] = useState(false)
   const [exiting, setExiting] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [processing, setProcessing] = useState(false)
+  const [match, setMatch] = useState<Fixture | null>(null)
+  const nav = useNav()
+  const closeMatch = useCallback(() => {
+    if (match) nav.go({ kind: 'competition', id: match.competitionId, tab: 'results' })
+    setMatch(null)
+  }, [match, nav])
 
   useEffect(() => {
     if (!notice) return
@@ -284,7 +315,13 @@ function Shell() {
 
   return (
     <div className="flex h-full">
-      <SideBar onOptions={() => setOptions((o) => !o)} onExit={() => setExiting(true)} notify={setNotice} />
+      <SideBar
+        onOptions={() => setOptions((o) => !o)}
+        onExit={() => setExiting(true)}
+        notify={setNotice}
+        onProcessing={setProcessing}
+        onMatch={setMatch}
+      />
       <main className="cm-backdrop relative min-w-0 flex-1">
         {!hasBackend && (
           <div className="p-6 text-[#aab3c4]">
@@ -297,6 +334,8 @@ function Shell() {
         {game.mode === 'loadGame' && <LoadGamePage />}
         {exiting && <ExitDialog onCancel={() => setExiting(false)} notify={setNotice} />}
         {options && <OptionsDialog onClose={() => setOptions(false)} />}
+        {processing && <Loading title="Continuar Jogo" detail="A processar…" delay={250} />}
+        {match && <MatchDay fixture={match} onDone={closeMatch} />}
         {notice && (
           <div className="absolute left-1/2 top-16 z-50 -translate-x-1/2 border-2 border-black bg-cm-yellow px-4 py-1 font-title text-[17px] font-bold text-black">
             {notice}

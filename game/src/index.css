@@ -80,9 +80,10 @@ body {
     @apply text-[#e4e8f0];
   }
 
-  /* Abas escuras; a selecionada tem borda e texto amarelos */
+  /* Abas escuras, em relevo como no CM; a selecionada tem borda e texto amarelos */
   .cm-tab {
-    @apply flex h-9 flex-1 items-center justify-center border border-cm-tabline bg-cm-tab text-white;
+    @apply flex h-9 flex-1 items-center justify-center border bg-cm-tab text-white;
+    border-color: #5c5c5c #050505 #050505 #5c5c5c;
   }
   .cm-tab[aria-selected='true'] {
     @apply border-cm-yellow text-cm-yellow;
@@ -102,6 +103,29 @@ body {
     @apply text-cm-purpledim;
   }
 
+  /* Casa escura em relevo (número da camisola, GR/DD/SB1 no plantel e nas tácticas) */
+  .cm-cell {
+    @apply border bg-[#262626];
+    border-color: #575757 #050505 #050505 #575757;
+  }
+  .cm-cell:active {
+    border-color: #050505 #575757 #575757 #050505;
+  }
+  /* Casa roxa em relevo (as casas da equipa por cima do plantel) */
+  .cm-chip {
+    @apply border bg-cm-head text-cm-yellow;
+    border-color: #a07ae0 #22093f #22093f #a07ae0;
+  }
+  .cm-chip:active {
+    border-color: #22093f #a07ae0 #a07ae0 #22093f;
+  }
+  /* Barra de progresso dos ecrãs de carregamento */
+  .cm-progress {
+    background: repeating-linear-gradient(-45deg, #ffff40 0 10px, #c8c800 10px 20px);
+    background-size: 28px 28px;
+    animation: cm-progress 0.6s linear infinite;
+  }
+
   /* Campo de texto escuro com texto amarelo */
   .cm-field {
     @apply border border-cm-tabline bg-black px-1.5 py-0.5 text-cm-yellow outline-none focus:border-cm-yellow;
@@ -114,5 +138,11 @@ body {
   }
   .cm-option[aria-pressed='true'] {
     @apply border border-cm-yellow bg-black/60 font-bold text-cm-yellow;
+  }
+}
+
+@keyframes cm-progress {
+  to {
+    background-position: 28px 0;
   }
 }

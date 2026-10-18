@@ -59,6 +59,7 @@ export const api = {
   listSaves: () => call<SaveSummary[]>('list_saves'),
   newGame: (game: NewGame) => call<GameInfo>('new_game', { game }),
   loadGame: (file: string) => call<GameInfo>('load_game', { file }),
+  deleteSave: (file: string) => call<null>('delete_save', { file }),
   saveGame: () => call<GameInfo>('save_game'),
   closeGame: () => call<null>('close_game'),
   advanceDay: () => call<GameInfo>('advance_day'),
