@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 // Navegação entre telas com histórico, como os botões ◀ ▶ e Atrás/Seguinte do CM.
 
-export type Screen = { kind: 'search' } | { kind: 'person'; id: number }
+export type Screen = { kind: 'search' } | { kind: 'person'; id: number } | { kind: 'club'; id: number }
 
 type Nav = {
   current: Screen

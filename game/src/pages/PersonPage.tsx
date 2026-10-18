@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { PersonProfile } from '../bindings/PersonProfile'
-import { BottomBar, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
+import { cmDate, money } from '../format'
 import { useNav } from '../nav'
 
 // Atributos na ordem e com os nomes do perfil do CM 01/02 em português.
@@ -76,21 +77,6 @@ const TABS = [
 ]
 
 const DEFAULT_COLOURS = { fg: '#ffffff', bg: '#3a3a3a' }
-
-/** "2007-07-13" -> "13.7.2007", como o CM mostra as datas. */
-function cmDate(iso: string | null | undefined): string {
-  if (!iso) return '-'
-  const [y, m, d] = iso.split('-').map(Number)
-  return `${d}.${m}.${y}`
-}
-
-/** 11000 -> "€11K", 2500000 -> "€2.5M" */
-function money(v: number | null | undefined): string {
-  if (!v) return '-'
-  if (v >= 1_000_000) return `€${(v / 1_000_000).toFixed(v % 1_000_000 ? 1 : 0)}M`
-  if (v >= 1_000) return `€${Math.round(v / 1_000)}K`
-  return `€${v}`
-}
 
 function valueColor(v: number) {
   return v >= 16 ? 'text-[#ff4433]' : 'text-cm-orange'
@@ -198,8 +184,9 @@ function Profile({ p }: { p: PersonProfile }) {
 }
 
 function Contract({ p }: { p: PersonProfile }) {
+  const nav = useNav()
   const rows: [string, ReactNode][] = [
-    ['Clube', p.club?.name ?? 'Sem clube'],
+    ['Clube', p.club ? <Link key="club" onClick={() => nav.go({ kind: 'club', id: p.club!.id })}>{p.club.name}</Link> : 'Sem clube'],
     ['Função', p.job ?? '-'],
     ['No clube desde', cmDate(p.clubJoined)],
     ['Contrato até', cmDate(p.contractExpires)],
@@ -219,6 +206,7 @@ function Contract({ p }: { p: PersonProfile }) {
 }
 
 function History({ p }: { p: PersonProfile }) {
+  const nav = useNav()
   if (p.career.length === 0) return <div className="p-6 text-center text-cm-magenta">Sem histórico registado.</div>
   return (
     <div className="min-h-0 flex-1 overflow-auto px-1.5 pt-2">
@@ -226,7 +214,7 @@ function History({ p }: { p: PersonProfile }) {
         head={['Clube', 'Ano', 'Jogos', 'Golos']}
         rows={p.career.map((c) => [
           <span key="club" className="text-cm-magenta">
-            {c.club?.shortName ?? '-'}
+            {c.club ? <Link onClick={() => nav.go({ kind: 'club', id: c.club!.id })}>{c.club.shortName}</Link> : '-'}
             {c.onLoan && <span className="text-cm-yellow"> (emp.)</span>}
           </span>,
           c.year ?? '-',
@@ -262,7 +250,15 @@ export default function PersonPage({ id }: { id: number }) {
   const club = person?.club
   const colours = club?.fg && club?.bg ? { fg: club.fg, bg: club.bg } : DEFAULT_COLOURS
   const number = person?.player?.squadNumber ? `${person.player.squadNumber}. ` : ''
-  const title = person ? `${number}${person.name} (${club?.shortName ?? 'Sem clube'})` : ''
+  const title = person ? (
+    <>
+      {number}
+      {person.name} (
+      {club ? <Link onClick={() => nav.go({ kind: 'club', id: club.id })}>{club.shortName}</Link> : 'Sem clube'})
+    </>
+  ) : (
+    ''
+  )
 
   return (
     <div className="flex h-full flex-col">

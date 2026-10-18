@@ -6,7 +6,7 @@ import type { PersonKind } from '../bindings/PersonKind'
 import type { PersonSummary } from '../bindings/PersonSummary'
 import type { SearchResult } from '../bindings/SearchResult'
 import type { SearchSort } from '../bindings/SearchSort'
-import { BottomBar, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
 import { useNav } from '../nav'
 import FilterDialog from './FilterDialog'
 import { EMPTY_FILTERS, describe, toQuery, type Filters } from './searchFilters'
@@ -39,12 +39,14 @@ function Row({
   selected,
   onSelect,
   onOpen,
+  onOpenClub,
 }: {
   p: PersonSummary
   index: number
   selected: boolean
   onSelect: () => void
   onOpen: () => void
+  onOpenClub: (id: number) => void
 }) {
   return (
     <tr
@@ -54,7 +56,9 @@ function Row({
       data-row={index}
     >
       <td className="truncate px-2 text-white">{p.listName}</td>
-      <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-magenta'}`}>{p.club ?? 'Sem clube'}</td>
+      <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-magenta'}`}>
+        {p.clubId !== null && p.club ? <Link onClick={() => onOpenClub(p.clubId!)}>{p.club}</Link> : 'Sem clube'}
+      </td>
       <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-yellow'}`}>{p.nation ?? '-'}</td>
       <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-orange'}`}>{p.position || p.job}</td>
       <td className="px-2 text-center tabular-nums">{p.age ?? '-'}</td>
@@ -253,6 +257,7 @@ export default function SearchPage({ active }: { active: boolean }) {
                   selected={i === selected}
                   onSelect={() => setSelected(i)}
                   onOpen={() => open(p)}
+                  onOpenClub={(club) => nav.go({ kind: 'club', id: club })}
                 />
               ))}
             </tbody>

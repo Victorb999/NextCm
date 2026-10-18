@@ -149,7 +149,7 @@ fn attributes_from(row: &Row, skip: &[&str]) -> rusqlite::Result<Attributes> {
 }
 
 impl World {
-    fn club_ref(&self, id: Option<i32>) -> Result<Option<ClubRef>> {
+    pub(crate) fn club_ref(&self, id: Option<i32>) -> Result<Option<ClubRef>> {
         let Some(id) = id else { return Ok(None) };
         Ok(self
             .conn
@@ -169,7 +169,7 @@ impl World {
     }
 
     /// Idade em 1º de julho do ano inicial do jogo.
-    fn age_from(&self, birth_date: Option<&str>, birth_year: Option<i32>) -> Option<i32> {
+    pub(crate) fn age_from(&self, birth_date: Option<&str>, birth_year: Option<i32>) -> Option<i32> {
         match birth_date {
             Some(d) => {
                 let year: i32 = d.get(0..4)?.parse().ok()?;

@@ -1,7 +1,9 @@
+import { ChevronDown } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 /** Faixa de título das telas do CM: caixa colorida com o nome grande centralizado. */
-export function TitleBand({ title, fg, bg }: { title: string; fg: string; bg: string }) {
+export function TitleBand({ title, fg, bg }: { title: ReactNode; fg: string; bg: string }) {
   return (
     <div className="shrink-0 p-1.5 pb-1">
       <div
@@ -57,5 +59,65 @@ export function BottomBar({
         {right}
       </button>
     </div>
+  )
+}
+
+/** Botão roxo com menu ("Vêr ▼", "Critério ▼"), como os do CM. */
+export function PurpleMenu<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string
+  options: { key: T; label: string }[]
+  value?: T
+  onChange?: (key: T) => void
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative" onMouseLeave={() => setOpen(false)}>
+      <button
+        className="cm-purple flex h-6 w-40 items-center justify-center gap-1"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {label} <ChevronDown size={14} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-6 z-30 w-40 border border-cm-purplelight bg-[#2a0d52]">
+          {options.map((o) => (
+            <button
+              key={o.key}
+              onClick={() => {
+                onChange?.(o.key)
+                setOpen(false)
+              }}
+              className={`block w-full px-3 py-0.5 text-left hover:bg-cm-purple ${o.key === value ? 'text-cm-yellow' : 'text-white'}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Texto clicável que abre outra tela (clube, jogador...). */
+export function Link({ children, onClick, className = '' }: { children: ReactNode; onClick: () => void; className?: string }) {
+  return (
+    <span
+      role="link"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      className={`cursor-pointer hover:underline ${className}`}
+    >
+      {children}
+    </span>
   )
 }

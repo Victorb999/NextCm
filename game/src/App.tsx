@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { inTauri } from './api'
 import { NavProvider, useNav } from './nav'
+import ClubPage from './pages/ClubPage'
 import PersonPage from './pages/PersonPage'
 import SearchPage from './pages/SearchPage'
 
@@ -108,6 +109,7 @@ function Screens() {
         <SearchPage active={current.kind === 'search'} />
       </div>
       {current.kind === 'person' && <PersonPage key={current.id} id={current.id} />}
+      {current.kind === 'club' && <ClubPage key={current.id} id={current.id} />}
     </>
   )
 }
