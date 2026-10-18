@@ -2,13 +2,24 @@ import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
+/** Luminância aproximada de uma cor `#rrggbb` (0 = preto, 1 = branco). */
+function luminance(hex: string) {
+  const n = parseInt(hex.slice(1, 7), 16)
+  if (Number.isNaN(n)) return 0.5
+  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255
+}
+
+// Como no CM: letra clara ganha contorno preto; letra escura, sombra cinza
+const OUTLINE = '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 0 #000'
+const DROP = '2px 2px 0 rgba(0,0,0,0.3)'
+
 /** Faixa de título das telas do CM: caixa colorida com o nome grande centralizado. */
 export function TitleBand({ title, fg, bg }: { title: ReactNode; fg: string; bg: string }) {
   return (
     <div className="shrink-0 p-1.5 pb-1">
       <div
         className="flex h-14 items-center justify-center border-2 border-black font-title text-[30px] font-bold tracking-tight"
-        style={{ color: fg, background: bg, textShadow: '1px 1px 0 rgba(0,0,0,0.35)' }}
+        style={{ color: fg, background: bg, textShadow: luminance(fg) > 0.5 ? OUTLINE : DROP }}
       >
         {title}
       </div>

@@ -12,7 +12,7 @@ const TABS = CONTINENTS.map((c) => ({ key: String(c.id), label: c.label }))
 export default function NationsPage() {
   const nav = useNav()
   useEscBack()
-  const [all, setAll] = useState<NationListItem[]>([])
+  const [all, setAll] = useState<NationListItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState(rememberTab('nations') ?? '5')
 
@@ -22,7 +22,7 @@ export default function NationsPage() {
 
   const items = useMemo(
     () =>
-      all
+      (all ?? [])
         .filter((n) => n.continentId === Number(tab))
         .map((n) => ({ id: n.id, label: n.name, detail: `${n.clubs} clubes` })),
     [all, tab],
@@ -41,7 +41,7 @@ export default function NationsPage() {
       />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
         {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
-        <PickList key={tab} groups={[{ items }]} onOpen={(n) => nav.go({ kind: 'nation', id: n.id })} />
+        {all && <PickList key={tab} groups={[{ items }]} onOpen={(n) => nav.go({ kind: 'nation', id: n.id })} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
     </div>

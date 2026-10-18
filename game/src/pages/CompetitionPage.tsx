@@ -87,7 +87,7 @@ export default function CompetitionPage({ id }: { id: number }) {
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={comp?.name ?? ''} fg="#ffffff" bg="#0b2a78" />
+      <TitleBand title={comp?.name ?? ''} fg="#ffffff" bg="#1e9cf0" />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
         {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}

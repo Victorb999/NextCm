@@ -1,7 +1,10 @@
 import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { inTauri } from './api'
+import { api, hasBackend } from './api'
+import type { CompetitionListItem } from './bindings/CompetitionListItem'
+import CascadeMenu from './components/CascadeMenu'
+import { competitionsMenu } from './competitionsMenu'
 import { NavProvider, useNav } from './nav'
 import ClubPage from './pages/ClubPage'
 import CompetitionPage from './pages/CompetitionPage'
@@ -27,10 +30,16 @@ function SideButton({
   className?: string
   disabled?: boolean
   title?: string
-  onClick?: () => void
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
 }) {
   return (
-    <button disabled={disabled} title={title} onClick={onClick} className={`cm-side-btn min-h-[46px] ${className}`}>
+    <button
+      disabled={disabled}
+      title={title}
+      onClick={onClick}
+      data-menu-anchor
+      className={`cm-side-btn min-h-[46px] ${className}`}
+    >
       {children}
     </button>
   )
@@ -40,6 +49,14 @@ function SideButton({
 function SideBar() {
   const nav = useNav()
   const d = GAME_DATE
+  const [comps, setComps] = useState<CompetitionListItem[] | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
+
+  // Carrega a lista já no início para o menu abrir sem espera
+  useEffect(() => {
+    if (hasBackend) api.listCompetitions().then(setComps, () => {})
+  }, [])
   return (
     <aside className="flex w-[86px] shrink-0 flex-col gap-1 bg-gradient-to-b from-[#4f5d77] to-cm-side p-1">
       <div className="cm-side-btn min-h-[46px] flex-col font-bold text-cm-yellow">
@@ -65,7 +82,26 @@ function SideBar() {
       <SideButton disabled title="Disponível na Fase 3" className="!text-cm-pink">
         Treinador
       </SideButton>
-      <SideButton onClick={() => nav.go({ kind: 'competitions' })}>Competições</SideButton>
+      <SideButton
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect()
+          setMenu((m) => (m ? null : { x: r.right - 2, y: r.top }))
+        }}
+      >
+        Competições
+      </SideButton>
+      {menu && comps && (
+        <CascadeMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={closeMenu}
+          items={competitionsMenu(
+            comps,
+            (id) => nav.go({ kind: 'competition', id }),
+            () => nav.go({ kind: 'competitions' }),
+          )}
+        />
+      )}
       <SideButton onClick={() => nav.go({ kind: 'nations' })}>Nações &amp; Clubes</SideButton>
       <SideButton onClick={() => nav.go({ kind: 'search' })}>Procurar</SideButton>
       <SideButton disabled title="Em breve" className="!text-cm-yellow">
@@ -124,7 +160,7 @@ export default function App() {
       <div className="flex h-full">
         <SideBar />
         <main className="cm-backdrop min-w-0 flex-1">
-          {inTauri ? (
+          {hasBackend ? (
             <Screens />
           ) : (
             <div className="p-6 text-[#aab3c4]">

@@ -131,6 +131,7 @@ function PurpleTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
 }
 
 function Profile({ p }: { p: PersonProfile }) {
+  const nav = useNav()
   const pl = p.player
   const attrs = pl?.attributes ?? p.staff?.attributes ?? {}
   const list = pl ? PLAYER_ATTRIBUTES : STAFF_ATTRIBUTES
@@ -154,7 +155,12 @@ function Profile({ p }: { p: PersonProfile }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 py-2 text-center font-title text-[21px] font-bold text-cm-yellow">
-        Nascido {born} (Idade {p.age ?? '?'}). {p.nation ?? ''}
+        Nascido {born} (Idade {p.age ?? '?'}).{' '}
+        {p.nationId !== null && p.nation ? (
+          <Link onClick={() => nav.go({ kind: 'nation', id: p.nationId! })}>{p.nation}</Link>
+        ) : (
+          (p.nation ?? '')
+        )}
         {caps}.
       </div>
       <AttributeGrid items={items} />
@@ -191,7 +197,26 @@ function Contract({ p }: { p: PersonProfile }) {
     ['No clube desde', cmDate(p.clubJoined)],
     ['Contrato até', cmDate(p.contractExpires)],
     ['Salário', p.wage ? `${money(p.wage)} por semana` : '-'],
-    ['Nacionalidade', [p.nation, p.secondNation].filter(Boolean).join(' / ') || '-'],
+    [
+      'Nacionalidade',
+      p.nation ? (
+        <span key="nat">
+          {[
+            [p.nationId, p.nation],
+            [p.secondNationId, p.secondNation],
+          ]
+            .filter(([, name]) => name)
+            .map(([id, name], i) => (
+              <span key={i}>
+                {i > 0 && ' / '}
+                {id !== null ? <Link onClick={() => nav.go({ kind: 'nation', id: id as number })}>{name}</Link> : name}
+              </span>
+            ))}
+        </span>
+      ) : (
+        '-'
+      ),
+    ],
   ]
   return (
     <div className="mx-auto mt-4 w-full max-w-2xl px-1.5">

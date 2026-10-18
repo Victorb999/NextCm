@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev-bridge",
+      "runtimeExecutable": "cargo",
+      "runtimeArgs": ["run", "-p", "nextcm-core", "--example", "dev_bridge"],
+      "port": 1421
+    },
+    {
+      "name": "game-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "game", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

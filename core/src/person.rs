@@ -77,8 +77,10 @@ pub struct PersonProfile {
     pub birth_date: Option<String>,
     pub birth_year: Option<i32>,
     pub age: Option<i32>,
+    pub nation_id: Option<i32>,
     pub nation: Option<String>,
     pub nationality: Option<String>,
+    pub second_nation_id: Option<i32>,
     pub second_nation: Option<String>,
     pub international_apps: i32,
     pub international_goals: i32,
@@ -187,7 +189,8 @@ impl World {
                 "SELECT p.id, p.display_name, p.list_name, p.birth_date, p.birth_year,
                         n.name, n.nationality, n2.name,
                         p.international_apps, p.international_goals,
-                        p.club_id, j.name, p.club_joined, p.contract_expires, p.wage
+                        p.club_id, j.name, p.club_joined, p.contract_expires, p.wage,
+                        n.id, n2.id
                  FROM people p
                  LEFT JOIN nations n ON n.id = p.nation_id
                  LEFT JOIN nations n2 ON n2.id = p.second_nation_id
@@ -203,8 +206,10 @@ impl World {
                         birth_date: r.get(3)?,
                         birth_year: r.get(4)?,
                         age: None,
+                        nation_id: r.get(15)?,
                         nation: r.get(5)?,
                         nationality: r.get(6)?,
+                        second_nation_id: r.get(16)?,
                         second_nation: r.get(7)?,
                         international_apps: r.get(8)?,
                         international_goals: r.get(9)?,

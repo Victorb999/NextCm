@@ -12,7 +12,7 @@ const TABS = [...CONTINENTS.map((c) => ({ key: String(c.id), label: c.label })),
 export default function CompetitionsPage() {
   const nav = useNav()
   useEscBack()
-  const [all, setAll] = useState<CompetitionListItem[]>([])
+  const [all, setAll] = useState<CompetitionListItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState(rememberTab('competitions') ?? '5')
 
@@ -23,10 +23,10 @@ export default function CompetitionsPage() {
   const groups: PickGroup[] = useMemo(() => {
     const toItem = (c: CompetitionListItem) => ({ id: c.id, label: c.name })
     if (tab === 'world') {
-      return [{ items: all.filter((c) => c.nationId === null && c.continentId === null).map(toItem) }]
+      return [{ items: (all ?? []).filter((c) => c.nationId === null && c.continentId === null).map(toItem) }]
     }
     const continent = Number(tab)
-    const inContinent = all.filter((c) => c.continentId === continent)
+    const inContinent = (all ?? []).filter((c) => c.continentId === continent)
     const byNation = new Map<string, CompetitionListItem[]>()
     for (const c of inContinent.filter((c) => c.nation)) {
       byNation.set(c.nation!, [...(byNation.get(c.nation!) ?? []), c])
@@ -39,7 +39,7 @@ export default function CompetitionsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title="Competições" fg="#ffff40" bg="#0b2a78" />
+      <TitleBand title="Competições" fg="#ffff40" bg="#1e9cf0" />
       <Tabs
         tabs={TABS}
         active={tab}
@@ -50,7 +50,7 @@ export default function CompetitionsPage() {
       />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
         {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
-        <PickList key={tab} groups={groups} onOpen={(c) => nav.go({ kind: 'competition', id: c.id })} />
+        {all && <PickList key={tab} groups={groups} onOpen={(c) => nav.go({ kind: 'competition', id: c.id })} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
     </div>
