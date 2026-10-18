@@ -143,8 +143,8 @@ function Profile({ p }: { p: PersonProfile }) {
     items.push(
       { label: 'Pé Preferido', value: pl.preferredFoot ?? '-' },
       { label: 'Forma', value: '-' },
-      { label: 'Moral', value: pl.morale ? `${pl.morale}` : '-' },
-      { label: 'Condição', value: '100%' },
+      { label: 'Moral', value: p.status?.moraleLabel ?? '-' },
+      { label: 'Condição', value: `${p.status?.condition ?? 100}%` },
     )
   }
 
@@ -185,6 +185,30 @@ function Profile({ p }: { p: PersonProfile }) {
       <div className="shrink-0 py-2 text-center font-title text-[22px] font-bold text-cm-magenta">
         {pl ? pl.positionLong || '-' : (p.job ?? '-')}
       </div>
+    </div>
+  )
+}
+
+/** Aba "Lesões & Castigos": só num jogo em curso, para jogadores de clubes vivos. */
+function Injuries({ p }: { p: PersonProfile }) {
+  const st = p.status
+  if (!st) return <div className="p-6 text-center text-cm-magenta">Sem registos.</div>
+  const rows: [string, ReactNode][] = [
+    ['Lesão', st.injury ?? 'Nenhuma'],
+    ['Regresso previsto', st.injuryUntil ? cmDate(st.injuryUntil) : '-'],
+    ['Suspensão', st.suspended ? `${st.suspended} jogo${st.suspended > 1 ? 's' : ''}` : 'Nenhuma'],
+    ['Cartões amarelos', `${st.yellows} (suspensão ao 3º)`],
+    ['Condição', `${st.condition}%`],
+    ['Moral', st.moraleLabel],
+  ]
+  return (
+    <div className="mx-auto mt-4 w-full max-w-2xl px-1.5">
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex h-8 items-center justify-between border-b border-cm-line bg-black/50 px-3 text-[15px]">
+          <span className="text-white">{k}</span>
+          <span className={`font-bold ${k === 'Lesão' && st.injury ? 'text-[#ff5050]' : 'text-cm-yellow'}`}>{v}</span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -288,11 +312,16 @@ export default function PersonPage({ id }: { id: number }) {
   return (
     <div className="flex h-full flex-col">
       <TitleBand title={title} fg={colours.fg} bg={colours.bg} />
-      <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      <Tabs
+        tabs={TABS.map((t) => (t.key === 'injuries' ? { ...t, disabled: !person?.status } : t))}
+        active={tab}
+        onChange={setTab}
+      />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/70">
         {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
         {person && tab === 'profile' && <Profile p={person} />}
         {person && tab === 'contract' && <Contract p={person} />}
+        {person && tab === 'injuries' && <Injuries p={person} />}
         {person && tab === 'history' && <History p={person} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

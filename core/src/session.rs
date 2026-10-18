@@ -3,7 +3,10 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::{Error, Fixture, Game, GameInfo, NewGame, NewsItem, Result, SaveSummary, StandingRow, World, list_saves};
+use crate::{
+    ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, NewGame, NewsItem, PersonProfile, Result, SaveSummary, Selection,
+    StandingRow, World, list_saves,
+};
 
 pub struct Session {
     world_path: PathBuf,
@@ -33,6 +36,46 @@ impl Session {
 
     fn game_mut(&mut self) -> Result<&mut Game> {
         self.game.as_mut().ok_or_else(|| Error::Invalid("Nenhum jogo aberto.".into()))
+    }
+
+    /// Perfil com o estado do jogador no jogo em curso (condição, moral, lesão...).
+    pub fn get_person(&self, id: i32) -> Result<PersonProfile> {
+        let mut p = self.db().get_person(id)?;
+        p.status = self.game.as_ref().and_then(|g| g.player_status(id));
+        Ok(p)
+    }
+
+    /// Clube com a condição e os indisponíveis do plantel no jogo em curso.
+    pub fn get_club(&self, id: i32) -> Result<ClubProfile> {
+        let mut c = self.db().get_club(id)?;
+        if let Some(g) = &self.game {
+            for p in &mut c.players {
+                if let Some(st) = g.player_status(p.id) {
+                    p.condition = Some(st.condition);
+                    p.injured = st.injury.is_some();
+                    p.suspended = st.suspended > 0;
+                }
+            }
+        }
+        Ok(c)
+    }
+
+    /// Tácticas de um clube; no jogo em curso, a do treinador é editável.
+    pub fn get_club_tactics(&self, id: i32) -> Result<ClubTactics> {
+        match &self.game {
+            Some(g) => g.club_tactics(id),
+            None => self.world.get_club_tactics(id),
+        }
+    }
+
+    /// Como fica a equipa do treinador com esta escolha (sem gravar).
+    pub fn preview_tactics(&self, selection: &Selection) -> Result<ClubTactics> {
+        self.game()?.preview_selection(selection)
+    }
+
+    /// Grava a escolha do treinador.
+    pub fn set_tactics(&mut self, selection: Selection) -> Result<ClubTactics> {
+        self.game_mut()?.set_selection(selection)
     }
 
     pub fn game_info(&self) -> Result<Option<GameInfo>> {

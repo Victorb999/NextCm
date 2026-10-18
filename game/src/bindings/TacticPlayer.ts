@@ -6,6 +6,10 @@ export type TacticPlayer = { id: number, listName: string, squadNumber: number |
  */
 position: string, currentAbility: number | null, 
 /**
- * Nota (1–20) do jogador na função onde está; `None` no banco.
+ * Nota (1–20) do jogador na função onde está; `None` fora do onze.
  */
-fit: number | null, };
+fit: number | null, 
+/**
+ * Condição (0–100) e moral (1–20) num jogo em curso.
+ */
+condition: number | null, morale: number | null, injured: boolean, suspended: boolean, };

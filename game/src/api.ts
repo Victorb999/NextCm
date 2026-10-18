@@ -8,6 +8,7 @@ import type { GameInfo } from './bindings/GameInfo'
 import type { NewGame } from './bindings/NewGame'
 import type { NewsItem } from './bindings/NewsItem'
 import type { SaveSummary } from './bindings/SaveSummary'
+import type { Selection } from './bindings/Selection'
 import type { NationListItem } from './bindings/NationListItem'
 import type { NationProfile } from './bindings/NationProfile'
 import type { NationOption } from './bindings/NationOption'
@@ -69,4 +70,6 @@ export const api = {
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),
   listNews: () => call<NewsItem[]>('list_news'),
   readNews: (id: number) => call<GameInfo>('read_news', { id }),
+  previewTactics: (selection: Selection) => call<ClubTactics>('preview_tactics', { selection }),
+  setTactics: (selection: Selection) => call<ClubTactics>('set_tactics', { selection }),
 }

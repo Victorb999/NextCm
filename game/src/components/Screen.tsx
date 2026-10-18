@@ -80,12 +80,15 @@ export function PurpleMenu<T extends string>({
   value,
   onChange,
   disabled,
+  align = 'left',
 }: {
   label: string
   options: { key: T; label: string }[]
   value?: T
   onChange?: (key: T) => void
   disabled?: boolean
+  /** Lado por onde a lista abre; "right" para botões encostados à direita do ecrã. */
+  align?: 'left' | 'right'
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -98,7 +101,9 @@ export function PurpleMenu<T extends string>({
         {label} <ChevronDown size={14} />
       </button>
       {open && (
-        <div className="absolute left-0 top-6 z-30 w-40 border border-cm-purplelight bg-[#2a0d52]">
+        <div
+          className={`absolute top-6 z-30 min-w-40 whitespace-nowrap border border-cm-purplelight bg-[#2a0d52] ${align === 'right' ? 'right-0' : 'left-0'}`}
+        >
           {options.map((o) => (
             <button
               key={o.key}

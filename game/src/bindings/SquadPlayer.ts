@@ -12,4 +12,8 @@ position: string,
 /**
  * Para ordenar por posição como o CM: GR, defesas, médios, avançados.
  */
-positionOrder: number, international: boolean, currentAbility: number | null, potentialAbility: number | null, };
+positionOrder: number, international: boolean, currentAbility: number | null, potentialAbility: number | null, 
+/**
+ * Num jogo em curso: condição (0–100) e indisponibilidade.
+ */
+condition: number | null, injured: boolean, suspended: boolean, };

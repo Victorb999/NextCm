@@ -9,7 +9,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::thread;
 
-use nextcm_core::{NewGame, SearchQuery, Session, World};
+use nextcm_core::{NewGame, SearchQuery, Selection, Session, World};
 use serde_json::Value;
 
 fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String> {
@@ -23,9 +23,17 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             out(serde_json::to_value(world.search_people(&q).map_err(e)?))
         }
         "list_nations" => out(serde_json::to_value(world.list_nations().map_err(e)?)),
-        "get_person" => out(serde_json::to_value(world.get_person(id()?).map_err(e)?)),
-        "get_club" => out(serde_json::to_value(world.get_club(id()?).map_err(e)?)),
-        "get_club_tactics" => out(serde_json::to_value(world.get_club_tactics(id()?).map_err(e)?)),
+        "get_person" => out(serde_json::to_value(session.get_person(id()?).map_err(e)?)),
+        "get_club" => out(serde_json::to_value(session.get_club(id()?).map_err(e)?)),
+        "get_club_tactics" => out(serde_json::to_value(session.get_club_tactics(id()?).map_err(e)?)),
+        "preview_tactics" => {
+            let sel: Selection = serde_json::from_value(args["selection"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.preview_tactics(&sel).map_err(e)?))
+        }
+        "set_tactics" => {
+            let sel: Selection = serde_json::from_value(args["selection"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.set_tactics(sel).map_err(e)?))
+        }
         "list_continents" => out(serde_json::to_value(world.list_continents().map_err(e)?)),
         "list_competitions" => out(serde_json::to_value(world.list_competitions().map_err(e)?)),
         "get_competition" => out(serde_json::to_value(world.get_competition(id()?).map_err(e)?)),

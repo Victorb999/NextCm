@@ -156,7 +156,8 @@ export default function ClubPage({ id }: { id: number }) {
     return players.map((p) => ({
       id: p.id,
       number: criterion === 'age' ? (p.age ?? '') : criterion === 'ability' ? (p.currentAbility ?? '') : (p.squadNumber ?? ''),
-      badge: p.international ? 'Int' : '',
+      // Num jogo em curso, os indisponíveis aparecem como no CM: "Les" / "Sus"
+      badge: p.injured ? <span className="font-bold text-[#ff5050]">Les</span> : p.suspended ? <span className="font-bold text-[#ff5050]">Sus</span> : p.international ? 'Int' : '',
       name: shortListName(p.listName),
       detail: p.position,
     }))

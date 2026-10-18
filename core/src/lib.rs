@@ -14,6 +14,7 @@ mod nation;
 mod person;
 mod search;
 mod session;
+pub mod squad;
 mod tactics;
 mod world;
 
@@ -26,7 +27,8 @@ pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};
 pub use search::{PersonKind, PersonSummary, Position, SearchQuery, SearchResult, SearchSort, Side};
 pub use session::Session;
-pub use tactics::{ClubTactics, TacticPlayer, TacticSlot, FORMATIONS};
+pub use squad::PlayerStatus;
+pub use tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, TacticPlayer, TacticSlot, Tackling, FORMATIONS};
 pub use world::{NationOption, World};
 
 #[derive(Debug)]

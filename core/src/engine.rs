@@ -1,10 +1,12 @@
-//! Match Engine v1 (marco 3.2): força por setor (GR, defesa, meio, ataque) a partir do
-//! onze de [`World::get_club_tactics`], golos esperados de cada lado e golos sorteados
-//! por Poisson com um RNG seedado. Sem relato nem marcadores; isso vem no 3.7.
+//! Match Engine v1 (marcos 3.2 e 3.3): força por setor (GR, defesa, meio, ataque) a partir
+//! do onze escolhido (nota na função, condição e moral de cada titular, instruções à
+//! equipa), golos esperados de cada lado e golos sorteados por Poisson com um RNG seedado.
+//! Sem relato nem marcadores; isso vem no 3.4.
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 
+use crate::tactics::{Instructions, Mentality, Passing, Tackling};
 use crate::{ClubTactics, Result, World};
 
 /// Golos esperados de uma equipa média em casa e fora (média da Série A: ~2,4 por jogo).
@@ -22,6 +24,16 @@ const EMPTY_SLOT: f64 = 20.0;
 fn fit_factor(fit: i32) -> f64 {
     let fit = fit.clamp(1, 20) as f64;
     if fit >= 15.0 { 1.0 - (20.0 - fit) * 0.01 } else { 0.6 + 0.02 * fit }
+}
+
+/// Condição 0–100 → rendimento de 75% a 100%.
+fn condition_factor(condition: i32) -> f64 {
+    0.75 + 0.25 * condition.clamp(0, 100) as f64 / 100.0
+}
+
+/// Moral 1–20 → rendimento de 95% a 105% (12, a moral inicial, ≈ 100%).
+fn morale_factor(morale: i32) -> f64 {
+    0.95 + 0.10 * (morale.clamp(1, 20) - 1) as f64 / 19.0
 }
 
 /// Força média de cada setor (escala do CA, 1–200).
@@ -49,12 +61,57 @@ impl TeamStrength {
             let rating = slot.player.as_ref().map_or(EMPTY_SLOT, |p| {
                 let ca = p.current_ability.unwrap_or(1) as f64;
                 ca * fit_factor(p.fit.unwrap_or(10))
+                    * p.condition.map_or(1.0, condition_factor)
+                    * p.morale.map_or(1.0, morale_factor)
             });
             sums[sector] += rating;
             counts[sector] += 1;
         }
         let avg = |i: usize| if counts[i] == 0 { EMPTY_SLOT } else { sums[i] / counts[i] as f64 };
-        TeamStrength { gk: avg(0), defence: avg(1), midfield: avg(2), attack: avg(3) }
+        TeamStrength { gk: avg(0), defence: avg(1), midfield: avg(2), attack: avg(3) }.with(&t.instructions)
+    }
+
+    /// Ajustes pequenos das Instruções à Equipa (provisórios; o 3.4 dá-lhes lances de verdade).
+    pub fn with(mut self, i: &Instructions) -> TeamStrength {
+        let (att, mid, def) = match i.mentality {
+            Mentality::Defensive => (0.95, 1.0, 1.05),
+            Mentality::Normal => (1.0, 1.0, 1.0),
+            Mentality::Attacking => (1.05, 1.0, 0.95),
+        };
+        self.attack *= att;
+        self.midfield *= mid;
+        self.defence *= def;
+        match i.passing {
+            Passing::Mixed => {}
+            Passing::Short => {
+                self.midfield *= 1.03;
+                self.attack *= 0.98;
+            }
+            Passing::Direct | Passing::Long => {
+                self.attack *= 1.03;
+                self.midfield *= 0.97;
+            }
+        }
+        match i.tackling {
+            Tackling::Normal => {}
+            Tackling::Soft => self.defence *= 0.98,
+            Tackling::Hard => self.defence *= 1.02,
+        }
+        if i.pressing {
+            self.midfield *= 1.04;
+        }
+        if i.offside_trap {
+            self.defence *= 1.02;
+        }
+        if i.counter_attack {
+            self.attack *= 1.03;
+            self.midfield *= 0.98;
+        }
+        if i.tight_marking {
+            self.defence *= 1.03;
+            self.midfield *= 0.98;
+        }
+        self
     }
 
     fn attacking(&self) -> f64 {

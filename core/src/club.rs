@@ -32,6 +32,10 @@ pub struct SquadPlayer {
     pub international: bool,
     pub current_ability: Option<i32>,
     pub potential_ability: Option<i32>,
+    /// Num jogo em curso: condição (0–100) e indisponibilidade.
+    pub condition: Option<i32>,
+    pub injured: bool,
+    pub suspended: bool,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -171,6 +175,9 @@ impl World {
                     international: r.get::<_, i32>(7)? > 0,
                     current_ability: r.get(8)?,
                     potential_ability: r.get(9)?,
+                    condition: None,
+                    injured: false,
+                    suspended: false,
                     position: position_label(&pos),
                 })
             })?

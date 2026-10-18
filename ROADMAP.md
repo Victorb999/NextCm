@@ -151,7 +151,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 |---|---|---|
 | ✅ **3.1** Novo jogo e tempo | Criar/gravar/carregar jogo, treinador no clube, "Continuar" avança a data, Notícias | Dá para começar um jogo no Palmeiras, avançar uns dias, gravar, fechar e carregar |
 | ✅ **3.2** Série A jogável | Calendário (turno e returno), Match Engine v1 (força por setor → Poisson, RNG com seed), resultados, classificação real, Próximo/Último Jogo | Uma temporada inteira da Série A até o campeão |
-| **3.3** O seu time | Escolher o onze, os suplentes e editar a táctica (formação, funções, instruções à equipa como no diálogo do CM), condição física, moral, lesões, suspensões | O onze e a táctica escolhidos mudam os resultados |
+| ✅ **3.3** O seu time | Escolher o onze, os suplentes e editar a táctica (formação, funções, instruções à equipa como no diálogo do CM), condição física, moral, lesões, suspensões | O onze e a táctica escolhidos mudam os resultados |
 | **3.4** Dia de jogo | Match Engine v2 por eventos (remates, defesas, golos, cartões, substituições, minuto a minuto, mesma seed = mesmo jogo) e a tela da partida do CM: placar e relógio, relato em texto com velocidade ajustável, estatísticas, escalações; intervalo com mudança de táctica e substituições; resultados da jornada no fim | Ver um jogo do Palmeiras do início ao fim, mexer na equipa ao intervalo, e as médias do 3.2 (golos, vantagem em casa) continuam a bater na CLI |
 | **3.5** Fim de época | Subidas/descidas, envelhecimento e evolução do CA, contratos, regens; CLI `sim` com 10 épocas | 10 épocas seguidas sem UI, com números plausíveis |
 | **3.6** Mais competições | Série B, Copa do Brasil, estaduais, Libertadores, ligas europeias; regulamentos num arquivo de dados por competição | Calendário brasileiro completo numa época |
@@ -216,6 +216,39 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 - Temporada inteira (`full_season_is_deterministic_and_coherent`): duas corridas com a mesma seed dão os mesmos 380 resultados; 38 jogos por clube; soma dos pontos = 3 × jogos com vencedor + 2 × empates; golos marcados = sofridos; Continuar Jogo pára na véspera e depois do 1º jogo.
 
 **Feito (3.2):** `core/src/engine.rs`, `core/src/league.rs`, calendário e partidas em `core/src/game.rs`, comandos `continue_game`, `league_table`, `list_fixtures` e `club_fixtures` (Tauri e ponte de dev). A CLI `cargo run -p nextcm-core --release --bin sim -- [clube] [dias|epoca] [seed] [épocas]` joga a época e imprime a tabela; com várias épocas mostra a média de posição e pontos. Em 20 épocas: 2,57 golos por jogo, 48% vitórias em casa, 24% empates, 28% vitórias fora; Flamengo (o maior CA) com 13 títulos e média de 80 pontos, Palmeiras 3,6º em média, Remo/Chapecoense/Athletico em baixo. Uma época leva ~0,6 s; cada "Continuar Jogo" ~20 ms na ponte de dev. Ajuste em `core/src/tactics.rs`: a escolha do onze truncava a nota fora da posição para 0 e, no empate, ficava com o pior jogador (o Athletico punha um médio de CA 60 a titular); agora desempata pelo CA.
+
+#### Marco 3.3 — O seu time (detalhe)
+
+**Escolha da equipa** (só o clube do treinador; os outros continuam com o adjunto automático)
+- Formação (as 10 do CM), 11 titulares, até 7 suplentes; o resto do plantel fica nas reservas.
+- Na tela de Tácticas: clicar num jogador e depois noutro troca os dois (titular ↔ titular, titular ↔ suplente ou reserva), como no CM. O core recalcula a nota de cada um na nova função a cada troca; Ok grava, Cancelar descarta.
+- "Adjunto escolhe a equipa": volta à escolha automática, refeita antes de cada jogo. Ao mexer na equipa, o adjunto deixa de escolher.
+- No dia do jogo, um titular lesionado ou suspenso é trocado pelo adjunto (o melhor suplente para a função, senão das reservas), com notícia.
+- Tabelas novas no save: `selection` (formação, instruções, adjunto) e `selection_players` (função → jogador). `SAVE_VERSION` passa a 3.
+
+**Instruções à Equipa** (o diálogo verde do CM)
+- Mentalidade (Defensivo/Normal/Atacante), Passe (Misto/Curto/Directo/Longo), Desarme (Normal/Suave/Duro), Pressão, Defesa em Linha, Contra-Ataque e Defesa Intensa (Não/Sim).
+- No motor v1 viram ajustes pequenos (±2 a 6%) na força dos setores; Desarme e Pressão também mexem nos cartões e no cansaço. Os batedores de livres/cantos e o organizador ficam para o 3.4, quando o motor tiver lances.
+
+**Estado dos jogadores** (dos clubes das competições vivas)
+- **Condição** (0–100%): cada titular perde 20–28% num jogo (menos com mais Resistência, +3% com Pressão) e recupera 4–9% por dia (Forma Natural). Rende `75% + 25% × condição` no motor. O adjunto (e a IA) evita titulares abaixo de 75%.
+- **Moral** (1–20, todos começam em 12: o campo do banco está quase sempre vazio): vitória +2, empate +0, derrota −2 para quem jogou e ±1 para o resto do plantel; volta devagar para 12. Rende de 95% a 105%. Nas telas, por palavras: Excelente, Muito Boa, Boa, Razoável, Fraca, Muito Fraca, Péssima.
+- **Lesões**: por titular e jogo, ~0,6–1,8% conforme a Propensão a Lesões (≈ 0,3 lesões por jogo); 70% leves (3–14 dias), 25% médias (15–45), 5% graves (46–120). Voltam com 80% de condição.
+- **Cartões**: amarelos por Poisson (média ~2 por equipa, mais com Desarme Duro, Agressividade e Maldade), vermelho ~5% por equipa. 3 amarelos = 1 jogo de suspensão (a contagem zera); vermelho = 1 jogo.
+- Tudo sorteado com o RNG da partida, depois do resultado: mesma seed = mesma época.
+- Tabela nova no save: `player_state` (condição, moral, amarelos, suspensão, lesão até).
+
+**Telas**
+- Tácticas editável no clube do treinador: menu Tácticas (formações), Editar (Instruções à Equipa, Adjunto escolhe), lista com titulares, suplentes (roxo) e reservas, condição em %, "Les"/"Sus" em vermelho, nome em vermelho fora da posição.
+- Perfil do jogador: Condição e Moral reais; aba **Lesões & Castigos** (lesão e data de regresso, suspensão, amarelos).
+- Plantel do clube: "Les"/"Sus" no lugar de "Int".
+- Notícias (aba Lesões e Suspensões): lesões e suspensões dos jogadores do treinador e o regresso de uma lesão.
+
+**Core e testes**
+- Trocas e validação da escolha (11 diferentes, todos do clube, até 7 suplentes), substituição de indisponíveis, recuperação diária, lesões e cartões com médias plausíveis numa época (CLI `sim`), a época continua determinística, e a escolha do treinador muda os resultados (um onze de reservas perde mais).
+
+**Feito (3.3):** `core/src/squad.rs` (estado dos jogadores: recuperação diária, cansaço, moral, lesões, cartões e suspensões), `core/src/tactics.rs` (instruções, `Selection`, escolha automática que respeita lesões/suspensões/condição, escolha do treinador validada e `cover_unavailable`), motor com condição, moral e instruções (`TeamStrength::with`), save no formato 3. Comandos `preview_tactics` e `set_tactics`; `get_person`, `get_club` e `get_club_tactics` passam pela `Session` e trazem o estado do jogo. Telas: Tácticas editável (trocas na lista ou no campo, formações, Instruções à Equipa, Adjunto escolhe, nome em vermelho fora da posição, condição em cor), aba Lesões & Castigos no perfil, Les/Sus no plantel, notícias de lesão, suspensão, regresso e alterações do adjunto. Em 20 épocas (CLI `sim`): 2,64 golos por jogo, 48% vitórias em casa, Flamengo 12 títulos e 82 pontos de média: o equilíbrio do 3.2 mantém-se.
+
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)

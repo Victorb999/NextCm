@@ -2,6 +2,11 @@
 import type { CareerEntry } from "./CareerEntry";
 import type { ClubRef } from "./ClubRef";
 import type { PlayerDetails } from "./PlayerDetails";
+import type { PlayerStatus } from "./PlayerStatus";
 import type { StaffDetails } from "./StaffDetails";
 
-export type PersonProfile = { id: number, name: string, listName: string, birthDate: string | null, birthYear: number | null, age: number | null, nationId: number | null, nation: string | null, nationality: string | null, secondNationId: number | null, secondNation: string | null, internationalApps: number, internationalGoals: number, club: ClubRef | null, job: string | null, clubJoined: string | null, contractExpires: string | null, wage: number | null, player: PlayerDetails | null, staff: StaffDetails | null, career: Array<CareerEntry>, };
+export type PersonProfile = { id: number, name: string, listName: string, birthDate: string | null, birthYear: number | null, age: number | null, nationId: number | null, nation: string | null, nationality: string | null, secondNationId: number | null, secondNation: string | null, internationalApps: number, internationalGoals: number, club: ClubRef | null, job: string | null, clubJoined: string | null, contractExpires: string | null, wage: number | null, player: PlayerDetails | null, staff: StaffDetails | null, career: Array<CareerEntry>, 
+/**
+ * Condição, moral, lesão e castigos num jogo em curso (só jogadores de clubes vivos).
+ */
+status: PlayerStatus | null, };

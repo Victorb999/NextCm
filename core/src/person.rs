@@ -98,6 +98,8 @@ pub struct PersonProfile {
     pub player: Option<PlayerDetails>,
     pub staff: Option<StaffDetails>,
     pub career: Vec<CareerEntry>,
+    /// Condição, moral, lesão e castigos num jogo em curso (só jogadores de clubes vivos).
+    pub status: Option<crate::squad::PlayerStatus>,
 }
 
 const MENTAL: [&str; 8] = [
@@ -227,6 +229,7 @@ impl World {
                         player: None,
                         staff: None,
                         career: Vec::new(),
+                        status: None,
                     },
                     r.get::<_, Option<i32>>(10)?,
                 ))

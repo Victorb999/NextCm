@@ -1,5 +1,5 @@
 //! Um jogo em curso (Fase 3): o save é uma cópia do `world.sqlite` com as tabelas
-//! `game`, `news` e `fixtures`. O estado que muda dia a dia fica em memória e só vai para
+//! `game`, `news`, `fixtures`, `player_state`, `selection` e `selection_players`. O estado que muda dia a dia fica em memória e só vai para
 //! o arquivo em [`Game::save`].
 
 use std::collections::HashMap;
@@ -12,14 +12,16 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::engine::{self, TeamStrength};
+use crate::squad::{Event, PlayerState, PlayerStatus, Side, Squads};
+use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
 use crate::league::{self, Fixture, Match, SERIE_A, StandingRow};
 use crate::person::ClubRef;
 use crate::search::fold;
 use crate::{Error, Result, World, date};
 
 /// Versão do formato do save; saves de outra versão são recusados até haver migração.
-/// 2: tabela `fixtures` (marco 3.2).
-pub const SAVE_VERSION: i32 = 2;
+/// 2: tabela `fixtures` (marco 3.2). 3: estado dos jogadores e a escolha da equipa (3.3).
+pub const SAVE_VERSION: i32 = 3;
 
 /// Quantos dias "Continuar Jogo" avança no máximo quando não acontece nada.
 const MAX_IDLE_DAYS: i32 = 42;
@@ -59,6 +61,34 @@ CREATE TABLE fixtures (
     away_goals INTEGER
 );
 CREATE INDEX fixtures_date ON fixtures (date);
+CREATE TABLE player_state (
+    person_id INTEGER PRIMARY KEY,
+    condition INTEGER NOT NULL,
+    morale INTEGER NOT NULL,
+    yellows INTEGER NOT NULL,
+    suspended INTEGER NOT NULL,
+    injury TEXT,
+    injury_until TEXT
+);
+CREATE TABLE selection (
+    club_id INTEGER PRIMARY KEY,
+    formation INTEGER NOT NULL,
+    auto INTEGER NOT NULL,
+    mentality TEXT NOT NULL,
+    passing TEXT NOT NULL,
+    tackling TEXT NOT NULL,
+    pressing INTEGER NOT NULL,
+    offside_trap INTEGER NOT NULL,
+    counter_attack INTEGER NOT NULL,
+    tight_marking INTEGER NOT NULL
+);
+-- slot 0–10: titulares (pela ordem das funções da formação); 100–106: suplentes
+CREATE TABLE selection_players (
+    club_id INTEGER NOT NULL,
+    slot INTEGER NOT NULL,
+    person_id INTEGER,
+    PRIMARY KEY (club_id, slot)
+);
 ";
 
 /// Dados do ecrã "Novo Jogo".
@@ -134,6 +164,10 @@ pub struct Game {
     clubs: HashMap<i32, ClubRef>,
     /// Nome curto das competições vivas ("Série A").
     competitions: HashMap<i32, String>,
+    /// Condição, moral, lesões e cartões dos jogadores dos clubes vivos.
+    squads: Squads,
+    /// A equipa escolhida pelo treinador; `None` = o adjunto escolhe (instruções normais).
+    selection: Option<Selection>,
     unsaved: bool,
 }
 
@@ -208,6 +242,7 @@ impl Game {
             let matches = league::round_robin(SERIE_A, &ids, world.start_year(), 1, &mut ChaCha8Rng::seed_from_u64(seed as u64));
             let clubs = club_refs(&world, &ids)?;
             let competitions = competition_names(&world, &matches)?;
+            let squads = Squads { states: HashMap::new(), traits: Squads::load_traits(&world, &ids)? };
 
             let welcome = welcome_news(&world, &club, &display, &start)?;
             let mut game = Game {
@@ -222,6 +257,8 @@ impl Game {
                 competitions,
                 matches,
                 clubs,
+                squads,
+                selection: None,
                 unsaved: true,
             };
             if let Some(n) = game.season_news(2) {
@@ -290,6 +327,22 @@ impl Game {
         ids.dedup();
         let clubs = club_refs(&world, &ids)?;
         let competitions = competition_names(&world, &matches)?;
+        let states = world
+            .conn
+            .prepare("SELECT person_id, condition, morale, yellows, suspended, injury, injury_until FROM player_state")?
+            .query_map([], |r| {
+                Ok((r.get(0)?, PlayerState {
+                    condition: r.get(1)?,
+                    morale: r.get(2)?,
+                    yellows: r.get(3)?,
+                    suspended: r.get(4)?,
+                    injury: r.get(5)?,
+                    injury_until: r.get(6)?,
+                }))
+            })?
+            .collect::<rusqlite::Result<_>>()?;
+        let squads = Squads { states, traits: Squads::load_traits(&world, &ids)? };
+        let selection = load_selection(&world, club_id)?;
         Ok(Game {
             world,
             path: path.to_path_buf(),
@@ -302,6 +355,8 @@ impl Game {
             matches,
             clubs,
             competitions,
+            squads,
+            selection,
             unsaved: false,
         })
     }
@@ -328,6 +383,38 @@ impl Game {
                 stmt.execute(params![m.id, m.competition_id, m.round, m.date, m.home_id, m.away_id, hg, ag])?;
             }
         }
+        tx.execute("DELETE FROM player_state", [])?;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT INTO player_state (person_id, condition, morale, yellows, suspended, injury, injury_until)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)",
+            )?;
+            for (id, st) in &self.squads.states {
+                if *st != PlayerState::default() {
+                    stmt.execute(params![id, st.condition, st.morale, st.yellows, st.suspended, st.injury, st.injury_until])?;
+                }
+            }
+        }
+        tx.execute("DELETE FROM selection", [])?;
+        tx.execute("DELETE FROM selection_players", [])?;
+        if let Some(sel) = &self.selection {
+            let i = &sel.instructions;
+            let (mentality, passing, tackling) = instruction_keys(i);
+            tx.execute(
+                "INSERT INTO selection (club_id, formation, auto, mentality, passing, tackling, pressing, offside_trap,
+                                        counter_attack, tight_marking) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                params![
+                    self.club_id, sel.formation, sel.auto, mentality, passing, tackling, i.pressing, i.offside_trap, i.counter_attack, i.tight_marking
+                ],
+            )?;
+            let mut stmt = tx.prepare("INSERT INTO selection_players (club_id, slot, person_id) VALUES (?, ?, ?)")?;
+            for (slot, pid) in sel.starters.iter().enumerate() {
+                stmt.execute(params![self.club_id, slot as i32, pid])?;
+            }
+            for (i, pid) in sel.bench.iter().enumerate() {
+                stmt.execute(params![self.club_id, 100 + i as i32, pid])?;
+            }
+        }
         tx.commit()?;
         self.unsaved = false;
         Ok(())
@@ -338,26 +425,61 @@ impl Game {
         self.date = date::add_days(&self.date, 1).ok_or_else(|| Error::Invalid("data do jogo inválida".into()))?;
         self.unsaved = true;
 
-        let today: Vec<usize> =
-            (0..self.matches.len()).filter(|&i| self.matches[i].date == self.date && self.matches[i].result.is_none()).collect();
-        if today.is_empty() {
-            return Ok(Vec::new());
-        }
-        // A força de cada clube é calculada uma vez por dia (o onze não muda no 3.2)
-        let mut strength: HashMap<i32, TeamStrength> = HashMap::new();
-        for &i in &today {
-            let (id, home, away) = (self.matches[i].id, self.matches[i].home_id, self.matches[i].away_id);
-            for club in [home, away] {
-                if !strength.contains_key(&club) {
-                    strength.insert(club, self.world.team_strength(club)?);
-                }
-            }
-            let result = engine::play(&strength[&home], &strength[&away], &mut engine::match_rng(self.seed, id));
-            self.matches[i].result = Some(result);
-        }
-
         let mut fresh = Vec::new();
         let mut next_id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+
+        // Recuperação do dia; quem do clube do treinador voltou de lesão vira notícia
+        for id in self.squads.new_day(&self.date.clone()) {
+            if self.squads.traits.get(&id).is_some_and(|t| t.club_id == self.club_id) {
+                let name = self.person_name(id)?;
+                fresh.push(self.news_item(
+                    next_id,
+                    "injury",
+                    format!("{name} recuperado"),
+                    format!("{name} já está recuperado da lesão e pode voltar a jogar."),
+                ));
+                next_id += 1;
+            }
+        }
+
+        let today: Vec<usize> =
+            (0..self.matches.len()).filter(|&i| self.matches[i].date == self.date && self.matches[i].result.is_none()).collect();
+        for &i in &today {
+            let (id, home, away) = (self.matches[i].id, self.matches[i].home_id, self.matches[i].away_id);
+            let (home_t, home_changes) = self.lineup(home)?;
+            let (away_t, away_changes) = self.lineup(away)?;
+            if let Some(changes) = home_changes.or(away_changes) {
+                if !changes.is_empty() {
+                    fresh.push(self.changes_news(next_id, &changes)?);
+                    next_id += 1;
+                }
+            }
+            let mut rng = engine::match_rng(self.seed, id);
+            let result = engine::play(&TeamStrength::from_tactics(&home_t), &TeamStrength::from_tactics(&away_t), &mut rng);
+            self.matches[i].result = Some(result);
+
+            let starters = |t: &ClubTactics| t.starters.iter().filter_map(|s| s.player.as_ref().map(|p| p.id)).collect::<Vec<_>>();
+            let (hs, as_) = (starters(&home_t), starters(&away_t));
+            let sides = [
+                Side { club: home, starters: &hs, instructions: home_t.instructions, goals_for: result.0, goals_against: result.1 },
+                Side { club: away, starters: &as_, instructions: away_t.instructions, goals_for: result.1, goals_against: result.0 },
+            ];
+            let date = self.date.clone();
+            for event in self.squads.after_match(sides, &date, &mut rng) {
+                if let Some(n) = self.event_news(next_id, &event)? {
+                    fresh.push(n);
+                    next_id += 1;
+                }
+            }
+        }
+        if today.is_empty() {
+            for n in &fresh {
+                self.news.insert(0, n.clone());
+            }
+            fresh.reverse();
+            return Ok(fresh);
+        }
+
         for &i in &today {
             let m = &self.matches[i];
             if m.home_id == self.club_id || m.away_id == self.club_id {
@@ -396,6 +518,123 @@ impl Game {
             }
         }
         Ok(Vec::new())
+    }
+
+    /// A equipa de um clube para o jogo de hoje. No clube do treinador, a escolha dele
+    /// (com os indisponíveis trocados pelo adjunto, devolvidos em `Some(trocas)`).
+    fn lineup(&self, club: i32) -> Result<(ClubTactics, Option<Vec<(Option<i32>, i32)>>)> {
+        let state = self.squads.squad_state(club);
+        if club != self.club_id {
+            return Ok((self.world.auto_tactics(club, Some(&state), Instructions::default())?, None));
+        }
+        match &self.selection {
+            Some(sel) if !sel.auto => {
+                let mut sel = sel.clone();
+                let changes = self.world.cover_unavailable(club, &mut sel, &state)?;
+                Ok((self.world.tactics_from_selection(club, &sel, Some(&state))?, Some(changes)))
+            }
+            other => {
+                let instructions = other.as_ref().map(|s| s.instructions).unwrap_or_default();
+                Ok((self.world.auto_tactics(club, Some(&state), instructions)?, None))
+            }
+        }
+    }
+
+    /// Tácticas de um clube agora: o do treinador é editável; os outros, o que o adjunto escolheria.
+    pub fn club_tactics(&self, club: i32) -> Result<ClubTactics> {
+        let state = self.squads.squad_state(club);
+        let mut t = match (&self.selection, club == self.club_id) {
+            (Some(sel), true) if !sel.auto => self.world.tactics_from_selection(club, sel, Some(&state))?,
+            (sel, true) => self.world.auto_tactics(club, Some(&state), sel.as_ref().map(|s| s.instructions).unwrap_or_default())?,
+            _ => self.world.auto_tactics(club, Some(&state), Instructions::default())?,
+        };
+        t.editable = club == self.club_id;
+        Ok(t)
+    }
+
+    /// Como ficaria a equipa com esta escolha (sem gravar): para a tela de Tácticas.
+    pub fn preview_selection(&self, sel: &Selection) -> Result<ClubTactics> {
+        let state = self.squads.squad_state(self.club_id);
+        let mut t = if sel.auto {
+            self.world.auto_tactics(self.club_id, Some(&state), sel.instructions)?
+        } else {
+            self.world.tactics_from_selection(self.club_id, sel, Some(&state))?
+        };
+        t.editable = true;
+        Ok(t)
+    }
+
+    /// Grava a escolha do treinador (Ok na tela de Tácticas).
+    pub fn set_selection(&mut self, sel: Selection) -> Result<ClubTactics> {
+        let t = self.preview_selection(&sel)?;
+        self.selection = Some(sel);
+        self.unsaved = true;
+        Ok(t)
+    }
+
+    /// Condição, moral, lesão e castigos de um jogador de um clube vivo.
+    pub fn player_status(&self, id: i32) -> Option<PlayerStatus> {
+        self.squads.status(id)
+    }
+
+    fn person_name(&self, id: i32) -> Result<String> {
+        Ok(self.world.conn.query_row("SELECT display_name FROM people WHERE id = ?", [id], |r| r.get(0))?)
+    }
+
+    fn news_item(&self, id: i32, kind: &str, title: String, body: String) -> NewsItem {
+        NewsItem { id, date: self.date.clone(), kind: kind.into(), title, body, read: false }
+    }
+
+    /// Lesões e suspensões dos jogadores do treinador.
+    fn event_news(&self, id: i32, event: &Event) -> Result<Option<NewsItem>> {
+        Ok(match event {
+            Event::Injured { player, club, injury, days } if *club == self.club_id => {
+                let name = self.person_name(*player)?;
+                let back = self.squads.state(*player).injury_until.map(|d| cm_date(&d)).unwrap_or_default();
+                Some(self.news_item(
+                    id,
+                    "injury",
+                    format!("{name} lesionado"),
+                    format!(
+                        "{name} sofreu uma lesão no jogo de hoje: {}.\n\nO departamento médico prevê cerca de {days} dias de paragem (regresso a {back}).",
+                        injury.to_lowercase()
+                    ),
+                ))
+            }
+            Event::Suspended { player, club, red } if *club == self.club_id => {
+                let name = self.person_name(*player)?;
+                let why = if *red { "foi expulso" } else { "viu o terceiro cartão amarelo" };
+                Some(self.news_item(
+                    id,
+                    "injury",
+                    format!("{name} suspenso"),
+                    format!("{name} {why} e cumpre um jogo de suspensão."),
+                ))
+            }
+            _ => None,
+        })
+    }
+
+    /// O adjunto mexeu na equipa porque havia indisponíveis.
+    fn changes_news(&self, id: i32, changes: &[(Option<i32>, i32)]) -> Result<NewsItem> {
+        let mut lines = Vec::new();
+        for &(out, inn) in changes {
+            let inn = self.person_name(inn)?;
+            lines.push(match out {
+                Some(out) => {
+                    let st = self.squads.state(out);
+                    let why = if st.injury.is_some() { "lesionado" } else { "suspenso" };
+                    format!("Sai {} ({why}), entra {inn}.", self.person_name(out)?)
+                }
+                None => format!("Entra {inn} para completar a equipa."),
+            });
+        }
+        Ok(self.news_item(
+            id,
+            "message",
+            "Alterações na equipa".into(),
+            format!("O seu adjunto fez alterações na equipa para o jogo de hoje:\n\n{}", lines.join("\n")),
+        ))
     }
 
     fn competition_name(&self, id: i32) -> &str {
@@ -574,6 +813,84 @@ impl Game {
 }
 
 /// Clubes de uma divisão, por id.
+/// Instruções no save, pelas mesmas palavras do JSON da interface.
+fn instruction_keys(i: &Instructions) -> (&'static str, &'static str, &'static str) {
+    let m = match i.mentality {
+        Mentality::Defensive => "defensive",
+        Mentality::Normal => "normal",
+        Mentality::Attacking => "attacking",
+    };
+    let p = match i.passing {
+        Passing::Mixed => "mixed",
+        Passing::Short => "short",
+        Passing::Direct => "direct",
+        Passing::Long => "long",
+    };
+    let t = match i.tackling {
+        Tackling::Normal => "normal",
+        Tackling::Soft => "soft",
+        Tackling::Hard => "hard",
+    };
+    (m, p, t)
+}
+
+/// Lê a escolha do treinador gravada no save.
+fn load_selection(world: &World, club_id: i32) -> Result<Option<Selection>> {
+    let row = world
+        .conn
+        .query_row(
+            "SELECT formation, auto, mentality, passing, tackling, pressing, offside_trap, counter_attack, tight_marking
+             FROM selection WHERE club_id = ?",
+            [club_id],
+            |r| {
+                Ok((
+                    r.get::<_, i32>(0)?,
+                    r.get::<_, bool>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                    [r.get::<_, bool>(5)?, r.get(6)?, r.get(7)?, r.get(8)?],
+                ))
+            },
+        )
+        .optional()?;
+    let Some((formation, auto, mentality, passing, tackling, flags)) = row else { return Ok(None) };
+    let instructions = Instructions {
+        mentality: match mentality.as_str() {
+            "defensive" => Mentality::Defensive,
+            "attacking" => Mentality::Attacking,
+            _ => Mentality::Normal,
+        },
+        passing: match passing.as_str() {
+            "short" => Passing::Short,
+            "direct" => Passing::Direct,
+            "long" => Passing::Long,
+            _ => Passing::Mixed,
+        },
+        tackling: match tackling.as_str() {
+            "soft" => Tackling::Soft,
+            "hard" => Tackling::Hard,
+            _ => Tackling::Normal,
+        },
+        pressing: flags[0],
+        offside_trap: flags[1],
+        counter_attack: flags[2],
+        tight_marking: flags[3],
+    };
+    let mut starters = vec![None; 11];
+    let mut bench = Vec::new();
+    let mut stmt = world.conn.prepare("SELECT slot, person_id FROM selection_players WHERE club_id = ? ORDER BY slot")?;
+    for row in stmt.query_map([club_id], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, Option<i32>>(1)?)))? {
+        let (slot, pid) = row?;
+        match slot {
+            0..=10 => starters[slot as usize] = pid,
+            100.. => bench.extend(pid),
+            _ => {}
+        }
+    }
+    Ok(Some(Selection { formation, starters, bench, instructions, auto }))
+}
+
 fn league_club_ids(world: &World, division_id: i32) -> Result<Vec<i32>> {
     let ids = world
         .conn
@@ -747,7 +1064,10 @@ mod tests {
         let mine = g.club_fixtures(palmeiras);
         assert_eq!(mine.len(), 38);
         assert_eq!(mine.iter().filter(|f| f.home_goals.is_some()).count(), 5);
-        assert_eq!(g.info().unwrap().unread_news, 7);
+        // 2 iniciais + 5 resultados (+ lesões/suspensões do Palmeiras, que variam com a seed)
+        let results = g.news().iter().filter(|n| n.kind == "competition" && n.title.contains('-')).count();
+        assert_eq!(results, 5);
+        assert!(g.info().unwrap().unread_news >= 7);
         let ids: Vec<i32> = g.news().iter().map(|n| n.id).collect();
         for id in ids {
             g.mark_news_read(id);
@@ -823,6 +1143,75 @@ mod tests {
         let per_game = goals as f64 / 380.0;
         assert!((2.0..3.2).contains(&per_game), "{per_game:.2} golos por jogo");
         assert!(table.windows(2).all(|w| w[0].points >= w[1].points));
+    }
+
+    #[test]
+    fn selection_is_saved_and_changes_strength() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("selection");
+        let palmeiras = 7568;
+        let mut g = Game::create(&world, &dir, &new_game(palmeiras), 7).unwrap();
+
+        // O adjunto escolhe; a tela recebe a táctica editável
+        let auto = g.club_tactics(palmeiras).unwrap();
+        assert!(auto.editable && auto.auto);
+        assert!(!g.club_tactics(3675).unwrap().editable, "Flamengo não é do treinador");
+
+        // Onze de reservas: troca os 11 titulares pelos 11 piores do plantel
+        let mut sel = auto.selection();
+        sel.auto = false;
+        let reserves: Vec<i32> = auto.reserves.iter().rev().map(|p| p.id).collect();
+        let mut pool: Vec<i32> = reserves.into_iter().chain(auto.bench.iter().rev().map(|p| p.id)).collect();
+        pool.truncate(11);
+        sel.starters = pool.iter().map(|&id| Some(id)).collect();
+        sel.bench.retain(|id| !pool.contains(id));
+        sel.instructions.mentality = Mentality::Attacking;
+        let weak = g.set_selection(sel.clone()).unwrap();
+        assert!(!weak.auto);
+        let (a, w) = (TeamStrength::from_tactics(&auto), TeamStrength::from_tactics(&weak));
+        assert!(w.attack + w.midfield + w.defence < 0.9 * (a.attack + a.midfield + a.defence), "{w:?} vs {a:?}");
+
+        // Escolha inválida é recusada
+        let mut bad = sel.clone();
+        bad.starters[1] = bad.starters[0];
+        assert!(matches!(g.set_selection(bad), Err(Error::Invalid(_))));
+
+        // Gravar e carregar mantém a escolha e as instruções
+        g.save().unwrap();
+        let path = g.path().to_path_buf();
+        drop(g);
+        let g = Game::load(&path).unwrap();
+        assert_eq!(g.selection.as_ref(), Some(&sel));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn assistant_covers_injured_starter() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("cover");
+        let palmeiras = 7568;
+        let mut g = Game::create(&world, &dir, &new_game(palmeiras), 9).unwrap();
+        let mut sel = g.club_tactics(palmeiras).unwrap().selection();
+        sel.auto = false;
+        g.set_selection(sel.clone()).unwrap();
+
+        // O guarda-redes titular lesiona-se antes do jogo
+        let gk = sel.starters[0].unwrap();
+        let st = g.squads.states.entry(gk).or_default();
+        st.injury = Some("Entorse no tornozelo".into());
+        st.injury_until = Some("2025-12-31".into());
+        let (t, changes) = g.lineup(palmeiras).unwrap();
+        let changes = changes.unwrap();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].0, Some(gk));
+        let new_gk = t.starters[0].player.as_ref().unwrap();
+        assert_ne!(new_gk.id, gk);
+        assert!(new_gk.fit.unwrap() >= 15, "entra outro GR");
+        // A escolha gravada não muda: o titular volta quando estiver bom
+        assert_eq!(g.selection.as_ref().unwrap().starters[0], Some(gk));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

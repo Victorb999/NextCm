@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use nextcm_core::{
     ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, NationListItem, NationOption,
-    NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, SearchResult, Session, StandingRow, World};
+    NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, Selection, SearchResult, Session, StandingRow, World};
 use tauri::{Manager, State};
 
 /// Mundo base e jogo aberto. `rusqlite::Connection` não é `Sync`, daí o Mutex.
@@ -40,14 +40,11 @@ macro_rules! world_command {
 }
 
 world_command!(list_nations() -> Vec<NationOption>);
-world_command!(get_person(id: i32) -> PersonProfile);
-world_command!(get_club(id: i32) -> ClubProfile);
 world_command!(list_continents() -> Vec<ContinentRef>);
 world_command!(list_competitions() -> Vec<CompetitionListItem>);
 world_command!(get_competition(id: i32) -> CompetitionProfile);
 world_command!(list_nations_full() -> Vec<NationListItem>);
 world_command!(get_nation(id: i32) -> NationProfile);
-world_command!(get_club_tactics(id: i32) -> ClubTactics);
 
 /// Gera um comando Tauri que delega para um método de `Session` (jogo em curso).
 macro_rules! session_command {
@@ -61,6 +58,9 @@ macro_rules! session_command {
     };
 }
 
+session_command!(get_person(id: i32) -> PersonProfile);
+session_command!(get_club(id: i32) -> ClubProfile);
+session_command!(get_club_tactics(id: i32) -> ClubTactics);
 session_command!(game_info() -> Option<GameInfo>);
 session_command!(list_saves() -> Vec<SaveSummary>);
 session_command!(save_game() -> GameInfo);
@@ -76,6 +76,18 @@ session_command!(club_fixtures(id: i32) -> Vec<Fixture>);
 async fn new_game(state: State<'_, AppState>, game: NewGame) -> Result<GameInfo, String> {
     let mut session = state.session.lock().map_err(|e| e.to_string())?;
     session.new_game(&game).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn preview_tactics(state: State<'_, AppState>, selection: Selection) -> Result<ClubTactics, String> {
+    let session = state.session.lock().map_err(|e| e.to_string())?;
+    session.preview_tactics(&selection).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn set_tactics(state: State<'_, AppState>, selection: Selection) -> Result<ClubTactics, String> {
+    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    session.set_tactics(selection).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
