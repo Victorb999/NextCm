@@ -1,7 +1,7 @@
-//! Match Engine v1 (marcos 3.2 e 3.3): força por setor (GR, defesa, meio, ataque) a partir
-//! do onze escolhido (nota na função, condição e moral de cada titular, instruções à
-//! equipa), golos esperados de cada lado e golos sorteados por Poisson com um RNG seedado.
-//! Sem relato nem marcadores; isso vem no 3.4.
+//! Força das equipas (marcos 3.2 e 3.3): força por setor (GR, defesa, meio, ataque) a partir
+//! do onze em campo (nota na função, condição e moral de cada um, instruções à equipa) e os
+//! golos esperados de cada lado. O jogo lance a lance (marco 3.4) está em `live.rs` e usa
+//! estes golos esperados minuto a minuto, para as médias do motor v1 continuarem a valer.
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -18,21 +18,41 @@ const K_ATTACK: f64 = 3.0;
 const K_MIDFIELD: f64 = 1.5;
 /// Nota de uma função sem jogador (plantel incompleto).
 const EMPTY_SLOT: f64 = 20.0;
+/// Cada jogador a menos em campo (expulso, lesionado sem substituto) tira 10% a tudo.
+const MAN_DOWN: f64 = 0.9;
+
+/// Setor de uma função ("D C" → 1): 0 GR, 1 defesa, 2 meio, 3 ataque.
+pub(crate) fn sector(role: &str) -> usize {
+    match role.split(' ').next().unwrap_or("") {
+        "GR" => 0,
+        "L" | "D" | "AL" => 1,
+        "MD" | "M" | "MA" => 2,
+        _ => 3,
+    }
+}
+
+/// Uma função ocupada: a função, a altura no campo, a seta e quanto o jogador rende ali.
+pub(crate) struct SlotRating<'a> {
+    pub role: &'a str,
+    pub y: i32,
+    pub run: Option<[i32; 2]>,
+    pub rating: f64,
+}
 
 /// Quanto do CA rende na função: inteiro com nota 20, 95% com 15 e, fora da posição,
 /// de 62% (nota 1) a 88% (nota 14). Um defesa a médio não é um júnior.
-fn fit_factor(fit: i32) -> f64 {
+pub(crate) fn fit_factor(fit: i32) -> f64 {
     let fit = fit.clamp(1, 20) as f64;
     if fit >= 15.0 { 1.0 - (20.0 - fit) * 0.01 } else { 0.6 + 0.02 * fit }
 }
 
 /// Condição 0–100 → rendimento de 75% a 100%.
-fn condition_factor(condition: i32) -> f64 {
-    0.75 + 0.25 * condition.clamp(0, 100) as f64 / 100.0
+pub(crate) fn condition_factor(condition: f64) -> f64 {
+    0.75 + 0.25 * condition.clamp(0.0, 100.0) / 100.0
 }
 
 /// Moral 1–20 → rendimento de 95% a 105% (12, a moral inicial, ≈ 100%).
-fn morale_factor(morale: i32) -> f64 {
+pub(crate) fn morale_factor(morale: i32) -> f64 {
     0.95 + 0.10 * (morale.clamp(1, 20) - 1) as f64 / 19.0
 }
 
@@ -48,30 +68,38 @@ pub struct TeamStrength {
 impl TeamStrength {
     /// Cada titular vale o CA ajustado pela nota (1–20) na função onde joga.
     pub fn from_tactics(t: &ClubTactics) -> TeamStrength {
+        let slots: Vec<SlotRating> = t
+            .starters
+            .iter()
+            .map(|slot| SlotRating {
+                role: &slot.role,
+                y: slot.y,
+                run: slot.run,
+                rating: slot.player.as_ref().map_or(EMPTY_SLOT, |p| {
+                    let ca = p.current_ability.unwrap_or(1) as f64;
+                    ca * fit_factor(p.fit.unwrap_or(10))
+                        * p.condition.map_or(1.0, |c| condition_factor(c as f64))
+                        * p.morale.map_or(1.0, morale_factor)
+                }),
+            })
+            .collect();
+        TeamStrength::from_slots(&slots, 0, &t.instructions)
+    }
+
+    /// Força a partir das funções ocupadas; `missing` jogadores a menos em campo.
+    pub(crate) fn from_slots(slots: &[SlotRating], missing: usize, instructions: &Instructions) -> TeamStrength {
         let mut sums = [0.0; 4];
         let mut counts = [0usize; 4];
-        for slot in &t.starters {
-            let pos = slot.role.split(' ').next().unwrap_or("");
-            let sector = match pos {
-                "GR" => 0,
-                "L" | "D" | "AL" => 1,
-                "MD" | "M" | "MA" => 2,
-                _ => 3,
-            };
-            let rating = slot.player.as_ref().map_or(EMPTY_SLOT, |p| {
-                let ca = p.current_ability.unwrap_or(1) as f64;
-                ca * fit_factor(p.fit.unwrap_or(10))
-                    * p.condition.map_or(1.0, condition_factor)
-                    * p.morale.map_or(1.0, morale_factor)
-            });
-            sums[sector] += rating;
-            counts[sector] += 1;
+        for slot in slots {
+            let i = sector(slot.role);
+            sums[i] += slot.rating;
+            counts[i] += 1;
         }
         let avg = |i: usize| if counts[i] == 0 { EMPTY_SLOT } else { sums[i] / counts[i] as f64 };
         let mut s = TeamStrength { gk: avg(0), defence: avg(1), midfield: avg(2), attack: avg(3) };
         // Setas de movimento: cada titular que corre para a frente dá +1% no ataque e tira
-        // 0,5% na defesa; quem recua faz o contrário (provisório, até ao motor por lances).
-        for slot in &t.starters {
+        // 0,5% na defesa; quem recua faz o contrário.
+        for slot in slots {
             if let Some([_, ry]) = slot.run {
                 if ry < slot.y - 4 {
                     s.attack *= 1.01;
@@ -82,10 +110,15 @@ impl TeamStrength {
                 }
             }
         }
-        s.with(&t.instructions)
+        let down = MAN_DOWN.powi(missing as i32);
+        s.defence *= down;
+        s.midfield *= down;
+        s.attack *= down;
+        s.with(instructions)
     }
 
-    /// Ajustes pequenos das Instruções à Equipa (provisórios; o 3.4 dá-lhes lances de verdade).
+    /// Ajustes pequenos das Instruções à Equipa (Desarme e Pressão também mexem nos
+    /// cartões e no cansaço, em `live.rs`).
     pub fn with(mut self, i: &Instructions) -> TeamStrength {
         let (att, mid, def) = match i.mentality {
             Mentality::Defensive => (0.95, 1.0, 1.05),
@@ -158,24 +191,6 @@ pub(crate) fn uniform(rng: &mut impl RngCore) -> f64 {
     (rng.next_u64() >> 11) as f64 / (1u64 << 53) as f64
 }
 
-/// Poisson pelo método de Knuth (λ pequeno, como golos num jogo).
-fn poisson(lambda: f64, rng: &mut impl RngCore) -> u8 {
-    let limit = (-lambda).exp();
-    let mut k = 0u8;
-    let mut p = uniform(rng);
-    while p > limit && k < 15 {
-        k += 1;
-        p *= uniform(rng);
-    }
-    k
-}
-
-/// Resultado (golos da casa, golos de fora).
-pub fn play(home: &TeamStrength, away: &TeamStrength, rng: &mut impl RngCore) -> (u8, u8) {
-    let (xh, xa) = expected_goals(home, away);
-    (poisson(xh, rng), poisson(xa, rng))
-}
-
 impl World {
     /// Força do onze que o clube escolheria hoje.
     pub fn team_strength(&self, club_id: i32) -> Result<TeamStrength> {
@@ -197,21 +212,5 @@ mod tests {
         assert!((h - BASE_HOME).abs() < 1e-9 && (a - BASE_AWAY).abs() < 1e-9);
         let (h, a) = expected_goals(&team(140.0), &team(120.0));
         assert!(h > 2.0 && a < 0.8, "favorito marca mais: {h:.2} x {a:.2}");
-    }
-
-    #[test]
-    fn same_seed_same_result() {
-        let (h, a) = (team(130.0), team(125.0));
-        let run = |seed| (0..50).map(|id| play(&h, &a, &mut match_rng(seed, id))).collect::<Vec<_>>();
-        assert_eq!(run(7), run(7));
-        assert_ne!(run(7), run(8));
-    }
-
-    #[test]
-    fn poisson_mean_is_lambda() {
-        let mut rng = ChaCha8Rng::seed_from_u64(1);
-        let n = 20_000;
-        let mean = (0..n).map(|_| poisson(1.3, &mut rng) as f64).sum::<f64>() / n as f64;
-        assert!((mean - 1.3).abs() < 0.05, "{mean}");
     }
 }

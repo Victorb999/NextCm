@@ -5,6 +5,8 @@ import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import type { CompetitionProfile } from './bindings/CompetitionProfile'
 import type { Fixture } from './bindings/Fixture'
 import type { GameInfo } from './bindings/GameInfo'
+import type { Instructions } from './bindings/Instructions'
+import type { LiveView } from './bindings/LiveView'
 import type { MatchPreview } from './bindings/MatchPreview'
 import type { NewGame } from './bindings/NewGame'
 import type { NewsItem } from './bindings/NewsItem'
@@ -76,4 +78,20 @@ export const api = {
   previewTactics: (selection: Selection) => call<ClubTactics>('preview_tactics', { selection }),
   setTactics: (selection: Selection) => call<ClubTactics>('set_tactics', { selection }),
   togglePlayer: (selection: Selection, player: number) => call<ClubTactics>('toggle_player', { selection, player }),
+
+  // Jogo do treinador ao vivo (marco 3.4)
+  liveMatch: () => call<LiveView>('live_match'),
+  /** Joga até ao minuto dado (no máximo 90). */
+  liveStep: (minute: number) => call<LiveView>('live_step', { minute }),
+  liveSubstitute: (out: number, inn: number) => call<LiveView>('live_substitute', { out, inn }),
+  liveSwap: (a: number, b: number) => call<LiveView>('live_swap', { a, b }),
+  liveInstructions: (instructions: Instructions) => call<LiveView>('live_instructions', { instructions }),
+  /** Tácticas de um lado do jogo (0 casa, 1 fora), como a tela as mostra. */
+  liveTactics: (side: number) => call<ClubTactics>('live_tactics', { side }),
+  /** Como ficaria a equipa do treinador com esta escolha (sem mexer no jogo). */
+  livePreviewTactics: (selection: Selection) => call<ClubTactics>('live_preview_tactics', { selection }),
+  /** O Ok das Tácticas a meio do jogo. */
+  liveSetTactics: (selection: Selection) => call<LiveView>('live_set_tactics', { selection }),
+  /** Acaba o jogo e fecha o dia (resultados e notícias). */
+  liveFinish: () => call<GameInfo>('live_finish'),
 }

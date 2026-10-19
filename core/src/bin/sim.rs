@@ -5,6 +5,8 @@
 //! Marco 3.2: cria um jogo temporário no clube e avança os dias pedidos ou, com `epoca`
 //! (o padrão), até ao fim da Série A; imprime a classificação e os números do match
 //! engine. Com mais de uma época (seeds seguidas), mostra a média de pontos e de posição.
+//! Marco 3.4: também os números dos lances (remates, cantos, faltas, cartões,
+//! substituições e lesões por equipa e jogo).
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -28,6 +30,9 @@ fn main() {
     // id do clube → (nome, soma dos pontos, soma das posições, títulos)
     let mut totals: HashMap<i32, (String, i32, i32, i32)> = HashMap::new();
     let (mut goals, mut games, mut home_wins, mut draws) = (0, 0, 0, 0);
+    // remates, à baliza, cantos, faltas, amarelos, vermelhos, substituições, lesões (somas por equipa)
+    let mut lances = [0i64; 8];
+    let mut teams = 0i64;
 
     for s in 0..seasons {
         let t = Instant::now();
@@ -67,6 +72,15 @@ fn main() {
             home_wins += (h > a) as i32;
             draws += (h == a) as i32;
         }
+        for r in game.records() {
+            for (st, subs) in r.stats.iter().zip(r.subs) {
+                for (k, v) in [st.shots, st.on_target, st.corners, st.fouls, st.yellows, st.reds, subs].into_iter().enumerate() {
+                    lances[k] += v as i64;
+                }
+                teams += 1;
+            }
+            lances[7] += r.injuries as i64;
+        }
         let table = game.table(SERIE_A);
         for r in &table {
             let e = totals.entry(r.club.id).or_insert((r.club.short_name.clone(), 0, 0, 0));
@@ -97,6 +111,14 @@ fn main() {
             100.0 * home_wins as f64 / g,
             100.0 * draws as f64 / g,
             100.0 * (games - home_wins - draws) as f64 / g
+        );
+    }
+    if teams > 0 {
+        let t = teams as f64;
+        let per = |k: usize| lances[k] as f64 / t;
+        println!(
+            "por equipa e jogo: {:.1} remates ({:.1} à baliza), {:.1} cantos, {:.1} faltas, {:.2} amarelos, {:.3} vermelhos, {:.1} substituições, {:.2} lesões",
+            per(0), per(1), per(2), per(3), per(4), per(5), per(6), per(7)
         );
     }
     if seasons > 1 {

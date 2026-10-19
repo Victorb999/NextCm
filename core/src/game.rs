@@ -1,6 +1,10 @@
 //! Um jogo em curso (Fase 3): o save é uma cópia do `world.sqlite` com as tabelas
-//! `game`, `news`, `fixtures`, `player_state`, `selection` e `selection_players`. O estado que muda dia a dia fica em memória e só vai para
-//! o arquivo em [`Game::save`].
+//! `game`, `news`, `fixtures`, `player_state`, `selection` e `selection_players`. O estado
+//! que muda dia a dia fica em memória e só vai para o arquivo em [`Game::save`].
+//!
+//! Num dia com jogo do treinador (e com `watch` ligado, como no app), [`Game::advance_day`]
+//! pára antes de o jogar: os outros jogos do dia já estão decididos, e o do treinador corre
+//! aos bocados pela tela da partida (`live_*`) até [`Game::live_finish`] fechar o dia.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -11,8 +15,9 @@ use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::engine::{self, TeamStrength};
-use crate::squad::{Event, PlayerState, PlayerStatus, Side, Squads};
+use crate::engine;
+use crate::live::{LiveMatch, LiveView, TeamStats};
+use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
 use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
 use crate::league::{self, Fixture, Match, SERIE_A, StandingRow};
 use crate::person::ClubRef;
@@ -139,6 +144,8 @@ pub struct GameInfo {
     pub unread_news: i32,
     /// Há mudanças desde a última gravação.
     pub unsaved: bool,
+    /// O jogo do treinador de hoje está por acabar (tela da partida).
+    pub live: bool,
 }
 
 /// Uma linha da lista "Carregar Jogo".
@@ -196,6 +203,42 @@ pub struct Game {
     /// A equipa escolhida pelo treinador; `None` = o adjunto escolhe (instruções normais).
     selection: Option<Selection>,
     unsaved: bool,
+    /// O treinador vê os jogos dele ao vivo (o app); sem isso (CLI, testes) jogam-se de seguida.
+    watch: bool,
+    /// O dia de jogo à espera de o treinador acabar a partida dele.
+    live: Option<LiveDay>,
+    /// Estatísticas dos jogos desde que o jogo foi aberto (para a CLI).
+    records: Vec<MatchRecord>,
+}
+
+/// Os jogos de um dia: os outros já jogados até ao fim, o do treinador a decorrer.
+struct LiveDay {
+    /// (índice em `matches`, partida)
+    games: Vec<(usize, LiveMatch)>,
+    /// Posição do jogo do treinador em `games`.
+    user: usize,
+    /// Notícias do início do dia (recuperações, alterações do adjunto).
+    news: Vec<NewsItem>,
+    /// Estádio, tempo, árbitro e assistência do jogo do treinador.
+    extras: Option<MatchExtras>,
+}
+
+#[derive(Debug, Clone)]
+struct MatchExtras {
+    venue: Option<String>,
+    city: Option<String>,
+    weather: String,
+    referee: String,
+    attendance: i32,
+}
+
+/// Números de um jogo acabado.
+#[derive(Debug, Clone)]
+pub struct MatchRecord {
+    pub fixture_id: i32,
+    pub stats: [TeamStats; 2],
+    pub subs: [i32; 2],
+    pub injuries: usize,
 }
 
 /// "Nome do save" → nome de arquivo seguro (letras, números, espaço, - e _).
@@ -288,6 +331,9 @@ impl Game {
                 squads,
                 selection: None,
                 unsaved: true,
+                watch: false,
+                live: None,
+                records: Vec::new(),
             };
             if let Some(n) = game.season_news(2) {
                 game.news.insert(0, n);
@@ -400,11 +446,17 @@ impl Game {
             squads,
             selection,
             unsaved: false,
+            watch: false,
+            live: None,
+            records: Vec::new(),
         })
     }
 
     /// Grava o estado em memória no arquivo do save.
     pub fn save(&mut self) -> Result<()> {
+        if self.live.is_some() {
+            return Err(Error::Invalid("Não é possível gravar durante um jogo.".into()));
+        }
         let tx = self.world.conn.unchecked_transaction()?;
         tx.execute("UPDATE game SET date = ?, seed = ?", params![self.date, self.seed])?;
         tx.execute("DELETE FROM news", [])?;
@@ -468,8 +520,13 @@ impl Game {
         Ok(())
     }
 
-    /// Avança um dia, joga as partidas desse dia e devolve as notícias novas.
+    /// Avança um dia e joga as partidas desse dia; devolve as notícias novas. Com `watch`
+    /// e um jogo do treinador hoje, pára antes dele (ver [`Game::live_view`]); chamar de
+    /// novo nesse estado acaba o jogo e fecha o dia, sem mudar a data.
     pub fn advance_day(&mut self) -> Result<Vec<NewsItem>> {
+        if self.live.is_some() {
+            return self.live_finish();
+        }
         self.date = date::add_days(&self.date, 1).ok_or_else(|| Error::Invalid("data do jogo inválida".into()))?;
         self.unsaved = true;
 
@@ -492,8 +549,10 @@ impl Game {
 
         let today: Vec<usize> =
             (0..self.matches.len()).filter(|&i| self.matches[i].date == self.date && self.matches[i].result.is_none()).collect();
+        let mut games = Vec::new();
+        let mut user = None;
         for &i in &today {
-            let (id, home, away) = (self.matches[i].id, self.matches[i].home_id, self.matches[i].away_id);
+            let (home, away) = (self.matches[i].home_id, self.matches[i].away_id);
             let (home_t, home_changes) = self.lineup(home)?;
             let (away_t, away_changes) = self.lineup(away)?;
             if let Some(changes) = home_changes.or(away_changes) {
@@ -502,17 +561,51 @@ impl Game {
                     next_id += 1;
                 }
             }
-            let mut rng = engine::match_rng(self.seed, id);
-            let result = engine::play(&TeamStrength::from_tactics(&home_t), &TeamStrength::from_tactics(&away_t), &mut rng);
-            self.matches[i].result = Some(result);
+            let side = if home == self.club_id {
+                Some(0)
+            } else if away == self.club_id {
+                Some(1)
+            } else {
+                None
+            };
+            let user_ai = self.selection.as_ref().is_none_or(|s| s.auto);
+            let rng = engine::match_rng(self.seed, self.matches[i].id);
+            let mut live = LiveMatch::new(&self.world, self.fixture(&self.matches[i]), home_t, away_t, side, user_ai, rng)?;
+            if side.is_some() && self.watch {
+                user = Some(games.len());
+                live = live.detailed(engine::match_rng(self.seed ^ 0x0F1A_7E55, self.matches[i].id));
+            } else {
+                live.play_until(90);
+            }
+            games.push((i, live));
+        }
+        let user_match = user.is_some();
+        let extras = match user {
+            Some(u) => Some(self.match_extras(games[u].0)?),
+            None => None,
+        };
+        self.live = Some(LiveDay { games, user: user.unwrap_or(usize::MAX), news: fresh, extras });
+        if user_match {
+            return Ok(Vec::new());
+        }
+        self.live_finish()
+    }
 
-            let starters = |t: &ClubTactics| t.starters.iter().filter_map(|s| s.player.as_ref().map(|p| p.id)).collect::<Vec<_>>();
-            let (hs, as_) = (starters(&home_t), starters(&away_t));
-            let sides = [
-                Side { club: home, starters: &hs, instructions: home_t.instructions, goals_for: result.0, goals_against: result.1 },
-                Side { club: away, starters: &as_, instructions: away_t.instructions, goals_for: result.1, goals_against: result.0 },
-            ];
-            let date = self.date.clone();
+    /// Acaba os jogos do dia (o do treinador até ao fim, se ainda corre), guarda os
+    /// resultados e o que deixaram nos jogadores, e entrega as notícias do dia.
+    pub fn live_finish(&mut self) -> Result<Vec<NewsItem>> {
+        let Some(mut day) = self.live.take() else { return Ok(Vec::new()) };
+        let mut fresh = std::mem::take(&mut day.news);
+        let mut next_id = self.news.iter().chain(&fresh).map(|n| n.id).max().unwrap_or(0) + 1;
+        let date = self.date.clone();
+        for (i, live) in &mut day.games {
+            live.play_until(90);
+            self.matches[*i].result = Some(live.score());
+            let sides = live.sides();
+            let injuries = sides[0].injured.len() + sides[1].injured.len();
+            self.records.push(MatchRecord { fixture_id: live.fixture.id, stats: live.stats(), subs: live.subs_made(), injuries });
+            // As durações das lesões continuam o sorteio da partida
+            let mut rng = engine::match_rng(self.seed ^ 0x1E5A_0C0D, live.fixture.id);
             for event in self.squads.after_match(sides, &date, &mut rng) {
                 if let Some(n) = self.event_news(next_id, &event)? {
                     fresh.push(n);
@@ -520,23 +613,15 @@ impl Game {
                 }
             }
         }
-        if today.is_empty() {
-            for n in &fresh {
-                self.news.insert(0, n.clone());
-            }
-            fresh.reverse();
-            return Ok(fresh);
-        }
-
-        for &i in &today {
-            let m = &self.matches[i];
+        for (i, live) in &day.games {
+            let m = &self.matches[*i];
             if m.home_id == self.club_id || m.away_id == self.club_id {
-                fresh.push(self.result_news(next_id, m));
+                fresh.push(self.result_news(next_id, m, live));
                 next_id += 1;
             }
         }
         // Competições que acabaram hoje: o campeão
-        let mut finished: Vec<i32> = today.iter().map(|&i| self.matches[i].competition_id).collect();
+        let mut finished: Vec<i32> = day.games.iter().map(|(i, _)| self.matches[*i].competition_id).collect();
         finished.dedup();
         for comp in finished {
             if self.matches.iter().all(|m| m.competition_id != comp || m.result.is_some()) {
@@ -548,6 +633,7 @@ impl Game {
             self.news.insert(0, n.clone());
         }
         fresh.reverse();
+        self.unsaved = true;
         Ok(fresh)
     }
 
@@ -557,7 +643,7 @@ impl Game {
     pub fn advance_to_next_event(&mut self) -> Result<Vec<NewsItem>> {
         for _ in 0..MAX_IDLE_DAYS {
             let news = self.advance_day()?;
-            if !news.is_empty() {
+            if !news.is_empty() || self.live.is_some() {
                 return Ok(news);
             }
             let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
@@ -819,8 +905,8 @@ impl Game {
         league::standings(&matches, &clubs)
     }
 
-    /// Notícia do resultado do jogo do treinador, com a posição na tabela.
-    fn result_news(&self, id: i32, m: &Match) -> NewsItem {
+    /// Notícia do resultado do jogo do treinador, com a posição na tabela e os marcadores.
+    fn result_news(&self, id: i32, m: &Match, live: &LiveMatch) -> NewsItem {
         let (hg, ag) = m.result.unwrap_or((0, 0));
         let (home, away) = (self.club(m.home_id), self.club(m.away_id));
         let at_home = m.home_id == self.club_id;
@@ -839,12 +925,23 @@ impl Game {
             .find(|r| r.club.id == self.club_id)
             .map(|r| format!("\n\nCom este resultado, o {} é {}º classificado com {} pontos.", ours.short_name, r.position, r.points))
             .unwrap_or_default();
+        let mut scorers = String::new();
+        for (side, club) in [(0, &home), (1, &away)] {
+            let goals = live.scorers(side);
+            if !goals.is_empty() {
+                let list: Vec<String> = goals.iter().map(|(n, min)| format!("{n} {min}'")).collect();
+                scorers += &format!("\n{}: {}", club.short_name, list.join(", "));
+            }
+        }
+        if !scorers.is_empty() {
+            scorers = format!("\n\nMarcadores:{scorers}");
+        }
         NewsItem {
             id,
             date: self.date.clone(),
             kind: "competition".into(),
             title: format!("{} {hg}-{ag} {}", home.short_name, away.short_name),
-            body: format!("{}, {}ª jornada.\n\n{what}{standing}", self.competition_name(m.competition_id), m.round),
+            body: format!("{}, {}ª jornada.\n\n{what}{scorers}{standing}", self.competition_name(m.competition_id), m.round),
             read: false,
         }
     }
@@ -912,8 +1009,146 @@ impl Game {
             club,
             unread_news: self.news.iter().filter(|n| !n.read).count() as i32,
             unsaved: self.unsaved,
+            live: self.live.is_some(),
         })
     }
+
+    /// Liga/desliga ver os jogos do treinador ao vivo (o app liga; a CLI não).
+    pub fn set_watch(&mut self, watch: bool) {
+        self.watch = watch;
+    }
+
+    /// Números dos jogos acabados desde que o jogo foi aberto.
+    pub fn records(&self) -> &[MatchRecord] {
+        &self.records
+    }
+
+    fn live_day(&self) -> Result<&LiveDay> {
+        self.live.as_ref().filter(|d| d.user < d.games.len()).ok_or_else(|| Error::Invalid("Não há nenhum jogo a decorrer.".into()))
+    }
+
+    fn live_match_mut(&mut self) -> Result<&mut LiveMatch> {
+        self.live_day()?;
+        let day = self.live.as_mut().expect("dia de jogo");
+        Ok(&mut day.games[day.user].1)
+    }
+
+    /// O jogo do treinador como está agora, com os outros jogos do dia no mesmo minuto.
+    pub fn live_view(&self) -> Result<LiveView> {
+        let day = self.live_day()?;
+        let others: Vec<&LiveMatch> = day.games.iter().enumerate().filter(|(k, _)| *k != day.user).map(|(_, g)| &g.1).collect();
+        let (index, live) = &day.games[day.user];
+        let mut v = live.view(&others);
+        if let Some(x) = &day.extras {
+            v.venue = x.venue.clone();
+            v.city = x.city.clone();
+            v.weather = x.weather.clone();
+            v.referee = x.referee.clone();
+            v.attendance = x.attendance;
+        }
+        // Classificação com os jogos do dia no minuto em que vai o do treinador
+        let comp = self.matches[*index].competition_id;
+        let mut matches: Vec<Match> = self.matches.iter().filter(|m| m.competition_id == comp).cloned().collect();
+        if v.minute > 0 {
+            for (i, g) in &day.games {
+                let (h, a) = g.score_at(v.minute as u8);
+                if let Some(m) = matches.iter_mut().find(|m| m.id == self.matches[*i].id) {
+                    m.result = Some((h as u8, a as u8));
+                }
+            }
+        }
+        let mut ids: Vec<i32> = matches.iter().flat_map(|m| [m.home_id, m.away_id]).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        let clubs: Vec<ClubRef> = ids.into_iter().map(|id| self.club(id)).collect();
+        v.table = league::standings(&matches, &clubs);
+        Ok(v)
+    }
+
+    /// Estádio e tempo (os do Próximo Jogo), árbitro e assistência de uma partida.
+    fn match_extras(&self, index: usize) -> Result<MatchExtras> {
+        let m = &self.matches[index];
+        let preview = self.match_preview(m.id)?;
+        let mut rng = engine::match_rng(self.seed ^ 0x00A7_7E4D, m.id);
+        // Árbitro: um nome e um apelido de pessoas da nação do clube da casa (um nome inventado)
+        let nation: Option<i32> = self.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [m.home_id], |r| r.get(0))?;
+        let count: i64 = self.world.conn.query_row(
+            "SELECT COUNT(*) FROM people WHERE nation_id IS ? AND first_name <> '' AND second_name <> ''",
+            [nation],
+            |r| r.get(0),
+        )?;
+        let mut name_at = |col: &str| -> Result<String> {
+            let offset = (rand_core::RngCore::next_u64(&mut rng) % count.max(1) as u64) as i64;
+            Ok(self.world.conn.query_row(
+                &format!("SELECT {col} FROM people WHERE nation_id IS ? AND first_name <> '' AND second_name <> '' LIMIT 1 OFFSET ?"),
+                params![nation, offset],
+                |r| r.get::<_, String>(0),
+            )?)
+        };
+        let referee = if count > 0 {
+            let (first, last) = (name_at("first_name")?, name_at("second_name")?);
+            let first = first.split_whitespace().next().unwrap_or_default().to_string();
+            format!("{first} {}", last.split_whitespace().last().unwrap_or_default())
+        } else {
+            "-".into()
+        };
+        // Assistência: 55% a 98% da lotação
+        let capacity: Option<i32> = self.world.conn.query_row(
+            "SELECT s.capacity FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id WHERE c.id = ?",
+            [m.home_id],
+            |r| r.get(0),
+        )?;
+        let fill = 0.55 + 0.43 * engine::uniform(&mut rng);
+        let attendance = (capacity.unwrap_or(15000).max(1000) as f64 * fill).round() as i32;
+        Ok(MatchExtras { venue: preview.venue, city: preview.city, weather: preview.weather, referee, attendance })
+    }
+
+    /// Joga até ao minuto `minute` (no máximo 90).
+    pub fn live_step(&mut self, minute: i32) -> Result<LiveView> {
+        self.live_match_mut()?.play_until(minute.clamp(0, 90) as u8);
+        self.live_view()
+    }
+
+    /// Substituição na equipa do treinador.
+    pub fn live_substitute(&mut self, out: i32, inn: i32) -> Result<LiveView> {
+        self.live_match_mut()?.substitute(out, inn)?;
+        self.live_view()
+    }
+
+    /// Troca as funções de dois jogadores do treinador em campo.
+    pub fn live_swap(&mut self, a: i32, b: i32) -> Result<LiveView> {
+        self.live_match_mut()?.swap(a, b)?;
+        self.live_view()
+    }
+
+    /// As Tácticas de um lado do jogo do treinador (0 casa, 1 fora), como a tela as mostra.
+    pub fn live_tactics(&self, side: i32) -> Result<ClubTactics> {
+        let day = self.live_day()?;
+        day.games[day.user].1.tactics(&self.world, side.clamp(0, 1) as usize, None)
+    }
+
+    /// Como ficaria a equipa do treinador com esta escolha (sem mexer no jogo).
+    pub fn live_preview_tactics(&self, sel: &Selection) -> Result<ClubTactics> {
+        let day = self.live_day()?;
+        let live = &day.games[day.user].1;
+        let side = live.user_side().ok_or_else(|| Error::Invalid("Este jogo não é da sua equipa.".into()))?;
+        live.tactics(&self.world, side, Some(sel))
+    }
+
+    /// O Ok das Tácticas a meio do jogo: aplica a escolha toda de uma vez.
+    pub fn live_set_tactics(&mut self, sel: &Selection) -> Result<LiveView> {
+        self.live_day()?;
+        let day = self.live.as_mut().expect("dia de jogo");
+        day.games[day.user].1.apply_selection(&self.world, sel)?;
+        self.live_view()
+    }
+
+    /// Instruções à equipa a meio do jogo.
+    pub fn live_instructions(&mut self, instructions: Instructions) -> Result<LiveView> {
+        self.live_match_mut()?.set_instructions(instructions)?;
+        self.live_view()
+    }
+
 
     /// Notícias, da mais recente para a mais antiga.
     pub fn news(&self) -> &[NewsItem] {
@@ -1237,6 +1472,7 @@ pub fn list_saves(dir: &Path) -> Result<Vec<SaveSummary>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engine::TeamStrength;
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("nextcm-test-{name}-{}", std::process::id()));
@@ -1460,11 +1696,13 @@ mod tests {
         for s in &after.starters {
             let p = s.player.as_ref().unwrap();
             if before.contains(&p.id) && !p.injured && !p.suspended {
-                assert!(p.condition.unwrap() < 85, "{} jogou e está a {:?}", p.list_name, p.condition);
+                // Jogou pelo menos uma parte (o adjunto pode tê-lo trocado ao intervalo)
+                assert!(p.condition.unwrap() < 92, "{} jogou e está a {:?}", p.list_name, p.condition);
             }
         }
+        // Os suplentes não jogaram ou entraram já na segunda parte
         for p in &after.bench {
-            assert_eq!(p.condition, Some(100), "{} não jogou", p.list_name);
+            assert!(p.condition >= Some(85), "{} está a {:?}", p.list_name, p.condition);
         }
         // O adjunto mantém o onze (só troca lesionados/suspensos)
         let kept = ids(&after).iter().filter(|id| before.contains(id)).count();
@@ -1472,6 +1710,177 @@ mod tests {
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    /// Avança até o jogo do Palmeiras começar (com `watch`) e devolve o jogo.
+    /// `manual`: o treinador escolhe a equipa (o adjunto não faz substituições tácticas).
+    fn until_kickoff(world: &Path, name: &str, seed: i64, watch: bool, manual: bool) -> (Game, PathBuf) {
+        let dir = temp_dir(name);
+        let mut g = Game::create(world, &dir, &new_game(7568), seed).unwrap();
+        g.set_watch(watch);
+        if manual {
+            let mut sel = g.club_tactics(7568).unwrap().selection();
+            sel.auto = false;
+            g.set_selection(sel).unwrap();
+        }
+        let first = g.club_fixtures(7568)[0].date.clone();
+        while g.date() < first.as_str() {
+            g.advance_to_next_event().unwrap();
+        }
+        (g, dir)
+    }
+
+    #[test]
+    fn watched_match_is_the_same_match() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (mut quick, d1) = until_kickoff(&world, "live-quick", 5, false, false);
+        let (mut g, d2) = until_kickoff(&world, "live-watch", 5, true, false);
+        assert!(quick.live.is_none());
+        assert!(g.info().unwrap().live, "o jogo do treinador fica por jogar");
+        assert!(matches!(g.save(), Err(Error::Invalid(_))), "não grava a meio do jogo");
+        // Os resultados do dia só aparecem no fim
+        let today = g.date().to_string();
+        assert!(g.fixtures(SERIE_A).iter().filter(|f| f.date == today).all(|f| f.home_goals.is_none()));
+
+        let v = g.live_view().unwrap();
+        assert_eq!((v.minute, v.home.players.len(), v.away.players.len()), (0, 11, 11));
+        assert_eq!(v.others.len(), g.fixtures(SERIE_A).iter().filter(|f| f.date == today).count() - 1);
+        let half = g.live_step(45).unwrap();
+        assert!(half.half_time && !half.finished);
+        assert!(half.events.iter().any(|e| e.kind == "half"));
+        let end = g.live_step(200).unwrap();
+        assert!(end.finished && end.minute == 90);
+        let shots = end.home.stats.shots + end.away.stats.shots;
+        assert!(shots > 5, "{shots} remates");
+        assert_eq!(end.home.stats.possession + end.away.stats.possession, 100);
+        let goals = end.events.iter().filter(|e| e.kind == "goal").count() as i32;
+        assert_eq!(goals, end.home_goals + end.away_goals);
+        let news = g.live_finish().unwrap();
+        assert!(!g.info().unwrap().live);
+
+        // Sem mexer na equipa, é o mesmo jogo que sem ver
+        let key = |g: &Game| g.fixtures(SERIE_A).iter().map(|f| (f.id, f.home_goals, f.away_goals)).collect::<Vec<_>>();
+        assert_eq!(key(&g), key(&quick));
+        assert_eq!(g.date(), quick.date());
+        let titles = |n: &[NewsItem]| n.iter().map(|n| n.title.clone()).collect::<Vec<_>>();
+        assert_eq!(titles(&news), titles(&quick.news()[..news.len()].iter().rev().cloned().collect::<Vec<_>>()));
+        let body = &news.iter().find(|n| n.kind == "competition").unwrap().body;
+        if goals > 0 {
+            assert!(body.contains("Marcadores:"), "{body}");
+        }
+        g.save().unwrap();
+        quick.save().unwrap();
+        drop((g, quick));
+        let _ = std::fs::remove_dir_all(&d1);
+        let _ = std::fs::remove_dir_all(&d2);
+    }
+
+    #[test]
+    fn manager_changes_the_team_at_half_time() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (mut g, dir) = until_kickoff(&world, "live-subs", 8, true, true);
+        let v = g.live_step(45).unwrap();
+        let side = v.user_side.unwrap();
+        let ours = if side == 0 { &v.home } else { &v.away };
+        let (out, inn) = (ours.players[10].id, ours.bench.iter().find(|p| p.position != "GR").unwrap().id);
+        assert!(g.live_substitute(out, out).is_err(), "quem entra tem de estar no banco");
+        let v = g.live_substitute(out, inn).unwrap();
+        let ours = if side == 0 { &v.home } else { &v.away };
+        assert!(ours.players.iter().any(|p| p.id == inn && p.on_minute == Some(45)));
+        assert!(ours.out.iter().any(|p| p.id == out && p.off_minute == Some(45)));
+        assert_eq!(ours.subs_left, MAX_SUBS_TEST - 1);
+        assert!(g.live_substitute(out, inn).is_err(), "já saiu");
+        let mut i = ours.instructions;
+        i.mentality = Mentality::Attacking;
+        let v = g.live_instructions(i).unwrap();
+        assert!(v.events.last().unwrap().kind == "tactics");
+        let (a, b) = (ours.players[1].id, ours.players[2].id);
+        g.live_swap(a, b).unwrap();
+        let v = g.live_step(90).unwrap();
+        let ours = if side == 0 { &v.home } else { &v.away };
+        let sub = ours.players.iter().chain(&ours.out).find(|p| p.id == inn).unwrap();
+        assert!(sub.condition < 100, "{:?}", sub);
+        assert!(g.live_substitute(a, b).is_err(), "o jogo acabou");
+        g.live_finish().unwrap();
+        // Quem entrou jogou (cansou-se um pouco); quem saiu também conta como tendo jogado
+        assert!(g.squads.state(inn).condition < 100);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    const MAX_SUBS_TEST: i32 = crate::live::MAX_SUBS;
+
+    #[test]
+    fn tactics_screen_during_the_match() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (mut g, dir) = until_kickoff(&world, "live-tactics", 12, true, true);
+        let side = g.live_view().unwrap().user_side.unwrap();
+        let t = g.live_tactics(side).unwrap();
+        assert!(t.editable && t.reserves.is_empty());
+        assert!(!g.live_tactics(1 - side).unwrap().editable, "a do adversário só se vê");
+
+        // Antes do apito: trocar um titular por um suplente não gasta substituições
+        let mut sel = t.selection();
+        let (starter, sub) = (sel.starters[10].unwrap(), sel.bench[1]);
+        sel.starters[10] = Some(sub);
+        sel.bench[1] = starter;
+        g.live_set_tactics(&sel).unwrap();
+        let v = g.live_view().unwrap();
+        let ours = if side == 0 { &v.home } else { &v.away };
+        assert_eq!(ours.subs_left, MAX_SUBS_TEST);
+        assert!(ours.bench.iter().any(|p| p.id == starter), "volta ao banco");
+
+        // Ao intervalo: outra formação (o preview mostra as funções novas) e uma substituição
+        g.live_step(45).unwrap();
+        let mut sel = g.live_tactics(side).unwrap().selection();
+        sel.formation = 4; // 4-3-3
+        sel.positions.clear();
+        let preview = g.live_preview_tactics(&sel).unwrap();
+        assert_eq!(preview.formation, "4-3-3");
+        let (out, inn) = (sel.starters[5].unwrap(), sel.bench[0]);
+        sel.starters[5] = Some(inn);
+        sel.bench.remove(0);
+        let v = g.live_set_tactics(&sel).unwrap();
+        let ours = if side == 0 { &v.home } else { &v.away };
+        assert_eq!(ours.formation, "4-3-3");
+        assert_eq!(ours.subs_left, MAX_SUBS_TEST - 1);
+        assert!(ours.out.iter().any(|p| p.id == out));
+        assert!(v.events.iter().any(|e| e.kind == "tactics"));
+
+        // Quem saiu não volta
+        let mut back = g.live_tactics(side).unwrap().selection();
+        back.starters[0] = Some(out);
+        assert!(g.live_preview_tactics(&back).is_err());
+        assert!(g.live_substitute(back.starters[1].unwrap(), out).is_err());
+
+        // Só 5 substituições: com 4 feitas, trocar 2 de uma vez é recusado e 1 passa
+        g.live_step(60).unwrap();
+        for k in 0..3 {
+            let t = g.live_tactics(side).unwrap();
+            let sel = t.selection();
+            let inn = *sel.bench.iter().find(|&&b| t.bench.iter().any(|p| p.id == b && p.position != "GR")).unwrap();
+            g.live_substitute(sel.starters[9 - k].unwrap(), inn).unwrap();
+        }
+        let t = g.live_tactics(side).unwrap();
+        let mut two = t.selection();
+        assert!(two.bench.len() >= 2);
+        two.starters[2] = Some(two.bench.remove(0));
+        two.starters[3] = Some(two.bench.remove(0));
+        let err = g.live_preview_tactics(&two).unwrap_err().to_string();
+        assert!(err.contains("5 substituições"), "{err}");
+        let mut one = t.selection();
+        one.starters[2] = Some(one.bench.remove(0));
+        g.live_set_tactics(&one).unwrap();
+        let v = g.live_view().unwrap();
+        assert_eq!(if side == 0 { &v.home } else { &v.away }.subs_left, 0);
+        let last = g.live_tactics(side).unwrap().selection();
+        assert!(g.live_substitute(last.starters[4].unwrap(), last.bench[0]).is_err(), "a 6ª é recusada");
+        let end = g.live_step(90).unwrap();
+        assert_eq!(end.events.iter().filter(|e| e.kind == "goal").count() as i32, end.home_goals + end.away_goals);
+        g.live_finish().unwrap();
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
 
     fn g_club(world: &Path, short: &str) -> i32 {
         let w = World::open(world).unwrap();

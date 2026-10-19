@@ -62,7 +62,7 @@ function SideButton({
 type Menu = { kind: 'competitions' | 'manager'; x: number; y: number }
 
 /** O que o ecrã do dia de jogo precisa: o jogo, os jogos do dia e a tabela de antes. */
-type MatchDayData = { fixture: Fixture; dayGames: Fixture[]; table: StandingRow[]; tableAfter: StandingRow[] }
+type MatchDayData = { fixture: Fixture; dayGames: Fixture[]; table: StandingRow[] }
 
 /** Coluna de navegação à esquerda, como no CM 01/02. */
 function SideBar({
@@ -111,18 +111,18 @@ function SideBar({
     setBusy(true)
     onProcessing(true)
     try {
-      // A tabela antes do dia, para as posições no ecrã "Jogos de Hoje"
-      const clubId = info?.club.id
-      const upcoming = clubId ? (await api.clubFixtures(clubId)).find((f) => f.homeGoals === null) : undefined
-      const tableBefore = upcoming ? await api.leagueTable(upcoming.competitionId) : []
-      const next = await api.continueGame()
-      game.update(next)
-      // Se o clube do treinador jogou hoje: ecrã do dia de jogo e depois os Resultados
-      const played = (await api.clubFixtures(next.club.id)).find((f) => f.date === next.date && f.homeGoals !== null)
-      if (played) {
-        const dayGames = (await api.listFixtures(played.competitionId)).filter((f) => f.date === next.date)
-        const tableAfter = await api.leagueTable(played.competitionId)
-        onMatch({ fixture: played, dayGames, table: tableBefore, tableAfter })
+      // Com um jogo do treinador por acabar (ex.: a página recarregou), volta a ele
+      let next = info
+      if (!next?.live) {
+        next = await api.continueGame()
+        game.update(next)
+      }
+      if (next.live) {
+        // O jogo do treinador é hoje: os resultados do dia só entram no fim dele, então a
+        // tabela e os jogos do dia ainda estão como antes da jornada
+        const { fixture } = await api.liveMatch()
+        const [all, table] = await Promise.all([api.listFixtures(fixture.competitionId), api.leagueTable(fixture.competitionId)])
+        onMatch({ fixture, dayGames: all.filter((f) => f.date === fixture.date), table })
       } else if (next.unreadNews > 0) {
         // Como no CM: havendo mensagens por ler, o Continuar abre a caixa de mensagens
         nav.go({ kind: 'news' })
@@ -384,7 +384,6 @@ function Shell() {
             fixture={match.fixture}
             dayGames={match.dayGames}
             table={match.table}
-            tableAfter={match.tableAfter}
             own={game.info.club.id}
             step={matchStep}
             onDone={closeMatch}

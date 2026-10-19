@@ -2,8 +2,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::{
-    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, MatchPreview, NationListItem, NationOption,
-    NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, Selection, SearchResult, Session, StandingRow, World};
+    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, Instructions, LiveView, MatchPreview,
+    NationListItem, NationOption, NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, Selection, SearchResult, Session,
+    StandingRow, World};
 use tauri::{Manager, State};
 
 /// Mundo base e jogo aberto. `rusqlite::Connection` não é `Sync`, daí o Mutex.
@@ -72,6 +73,25 @@ session_command!(continue_game() -> GameInfo);
 session_command!(league_table(id: i32) -> Vec<StandingRow>);
 session_command!(list_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(club_fixtures(id: i32) -> Vec<Fixture>);
+session_command!(live_match() -> LiveView);
+session_command!(live_step(minute: i32) -> LiveView);
+session_command!(live_substitute(out: i32, inn: i32) -> LiveView);
+session_command!(live_swap(a: i32, b: i32) -> LiveView);
+session_command!(live_instructions(instructions: Instructions) -> LiveView);
+session_command!(live_finish() -> GameInfo);
+session_command!(live_tactics(side: i32) -> ClubTactics);
+
+#[tauri::command]
+async fn live_preview_tactics(state: State<'_, AppState>, selection: Selection) -> Result<ClubTactics, String> {
+    let session = state.session.lock().map_err(|e| e.to_string())?;
+    session.live_preview_tactics(&selection).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn live_set_tactics(state: State<'_, AppState>, selection: Selection) -> Result<LiveView, String> {
+    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    session.live_set_tactics(selection).map_err(|e| e.to_string())
+}
 
 #[tauri::command]
 async fn new_game(state: State<'_, AppState>, game: NewGame) -> Result<GameInfo, String> {
@@ -164,6 +184,15 @@ pub fn run() {
       toggle_player,
       delete_save,
       match_preview,
+      live_match,
+      live_step,
+      live_substitute,
+      live_swap,
+      live_instructions,
+      live_finish,
+      live_tactics,
+      live_preview_tactics,
+      live_set_tactics,
     ])
     .run(tauri::generate_context!())
     .expect("error while building tauri application");

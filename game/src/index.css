@@ -83,7 +83,7 @@ body {
     @apply border-b-cm-sidelight border-l-cm-sidedark border-r-cm-sidelight border-t-cm-sidedark;
   }
   .cm-side-btn:disabled {
-    @apply text-[#e4e8f0];
+    @apply text-[#9aa3b8];
   }
 
   /* Abas escuras, em relevo como no CM; a selecionada tem borda e texto amarelos */

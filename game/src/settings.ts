@@ -8,6 +8,7 @@ export type WagePeriod = 'week' | 'month' | 'year'
 export type TitleFont = 'futurista' | 'classica' | 'moderna'
 export type ScreenMode = 'window' | 'fullscreen'
 export type Background = 'default' | 'plain' | 'image'
+export type MatchSpeed = 'veryFast' | 'fast' | 'normal' | 'slow' | 'verySlow'
 
 export type Settings = {
   currency: Currency
@@ -21,6 +22,8 @@ export type Settings = {
   backgroundImage: string | null
   /** Quanto escurecer a imagem de fundo (0–0.8), para o texto continuar legível. */
   backgroundDim: number
+  /** Velocidade do relato dos jogos. */
+  matchSpeed: MatchSpeed
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,7 +35,17 @@ export const DEFAULT_SETTINGS: Settings = {
   background: 'default',
   backgroundImage: null,
   backgroundDim: 0.5,
+  matchSpeed: 'normal',
 }
+
+/** "Velocidade Comentário" do CM: quanto fica cada frase do relato no ecrã. */
+export const MATCH_SPEEDS: { key: MatchSpeed; label: string; ms: number }[] = [
+  { key: 'veryFast', label: 'Muito Rápida', ms: 60 },
+  { key: 'fast', label: 'Rápida', ms: 200 },
+  { key: 'normal', label: 'Média', ms: 550 },
+  { key: 'slow', label: 'Lenta', ms: 1100 },
+  { key: 'verySlow', label: 'Muito Lenta', ms: 1900 },
+]
 
 /** Moedas como no CM; o banco está em euros. Câmbio aproximado do início da época 25/26. */
 export const CURRENCIES: { key: Currency; label: string; symbol: string; rate: number }[] = [

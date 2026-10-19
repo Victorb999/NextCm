@@ -4,6 +4,7 @@ import {
   CURRENCIES,
   DEFAULT_SETTINGS,
   FONTS,
+  MATCH_SPEEDS,
   SIDE_PRESETS,
   WAGES,
   applyScreenMode,
@@ -141,6 +142,9 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
                 {w.label}
               </Option>
             ))}
+          </Row>
+          <Row label="Velocidade Comentário">
+            <Cycle options={MATCH_SPEEDS} value={s.matchSpeed} onChange={(matchSpeed) => set({ matchSpeed })} />
           </Row>
           <Row label="Modo Ecrã">
             <Option selected={s.screen === 'fullscreen'} onClick={() => set({ screen: 'fullscreen' })}>

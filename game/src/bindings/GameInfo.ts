@@ -8,4 +8,8 @@ export type GameInfo = { name: string, date: string, managerId: number, managerN
 /**
  * Há mudanças desde a última gravação.
  */
-unsaved: boolean, };
+unsaved: boolean, 
+/**
+ * O jogo do treinador de hoje está por acabar (tela da partida).
+ */
+live: boolean, };

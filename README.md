@@ -33,7 +33,8 @@ O mundo do jogo vem dos arquivos `.dat` originais do CM 01/02 com o **CLZ League
 ### 🎮 Jogo (Série A do Brasileirão)
 - **Novo jogo, gravar, carregar e apagar** — o save é um SQLite; saves antigos são migrados sozinhos.
 - **Época inteira da Série A**: calendário de turno e returno, classificação real, Próximo/Último Jogo com local, tempo e notícias de cada lado.
-- **Dia de jogo** como no CM: *Jogos de Hoje* → o jogo → *Resultados de Hoje* → caixa de mensagens.
+- **Dia de jogo** como no CM: *Jogos de Hoje* → a partida ao vivo → *Resultados de Hoje* → caixa de mensagens.
+- **Partida ao vivo** com motor por lances: relato minuto a minuto com velocidade ajustável, remates, defesas, golos com marcadores e assistências, cartões, lesões, estatísticas, notas dos jogadores e os outros jogos do dia; pausa no intervalo para **substituições** e **Instruções à Equipa**.
 - **O seu time**: tácticas editáveis arrastando jogadores (na lista, no campo ou no plantel), posições livres no campo, setas de movimento com o botão direito, banco de 9, *Instruções à Equipa* e o adjunto que escolhe a equipa por você.
 - **Condição física, moral, lesões, cartões e suspensões**, com notícias na caixa de mensagens.
 
@@ -46,6 +47,7 @@ O mundo do jogo vem dos arquivos `.dat` originais do CM 01/02 com o **CLZ League
 ```
 MeuCM/
 ├─ core/            # nextcm-core (Rust): dados, calendário, match engine, tácticas, save
+│  ├─ src/live.rs         # match engine por lances (relato, cartões, substituições)
 │  ├─ src/bin/sim.rs      # CLI: simula épocas inteiras sem interface
 │  └─ examples/dev_bridge.rs  # ponte HTTP para abrir a UI no navegador em dev
 ├─ game/            # interface React + Vite + Tailwind
@@ -104,7 +106,7 @@ cargo test -p nextcm-core                                   # testes do core
 cargo run -p nextcm-core --release --bin sim -- 7568 epoca 1 20   # 20 épocas da Série A
 ```
 
-A CLI mostra a classificação, golos por jogo, vitórias em casa e a média de pontos e títulos de cada clube — é assim que o motor é calibrado.
+A CLI mostra a classificação, golos por jogo, vitórias em casa, remates, cartões, substituições e lesões por equipa, e a média de pontos e títulos de cada clube — é assim que o motor é calibrado.
 
 ## 🗺️ Roadmap
 
@@ -115,7 +117,7 @@ A CLI mostra a classificação, golos por jogo, vitórias em casa e a média de 
 | ✅ | **3.1** | Novo jogo, gravar/carregar, tempo e notícias |
 | ✅ | **3.2** | Série A jogável (calendário, match engine v1, classificação) |
 | ✅ | **3.3** | O seu time: tácticas, condição, moral, lesões, suspensões |
-| ⏳ | **3.4** | Dia de jogo: motor por lances e relato ao vivo |
+| ✅ | **3.4** | Dia de jogo: motor por lances e relato ao vivo |
 | ⏳ | **3.5** | Fim de época: subidas e descidas, evolução, contratos, regens |
 | ⏳ | **3.6** | Mais competições (Série B, Copa do Brasil, estaduais, Libertadores...) |
 | ⏳ | **3.7** | Mercado de transferências com IA e finanças |

@@ -4,8 +4,8 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    MatchPreview, ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, NewGame, NewsItem, PersonProfile, Result, SaveSummary, Selection,
-    StandingRow, World, list_saves,
+    ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, PersonProfile, Result,
+    SaveSummary, Selection, StandingRow, World, list_saves,
 };
 
 pub struct Session {
@@ -106,7 +106,8 @@ impl Session {
         let seed = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(1, |d| d.as_nanos() as i64 & i64::MAX);
-        let game = Game::create(&self.world_path, &self.saves_dir, new, seed)?;
+        let mut game = Game::create(&self.world_path, &self.saves_dir, new, seed)?;
+        game.set_watch(true);
         let info = game.info()?;
         self.game = Some(game);
         Ok(info)
@@ -115,7 +116,8 @@ impl Session {
     /// Abre um save da pasta de saves pelo nome do arquivo (nunca um caminho qualquer).
     pub fn load_game(&mut self, file: &str) -> Result<GameInfo> {
         let name = Path::new(file).file_name().ok_or_else(|| Error::Invalid("Arquivo inválido.".into()))?;
-        let game = Game::load(&self.saves_dir.join(name))?;
+        let mut game = Game::load(&self.saves_dir.join(name))?;
+        game.set_watch(true);
         let info = game.info()?;
         self.game = Some(game);
         Ok(info)
@@ -142,6 +144,47 @@ impl Session {
     pub fn continue_game(&mut self) -> Result<GameInfo> {
         let game = self.game_mut()?;
         game.advance_to_next_event()?;
+        game.info()
+    }
+
+    /// O jogo do treinador a decorrer (tela da partida).
+    pub fn live_match(&self) -> Result<LiveView> {
+        self.game()?.live_view()
+    }
+
+    /// Joga o jogo do treinador até ao minuto dado.
+    pub fn live_step(&mut self, minute: i32) -> Result<LiveView> {
+        self.game_mut()?.live_step(minute)
+    }
+
+    pub fn live_substitute(&mut self, out: i32, inn: i32) -> Result<LiveView> {
+        self.game_mut()?.live_substitute(out, inn)
+    }
+
+    pub fn live_swap(&mut self, a: i32, b: i32) -> Result<LiveView> {
+        self.game_mut()?.live_swap(a, b)
+    }
+
+    pub fn live_tactics(&self, side: i32) -> Result<ClubTactics> {
+        self.game()?.live_tactics(side)
+    }
+
+    pub fn live_preview_tactics(&self, selection: &Selection) -> Result<ClubTactics> {
+        self.game()?.live_preview_tactics(selection)
+    }
+
+    pub fn live_set_tactics(&mut self, selection: Selection) -> Result<LiveView> {
+        self.game_mut()?.live_set_tactics(&selection)
+    }
+
+    pub fn live_instructions(&mut self, instructions: Instructions) -> Result<LiveView> {
+        self.game_mut()?.live_instructions(instructions)
+    }
+
+    /// Acaba o jogo do treinador e fecha o dia (resultados, notícias).
+    pub fn live_finish(&mut self) -> Result<GameInfo> {
+        let game = self.game_mut()?;
+        game.live_finish()?;
         game.info()
     }
 

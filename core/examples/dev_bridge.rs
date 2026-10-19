@@ -9,7 +9,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::thread;
 
-use nextcm_core::{NewGame, SearchQuery, Selection, Session, World};
+use nextcm_core::{Instructions, NewGame, SearchQuery, Selection, Session, World};
 use serde_json::Value;
 
 fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String> {
@@ -72,6 +72,36 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "league_table" => out(serde_json::to_value(session.league_table(id()?).map_err(e)?)),
         "list_fixtures" => out(serde_json::to_value(session.list_fixtures(id()?).map_err(e)?)),
         "club_fixtures" => out(serde_json::to_value(session.club_fixtures(id()?).map_err(e)?)),
+        "live_match" => out(serde_json::to_value(session.live_match().map_err(e)?)),
+        "live_step" => {
+            let minute = args["minute"].as_i64().ok_or("falta minute")? as i32;
+            out(serde_json::to_value(session.live_step(minute).map_err(e)?))
+        }
+        "live_substitute" => {
+            let (o, i) = (args["out"].as_i64().ok_or("falta out")?, args["inn"].as_i64().ok_or("falta inn")?);
+            out(serde_json::to_value(session.live_substitute(o as i32, i as i32).map_err(e)?))
+        }
+        "live_swap" => {
+            let (a, b) = (args["a"].as_i64().ok_or("falta a")?, args["b"].as_i64().ok_or("falta b")?);
+            out(serde_json::to_value(session.live_swap(a as i32, b as i32).map_err(e)?))
+        }
+        "live_instructions" => {
+            let i: Instructions = serde_json::from_value(args["instructions"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.live_instructions(i).map_err(e)?))
+        }
+        "live_tactics" => {
+            let side = args["side"].as_i64().ok_or("falta side")? as i32;
+            out(serde_json::to_value(session.live_tactics(side).map_err(e)?))
+        }
+        "live_preview_tactics" => {
+            let sel: Selection = serde_json::from_value(args["selection"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.live_preview_tactics(&sel).map_err(e)?))
+        }
+        "live_set_tactics" => {
+            let sel: Selection = serde_json::from_value(args["selection"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.live_set_tactics(sel).map_err(e)?))
+        }
+        "live_finish" => out(serde_json::to_value(session.live_finish().map_err(e)?)),
         _ => Err(format!("comando desconhecido: {cmd}")),
     }
 }

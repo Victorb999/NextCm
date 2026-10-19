@@ -96,7 +96,7 @@ export default function InstructionsDialog({
           {yesNo('Defesa em Linha', 'offsideTrap')}
           {yesNo('Contra-Ataque', 'counterAttack')}
           {yesNo('Defesa Intensa', 'tightMarking')}
-          <div className="pt-1 text-[12px] text-[#bfe6c4]">Batedores de livres e cantos e o organizador chegam com o relato dos jogos.</div>
+          <div className="pt-1 text-[12px] text-[#bfe6c4]">Durante um jogo, as instruções mudam-se no botão Equipa da tela da partida.</div>
         </div>
       </DialogFrame>
     </Overlay>

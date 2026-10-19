@@ -95,6 +95,32 @@ fn role_label(pos: usize, side: usize) -> String {
     format!("{p} {s}")
 }
 
+/// Nota (1–20) de quem tem estas notas de posição numa função ("D C", "GR", "MA E"...):
+/// a menor entre a posição e o lado, como na escolha da equipa.
+pub(crate) fn fit_for_role(pos: &[Option<i32>; 12], role: &str) -> i32 {
+    let mut it = role.split(' ');
+    let p = match it.next() {
+        Some("GR") => GR,
+        Some("L") => L,
+        Some("D") => D,
+        Some("MD") => MD,
+        Some("MA") => MA,
+        Some("A") => A,
+        Some("AL") => AL,
+        _ => M,
+    };
+    let v = pos[p].unwrap_or(1);
+    if p == GR {
+        return v;
+    }
+    let side = match it.next() {
+        Some("D") => RIGHT,
+        Some("E") => LEFT,
+        _ => CENTRE,
+    };
+    v.min(pos[side].unwrap_or(1))
+}
+
 /// Mentalidade, como no diálogo "Instruções à Equipa" do CM.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[ts(export)]
