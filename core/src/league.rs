@@ -86,13 +86,7 @@ fn round_dates(start_year: i32, rounds: usize) -> Vec<String> {
 /// Calendário de turno e returno pelo método do círculo. A ordem dos clubes é sorteada,
 /// então cada jogo novo tem um calendário diferente. Metade das partidas de cada jornada
 /// joga ao sábado e a outra metade ao domingo. Os ids começam em `first_id`.
-pub fn round_robin(
-    competition_id: i32,
-    clubs: &[i32],
-    start_year: i32,
-    first_id: i32,
-    rng: &mut impl RngCore,
-) -> Vec<Match> {
+pub fn round_robin(competition_id: i32, clubs: &[i32], start_year: i32, first_id: i32, rng: &mut impl RngCore) -> Vec<Match> {
     let mut teams: Vec<Option<i32>> = clubs.iter().copied().map(Some).collect();
     // Fisher-Yates com o RNG do jogo
     for i in (1..teams.len()).rev() {

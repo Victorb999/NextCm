@@ -12,8 +12,7 @@ use crate::search::position_label;
 use crate::{Error, Result, World};
 
 /// Formações na ordem do campo `preferred_formation` (lista do cm0102ed: 0 = "Not set").
-pub const FORMATIONS: [&str; 10] =
-    ["4-4-2", "5-3-2 Líbero", "5-3-2", "4-4-2", "4-3-3", "4-2-4", "3-5-2", "4-1-2-1-2", "4-5-1", "3-4-3"];
+pub const FORMATIONS: [&str; 10] = ["4-4-2", "5-3-2 Líbero", "5-3-2", "4-4-2", "4-3-3", "4-2-4", "3-5-2", "4-1-2-1-2", "4-5-1", "3-4-3"];
 
 // Índices das notas de posição (pos_goalkeeper..pos_free_role) e de lado
 const GR: usize = 0;
@@ -40,39 +39,68 @@ fn slots(formation: usize) -> Vec<Slot> {
     let mut s = vec![gk];
     match formation {
         1 => s.extend([
-            (L, CENTRE, 50, 82), (D, CENTRE, 66, 72), (D, CENTRE, 34, 72), (AL, RIGHT, 88, 60), (AL, LEFT, 12, 60),
-            (M, CENTRE, 72, 45), (M, CENTRE, 50, 48), (M, CENTRE, 28, 45),
+            (L, CENTRE, 50, 82),
+            (D, CENTRE, 66, 72),
+            (D, CENTRE, 34, 72),
+            (AL, RIGHT, 88, 60),
+            (AL, LEFT, 12, 60),
+            (M, CENTRE, 72, 45),
+            (M, CENTRE, 50, 48),
+            (M, CENTRE, 28, 45),
         ]),
         2 => s.extend([
-            (D, CENTRE, 72, 75), (D, CENTRE, 50, 77), (D, CENTRE, 28, 75), (AL, RIGHT, 88, 60), (AL, LEFT, 12, 60),
-            (M, CENTRE, 72, 45), (M, CENTRE, 50, 48), (M, CENTRE, 28, 45),
+            (D, CENTRE, 72, 75),
+            (D, CENTRE, 50, 77),
+            (D, CENTRE, 28, 75),
+            (AL, RIGHT, 88, 60),
+            (AL, LEFT, 12, 60),
+            (M, CENTRE, 72, 45),
+            (M, CENTRE, 50, 48),
+            (M, CENTRE, 28, 45),
         ]),
         4 => s.extend(back4.into_iter().chain([
-            (M, CENTRE, 72, 48), (M, CENTRE, 50, 50), (M, CENTRE, 28, 48),
-            (A, RIGHT, 82, 18), (A, CENTRE, 50, 12), (A, LEFT, 18, 18),
+            (M, CENTRE, 72, 48),
+            (M, CENTRE, 50, 50),
+            (M, CENTRE, 28, 48),
+            (A, RIGHT, 82, 18),
+            (A, CENTRE, 50, 12),
+            (A, LEFT, 18, 18),
         ])),
         5 => s.extend(back4.into_iter().chain([
-            (M, CENTRE, 62, 48), (M, CENTRE, 38, 48),
-            (A, RIGHT, 85, 18), (A, CENTRE, 62, 12), (A, CENTRE, 38, 12), (A, LEFT, 15, 18),
+            (M, CENTRE, 62, 48),
+            (M, CENTRE, 38, 48),
+            (A, RIGHT, 85, 18),
+            (A, CENTRE, 62, 12),
+            (A, CENTRE, 38, 12),
+            (A, LEFT, 15, 18),
         ])),
         6 => s.extend(back3.into_iter().chain([
-            (AL, RIGHT, 88, 50), (M, CENTRE, 64, 50), (M, CENTRE, 36, 50), (AL, LEFT, 12, 50), (MA, CENTRE, 50, 32),
+            (AL, RIGHT, 88, 50),
+            (M, CENTRE, 64, 50),
+            (M, CENTRE, 36, 50),
+            (AL, LEFT, 12, 50),
+            (MA, CENTRE, 50, 32),
         ])),
-        7 => s.extend(back4.into_iter().chain([
-            (MD, CENTRE, 50, 58), (M, CENTRE, 70, 45), (M, CENTRE, 30, 45), (MA, CENTRE, 50, 32),
-        ])),
+        7 => s.extend(back4.into_iter().chain([(MD, CENTRE, 50, 58), (M, CENTRE, 70, 45), (M, CENTRE, 30, 45), (MA, CENTRE, 50, 32)])),
         8 => s.extend(back4.into_iter().chain([
-            (M, RIGHT, 86, 46), (M, CENTRE, 64, 50), (M, CENTRE, 36, 50), (M, LEFT, 14, 46), (MA, CENTRE, 50, 32),
+            (M, RIGHT, 86, 46),
+            (M, CENTRE, 64, 50),
+            (M, CENTRE, 36, 50),
+            (M, LEFT, 14, 46),
+            (MA, CENTRE, 50, 32),
             (A, CENTRE, 50, 12),
         ])),
         9 => s.extend(back3.into_iter().chain([
-            (M, RIGHT, 86, 46), (M, CENTRE, 62, 50), (M, CENTRE, 38, 50), (M, LEFT, 14, 46),
-            (A, RIGHT, 82, 18), (A, CENTRE, 50, 12), (A, LEFT, 18, 18),
+            (M, RIGHT, 86, 46),
+            (M, CENTRE, 62, 50),
+            (M, CENTRE, 38, 50),
+            (M, LEFT, 14, 46),
+            (A, RIGHT, 82, 18),
+            (A, CENTRE, 50, 12),
+            (A, LEFT, 18, 18),
         ])),
         // 4-4-2 (3) e "não definida"
-        _ => s.extend(back4.into_iter().chain([
-            (M, RIGHT, 86, 46), (M, CENTRE, 62, 50), (M, CENTRE, 38, 50), (M, LEFT, 14, 46),
-        ])),
+        _ => s.extend(back4.into_iter().chain([(M, RIGHT, 86, 46), (M, CENTRE, 62, 50), (M, CENTRE, 38, 50), (M, LEFT, 14, 46)])),
     }
     // As formações sem avançados na lista acima jogam com dois pontas de lança
     if matches!(formation, 0..=3 | 6 | 7) {
@@ -429,11 +457,7 @@ impl World {
             .query_row([id], |r| Ok((r.get(0)?, r.get::<_, i32>(1)? != 0)))
             .optional()?
             .ok_or_else(|| Error::NotFound(format!("clube {id}")))?;
-        let (link, job) = if is_national {
-            ("p.national_team_id", "p.national_team_job")
-        } else {
-            ("p.club_id", "p.club_job")
-        };
+        let (link, job) = if is_national { ("p.national_team_id", "p.national_team_job") } else { ("p.club_id", "p.club_job") };
 
         // Treinador principal (cargo 5) e a formação preferida dele
         let coach: Option<(i32, String, Option<i32>)> = self
@@ -484,13 +508,8 @@ impl World {
     /// O adjunto escolhe: formação preferida do treinador e o melhor onze disponível.
     pub fn auto_tactics(&self, id: i32, state: Option<&SquadState>, instructions: Instructions) -> Result<ClubTactics> {
         let Squad { club_name, coach, pool } = self.squad(id, state)?;
-        let formation = coach
-            .as_ref()
-            .and_then(|c| c.2)
-            .filter(|f| (1..FORMATIONS.len() as i32).contains(f))
-            .unwrap_or(3) as usize;
-        let (mut available, unavailable): (Vec<Candidate>, Vec<Candidate>) =
-            pool.into_iter().partition(|c| c.state.can_play());
+        let formation = coach.as_ref().and_then(|c| c.2).filter(|f| (1..FORMATIONS.len() as i32).contains(f)).unwrap_or(3) as usize;
+        let (mut available, unavailable): (Vec<Candidate>, Vec<Candidate>) = pool.into_iter().partition(|c| c.state.can_play());
 
         // Escolha gulosa: o melhor par (função, jogador) de todos, até fechar o onze
         let mut layout = slots(formation);
@@ -622,15 +641,10 @@ impl World {
             return Ok(());
         }
         let Squad { pool, .. } = self.squad(id, None)?;
-        let c = pool
-            .iter()
-            .find(|c| c.id == player)
-            .ok_or_else(|| Error::Invalid("Esse jogador não é do plantel.".into()))?;
+        let c = pool.iter().find(|c| c.id == player).ok_or_else(|| Error::Invalid("Esse jogador não é do plantel.".into()))?;
         let layout = layout_for(sel);
         sel.starters.resize(layout.len(), None);
-        let empty = (0..layout.len())
-            .filter(|&i| sel.starters[i].is_none())
-            .max_by_key(|&i| (c.fit(layout[i]), std::cmp::Reverse(i)));
+        let empty = (0..layout.len()).filter(|&i| sel.starters[i].is_none()).max_by_key(|&i| (c.fit(layout[i]), std::cmp::Reverse(i)));
         if let Some(i) = empty {
             sel.starters[i] = Some(player);
         } else if sel.bench.len() < BENCH {
@@ -677,9 +691,9 @@ mod tests {
 
     #[test]
     fn formations_roles_follow_the_pitch() {
-        for f in 1..FORMATIONS.len() {
+        for (f, name) in FORMATIONS.iter().enumerate().skip(1) {
             for (pos, side, x, y) in slots(f) {
-                assert_eq!(role_at(x, y), (pos, side), "{} em ({x}, {y})", FORMATIONS[f]);
+                assert_eq!(role_at(x, y), (pos, side), "{name} em ({x}, {y})");
             }
         }
         // Um avançado arrastado para o meio-campo vira médio
@@ -697,8 +711,8 @@ mod tests {
 
     #[test]
     fn every_formation_has_eleven() {
-        for f in 0..FORMATIONS.len() {
-            assert_eq!(slots(f).len(), 11, "{}", FORMATIONS[f]);
+        for (f, name) in FORMATIONS.iter().enumerate() {
+            assert_eq!(slots(f).len(), 11, "{name}");
         }
     }
 

@@ -16,12 +16,12 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::engine;
-use crate::live::{LiveMatch, LiveView, TeamStats};
-use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
-use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
 use crate::league::{self, Fixture, Match, SERIE_A, StandingRow};
+use crate::live::{LiveMatch, LiveView, TeamStats};
 use crate::person::ClubRef;
 use crate::search::fold;
+use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
+use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
 use crate::{Error, Result, World, date};
 
 /// Versão do formato do save; saves de outra versão são recusados até haver migração.
@@ -243,11 +243,7 @@ pub struct MatchRecord {
 
 /// "Nome do save" → nome de arquivo seguro (letras, números, espaço, - e _).
 fn file_stem(name: &str) -> Result<String> {
-    let stem: String = name
-        .trim()
-        .chars()
-        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' { c } else { '_' })
-        .collect();
+    let stem: String = name.trim().chars().map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' { c } else { '_' }).collect();
     if stem.trim().is_empty() {
         return Err(Error::Invalid("Escolha um nome para o jogo.".into()));
     }
@@ -262,10 +258,10 @@ impl Game {
         if first.is_empty() || last.is_empty() {
             return Err(Error::Invalid("Indique o nome e o apelido do treinador.".into()));
         }
-        if let Some(b) = &new.birth_date {
-            if date::parse(b).is_none() {
-                return Err(Error::Invalid("Data de nascimento inválida.".into()));
-            }
+        if let Some(b) = &new.birth_date
+            && date::parse(b).is_none()
+        {
+            return Err(Error::Invalid("Data de nascimento inválida.".into()));
         }
         std::fs::create_dir_all(saves_dir)?;
         let path = saves_dir.join(format!("{}.sqlite", file_stem(&new.save_name)?));
@@ -297,8 +293,19 @@ impl Game {
                                      is_player, is_non_player, birth_sort, positions)
                  VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10, ?11, ?12, ?13, 0, 0, ?7, 0)",
                 params![
-                    manager_id, display, first, last, fold(&display), format!("{last}, {first}"),
-                    new.birth_date, birth_year, new.nation_id, new.club_id, HEAD_COACH, start, contract
+                    manager_id,
+                    display,
+                    first,
+                    last,
+                    fold(&display),
+                    format!("{last}, {first}"),
+                    new.birth_date,
+                    birth_year,
+                    new.nation_id,
+                    new.club_id,
+                    HEAD_COACH,
+                    start,
+                    contract
                 ],
             )?;
             tx.execute(
@@ -418,14 +425,17 @@ impl Game {
             .conn
             .prepare("SELECT person_id, condition, morale, yellows, suspended, injury, injury_until FROM player_state")?
             .query_map([], |r| {
-                Ok((r.get(0)?, PlayerState {
-                    condition: r.get(1)?,
-                    morale: r.get(2)?,
-                    yellows: r.get(3)?,
-                    suspended: r.get(4)?,
-                    injury: r.get(5)?,
-                    injury_until: r.get(6)?,
-                }))
+                Ok((
+                    r.get(0)?,
+                    PlayerState {
+                        condition: r.get(1)?,
+                        morale: r.get(2)?,
+                        yellows: r.get(3)?,
+                        suspended: r.get(4)?,
+                        injury: r.get(5)?,
+                        injury_until: r.get(6)?,
+                    },
+                ))
             })?
             .collect::<rusqlite::Result<_>>()?;
         fix_squad_numbers(&world, &ids, seed)?;
@@ -498,17 +508,31 @@ impl Game {
                 "INSERT INTO selection (club_id, formation, auto, mentality, passing, tackling, pressing, offside_trap,
                                         counter_attack, tight_marking) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
-                    self.club_id, sel.formation, sel.auto, mentality, passing, tackling, i.pressing, i.offside_trap, i.counter_attack, i.tight_marking
+                    self.club_id,
+                    sel.formation,
+                    sel.auto,
+                    mentality,
+                    passing,
+                    tackling,
+                    i.pressing,
+                    i.offside_trap,
+                    i.counter_attack,
+                    i.tight_marking
                 ],
             )?;
-            let mut stmt = tx.prepare(
-                "INSERT INTO selection_players (club_id, slot, person_id, x, y, run_x, run_y) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            )?;
+            let mut stmt =
+                tx.prepare("INSERT INTO selection_players (club_id, slot, person_id, x, y, run_x, run_y) VALUES (?, ?, ?, ?, ?, ?, ?)")?;
             for (slot, pid) in sel.starters.iter().enumerate() {
                 let xy = sel.positions.get(slot);
                 let run = sel.runs.get(slot).copied().flatten();
                 stmt.execute(params![
-                    self.club_id, slot as i32, pid, xy.map(|p| p[0]), xy.map(|p| p[1]), run.map(|r| r[0]), run.map(|r| r[1])
+                    self.club_id,
+                    slot as i32,
+                    pid,
+                    xy.map(|p| p[0]),
+                    xy.map(|p| p[1]),
+                    run.map(|r| r[0]),
+                    run.map(|r| r[1])
                 ])?;
             }
             for (i, pid) in sel.bench.iter().enumerate() {
@@ -555,11 +579,11 @@ impl Game {
             let (home, away) = (self.matches[i].home_id, self.matches[i].away_id);
             let (home_t, home_changes) = self.lineup(home)?;
             let (away_t, away_changes) = self.lineup(away)?;
-            if let Some(changes) = home_changes.or(away_changes) {
-                if !changes.is_empty() {
-                    fresh.push(self.changes_news(next_id, &changes)?);
-                    next_id += 1;
-                }
+            if let Some(changes) = home_changes.or(away_changes)
+                && !changes.is_empty()
+            {
+                fresh.push(self.changes_news(next_id, &changes)?);
+                next_id += 1;
             }
             let side = if home == self.club_id {
                 Some(0)
@@ -745,12 +769,7 @@ impl Game {
             Event::Suspended { player, club, red } if *club == self.club_id => {
                 let name = self.person_name(*player)?;
                 let why = if *red { "foi expulso" } else { "viu o terceiro cartão amarelo" };
-                Some(self.news_item(
-                    id,
-                    "injury",
-                    format!("{name} suspenso"),
-                    format!("{name} {why} e cumpre um jogo de suspensão."),
-                ))
+                Some(self.news_item(id, "injury", format!("{name} suspenso"), format!("{name} {why} e cumpre um jogo de suspensão.")))
             }
             _ => None,
         })
@@ -808,11 +827,7 @@ impl Game {
 
     /// Ficha do "Próximo Jogo" para uma partida.
     pub fn match_preview(&self, fixture_id: i32) -> Result<MatchPreview> {
-        let m = self
-            .matches
-            .iter()
-            .find(|m| m.id == fixture_id)
-            .ok_or_else(|| Error::NotFound(format!("partida {fixture_id}")))?;
+        let m = self.matches.iter().find(|m| m.id == fixture_id).ok_or_else(|| Error::NotFound(format!("partida {fixture_id}")))?;
         let (venue, city): (Option<String>, Option<String>) = self.world.conn.query_row(
             "SELECT s.name, ci.name FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id
              LEFT JOIN cities ci ON ci.id = s.city_id WHERE c.id = ?",
@@ -854,8 +869,7 @@ impl Game {
 
         let news = |club: i32| -> Result<Vec<String>> {
             let mut out = Vec::new();
-            let mut ids: Vec<i32> =
-                self.squads.traits.iter().filter(|(_, t)| t.club_id == club).map(|(&id, _)| id).collect();
+            let mut ids: Vec<i32> = self.squads.traits.iter().filter(|(_, t)| t.club_id == club).map(|(&id, _)| id).collect();
             ids.sort_unstable();
             for id in ids {
                 let st = self.squads.state(id);
@@ -997,10 +1011,7 @@ impl Game {
     pub fn info(&self) -> Result<GameInfo> {
         let manager_name: String =
             self.world.conn.query_row("SELECT display_name FROM people WHERE id = ?", [self.manager_id], |r| r.get(0))?;
-        let club = self
-            .world
-            .club_ref(Some(self.club_id))?
-            .ok_or_else(|| Error::NotFound(format!("clube {}", self.club_id)))?;
+        let club = self.world.club_ref(Some(self.club_id))?.ok_or_else(|| Error::NotFound(format!("clube {}", self.club_id)))?;
         Ok(GameInfo {
             name: self.name.clone(),
             date: self.date.clone(),
@@ -1149,7 +1160,6 @@ impl Game {
         self.live_view()
     }
 
-
     /// Notícias, da mais recente para a mais antiga.
     pub fn news(&self) -> &[NewsItem] {
         &self.news
@@ -1282,8 +1292,7 @@ fn load_selection(world: &World, club_id: i32) -> Result<Option<Selection>> {
 fn migrate_v3(world: &World, club_id: i32) -> Result<()> {
     let tx = world.conn.unchecked_transaction()?;
     tx.execute_batch("ALTER TABLE selection_players ADD COLUMN x INTEGER; ALTER TABLE selection_players ADD COLUMN y INTEGER;")?;
-    let formation: Option<i32> =
-        tx.query_row("SELECT formation FROM selection WHERE club_id = ?", [club_id], |r| r.get(0)).optional()?;
+    let formation: Option<i32> = tx.query_row("SELECT formation FROM selection WHERE club_id = ?", [club_id], |r| r.get(0)).optional()?;
     if let Some(formation) = formation {
         let old: HashMap<i32, Option<i32>> = tx
             .prepare("SELECT slot, person_id FROM selection_players WHERE club_id = ? AND slot <= 10")?
@@ -1366,13 +1375,12 @@ fn club_refs(world: &World, ids: &[i32]) -> Result<HashMap<i32, ClubRef>> {
 fn competition_names(world: &World, matches: &[Match]) -> Result<HashMap<i32, String>> {
     let mut out = HashMap::new();
     for m in matches {
-        if !out.contains_key(&m.competition_id) {
-            let (name, short): (String, String) = world.conn.query_row(
-                "SELECT name, short_name FROM competitions WHERE id = ?",
-                [m.competition_id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )?;
-            out.insert(m.competition_id, if short.is_empty() { name } else { short });
+        if let std::collections::hash_map::Entry::Vacant(e) = out.entry(m.competition_id) {
+            let (name, short): (String, String) =
+                world.conn.query_row("SELECT name, short_name FROM competitions WHERE id = ?", [m.competition_id], |r| {
+                    Ok((r.get(0)?, r.get(1)?))
+                })?;
+            e.insert(if short.is_empty() { name } else { short });
         }
     }
     Ok(out)
@@ -1465,7 +1473,7 @@ pub fn list_saves(dir: &Path) -> Result<Vec<SaveSummary>> {
             saved_at,
         });
     }
-    out.sort_by(|a, b| b.saved_at.cmp(&a.saved_at));
+    out.sort_by_key(|s| std::cmp::Reverse(s.saved_at));
     Ok(out)
 }
 
@@ -1881,7 +1889,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-
     fn g_club(world: &Path, short: &str) -> i32 {
         let w = World::open(world).unwrap();
         w.conn.query_row("SELECT id FROM clubs WHERE short_name = ? AND division_id = 65", [short], |r| r.get(0)).unwrap()
@@ -2018,7 +2025,7 @@ mod tests {
         {
             let w = World::open_save(&path).unwrap();
             let perm = crate::tactics::cm_order_permutation(sel.formation);
-            let mut old = vec![None; 11];
+            let mut old = [None; 11];
             for (k, &from) in perm.iter().enumerate() {
                 old[from] = sel.starters[k];
             }
@@ -2028,7 +2035,10 @@ mod tests {
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn
-                    .execute("INSERT INTO selection_players (club_id, slot, person_id) VALUES (?, ?, ?)", params![palmeiras, slot as i32, pid])
+                    .execute(
+                        "INSERT INTO selection_players (club_id, slot, person_id) VALUES (?, ?, ?)",
+                        params![palmeiras, slot as i32, pid],
+                    )
                     .unwrap();
             }
         }

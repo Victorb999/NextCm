@@ -146,10 +146,10 @@ fn handle(stream: TcpStream, tx: mpsc::Sender<Job>) {
         if reader.read_line(&mut line).is_err() || line.trim().is_empty() {
             break;
         }
-        if let Some((k, v)) = line.split_once(':') {
-            if k.eq_ignore_ascii_case("content-length") {
-                len = v.trim().parse().unwrap_or(0);
-            }
+        if let Some((k, v)) = line.split_once(':')
+            && k.eq_ignore_ascii_case("content-length")
+        {
+            len = v.trim().parse().unwrap_or(0);
         }
     }
     let mut body = vec![0; len];
@@ -164,9 +164,6 @@ fn handle(stream: TcpStream, tx: mpsc::Sender<Job>) {
     }
     let Ok((status, out)) = reply_rx.recv() else { return };
     let mut s = &stream;
-    let _ = write!(
-        s,
-        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{out}",
-        out.len()
-    );
+    let _ =
+        write!(s, "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{out}", out.len());
 }

@@ -39,9 +39,7 @@ impl World {
         // O banco inteiro (~70 MB) cabe na memória: buscas com filtro ficam ~10x mais rápidas.
         conn.execute_batch("PRAGMA cache_size = -131072; PRAGMA mmap_size = 268435456;")?;
         let year_offset: i32 = conn
-            .query_row("SELECT value FROM meta WHERE key = 'year_offset'", [], |r| {
-                r.get::<_, String>(0)
-            })
+            .query_row("SELECT value FROM meta WHERE key = 'year_offset'", [], |r| r.get::<_, String>(0))
             .map(|v| v.parse().unwrap_or(0))?;
         Ok(World { conn, start_year: 2001 + year_offset })
     }
@@ -49,10 +47,7 @@ impl World {
     /// Procura `data/world.sqlite` subindo a partir de `start` (útil em dev,
     /// onde o executável roda de `target/debug`).
     pub fn locate(start: &Path) -> Option<PathBuf> {
-        start
-            .ancestors()
-            .map(|dir| dir.join("data").join("world.sqlite"))
-            .find(|p| p.exists())
+        start.ancestors().map(|dir| dir.join("data").join("world.sqlite")).find(|p| p.exists())
     }
 
     pub fn start_year(&self) -> i32 {
@@ -66,9 +61,7 @@ impl World {
              WHERE EXISTS (SELECT 1 FROM people p WHERE p.nation_id = n.id)
              ORDER BY n.name",
         )?;
-        let rows = stmt
-            .query_map([], |r| Ok(NationOption { id: r.get(0)?, name: r.get(1)? }))?
-            .collect::<rusqlite::Result<_>>()?;
+        let rows = stmt.query_map([], |r| Ok(NationOption { id: r.get(0)?, name: r.get(1)? }))?.collect::<rusqlite::Result<_>>()?;
         Ok(rows)
     }
 }

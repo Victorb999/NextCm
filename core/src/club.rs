@@ -107,11 +107,7 @@ impl World {
             .query_row([id], |r| {
                 let name: String = r.get(1)?;
                 let short: String = r.get(2)?;
-                Ok(CompetitionRef {
-                    id: r.get(0)?,
-                    short_name: if short.is_empty() { name.clone() } else { short },
-                    name,
-                })
+                Ok(CompetitionRef { id: r.get(0)?, short_name: if short.is_empty() { name.clone() } else { short }, name })
             })
             .optional()?)
     }
@@ -120,7 +116,20 @@ impl World {
         let Some(club) = self.club_ref(Some(id))? else {
             return Err(Error::NotFound(format!("clube {id}")));
         };
-        type Row = (bool, Option<i32>, Option<String>, Option<i32>, Option<i32>, Option<String>, Option<i32>, Option<i32>, Option<i32>, [Option<i32>; 3], Option<i32>, Option<i32>);
+        type Row = (
+            bool,
+            Option<i32>,
+            Option<String>,
+            Option<i32>,
+            Option<i32>,
+            Option<String>,
+            Option<i32>,
+            Option<i32>,
+            Option<i32>,
+            [Option<i32>; 3],
+            Option<i32>,
+            Option<i32>,
+        );
         let (is_national, nation_id, nation, division, reserve, stadium, capacity, reputation, cash, rivals, last_division, last_position): Row = self
             .conn
             .prepare_cached(
@@ -300,11 +309,8 @@ mod tests {
     fn barcelona_squad() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let w = World::open(&path).unwrap();
-        let yamal = w
-            .search_people(&crate::SearchQuery { text: Some("lamine yamal".into()), ..Default::default() })
-            .unwrap()
-            .items
-            .remove(0);
+        let yamal =
+            w.search_people(&crate::SearchQuery { text: Some("lamine yamal".into()), ..Default::default() }).unwrap().items.remove(0);
         let club = w.get_club(yamal.club_id.unwrap()).unwrap();
         assert_eq!(club.club.short_name, "Barcelona");
         assert_eq!(club.division.as_ref().map(|d| d.short_name.as_str()), Some("La Liga"));

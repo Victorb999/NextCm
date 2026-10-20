@@ -21,16 +21,16 @@ mod world;
 
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry};
-pub use engine::{expected_goals, TeamStrength};
-pub use game::{delete_save, list_saves, Game, GameInfo, MatchPreview, MatchRecord, NewGame, NewsItem, SaveSummary};
-pub use league::{Fixture, StandingRow, SERIE_A};
-pub use live::{LivePlayer, LiveTeam, LiveView, MatchEvent, ScoreLine, TeamStats, MAX_SUBS};
+pub use engine::{TeamStrength, expected_goals};
+pub use game::{Game, GameInfo, MatchPreview, MatchRecord, NewGame, NewsItem, SaveSummary, delete_save, list_saves};
+pub use league::{Fixture, SERIE_A, StandingRow};
+pub use live::{LivePlayer, LiveTeam, LiveView, MAX_SUBS, MatchEvent, ScoreLine, TeamStats};
 pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};
 pub use search::{PersonKind, PersonSummary, Position, SearchQuery, SearchResult, SearchSort, Side};
 pub use session::Session;
 pub use squad::PlayerStatus;
-pub use tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, TacticPlayer, TacticSlot, Tackling, FORMATIONS};
+pub use tactics::{ClubTactics, FORMATIONS, Instructions, Mentality, Passing, Selection, Tackling, TacticPlayer, TacticSlot};
 pub use world::{NationOption, World};
 
 #[derive(Debug)]

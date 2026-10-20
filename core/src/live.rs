@@ -19,7 +19,7 @@ use crate::engine::{SlotRating, TeamStrength, condition_factor, expected_goals, 
 use crate::league::Fixture;
 use crate::person::ClubRef;
 use crate::squad::Side;
-use crate::tactics::{Availability, ClubTactics, Instructions, Selection, SquadState, TacticPlayer, Tackling, fit_for_role};
+use crate::tactics::{Availability, ClubTactics, Instructions, Selection, SquadState, Tackling, TacticPlayer, fit_for_role};
 use crate::{Error, Result, World};
 
 /// Substituições por jogo (regra actual do Brasileirão).
@@ -460,10 +460,7 @@ impl LiveMatch {
         rng: ChaCha8Rng,
     ) -> Result<LiveMatch> {
         let ai = |side| user != Some(side) || user_ai;
-        let teams = [
-            Team::new(world, fixture.home.clone(), home, ai(0))?,
-            Team::new(world, fixture.away.clone(), away, ai(1))?,
-        ];
+        let teams = [Team::new(world, fixture.home.clone(), home, ai(0))?, Team::new(world, fixture.away.clone(), away, ai(1))?];
         let mut m = LiveMatch {
             fixture,
             teams,
@@ -633,8 +630,8 @@ impl LiveMatch {
         let name = self.name(side, shooter);
         let id = self.teams[side].players[shooter].info.id;
         let m = self.minute;
-        let header = self.teams[side].players[shooter].prof.heading > self.teams[side].players[shooter].prof.finishing
-            && variant(2, m, id) == 0;
+        let header =
+            self.teams[side].players[shooter].prof.heading > self.teams[side].players[shooter].prof.finishing && variant(2, m, id) == 0;
         let action = if header {
             format!("{name} cabeceou")
         } else {
@@ -779,43 +776,43 @@ impl LiveMatch {
             self.teams[side].stats.fouls += 1;
         }
         let booking = |role: &str, p: &MatchPlayer| p.prof.temper * if sector(role) == 0 { 0.3 } else { 1.0 };
-        if uniform(&mut self.rng) < YELLOWS_PER_90 * tackle * temper / 90.0 {
-            if let Some(i) = self.teams[side].pick(&mut self.rng, None, booking) {
-                self.teams[side].stats.fouls += 1;
-                let name = self.name(side, i);
-                let id = self.teams[side].players[i].info.id;
-                // Quem já tem amarelo tem cuidado: metade das vezes escapa ao segundo
-                let booked = self.teams[side].players[i].yellow;
-                if booked && uniform(&mut self.rng) < 0.5 {
-                } else if booked {
-                    self.teams[side].stats.yellows += 1;
-                    let text = format!("Segundo amarelo para {name}! O {} fica reduzido a dez.", self.short(side));
-                    self.push("red", Some(side), Some(id), text);
-                    self.send_off(side, i);
-                } else {
-                    let p = &mut self.teams[side].players[i];
-                    p.yellow = true;
-                    p.rating -= 0.3;
-                    self.teams[side].stats.yellows += 1;
-                    let text = match variant(3, self.minute, id) {
-                        0 => format!("Cartão amarelo para {name} ({}).", self.short(side)),
-                        1 => format!("Entrada dura de {name}, que vê o amarelo."),
-                        _ => format!("O árbitro mostra o amarelo a {name}."),
-                    };
-                    let lines = vec![format!("{name} entrou duro"), format!("Cartão amarelo para {name}")];
-                    self.push_lines("yellow", Some(side), Some(id), text, lines);
-                }
-            }
-        }
-        if uniform(&mut self.rng) < REDS_PER_90 * tackle * temper / 90.0 {
-            if let Some(i) = self.teams[side].pick(&mut self.rng, None, booking) {
-                self.teams[side].stats.fouls += 1;
-                let name = self.name(side, i);
-                let id = self.teams[side].players[i].info.id;
-                let text = format!("Cartão vermelho directo para {name}! O {} fica com dez.", self.short(side));
+        if uniform(&mut self.rng) < YELLOWS_PER_90 * tackle * temper / 90.0
+            && let Some(i) = self.teams[side].pick(&mut self.rng, None, booking)
+        {
+            self.teams[side].stats.fouls += 1;
+            let name = self.name(side, i);
+            let id = self.teams[side].players[i].info.id;
+            // Quem já tem amarelo tem cuidado: metade das vezes escapa ao segundo
+            let booked = self.teams[side].players[i].yellow;
+            if booked && uniform(&mut self.rng) < 0.5 {
+            } else if booked {
+                self.teams[side].stats.yellows += 1;
+                let text = format!("Segundo amarelo para {name}! O {} fica reduzido a dez.", self.short(side));
                 self.push("red", Some(side), Some(id), text);
                 self.send_off(side, i);
+            } else {
+                let p = &mut self.teams[side].players[i];
+                p.yellow = true;
+                p.rating -= 0.3;
+                self.teams[side].stats.yellows += 1;
+                let text = match variant(3, self.minute, id) {
+                    0 => format!("Cartão amarelo para {name} ({}).", self.short(side)),
+                    1 => format!("Entrada dura de {name}, que vê o amarelo."),
+                    _ => format!("O árbitro mostra o amarelo a {name}."),
+                };
+                let lines = vec![format!("{name} entrou duro"), format!("Cartão amarelo para {name}")];
+                self.push_lines("yellow", Some(side), Some(id), text, lines);
             }
+        }
+        if uniform(&mut self.rng) < REDS_PER_90 * tackle * temper / 90.0
+            && let Some(i) = self.teams[side].pick(&mut self.rng, None, booking)
+        {
+            self.teams[side].stats.fouls += 1;
+            let name = self.name(side, i);
+            let id = self.teams[side].players[i].info.id;
+            let text = format!("Cartão vermelho directo para {name}! O {} fica com dez.", self.short(side));
+            self.push("red", Some(side), Some(id), text);
+            self.send_off(side, i);
         }
     }
 
@@ -980,8 +977,11 @@ impl LiveMatch {
             return Err(Error::Invalid(format!("Já fez as {MAX_SUBS} substituições.")));
         }
         let find = |id: i32| t.players.iter().position(|p| p.info.id == id);
-        let out = find(out).filter(|&i| t.players[i].slot.is_some()).ok_or_else(|| Error::Invalid("Esse jogador não está em campo.".into()))?;
-        let inn = find(inn).filter(|&i| t.players[i].entered.is_none()).ok_or_else(|| Error::Invalid("Esse jogador não está no banco.".into()))?;
+        let out =
+            find(out).filter(|&i| t.players[i].slot.is_some()).ok_or_else(|| Error::Invalid("Esse jogador não está em campo.".into()))?;
+        let inn = find(inn)
+            .filter(|&i| t.players[i].entered.is_none())
+            .ok_or_else(|| Error::Invalid("Esse jogador não está no banco.".into()))?;
         self.user_takes_over()?;
         if self.minute == 0 {
             // Antes do pontapé de saída é só uma troca no onze: não conta como substituição
@@ -1074,7 +1074,9 @@ impl LiveMatch {
         let new_on: Vec<i32> = sel.starters.iter().flatten().copied().collect();
         if let Some(&p) = new_on.iter().find(|p| !on.contains(p) && !bench.contains(p)) {
             let gone = t.players.iter().any(|q| q.info.id == p && q.left.is_some());
-            return Err(Error::Invalid(if gone { "Quem já saiu não pode voltar a jogar." } else { "Esse jogador não está no banco." }.into()));
+            return Err(Error::Invalid(
+                if gone { "Quem já saiu não pode voltar a jogar." } else { "Esse jogador não está no banco." }.into(),
+            ));
         }
         if new_on.len() != on.len() {
             return Err(Error::Invalid(format!("Tem de ter {} jogadores em campo.", on.len())));
@@ -1280,7 +1282,8 @@ impl LiveMatch {
                 let total: f64 = self.zones.iter().sum();
                 self.zones.map(|z| if total > 0.0 { (100.0 * z / total).round() as i32 } else { 0 })
             },
-            zone_possession: [0, 1, 2].map(|i| if self.zones[i] > 0.0 { (100.0 * self.zone_home[i] / self.zones[i]).round() as i32 } else { 50 }),
+            zone_possession: [0, 1, 2]
+                .map(|i| if self.zones[i] > 0.0 { (100.0 * self.zone_home[i] / self.zones[i]).round() as i32 } else { 50 }),
             useful_time: self.useful.round() as i32,
             venue: None,
             city: None,
@@ -1343,7 +1346,10 @@ impl LiveMatch {
     /// Quem está em campo com o peso de um tipo de lance.
     fn weights(&self, side: usize, table: [f64; 8], attr: impl Fn(&Profile) -> f64) -> Vec<(usize, f64)> {
         let t = &self.teams[side];
-        t.on_pitch().into_iter().map(|i| (i, role_weight(t.role(t.players[i].slot.unwrap_or(0)), table) * attr(&t.players[i].prof))).collect()
+        t.on_pitch()
+            .into_iter()
+            .map(|i| (i, role_weight(t.role(t.players[i].slot.unwrap_or(0)), table) * attr(&t.players[i].prof)))
+            .collect()
     }
 
     /// O enchimento de um minuto no jogo que o treinador vê: passes, cortes, cabeceamentos,

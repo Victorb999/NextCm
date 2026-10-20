@@ -19,9 +19,24 @@ use crate::person::Attributes;
 /// Os 18 atributos relativos, na ordem das células 14–31 do vetor de atributos do jogo
 /// (`database_player_to_attribute_vector`, 0x53a610).
 pub const RELATIVE: [&str; 18] = [
-    "anticipation", "crossing", "decisions", "dribbling", "finishing", "handling",
-    "heading", "long_shots", "marking", "off_the_ball", "one_on_ones", "passing",
-    "penalties", "positioning", "reflexes", "tackling", "throw_ins", "vision",
+    "anticipation",
+    "crossing",
+    "decisions",
+    "dribbling",
+    "finishing",
+    "handling",
+    "heading",
+    "long_shots",
+    "marking",
+    "off_the_ball",
+    "one_on_ones",
+    "passing",
+    "penalties",
+    "positioning",
+    "reflexes",
+    "tackling",
+    "throw_ins",
+    "vision",
 ];
 
 const ANTICIPATION: usize = 0;
@@ -131,13 +146,12 @@ fn center(cells: &mut Intrinsics, group: &[usize]) {
 /// de Trabalho, e define a média (−40 a 0) para o primeiro reequilíbrio dos intrínsecos.
 fn normalise_physical(attrs: &mut Attributes, cells: &mut Intrinsics, ca: i32, gk: i32) {
     let get = |a: &Attributes, k: &str| a.get(k).copied().flatten();
-    let inputs = ["pace", "leadership", "jumping", "acceleration", "teamwork", "technique",
-                  "left_foot", "right_foot", "work_rate"];
+    let inputs = ["pace", "leadership", "jumping", "acceleration", "teamwork", "technique", "left_foot", "right_foot", "work_rate"];
     let target = match inputs.map(|k| get(attrs, k)) {
-        [Some(pace), Some(infl), Some(jump), Some(acc), Some(team), Some(tech), Some(lf),
-         Some(rf), Some(work)] => {
-            let sum = ftol(pace, 1.5) - ftol(infl, -0.8) - ftol(jump, -0.5) - ftol(acc, -1.2)
-                + ftol(team, 0.8) - ftol(tech, -0.8) - ftol(lf.min(rf), -0.75)
+        [Some(pace), Some(infl), Some(jump), Some(acc), Some(team), Some(tech), Some(lf), Some(rf), Some(work)] => {
+            let sum = ftol(pace, 1.5) - ftol(infl, -0.8) - ftol(jump, -0.5) - ftol(acc, -1.2) + ftol(team, 0.8)
+                - ftol(tech, -0.8)
+                - ftol(lf.min(rf), -0.75)
                 + work;
             let budget = (ca / 2 - ftol(sum, 1.3605442176870748) + 55) / 2;
             if budget < -14 {
@@ -168,9 +182,7 @@ fn normalise_physical(attrs: &mut Attributes, cells: &mut Intrinsics, ca: i32, g
 /// Intrínsecos de um jogador novo, como o CM calcula a partir do banco. Também aplica em
 /// `attrs` os cortes físicos da normalização (0x538ec0).
 pub fn player_intrinsics(attrs: &mut Attributes, ca: i32, gk: i32) -> Intrinsics {
-    let mut cells: Intrinsics = RELATIVE.map(|k| {
-        attrs.get(k).copied().flatten().map(|v| initial_intrinsic(v, ca))
-    });
+    let mut cells: Intrinsics = RELATIVE.map(|k| attrs.get(k).copied().flatten().map(|v| initial_intrinsic(v, ca)));
     normalise_physical(attrs, &mut cells, ca, gk);
     rebalance(&mut cells, -20, 1.75, &[], gk); // 0x538bc0
     if gk >= 15 {
@@ -207,10 +219,8 @@ pub fn displayed_attributes(raw: &Attributes, ca: Option<i32>, gk: Option<i32>) 
 /// (`database_non_player_to_attribute_vector`, 0x53a8b0). As células 0–12 (Attacking,
 /// Business, Coaching Technique, Directness, Discipline, Free Roles, Interference, Marking,
 /// Offside, Patience, Pressing, Resources, Youngsters) são mostradas como estão no banco.
-pub const STAFF_RELATIVE: [&str; 8] = [
-    "coaching_gks", "coaching", "judgement", "judging_potential", "man_handling", "motivating",
-    "physiotherapy", "tactics",
-];
+pub const STAFF_RELATIVE: [&str; 8] =
+    ["coaching_gks", "coaching", "judgement", "judging_potential", "man_handling", "motivating", "physiotherapy", "tactics"];
 
 /// Atributos de staff como o perfil do CM 01/02 mostra. Ao criar o jogo, os relativos viram
 /// intrínsecos com a mesma conta dos jogadores (0x538ac6), mas sem as normalizações; a
@@ -259,8 +269,7 @@ mod tests {
     #[test]
     fn staff_relative_attributes() {
         // Pep Guardiola no banco 25-26 (CA 190): o CA se cancela, x = 10 + v/2.
-        let raw = attrs(&[("coaching", 5), ("coaching_gks", 1), ("motivating", 15), ("tactics", 20),
-                          ("business", 1), ("discipline", 15)]);
+        let raw = attrs(&[("coaching", 5), ("coaching_gks", 1), ("motivating", 15), ("tactics", 20), ("business", 1), ("discipline", 15)]);
         let shown = displayed_staff_attributes(&raw, Some(190));
         assert_eq!(shown["coaching"], Some(9));
         assert_eq!(shown["coaching_gks"], Some(7));

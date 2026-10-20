@@ -4,8 +4,8 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, PersonProfile, Result,
-    SaveSummary, Selection, StandingRow, World, list_saves,
+    ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, PersonProfile,
+    Result, SaveSummary, Selection, StandingRow, World, list_saves,
 };
 
 pub struct Session {
@@ -89,10 +89,10 @@ impl Session {
 
     /// Apaga um jogo gravado (não o que está aberto).
     pub fn delete_save(&mut self, file: &str) -> Result<()> {
-        if let Some(g) = &self.game {
-            if g.path().file_name().and_then(|n| n.to_str()) == Some(file) {
-                return Err(Error::Invalid("Não é possível apagar o jogo que está aberto.".into()));
-            }
+        if let Some(g) = &self.game
+            && g.path().file_name().and_then(|n| n.to_str()) == Some(file)
+        {
+            return Err(Error::Invalid("Não é possível apagar o jogo que está aberto.".into()));
         }
         crate::delete_save(&self.saves_dir, file)
     }
@@ -103,9 +103,7 @@ impl Session {
 
     pub fn new_game(&mut self, new: &NewGame) -> Result<GameInfo> {
         // A seed só precisa variar entre jogos; a partir dela tudo é reproduzível
-        let seed = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(1, |d| d.as_nanos() as i64 & i64::MAX);
+        let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.as_nanos() as i64 & i64::MAX);
         let mut game = Game::create(&self.world_path, &self.saves_dir, new, seed)?;
         game.set_watch(true);
         let info = game.info()?;

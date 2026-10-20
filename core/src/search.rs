@@ -133,10 +133,7 @@ pub struct SearchResult {
 
 /// Minúsculas sem acento, igual ao `fold()` do extract.py.
 pub(crate) fn fold(s: &str) -> String {
-    s.nfkd()
-        .filter(|c| !unicode_normalization::char::is_combining_mark(*c))
-        .collect::<String>()
-        .to_lowercase()
+    s.nfkd().filter(|c| !unicode_normalization::char::is_combining_mark(*c)).collect::<String>().to_lowercase()
 }
 
 pub(crate) fn position_label(p: &[Option<i32>; 12]) -> String {
@@ -151,11 +148,7 @@ pub(crate) fn position_label(p: &[Option<i32>; 12]) -> String {
         .map(|(_, label)| label)
         .collect();
     // Lados: Direita, Esquerda, Centro
-    let sides: String = [(8, 'D'), (9, 'E'), (10, 'C')]
-        .into_iter()
-        .filter(|(i, _)| natural(*i))
-        .map(|(_, s)| s)
-        .collect();
+    let sides: String = [(8, 'D'), (9, 'E'), (10, 'C')].into_iter().filter(|(i, _)| natural(*i)).map(|(_, s)| s).collect();
     match (roles.is_empty(), sides.is_empty()) {
         (true, _) => String::new(),
         (false, true) => roles.join("/"),
@@ -202,16 +195,12 @@ impl World {
         }
 
         let filter_from = "FROM people p";
-        let where_sql = if wheres.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", wheres.join(" AND "))
-        };
+        let where_sql = if wheres.is_empty() { String::new() } else { format!("WHERE {}", wheres.join(" AND ")) };
 
-        let total: u32 = self.conn.prepare_cached(&format!("SELECT COUNT(*) {filter_from} {where_sql}"))?.query_row(
-            params_from_iter(args.iter()),
-            |r| r.get(0),
-        )?;
+        let total: u32 = self
+            .conn
+            .prepare_cached(&format!("SELECT COUNT(*) {filter_from} {where_sql}"))?
+            .query_row(params_from_iter(args.iter()), |r| r.get(0))?;
 
         // Ordenação pelas colunas pré-calculadas (com índice); os joins de
         // exibição são feitos só nas linhas da página.
@@ -306,17 +295,13 @@ mod tests {
     #[test]
     fn search_by_accentless_name() {
         let Some(w) = world() else { return }; // sem banco gerado, pula
-        let r = w
-            .search_people(&SearchQuery { text: Some("paqueta lucas".into()), ..Default::default() })
-            .unwrap();
+        let r = w.search_people(&SearchQuery { text: Some("paqueta lucas".into()), ..Default::default() }).unwrap();
         assert_eq!(r.total, 1);
         let lucas = &r.items[0];
         assert_eq!(lucas.name, "Lucas Paquetá");
         assert_eq!(lucas.list_name, "Lucas Paquetá"); // nome comum aparece como está
 
-        let r = w
-            .search_people(&SearchQuery { text: Some("arrascaeta".into()), ..Default::default() })
-            .unwrap();
+        let r = w.search_people(&SearchQuery { text: Some("arrascaeta".into()), ..Default::default() }).unwrap();
         assert_eq!(r.items[0].list_name, "de Arrascaeta, Giorgian");
         assert_eq!(lucas.club.as_deref(), Some("Flamengo"));
         assert_eq!(lucas.age, Some(27)); // nascido em 27/08/1997, idade em 01/07/2025
@@ -364,7 +349,14 @@ mod bench {
             ("idade", SearchQuery { sort: Some(SearchSort::Age), ..Default::default() }),
             ("nome", SearchQuery { sort: Some(SearchSort::Name), ..Default::default() }),
             ("goleiros sub-21", SearchQuery { positions: Some(vec![Position::GK]), max_age: Some(21), ..Default::default() }),
-            ("meias esquerda", SearchQuery { positions: Some(vec![Position::DM, Position::M, Position::AM]), side: Some(Side::Left), ..Default::default() }),
+            (
+                "meias esquerda",
+                SearchQuery {
+                    positions: Some(vec![Position::DM, Position::M, Position::AM]),
+                    side: Some(Side::Left),
+                    ..Default::default()
+                },
+            ),
             ("página 500", SearchQuery { offset: Some(50_000), ..Default::default() }),
         ] {
             let t = std::time::Instant::now();

@@ -1,0 +1,3 @@
+﻿# Linhas compridas, como o código já estava escrito
+max_width = 140
+use_small_heuristics = "Max"

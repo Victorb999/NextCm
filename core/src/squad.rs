@@ -39,12 +39,7 @@ impl Default for PlayerState {
 
 impl PlayerState {
     pub fn availability(&self) -> Availability {
-        Availability {
-            condition: self.condition,
-            morale: self.morale,
-            injured: self.injury.is_some(),
-            suspended: self.suspended > 0,
-        }
+        Availability { condition: self.condition, morale: self.morale, injured: self.injury.is_some(), suspended: self.suspended > 0 }
     }
 }
 
@@ -147,11 +142,7 @@ impl Squads {
 
     /// Estado de quem é de `club`, para a escolha da equipa.
     pub fn squad_state(&self, club: i32) -> SquadState {
-        self.traits
-            .iter()
-            .filter(|(_, t)| t.club_id == club)
-            .map(|(&id, _)| (id, self.state(id).availability()))
-            .collect()
+        self.traits.iter().filter(|(_, t)| t.club_id == club).map(|(&id, _)| (id, self.state(id).availability())).collect()
     }
 
     pub fn status(&self, id: i32) -> Option<PlayerStatus> {

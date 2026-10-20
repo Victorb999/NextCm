@@ -47,9 +47,7 @@ impl World {
              ORDER BY n.name",
         )?;
         let rows = stmt
-            .query_map([], |r| {
-                Ok(NationListItem { id: r.get(0)?, name: r.get(1)?, continent_id: r.get(2)?, clubs: r.get(3)? })
-            })?
+            .query_map([], |r| Ok(NationListItem { id: r.get(0)?, name: r.get(1)?, continent_id: r.get(2)?, clubs: r.get(3)? }))?
             .collect::<rusqlite::Result<_>>()?;
         Ok(rows)
     }
@@ -101,11 +99,7 @@ impl World {
             .query_map([id], |r| {
                 let name: String = r.get(1)?;
                 let short: String = r.get(2)?;
-                Ok(CompetitionRef {
-                    id: r.get(0)?,
-                    short_name: if short.is_empty() { name.clone() } else { short },
-                    name,
-                })
+                Ok(CompetitionRef { id: r.get(0)?, short_name: if short.is_empty() { name.clone() } else { short }, name })
             })?
             .collect::<rusqlite::Result<_>>()?;
 
@@ -120,11 +114,7 @@ impl World {
             [id],
             |r| r.get(0),
         )?;
-        nation.players = self.conn.query_row(
-            "SELECT COUNT(*) FROM people WHERE nation_id = ? AND is_player = 1",
-            [id],
-            |r| r.get(0),
-        )?;
+        nation.players = self.conn.query_row("SELECT COUNT(*) FROM people WHERE nation_id = ? AND is_player = 1", [id], |r| r.get(0))?;
         Ok(nation)
     }
 }
@@ -142,7 +132,7 @@ mod tests {
         assert_eq!(n.continent.as_deref(), Some("South America"));
         assert!(n.national_team.is_some());
         assert!(n.competitions.iter().any(|c| c.name == "Campeonato Brasileiro Série A"));
-        assert_eq!(n.clubs[0].club.short_name.is_empty(), false);
+        assert!(!n.clubs[0].club.short_name.is_empty());
         assert!(n.clubs.iter().any(|c| c.club.short_name == "Palmeiras"));
     }
 }

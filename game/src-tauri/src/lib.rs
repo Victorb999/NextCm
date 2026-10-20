@@ -2,9 +2,10 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::{
-    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, Instructions, LiveView, MatchPreview,
-    NationListItem, NationOption, NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, Selection, SearchResult, Session,
-    StandingRow, World};
+    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, Instructions, LiveView,
+    MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, SearchResult,
+    Selection, Session, StandingRow, World,
+};
 use tauri::{Manager, State};
 
 /// Mundo base e jogo aberto. `rusqlite::Connection` não é `Sync`, daí o Mutex.
@@ -137,63 +138,57 @@ async fn close_game(state: State<'_, AppState>) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
-    .setup(|app| {
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
-      let path = world_path().ok_or(
-        "world.sqlite não encontrado. Rode `python scripts/extract.py` ou defina NEXTCM_DB.",
-      )?;
-      let saves = app.path().app_data_dir()?.join("saves");
-      log::info!("abrindo {} (saves em {})", path.display(), saves.display());
-      let session = Session::open(&path, &saves)?;
-      app.manage(AppState { session: Mutex::new(session) });
-      Ok(())
-    })
-    .invoke_handler(tauri::generate_handler![
-      search_people,
-      list_nations,
-      get_person,
-      get_club,
-      get_club_tactics,
-      list_continents,
-      list_competitions,
-      get_competition,
-      list_nations_full,
-      get_nation,
-      game_info,
-      list_saves,
-      new_game,
-      load_game,
-      save_game,
-      close_game,
-      advance_day,
-      list_news,
-      read_news,
-      continue_game,
-      league_table,
-      list_fixtures,
-      club_fixtures,
-      preview_tactics,
-      set_tactics,
-      toggle_player,
-      delete_save,
-      match_preview,
-      live_match,
-      live_step,
-      live_substitute,
-      live_swap,
-      live_instructions,
-      live_finish,
-      live_tactics,
-      live_preview_tactics,
-      live_set_tactics,
-    ])
-    .run(tauri::generate_context!())
-    .expect("error while building tauri application");
+    tauri::Builder::default()
+        .setup(|app| {
+            if cfg!(debug_assertions) {
+                app.handle().plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())?;
+            }
+            let path = world_path().ok_or("world.sqlite não encontrado. Rode `python scripts/extract.py` ou defina NEXTCM_DB.")?;
+            let saves = app.path().app_data_dir()?.join("saves");
+            log::info!("abrindo {} (saves em {})", path.display(), saves.display());
+            let session = Session::open(&path, &saves)?;
+            app.manage(AppState { session: Mutex::new(session) });
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            search_people,
+            list_nations,
+            get_person,
+            get_club,
+            get_club_tactics,
+            list_continents,
+            list_competitions,
+            get_competition,
+            list_nations_full,
+            get_nation,
+            game_info,
+            list_saves,
+            new_game,
+            load_game,
+            save_game,
+            close_game,
+            advance_day,
+            list_news,
+            read_news,
+            continue_game,
+            league_table,
+            list_fixtures,
+            club_fixtures,
+            preview_tactics,
+            set_tactics,
+            toggle_player,
+            delete_save,
+            match_preview,
+            live_match,
+            live_step,
+            live_substitute,
+            live_swap,
+            live_instructions,
+            live_finish,
+            live_tactics,
+            live_preview_tactics,
+            live_set_tactics,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while building tauri application");
 }

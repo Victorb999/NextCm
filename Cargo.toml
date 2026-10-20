@@ -2,6 +2,10 @@
 resolver = "3"
 members = ["core", "game/src-tauri"]
 
+# Linhas do SQLite lidas como tuplos são o padrão do projeto
+[workspace.lints.clippy]
+type_complexity = "allow"
+
 # Dependências (SQLite incluso) otimizadas mesmo no `tauri dev`; nosso código continua rápido de compilar.
 [profile.dev.package."*"]
 opt-level = 3

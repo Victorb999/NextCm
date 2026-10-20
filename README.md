@@ -102,6 +102,7 @@ npm --prefix game run dev
 ### Testes e simulação
 
 ```bash
+powershell -File scripts/check.ps1                          # tudo: fmt, clippy, testes, tsc e oxlint
 cargo test -p nextcm-core                                   # testes do core
 cargo run -p nextcm-core --release --bin sim -- 7568 epoca 1 20   # 20 épocas da Série A
 ```

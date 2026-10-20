@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { ClubTactics } from '../bindings/ClubTactics'
 import type { LiveView } from '../bindings/LiveView'
@@ -6,7 +6,8 @@ import type { Selection } from '../bindings/Selection'
 import { selectionOf, swap, useDragSwap, type Spot } from '../selection'
 import InstructionsDialog from './InstructionsDialog'
 import { BottomBar, PurpleMenu, Tabs, TitleBand } from './Screen'
-import { Pitch, Row, TACTICS_MENU, moveOnPitch, shortRole, surname, useRunArrow } from './TacticsBoard'
+import { Pitch, Row } from './TacticsBoard'
+import { TACTICS_MENU, moveOnPitch, shortRole, surname, useRunArrow } from '../tactics'
 
 /**
  * "Tácticas <clube>" a meio do jogo: a mesma tela de Tácticas (arrastar na lista ou no
@@ -30,14 +31,14 @@ export default function LiveTactics({
   const [instructions, setInstructions] = useState(false)
   const [busy, setBusy] = useState(false)
   // Como estava ao abrir: quem estava em campo (para contar as substituições) e a escolha
-  const original = useRef<{ on: number[]; sel: Selection } | null>(null)
+  const [original, setOriginal] = useState<{ on: number[]; sel: Selection } | null>(null)
   const team = side === 0 ? view.home : view.away
   const editable = !!t?.editable
 
   useEffect(() => {
     api.liveTactics(side).then(
       (tt) => {
-        original.current = { on: tt.starters.flatMap((s) => (s.player ? [s.player.id] : [])), sel: selectionOf(tt) }
+        setOriginal({ on: tt.starters.flatMap((s) => (s.player ? [s.player.id] : [])), sel: selectionOf(tt) })
         setT(tt)
       },
       (e) => setError(String(e)),
@@ -67,13 +68,13 @@ export default function LiveTactics({
     },
   })
 
-  const entering = t && original.current ? t.starters.filter((s) => s.player && !original.current!.on.includes(s.player.id)).length : 0
+  const entering = t && original ? t.starters.filter((s) => s.player && !original.on.includes(s.player.id)).length : 0
   const subsLeft = view.minute === 0 ? team.subsLeft : team.subsLeft - entering
 
   const ok = async () => {
     if (!t || busy) return
     const sel = selectionOf(t)
-    if (!editable || JSON.stringify(sel) === JSON.stringify(original.current?.sel)) return onClose()
+    if (!editable || JSON.stringify(sel) === JSON.stringify(original?.sel)) return onClose()
     setBusy(true)
     try {
       onApplied(await api.liveSetTactics(sel))
@@ -162,7 +163,7 @@ export default function LiveTactics({
               <div className="my-0.5 border-t border-cm-line" />
               {t.bench.map((p, i) => {
                 // Quem estava em campo e foi para o banco nesta tela sai de vez no Ok (antes do apito volta ao banco)
-                const leaving = view.minute > 0 && !!original.current?.on.includes(p.id)
+                const leaving = view.minute > 0 && !!original?.on.includes(p.id)
                 return leaving ? (
                   <div key={`b${p.id}`} className="relative">
                     <Row p={p} kind="reserve" place="Sai" bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))} />

@@ -118,7 +118,14 @@ fn main() {
         let per = |k: usize| lances[k] as f64 / t;
         println!(
             "por equipa e jogo: {:.1} remates ({:.1} à baliza), {:.1} cantos, {:.1} faltas, {:.2} amarelos, {:.3} vermelhos, {:.1} substituições, {:.2} lesões",
-            per(0), per(1), per(2), per(3), per(4), per(5), per(6), per(7)
+            per(0),
+            per(1),
+            per(2),
+            per(3),
+            per(4),
+            per(5),
+            per(6),
+            per(7)
         );
     }
     if seasons > 1 {

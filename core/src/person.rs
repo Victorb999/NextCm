@@ -102,10 +102,8 @@ pub struct PersonProfile {
     pub status: Option<crate::squad::PlayerStatus>,
 }
 
-const MENTAL: [&str; 8] = [
-    "adaptability", "ambition", "determination", "loyalty",
-    "pressure", "professionalism", "sportsmanship", "temperament",
-];
+const MENTAL: [&str; 8] =
+    ["adaptability", "ambition", "determination", "loyalty", "pressure", "professionalism", "sportsmanship", "temperament"];
 
 /// Posições por extenso, como no CM 01/02 em português.
 fn position_long(p: &[Option<i32>; 12]) -> String {
@@ -113,19 +111,14 @@ fn position_long(p: &[Option<i32>; 12]) -> String {
     if natural(0) {
         return "Guarda-Redes".into();
     }
-    let roles: Vec<&str> = [
-        (1, "Líbero"), (2, "Defesa"), (7, "Ala"), (3, "Médio Defensivo"),
-        (4, "Médio"), (5, "Médio Atacante"), (6, "Avançado"),
-    ]
-    .into_iter()
-    .filter(|(i, _)| natural(*i))
-    .map(|(_, label)| label)
-    .collect();
-    let sides: Vec<&str> = [(8, "Direita"), (9, "Esquerda"), (10, "Centro")]
-        .into_iter()
-        .filter(|(i, _)| natural(*i))
-        .map(|(_, label)| label)
-        .collect();
+    let roles: Vec<&str> =
+        [(1, "Líbero"), (2, "Defesa"), (7, "Ala"), (3, "Médio Defensivo"), (4, "Médio"), (5, "Médio Atacante"), (6, "Avançado")]
+            .into_iter()
+            .filter(|(i, _)| natural(*i))
+            .map(|(_, label)| label)
+            .collect();
+    let sides: Vec<&str> =
+        [(8, "Direita"), (9, "Esquerda"), (10, "Centro")].into_iter().filter(|(i, _)| natural(*i)).map(|(_, label)| label).collect();
     match (roles.is_empty(), sides.is_empty()) {
         (true, _) => String::new(),
         (false, true) => roles.join("/"),
@@ -256,14 +249,19 @@ impl World {
                 }
                 let mut attributes = attributes_from(
                     r,
-                    &["person_id", "squad_number", "current_ability", "potential_ability",
-                      "home_reputation", "current_reputation", "world_reputation", "morale"],
+                    &[
+                        "person_id",
+                        "squad_number",
+                        "current_ability",
+                        "potential_ability",
+                        "home_reputation",
+                        "current_reputation",
+                        "world_reputation",
+                        "morale",
+                    ],
                 )?;
                 attributes.retain(|k, _| !k.starts_with("pos_"));
-                let foot = preferred_foot(
-                    attributes.get("left_foot").copied().flatten(),
-                    attributes.get("right_foot").copied().flatten(),
-                );
+                let foot = preferred_foot(attributes.get("left_foot").copied().flatten(), attributes.get("right_foot").copied().flatten());
                 attributes.extend(mental.clone());
                 let current_ability = r.get("current_ability")?;
                 Ok(PlayerDetails {
@@ -289,8 +287,15 @@ impl World {
             .query_row([id], |r| {
                 let mut attributes = attributes_from(
                     r,
-                    &["person_id", "current_ability", "potential_ability", "home_reputation",
-                      "current_reputation", "world_reputation", "preferred_formation"],
+                    &[
+                        "person_id",
+                        "current_ability",
+                        "potential_ability",
+                        "home_reputation",
+                        "current_reputation",
+                        "world_reputation",
+                        "preferred_formation",
+                    ],
                 )?;
                 attributes.extend(mental.clone());
                 let current_ability = r.get("current_ability")?;
@@ -314,13 +319,7 @@ impl World {
             .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
             .collect::<rusqlite::Result<_>>()?;
         for (year, club_id, on_loan, apps, goals) in rows {
-            person.career.push(CareerEntry {
-                year,
-                club: self.club_ref(club_id)?,
-                on_loan: on_loan != 0,
-                apps,
-                goals,
-            });
+            person.career.push(CareerEntry { year, club: self.club_ref(club_id)?, on_loan: on_loan != 0, apps, goals });
         }
 
         Ok(person)
@@ -353,11 +352,7 @@ mod tests {
     fn lamine_yamal_profile() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let w = World::open(&path).unwrap();
-        let id = w
-            .search_people(&crate::SearchQuery { text: Some("lamine yamal".into()), ..Default::default() })
-            .unwrap()
-            .items[0]
-            .id;
+        let id = w.search_people(&crate::SearchQuery { text: Some("lamine yamal".into()), ..Default::default() }).unwrap().items[0].id;
         let p = w.get_person(id).unwrap();
         assert_eq!(p.name, "Lamine Yamal");
         assert_eq!(p.birth_date.as_deref(), Some("2007-07-13"));

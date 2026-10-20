@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { ClubRef } from '../bindings/ClubRef'
@@ -491,13 +491,13 @@ function MatchSideButton({
  * Geral). O jogo só começa no Iniciar Jogo e pára sozinho no intervalo.
  */
 function LiveScreen({
+  ref,
   own,
-  primary,
   onFinished,
 }: {
+  /** A acção principal (Enter, Continuar Jogo da coluna), para o pai a chamar. */
+  ref: React.Ref<{ main: () => void }>
   own: number
-  /** Recebe a acção principal (Enter), para o pai a chamar. */
-  primary: React.MutableRefObject<() => void>
   onFinished: () => void
 }) {
   const [view, setView] = useState<LiveView | null>(null)
@@ -542,7 +542,11 @@ function LiveScreen({
   useEffect(() => {
     if (!view || finishing) return
     if (shown < lines.length) {
-      const t = setTimeout(() => setShown((n) => n + 1), shown === 0 ? 0 : speed.ms)
+      const t = setTimeout(() => {
+        setShown(shown + 1)
+        // Tácticas pedidas: abrem na primeira paragem depois do pedido
+        if (waiting && shown + 1 > waiting.from && isStoppage(lines[shown])) openWaiting(waiting.side)
+      }, shown === 0 ? 0 : speed.ms)
       return () => clearTimeout(t)
     }
     if (!running || view.finished || stepping || tactics !== null) return
@@ -554,6 +558,8 @@ function LiveScreen({
           (v) => {
             accept(v)
             if (v.halfTime || v.finished) setRunning(false)
+            // Sem nenhuma paragem em 3 minutos, as Tácticas abrem na mesma
+            if (waiting && v.minute - waiting.since >= 3) openWaiting(waiting.side)
           },
           (e) => {
             setError(String(e))
@@ -563,19 +569,16 @@ function LiveScreen({
         .finally(() => setStepping(false))
     }, Math.max(40, speed.ms / 2))
     return () => clearTimeout(t)
-  }, [view, lines.length, shown, running, stepping, tactics, finishing, speed.ms])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, lines, shown, running, stepping, tactics, finishing, speed.ms, waiting])
 
-  // Pedido de Tácticas: abre na primeira paragem do jogo (ou ao fim de 3 minutos sem nenhuma)
-  useEffect(() => {
-    if (!waiting || !view) return
-    const l = shown > 0 ? lines[shown - 1] : null
-    if ((l && shown > waiting.from && isStoppage(l)) || view.minute - waiting.since >= 3 || !running) {
-      resumeAfter.current = running
-      setRunning(false)
-      setTactics(waiting.side)
-      setWaiting(null)
-    }
-  }, [shown, view, waiting, running, lines])
+  /** Abre as Tácticas pedidas com o jogo a correr; ao sair delas, o jogo continua. */
+  function openWaiting(side: 0 | 1) {
+    resumeAfter.current = true
+    setRunning(false)
+    setTactics(side)
+    setWaiting(null)
+  }
 
   const main = () => {
     if (!view || finishing || tactics !== null) return
@@ -583,11 +586,13 @@ function LiveScreen({
       if (shown < lines.length) return setShown(lines.length)
       setFinishing(true)
       onFinished()
+    } else if (waiting) {
+      // Pausar com Tácticas pedidas abre-as já
+      openWaiting(waiting.side)
+      resumeAfter.current = false
     } else setRunning((r) => !r)
   }
-  useEffect(() => {
-    primary.current = main
-  })
+  useImperativeHandle(ref, () => ({ main }))
 
   if (!view) {
     return <div className="cm-backdrop fixed inset-0 z-50 p-6 text-[#ff7070]">{error}</div>
@@ -761,7 +766,7 @@ export default function MatchDay({
   const game = useGame()
   const [phase, setPhase] = useState<'list' | 'play' | 'results'>('list')
   const [results, setResults] = useState<{ games: Fixture[]; table: StandingRow[] } | null>(null)
-  const livePrimary = useRef<() => void>(() => {})
+  const live = useRef<{ main: () => void }>(null)
 
   /** Acaba o jogo no core (resultados, notícias) e mostra os resultados do dia. */
   const finish = async () => {
@@ -778,7 +783,7 @@ export default function MatchDay({
 
   const next = () => {
     if (phase === 'list') setPhase('play')
-    else if (phase === 'play') livePrimary.current()
+    else if (phase === 'play') live.current?.main()
     else onDone()
   }
   const nextRef = useRef(next)
@@ -810,5 +815,5 @@ export default function MatchDay({
   if (phase === 'results' && results) {
     return <DayList title="Resultados de Hoje" fixture={fixture} games={results.games} table={results.table} own={own} scores onNext={next} />
   }
-  return <LiveScreen own={own} primary={livePrimary} onFinished={() => void finish()} />
+  return <LiveScreen ref={live} own={own} onFinished={() => void finish()} />
 }

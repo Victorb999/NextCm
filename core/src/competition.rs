@@ -69,9 +69,7 @@ pub struct CompetitionProfile {
 impl World {
     pub fn list_continents(&self) -> Result<Vec<ContinentRef>> {
         let mut stmt = self.conn.prepare_cached("SELECT id, name FROM continents ORDER BY id")?;
-        let rows = stmt
-            .query_map([], |r| Ok(ContinentRef { id: r.get(0)?, name: r.get(1)? }))?
-            .collect::<rusqlite::Result<_>>()?;
+        let rows = stmt.query_map([], |r| Ok(ContinentRef { id: r.get(0)?, name: r.get(1)? }))?.collect::<rusqlite::Result<_>>()?;
         Ok(rows)
     }
 
@@ -114,9 +112,8 @@ impl World {
              WHERE {sql_where}
              ORDER BY c.reputation DESC, c.name"
         ))?;
-        let rows: Vec<(i32, Option<String>, Option<String>, Option<i32>)> = stmt
-            .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
-            .collect::<rusqlite::Result<_>>()?;
+        let rows: Vec<(i32, Option<String>, Option<String>, Option<i32>)> =
+            stmt.query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<rusqlite::Result<_>>()?;
         let mut out = Vec::with_capacity(rows.len());
         for (club_id, nation, division, reputation) in rows {
             if let Some(club) = self.club_ref(Some(club_id))? {
@@ -157,10 +154,7 @@ impl World {
             return Err(Error::NotFound(format!("competição {id}")));
         };
 
-        comp.clubs = self.club_list(
-            "c.is_national_team = 0 AND ?1 IN (c.division_id, c.reserve_division_id)",
-            id,
-        )?;
+        comp.clubs = self.club_list("c.is_national_team = 0 AND ?1 IN (c.division_id, c.reserve_division_id)", id)?;
 
         let rows: Vec<(Option<i32>, Option<i32>, Option<i32>, Option<i32>)> = self
             .conn

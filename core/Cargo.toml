@@ -3,6 +3,9 @@ name = "nextcm-core"
 version = "0.1.0"
 edition = "2024"
 
+[lints]
+workspace = true
+
 [dependencies]
 rand_chacha = "0.9"
 rand_core = "0.9"

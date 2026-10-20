@@ -14,6 +14,9 @@ rust-version = "1.90"
 name = "nextcm_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[lints]
+workspace = true
+
 [build-dependencies]
 tauri-build = { version = "2.7.3", features = [] }
 
