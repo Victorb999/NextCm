@@ -153,7 +153,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **3.2** Série A jogável | Calendário (turno e returno), Match Engine v1 (força por setor → Poisson, RNG com seed), resultados, classificação real, Próximo/Último Jogo | Uma temporada inteira da Série A até o campeão |
 | ✅ **3.3** O seu time | Escolher o onze, os suplentes e editar a táctica (formação, funções, instruções à equipa como no diálogo do CM), condição física, moral, lesões, suspensões | O onze e a táctica escolhidos mudam os resultados |
 | ✅ **3.4** Dia de jogo | Match Engine v2 por eventos (remates, defesas, golos, cartões, substituições, minuto a minuto, mesma seed = mesmo jogo) e a tela da partida do CM: placar e relógio, relato em texto com velocidade ajustável, estatísticas, escalações; intervalo com mudança de táctica e substituições; resultados da jornada no fim | Ver um jogo do Palmeiras do início ao fim, mexer na equipa ao intervalo, e as médias do 3.2 (golos, vantagem em casa) continuam a bater na CLI |
-| **3.5** Fim de época | Subidas/descidas, envelhecimento e evolução do CA, contratos, regens; CLI `sim` com 10 épocas | 10 épocas seguidas sem UI, com números plausíveis |
+| ✅ **3.5** Fim de época | Subidas/descidas, envelhecimento e evolução do CA, contratos, regens; CLI `sim` com 10 épocas | 10 épocas seguidas sem UI, com números plausíveis |
 | **3.6** Mais competições | Série B, Copa do Brasil, estaduais, Libertadores, ligas europeias; regulamentos num arquivo de dados por competição | Calendário brasileiro completo numa época |
 | **3.7** Mercado | Transferências e empréstimos com IA, finanças, propostas | Clubes compram e vendem entre si |
 | **3.8** Polimento | Notícias completas, ofertas de emprego, férias | — |
@@ -286,6 +286,47 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 
 **Feito (3.4):** `core/src/live.rs` (motor por lances, relato, notas, substituições, `LiveView` para a tela), `engine.rs` reduzido à força das equipas e aos golos esperados, dia de jogo em duas fases em `game.rs`, comandos `live_match`, `live_step`, `live_substitute`, `live_swap`, `live_instructions` e `live_finish` (Tauri e ponte de dev), `GameInfo.live`. Em 20 épocas (CLI `sim`): 2,62 golos por jogo, 49% vitórias em casa, 23% empates; por equipa e jogo 12,3 remates (4,4 à baliza), 4,5 cantos, 15 faltas, 1,84 amarelos, 0,10 vermelhos, 2,5 substituições e 0,12 lesões; Flamengo 10 títulos e 79 pontos de média. Cada minuto ao vivo responde em poucos ms na ponte de dev; uma época na CLI leva ~2,4 s (era ~0,6 s com o v1).
 
+#### Marco 3.5 — Fim de época (detalhe)
+
+**Épocas**
+- Uma época vai de 1 de julho a 30 de junho; a época de uma data sai da própria data (julho em diante = ano de início). O `start_year` do mundo acompanha a época, então as idades nas telas avançam (idade a 1 de julho).
+- **Série B viva**, como a A (calendário, jogos, condição, lesões, castigos): é o que dá subidas de verdade e deixa um treinador despromovido continuar a jogar. A **Série C** só existe no fim da época: uma tabela de turno e returno calculada com o motor v1 (força dos clubes, sem estado). Da **Série D** sobem 4 por sorteio pesado pela força.
+- Classificação, calendário e resultados mostram a época atual; os jogos das épocas passadas ficam no save (último confronto, historial).
+
+**Fim de época (30 de junho)**
+- Subidas e descidas: 4 descem da A e sobem 4 da B; 4 e 4 entre B e C; 4 e 4 entre C e D. Atualiza `clubs.division_id`, `last_division_id` e `last_position`.
+- Historial: campeão, vice e 3º da A, B e C em `competition_history`, com o ano em que a época acaba (2025/26 → 2026, como os anos que já vêm do patch).
+- Contratos que acabam até 30/6 (e os sem data): o clube ordena o plantel pelo CA (até aos 20 anos soma um terço do que ainda pode crescer) e renova com os 25 melhores dos 21 aos 33 anos, os 18 melhores até aos 20 (os outros juniores procuram clube abaixo) e os 16 melhores com 34 ou 35 anos (1 a 4 anos de contrato, menos para os mais velhos); os outros saem livres. No clube do treinador, o adjunto decide pela mesma regra e avisa nas notícias; a negociação chega com o mercado (3.7).
+- Reformas a partir dos 34 anos (34: 10%, 35: 20%, 36: 40%, 37: 60%, 38: 80%, 39+: sempre; guarda-redes dois anos depois). Ficam sem clube e numa tabela `retired`.
+- Plantéis mínimos: um clube das Séries A–C com menos de 24 jogadores contrata jogadores livres até 27 (primeiro do país, 18–33 anos, CA até 115% da média do plantel, um 2º guarda-redes se faltar; sem guarda-redes livres, fica com o que houver). Provisório até ao mercado do 3.7.
+- Notícias: subidas e descidas, renovações e saídas do clube do treinador, reformas.
+
+**Nova época (1 de julho)**: calendários novos da A e da B (sorteados com a seed), notícia do calendário, estado dos jogadores dos clubes que entraram nas ligas vivas.
+
+**Evolução do CA** (todo dia 1, jogadores dos clubes das Séries A–C)
+- Por ano: até 21 anos ganha 22–34% da distância ao PA; 22–24, 15%; 25–28, 8%; 29–30 fica; aos 31–32 perde 1,5 e depois 3 × (idade − 32) (guarda-redes dois anos mais tarde). Nunca passa o PA nem desce abaixo de 1. PA aleatório (negativo no banco) fica fixo na primeira vez.
+- Jogar conta: com muitos jogos na época cresce até 40% mais, sem jogar 40% menos (jogos contados em `player_state.apps`, a zero a cada época). Determinação e Profissionalismo dão ±20%.
+- Cada mês aplica 1/12 do ano, com ruído e arredondamento sorteados com a seed.
+
+**Juniores (regens, 1 de março)**: cada clube das Séries A–C recebe um jogador de 16 anos e, um em cada três clubes, um segundo (~80 por ano): nome e apelido de pessoas da nação do clube, atributos copiados de um jogador real da mesma posição (os atributos do banco são relativos ao CA, então continuam coerentes), CA 25–55, contrato de 3 anos e número livre. O PA sai da reputação do clube, que não muda no save: `(84 + 0,0114 × reputação) × (0,75 a 1,25)`, o PA médio dos 11 melhores medido no patch (Série A ≈ 147, B ≈ 129, C ≈ 115). Tirado do próprio plantel dava uma espiral: cada geração de juniores puxava a seguinte (em 20 épocas o CA dos 18 melhores da A subia de 128 para 147 ou, ancorado no CA, descia para 107). Notícia no clube do treinador.
+
+**Save**: o mundo muda (CA, contratos, divisões, pessoas novas). O SQLite do save fica dentro de uma transação aberta desde o carregamento: **Gravar Jogo** faz o commit e sair sem gravar desfaz tudo, como até aqui. `SAVE_VERSION` 6: `player_state.apps` e a tabela `retired`.
+
+**CLI**: `sim -- <clube> carreira <seed> <épocas>` joga um só jogo por várias épocas seguidas e imprime, por época, o campeão, quem sobe e desce, o CA e a idade médios da A e da B, o tamanho dos plantéis, juniores, reformas e saídas.
+
+**Pronto quando:** 10 épocas seguidas na CLI sem erros, com o CA médio da Série A estável (±5%), idade média entre 25 e 28 anos e plantéis entre 22 e 40 jogadores.
+
+
+**Feito (3.5):** `core/src/game/season.rs` (fim de época, nova época, evolução do CA, juniores, contratos, reformas, plantéis mínimos e os números da CLI), Série B viva em `game.rs` (`LIVE_LEAGUES`), save numa transação aberta desde o carregamento (Gravar Jogo = commit; sair sem gravar desfaz também as mudanças no mundo), `SAVE_VERSION` 6 com migração do 5. A CLI `cargo run -p nextcm-core --release --bin sim -- 7568 carreira 1 10` joga 10 épocas em ~50 s; mostra também o CA médio dos 18 melhores de cada clube (a força da divisão sem contar os juniores). Resultado com a seed 1:
+
+| | Início | Época 5 | Época 10 | Época 20 |
+|---|---|---|---|---|
+| CA médio da Série A | 113,4 | 115,7 | 110,4 (−2,6%) | 116,1 |
+| CA dos 18 melhores | 128,3 | 128,2 | 125,0 | 132,8 |
+| Idade média da A | 25,7 | 26,8 | 25,7 | 25,1 |
+| Plantéis da A | 27–42 | 24–32 | 24–27 | 24–29 |
+
+Nas épocas 11–20 a idade desce até 24,0 e volta a 25: é a onda de reformas da geração que vem do patch (muitos jogadores entre os 28 e os 33 anos em 2025), substituída por juniores. O único plantel acima de 40 é um de 42 jogadores que já vem do patch e encolhe com os contratos. Médias de jogo inalteradas (10 épocas de `sim -- 7568 epoca 1 10`: 2,67 golos por jogo, 49% vitórias em casa). Na ponte de dev, na nova época a Série B arranca do zero, o historial da A, B e C ganha 2026 e as idades sobem um ano.
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)

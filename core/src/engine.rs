@@ -191,6 +191,17 @@ pub(crate) fn uniform(rng: &mut impl RngCore) -> f64 {
     (rng.next_u64() >> 11) as f64 / (1u64 << 53) as f64
 }
 
+/// Poisson pelo método de Knuth (λ pequeno, como golos num jogo).
+pub(crate) fn poisson(lambda: f64, rng: &mut impl RngCore) -> u8 {
+    let limit = (-lambda).exp();
+    let (mut k, mut p) = (0u8, uniform(rng));
+    while p > limit && k < 15 {
+        k += 1;
+        p *= uniform(rng);
+    }
+    k
+}
+
 impl World {
     /// Força do onze que o clube escolheria hoje.
     pub fn team_strength(&self, club_id: i32) -> Result<TeamStrength> {

@@ -29,11 +29,13 @@ pub struct PlayerState {
     pub injury: Option<String>,
     /// Data ("AAAA-MM-DD") em que volta a estar disponível.
     pub injury_until: Option<String>,
+    /// Jogos na época (conta para a evolução do CA).
+    pub apps: i32,
 }
 
 impl Default for PlayerState {
     fn default() -> Self {
-        PlayerState { condition: 100, morale: START_MORALE, yellows: 0, suspended: 0, injury: None, injury_until: None }
+        PlayerState { condition: 100, morale: START_MORALE, yellows: 0, suspended: 0, injury: None, injury_until: None, apps: 0 }
     }
 }
 
@@ -208,7 +210,9 @@ impl Squads {
             }
             for &(id, condition) in &side.played {
                 if self.traits.contains_key(&id) {
-                    self.state_mut(id).condition = condition.clamp(0, 100);
+                    let s = self.state_mut(id);
+                    s.condition = condition.clamp(0, 100);
+                    s.apps += 1;
                 }
             }
             for &id in &side.injured {

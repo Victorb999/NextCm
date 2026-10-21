@@ -12,10 +12,76 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::time::Instant;
 
-use nextcm_core::{Game, NewGame, SERIE_A, StandingRow, World};
+use nextcm_core::{Game, NewGame, SERIE_A, SERIE_B, SERIE_C, StandingRow, World};
+
+/// `sim -- <clube> carreira <seed> <épocas>`: um só jogo por várias épocas seguidas (marco 3.5).
+fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
+    let dir = std::env::temp_dir().join(format!("nextcm-carreira-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let new = NewGame {
+        save_name: "carreira".into(),
+        first_name: "Treinador".into(),
+        last_name: "Sim".into(),
+        birth_date: None,
+        nation_id: None,
+        club_id,
+    };
+    let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
+    let divisions = [(SERIE_A, "A"), (SERIE_B, "B"), (SERIE_C, "C")];
+    let print_stats = |game: &Game| {
+        for (div, name) in divisions {
+            let s = game.division_stats(div).expect("estatísticas");
+            println!(
+                "  Série {name}: {:>2} clubes, {:>4} jogadores, CA médio {:>5.1} (18 melhores {:>5.1}), idade {:>4.1}, plantéis {}–{}",
+                s.clubs, s.players, s.avg_ca, s.avg_ca_top, s.avg_age, s.min_squad, s.max_squad
+            );
+        }
+    };
+    println!("Início ({}):", game.date());
+    print_stats(&game);
+    let (mut last_id, mut last_retired, _) = game.career_counts().expect("totais");
+    let start = Instant::now();
+    for s in 0..seasons {
+        let t = Instant::now();
+        let target = format!("{}-07-01", game.season() + 1);
+        let before = game.news().len();
+        while game.date() < target.as_str() {
+            game.advance_day().expect("falhou ao avançar o dia");
+        }
+        println!("\nÉpoca {} ({:?}):", s + 1, t.elapsed());
+        // As notícias da época: campeões e o resumo do fim de época
+        let fresh: Vec<_> = game.news()[..game.news().len() - before].iter().rev().collect();
+        for n in &fresh {
+            if n.title.contains("campeão da Série") {
+                println!("  {}", n.title);
+            }
+            if n.title.starts_with("Fim da época") {
+                for line in n.body.lines().filter(|l| l.starts_with("Sobem") || l.starts_with("Descem")) {
+                    println!("  {line}");
+                }
+            }
+        }
+        print_stats(&game);
+        let (id, retired, free) = game.career_counts().expect("totais");
+        println!("  juniores {}, reformas {}, jogadores livres {free}", id - last_id, retired - last_retired);
+        (last_id, last_retired) = (id, retired);
+    }
+    println!("\n{seasons} épocas em {:?}", start.elapsed());
+    drop(game);
+    let _ = std::fs::remove_dir_all(&dir);
+}
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(2).map(String::as_str) == Some("carreira") {
+        let world = World::locate(&std::env::current_dir().unwrap())
+            .or_else(|| World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))))
+            .expect("data/world.sqlite não encontrado");
+        let club_id = args.get(1).and_then(|a| a.parse().ok()).unwrap_or(7568);
+        let seed = args.get(3).and_then(|a| a.parse().ok()).unwrap_or(1);
+        let seasons = args.get(4).and_then(|a| a.parse().ok()).unwrap_or(10);
+        return career(&world, club_id, seed, seasons);
+    }
     let club_id: i32 = args.get(1).and_then(|a| a.parse().ok()).unwrap_or(7568);
     let days: Option<u32> = args.get(2).and_then(|a| a.parse().ok());
     let seed: i64 = args.get(3).and_then(|a| a.parse().ok()).unwrap_or(1);

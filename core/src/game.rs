@@ -16,19 +16,26 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::engine;
-use crate::league::{self, Fixture, Match, SERIE_A, StandingRow};
+
+mod season;
+use crate::league::{self, Fixture, Match, SERIE_A, SERIE_B, StandingRow};
 use crate::live::{LiveMatch, LiveView, TeamStats};
 use crate::person::ClubRef;
 use crate::search::fold;
 use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
 use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
 use crate::{Error, Result, World, date};
+pub use season::DivisionStats;
 
 /// Versão do formato do save; saves de outra versão são recusados até haver migração.
 /// 2: tabela `fixtures` (marco 3.2). 3: estado dos jogadores e a escolha da equipa (3.3).
 /// 4: posições livres no campo (`selection_players.x/y`) e titulares na ordem do CM.
 /// 5: setas de movimento (`selection_players.run_x/run_y`).
-pub const SAVE_VERSION: i32 = 5;
+/// 6: jogos na época (`player_state.apps`) e reformados (`retired`), marco 3.5.
+pub const SAVE_VERSION: i32 = 6;
+
+/// Ligas com calendário e jogos (as outras divisões só contam no fim da época).
+pub(crate) const LIVE_LEAGUES: [i32; 2] = [SERIE_A, SERIE_B];
 
 /// Quantos dias "Continuar Jogo" avança no máximo quando não acontece nada.
 const MAX_IDLE_DAYS: i32 = 42;
@@ -75,7 +82,12 @@ CREATE TABLE player_state (
     yellows INTEGER NOT NULL,
     suspended INTEGER NOT NULL,
     injury TEXT,
-    injury_until TEXT
+    injury_until TEXT,
+    apps INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE retired (
+    person_id INTEGER PRIMARY KEY,
+    date TEXT NOT NULL
 );
 CREATE TABLE selection (
     club_id INTEGER PRIMARY KEY,
@@ -313,10 +325,12 @@ impl Game {
                 params![SAVE_VERSION, new.save_name.trim(), start, seed, manager_id, new.club_id, start],
             )?;
             tx.commit()?;
+            // Daqui em diante tudo fica numa transação aberta: Gravar Jogo faz o commit
+            world.conn.execute_batch("BEGIN")?;
 
-            // Calendário das competições vivas, sorteado com a seed do jogo
-            let ids = league_club_ids(&world, SERIE_A)?;
-            let matches = league::round_robin(SERIE_A, &ids, world.start_year(), 1, &mut ChaCha8Rng::seed_from_u64(seed as u64));
+            // Calendários das ligas vivas, sorteados com a seed do jogo
+            let matches = league_calendars(&world, world.start_year(), 1, seed)?;
+            let ids = live_club_ids(&world)?;
             let clubs = club_refs(&world, &ids)?;
             let competitions = competition_names(&world, &matches)?;
             fix_squad_numbers(&world, &ids, seed)?;
@@ -364,7 +378,7 @@ impl Game {
             .optional()
             .map_err(|_| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?
             .ok_or_else(|| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?;
-        let (version, name, date, seed, manager_id, club_id) = row;
+        let (version, name, date, seed, manager_id, club_id): (i32, String, String, i64, i32, i32) = row;
         let mut version = version;
         if version == 3 {
             migrate_v3(&world, club_id)?;
@@ -377,6 +391,14 @@ impl Game {
                  UPDATE game SET version = 5;",
             )?;
             version = 5;
+        }
+        if version == 5 {
+            world.conn.execute_batch(
+                "ALTER TABLE player_state ADD COLUMN apps INTEGER NOT NULL DEFAULT 0;
+                 CREATE TABLE retired (person_id INTEGER PRIMARY KEY, date TEXT NOT NULL);
+                 UPDATE game SET version = 6;",
+            )?;
+            version = 6;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -416,14 +438,10 @@ impl Game {
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
-        let mut ids: Vec<i32> = matches.iter().flat_map(|m| [m.home_id, m.away_id]).collect();
-        ids.sort_unstable();
-        ids.dedup();
-        let clubs = club_refs(&world, &ids)?;
         let competitions = competition_names(&world, &matches)?;
         let states = world
             .conn
-            .prepare("SELECT person_id, condition, morale, yellows, suspended, injury, injury_until FROM player_state")?
+            .prepare("SELECT person_id, condition, morale, yellows, suspended, injury, injury_until, apps FROM player_state")?
             .query_map([], |r| {
                 Ok((
                     r.get(0)?,
@@ -434,13 +452,24 @@ impl Game {
                         suspended: r.get(4)?,
                         injury: r.get(5)?,
                         injury_until: r.get(6)?,
+                        apps: r.get(7)?,
                     },
                 ))
             })?
             .collect::<rusqlite::Result<_>>()?;
+        // Os clubes vivos são os das ligas vivas agora (as divisões mudam no fim da época);
+        // os nomes também dos clubes de jogos de épocas passadas
+        let ids = live_club_ids(&world)?;
+        let mut named: Vec<i32> = matches.iter().flat_map(|m| [m.home_id, m.away_id]).chain(ids.iter().copied()).collect();
+        named.sort_unstable();
+        named.dedup();
+        let clubs = club_refs(&world, &named)?;
+        world.conn.execute_batch("BEGIN")?;
         fix_squad_numbers(&world, &ids, seed)?;
         let squads = Squads { states, traits: Squads::load_traits(&world, &ids)? };
         let selection = load_selection(&world, club_id)?;
+        let mut world = world;
+        world.start_year = season_of(&date);
         Ok(Game {
             world,
             path: path.to_path_buf(),
@@ -467,7 +496,8 @@ impl Game {
         if self.live.is_some() {
             return Err(Error::Invalid("Não é possível gravar durante um jogo.".into()));
         }
-        let tx = self.world.conn.unchecked_transaction()?;
+        // O save vive numa transação aberta (ver `create`): aqui grava a memória e faz o commit
+        let tx = &self.world.conn;
         tx.execute("UPDATE game SET date = ?, seed = ?", params![self.date, self.seed])?;
         tx.execute("DELETE FROM news", [])?;
         {
@@ -490,12 +520,12 @@ impl Game {
         tx.execute("DELETE FROM player_state", [])?;
         {
             let mut stmt = tx.prepare(
-                "INSERT INTO player_state (person_id, condition, morale, yellows, suspended, injury, injury_until)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO player_state (person_id, condition, morale, yellows, suspended, injury, injury_until, apps)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             )?;
             for (id, st) in &self.squads.states {
                 if *st != PlayerState::default() {
-                    stmt.execute(params![id, st.condition, st.morale, st.yellows, st.suspended, st.injury, st.injury_until])?;
+                    stmt.execute(params![id, st.condition, st.morale, st.yellows, st.suspended, st.injury, st.injury_until, st.apps])?;
                 }
             }
         }
@@ -539,7 +569,7 @@ impl Game {
                 stmt.execute(params![self.club_id, 100 + i as i32, pid, None::<i32>, None::<i32>, None::<i32>, None::<i32>])?;
             }
         }
-        tx.commit()?;
+        tx.execute_batch("COMMIT; BEGIN")?;
         self.unsaved = false;
         Ok(())
     }
@@ -570,6 +600,8 @@ impl Game {
                 next_id += 1;
             }
         }
+        // Evolução do CA, juniores, fim de época e nova época
+        self.calendar_events(&mut fresh, &mut next_id)?;
 
         let today: Vec<usize> =
             (0..self.matches.len()).filter(|&i| self.matches[i].date == self.date && self.matches[i].result.is_none()).collect();
@@ -896,19 +928,19 @@ impl Game {
 
     /// Calendário de uma competição viva, por jornada (vazio nas outras).
     pub fn fixtures(&self, competition_id: i32) -> Vec<Fixture> {
-        self.matches.iter().filter(|m| m.competition_id == competition_id).map(|m| self.fixture(m)).collect()
+        self.season_matches().filter(|m| m.competition_id == competition_id).map(|m| self.fixture(m)).collect()
     }
 
     /// Partidas de um clube, por data.
     pub fn club_fixtures(&self, club_id: i32) -> Vec<Fixture> {
-        let mut out: Vec<&Match> = self.matches.iter().filter(|m| m.home_id == club_id || m.away_id == club_id).collect();
+        let mut out: Vec<&Match> = self.season_matches().filter(|m| m.home_id == club_id || m.away_id == club_id).collect();
         out.sort_by(|a, b| a.date.cmp(&b.date).then(a.id.cmp(&b.id)));
         out.into_iter().map(|m| self.fixture(m)).collect()
     }
 
     /// Classificação de uma competição viva (vazia nas outras).
     pub fn table(&self, competition_id: i32) -> Vec<StandingRow> {
-        let matches: Vec<Match> = self.matches.iter().filter(|m| m.competition_id == competition_id).cloned().collect();
+        let matches: Vec<Match> = self.season_matches().filter(|m| m.competition_id == competition_id).cloned().collect();
         if matches.is_empty() {
             return Vec::new();
         }
@@ -966,7 +998,7 @@ impl Game {
         let first = table.first().ok_or_else(|| Error::NotFound(format!("competição {competition_id}")))?;
         let comp = self.competition_name(competition_id);
         let mut body =
-            format!("O {} sagrou-se campeão da {comp} {} com {} pontos", first.club.short_name, self.world.start_year(), first.points);
+            format!("O {} sagrou-se campeão da {comp} {} com {} pontos", first.club.short_name, season_label(self.season()), first.points);
         if let Some(second) = table.get(1) {
             body += &format!(", {} à frente do {}", first.points - second.points, second.club.short_name);
         }
@@ -986,11 +1018,14 @@ impl Game {
 
     /// Notícia do início da época com o primeiro jogo do treinador.
     fn season_news(&self, id: i32) -> Option<NewsItem> {
-        let first = self.matches.first()?;
-        let last = self.matches.iter().map(|m| m.date.as_str()).max()?;
-        let comp = self.competition_name(first.competition_id);
-        let mut body = format!("A {comp} começa a {} e termina a {}.", cm_date(&first.date), cm_date(last));
-        if let Some(m) = self.matches.iter().find(|m| m.home_id == self.club_id || m.away_id == self.club_id) {
+        let mine = |m: &&Match| m.home_id == self.club_id || m.away_id == self.club_id;
+        let comp_id = self.season_matches().find(mine)?.competition_id;
+        let league: Vec<&Match> = self.season_matches().filter(|m| m.competition_id == comp_id).collect();
+        let first = league.iter().map(|m| m.date.as_str()).min()?;
+        let last = league.iter().map(|m| m.date.as_str()).max()?;
+        let comp = self.competition_name(comp_id);
+        let mut body = format!("A {comp} {} começa a {} e termina a {}.", season_label(self.season()), cm_date(first), cm_date(last));
+        if let Some(m) = league.iter().copied().filter(mine).min_by(|a, b| a.date.cmp(&b.date)) {
             let us = self.club(self.club_id).short_name;
             body += &if m.home_id == self.club_id {
                 format!("\n\nNa 1ª jornada, o {us} recebe o {} a {}.", self.club(m.away_id).short_name, cm_date(&m.date))
@@ -1006,6 +1041,17 @@ impl Game {
             body,
             read: false,
         })
+    }
+
+    /// Ano de início da época em curso.
+    pub fn season(&self) -> i32 {
+        season_of(&self.date)
+    }
+
+    /// Jogos da época em curso.
+    fn season_matches(&self) -> impl Iterator<Item = &Match> {
+        let s = self.season();
+        self.matches.iter().filter(move |m| season_of(&m.date) == s)
     }
 
     pub fn info(&self) -> Result<GameInfo> {
@@ -1047,8 +1093,11 @@ impl Game {
     /// O jogo do treinador como está agora, com os outros jogos do dia no mesmo minuto.
     pub fn live_view(&self) -> Result<LiveView> {
         let day = self.live_day()?;
-        let others: Vec<&LiveMatch> = day.games.iter().enumerate().filter(|(k, _)| *k != day.user).map(|(_, g)| &g.1).collect();
         let (index, live) = &day.games[day.user];
+        // Os outros jogos do dia da mesma competição
+        let comp = live.fixture.competition_id;
+        let others: Vec<&LiveMatch> =
+            day.games.iter().enumerate().filter(|(k, g)| *k != day.user && g.1.fixture.competition_id == comp).map(|(_, g)| &g.1).collect();
         let mut v = live.view(&others);
         if let Some(x) = &day.extras {
             v.venue = x.venue.clone();
@@ -1314,8 +1363,8 @@ fn migrate_v3(world: &World, club_id: i32) -> Result<()> {
 /// fica com o número, e os outros (e quem não tinha) recebem um número livre sorteado
 /// com a seed do jogo (guarda-redes preferem 1, 12, 22, 23...).
 fn fix_squad_numbers(world: &World, clubs: &[i32], seed: i64) -> Result<()> {
-    // Uma transação só: centenas de UPDATEs soltos fariam um commit (e um fsync) cada
-    let tx = world.conn.unchecked_transaction()?;
+    // Corre dentro da transação aberta do save (centenas de UPDATEs soltos fariam um fsync cada)
+    let tx = &world.conn;
     let mut stmt = tx.prepare(
         "SELECT pl.person_id, pl.squad_number, pl.pos_goalkeeper FROM players pl JOIN people p ON p.id = pl.person_id
          WHERE p.club_id = ? ORDER BY pl.current_ability DESC, pl.person_id",
@@ -1348,9 +1397,45 @@ fn fix_squad_numbers(world: &World, clubs: &[i32], seed: i64) -> Result<()> {
             tx.execute("UPDATE players SET squad_number = ? WHERE person_id = ?", params![free, id])?;
         }
     }
-    drop(stmt);
-    tx.commit()?;
     Ok(())
+}
+
+/// Época de uma data: de 1 de julho a 30 de junho, pelo ano em que começa ("2026-03-01" → 2025).
+pub(crate) fn season_of(date: &str) -> i32 {
+    let year: i32 = date.get(0..4).and_then(|y| y.parse().ok()).unwrap_or(0);
+    if date.get(5..7).unwrap_or("07") >= "07" { year } else { year - 1 }
+}
+
+/// "2025/26"
+pub(crate) fn season_label(season: i32) -> String {
+    format!("{season}/{:02}", (season + 1) % 100)
+}
+
+/// Calendários das ligas vivas para a época que começa em `year`, com ids a partir de `first_id`.
+/// A Série A usa o RNG da seed (o calendário dela é o mesmo de antes da Série B ficar viva).
+pub(crate) fn league_calendars(world: &World, year: i32, first_id: i32, seed: i64) -> Result<Vec<Match>> {
+    let mut out: Vec<Match> = Vec::new();
+    for comp in LIVE_LEAGUES {
+        let ids = league_club_ids(world, comp)?;
+        let mix = (seed as u64) ^ ((year as u64) << 32) ^ (comp as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        let mut rng = if comp == SERIE_A && year == world.start_year() {
+            ChaCha8Rng::seed_from_u64(seed as u64)
+        } else {
+            ChaCha8Rng::seed_from_u64(mix)
+        };
+        let first = first_id + out.len() as i32;
+        out.extend(league::round_robin(comp, &ids, year, first, &mut rng));
+    }
+    Ok(out)
+}
+
+/// Clubes das ligas vivas.
+pub(crate) fn live_club_ids(world: &World) -> Result<Vec<i32>> {
+    let mut ids = Vec::new();
+    for comp in LIVE_LEAGUES {
+        ids.extend(league_club_ids(world, comp)?);
+    }
+    Ok(ids)
 }
 
 fn league_club_ids(world: &World, division_id: i32) -> Result<Vec<i32>> {
@@ -1589,7 +1674,8 @@ mod tests {
         }
         let results = g.fixtures(SERIE_A).iter().map(|f| (f.id, f.home_goals, f.away_goals)).collect();
         let table = g.table(SERIE_A);
-        assert!(g.news()[0].title.ends_with("campeão da Série A"), "{}", g.news()[0].title);
+        // O campeão da A e o da B saem no mesmo dia
+        assert!(g.news().iter().take(3).any(|n| n.title.ends_with("campeão da Série A")), "{}", g.news()[0].title);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
         (results, table)
@@ -2031,7 +2117,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE retired; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

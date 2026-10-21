@@ -10,6 +10,11 @@ use crate::person::ClubRef;
 
 /// Campeonato Brasileiro Série A, a única liga viva até o marco 3.5.
 pub const SERIE_A: i32 = 65;
+/// Série B, viva desde o marco 3.5 (subidas e descidas de verdade).
+pub const SERIE_B: i32 = 79;
+/// Série C e D: só contam no fim da época (marco 3.5).
+pub const SERIE_C: i32 = 80;
+pub const SERIE_D: i32 = 175;
 
 /// Primeira jornada: o primeiro sábado a partir deste dia.
 const FIRST_ROUND_FROM: &str = "08-01";
