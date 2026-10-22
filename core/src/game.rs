@@ -368,6 +368,8 @@ impl Game {
             // Calendários da época de transição e da época europeia de 2025/26, sorteados com a seed do jogo
             let (mut fresh, mut next_id) = (Vec::new(), 2);
             game.competitions = competition_names(&game.world, &[])?;
+            // Como o CM ao começar: os atributos que o patch não define são gerados
+            game.fill_missing_attributes()?;
             game.schedule_season(SeasonKind::Calendar, year, &mut fresh, &mut next_id)?;
             game.schedule_season(SeasonKind::European, year, &mut fresh, &mut next_id)?;
             game.complete_squads()?;
@@ -545,6 +547,10 @@ impl Game {
             live: None,
             records: Vec::new(),
         };
+        // Saves de antes dos atributos gerados: completa-os uma vez
+        if game.fill_missing_attributes()? > 0 {
+            game.unsaved = true;
+        }
         if redraw {
             let (mut fresh, mut next_id) = (Vec::new(), game.news.iter().map(|n| n.id).max().unwrap_or(0) + 1);
             let year = game.season();

@@ -213,3 +213,217 @@ impl Game {
         Ok(created)
     }
 }
+
+/// Atributos de `players` que um jogador sem dados recebe do modelo (todos menos o id, o
+/// número, CA/PA, reputações, posições, pés e a moral, que o jogo trata à parte).
+const COPIED_PLAYER: [&str; 42] = [
+    "acceleration",
+    "aggression",
+    "agility",
+    "anticipation",
+    "balance",
+    "bravery",
+    "consistency",
+    "corners",
+    "crossing",
+    "decisions",
+    "dirtiness",
+    "dribbling",
+    "finishing",
+    "flair",
+    "free_kicks",
+    "handling",
+    "heading",
+    "important_matches",
+    "injury_proneness",
+    "jumping",
+    "leadership",
+    "long_shots",
+    "marking",
+    "off_the_ball",
+    "natural_fitness",
+    "one_on_ones",
+    "pace",
+    "passing",
+    "penalties",
+    "positioning",
+    "reflexes",
+    "stamina",
+    "strength",
+    "tackling",
+    "teamwork",
+    "technique",
+    "throw_ins",
+    "versatility",
+    "vision",
+    "work_rate",
+    "left_foot",
+    "right_foot",
+];
+
+/// Atributos mentais de `people` copiados do modelo.
+const COPIED_PERSON: [&str; 8] =
+    ["adaptability", "ambition", "determination", "loyalty", "pressure", "professionalism", "sportsmanship", "temperament"];
+
+/// Papel de um jogador pelas notas de posição: 0 GR, 1 defesa, 2 meio, 3 ataque.
+fn role_of(gk: i32, def: i32, mid: i32, att: i32) -> usize {
+    if gk >= 15 {
+        0
+    } else if att > mid && att > def {
+        3
+    } else if def > mid {
+        1
+    } else {
+        2
+    }
+}
+
+impl Game {
+    /// Como o CM ao começar um jogo: os jogadores que o patch deixou sem atributos (a maioria
+    /// fora das grandes ligas, e os ocultos como Consistência e Pressão em quase todos) recebem
+    /// os que faltam de um jogador real completo do mesmo papel e com CA parecido (±10). Os
+    /// atributos técnicos do banco são relativos ao CA, então a cópia continua coerente; os
+    /// que o patch define ficam como estão. Devolve quantos jogadores foram completados.
+    pub(super) fn fill_missing_attributes(&mut self) -> Result<usize> {
+        type Row = (i32, i32, i32, i32, i32, i32);
+        let roles = "pl.person_id, COALESCE(pl.current_ability, 1),
+                     COALESCE(pl.pos_goalkeeper, 1),
+                     MAX(COALESCE(pl.pos_sweeper, 1), COALESCE(pl.pos_defender, 1), COALESCE(pl.pos_wing_back, 1)),
+                     MAX(COALESCE(pl.pos_defensive_midfielder, 1), COALESCE(pl.pos_midfielder, 1), COALESCE(pl.pos_attacking_midfielder, 1)),
+                     COALESCE(pl.pos_attacker, 1)";
+        let read = |sql: &str| -> Result<Vec<Row>> {
+            Ok(self
+                .world
+                .conn
+                .prepare(sql)?
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?
+                .collect::<rusqlite::Result<_>>()?)
+        };
+        let targets = read(&format!(
+            "SELECT {roles} FROM players pl JOIN people p ON p.id = pl.person_id
+             WHERE pl.finishing IS NULL OR pl.consistency IS NULL OR pl.important_matches IS NULL OR p.pressure IS NULL
+             ORDER BY pl.person_id"
+        ))?;
+        if targets.is_empty() {
+            return Ok(0);
+        }
+        let templates = read(&format!(
+            "SELECT {roles} FROM players pl JOIN people p ON p.id = pl.person_id
+             WHERE pl.finishing IS NOT NULL AND pl.consistency IS NOT NULL AND pl.important_matches IS NOT NULL
+               AND p.pressure IS NOT NULL AND p.determination IS NOT NULL
+             ORDER BY pl.person_id"
+        ))?;
+        // Modelos por papel e por faixa de 10 de CA
+        let mut buckets: HashMap<(usize, i32), Vec<i32>> = HashMap::new();
+        for &(id, ca, gk, d, m, a) in &templates {
+            buckets.entry((role_of(gk, d, m, a), ca / 10)).or_default().push(id);
+        }
+        let mut rng = self.season_rng(0xA77_F111);
+        let tx = &self.world.conn;
+        tx.execute_batch("CREATE TEMP TABLE IF NOT EXISTS attr_model (person_id INTEGER PRIMARY KEY, model_id INTEGER NOT NULL); DELETE FROM attr_model;")?;
+        let mut filled = 0;
+        {
+            let mut insert = tx.prepare("INSERT INTO attr_model (person_id, model_id) VALUES (?, ?)")?;
+            for &(id, ca, gk, d, m, a) in &targets {
+                let role = role_of(gk, d, m, a);
+                // A faixa do CA ou a mais próxima com modelos desse papel
+                let band = ca / 10;
+                let pool = (0..20).flat_map(|k| [band - k, band + k]).find_map(|b| buckets.get(&(role, b)));
+                let Some(pool) = pool else { continue };
+                let model = pool[(rng.next_u64() % pool.len() as u64) as usize];
+                if model != id {
+                    insert.execute(params![id, model])?;
+                    filled += 1;
+                }
+            }
+        }
+        let set = |cols: &[&str], table: &str, key: &str| {
+            let names = cols.join(", ");
+            let values: Vec<String> = cols.iter().map(|c| format!("COALESCE({table}.{c}, t.{c})")).collect();
+            format!(
+                "UPDATE {table} SET ({names}) = (SELECT {} FROM attr_model m JOIN {table} t ON t.{key} = m.model_id
+                                                  WHERE m.person_id = {table}.{key})
+                 WHERE {key} IN (SELECT person_id FROM attr_model)",
+                values.join(", ")
+            )
+        };
+        tx.execute(&set(&COPIED_PLAYER, "players", "person_id"), [])?;
+        tx.execute(&set(&COPIED_PERSON, "people", "id"), [])?;
+        tx.execute("DELETE FROM attr_model", [])?;
+        if filled > 0 {
+            self.unsaved = true;
+        }
+        Ok(filled)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use crate::{Game, NewGame, World};
+
+    fn create(world: &Path, name: &str, seed: i64) -> (Game, std::path::PathBuf) {
+        let dir = std::env::temp_dir().join(format!("nextcm-regen-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = NewGame {
+            save_name: "Atributos".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 7568,
+        };
+        (Game::create(world, &dir, &new, seed).unwrap(), dir)
+    }
+
+    #[test]
+    fn missing_attributes_are_generated() {
+        let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (g, dir) = create(&path, "a", 4);
+        let count = |sql: &str| -> i64 { g.world.conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(
+            count(
+                "SELECT COUNT(*) FROM players pl JOIN people p ON p.id = pl.person_id
+                 WHERE pl.finishing IS NULL OR pl.consistency IS NULL OR pl.important_matches IS NULL OR p.pressure IS NULL"
+            ),
+            0
+        );
+        // O que o patch define fica igual
+        let orig = World::open(&path).unwrap();
+        let sample = "SELECT person_id, finishing, pace, consistency FROM players WHERE finishing IS NOT NULL ORDER BY person_id LIMIT 200";
+        let rows = |w: &World| -> Vec<(i32, Option<i32>, Option<i32>, Option<i32>)> {
+            w.conn
+                .prepare(sample)
+                .unwrap()
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+                .unwrap()
+                .map(|r| r.unwrap())
+                .collect()
+        };
+        for (id, finishing, pace, consistency) in rows(&orig) {
+            let now: (Option<i32>, Option<i32>, Option<i32>) = g
+                .world
+                .conn
+                .query_row("SELECT finishing, pace, consistency FROM players WHERE person_id = ?", [id], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+                })
+                .unwrap();
+            // Só o que o patch definia tem de ficar igual (o resto foi gerado)
+            for (was, is) in [(finishing, now.0), (pace, now.1), (consistency, now.2)] {
+                if was.is_some() {
+                    assert_eq!(is, was, "jogador {id}");
+                }
+            }
+            assert!(now.0.is_some() && now.2.is_some());
+        }
+        // Mesma seed, mesmos atributos gerados
+        let sum = "SELECT SUM(finishing * 7 + consistency * 3 + pace) FROM players";
+        let first = count(sum);
+        let (again, dir2) = create(&path, "b", 4);
+        assert_eq!(again.world.conn.query_row(sum, [], |r| r.get::<_, i64>(0)).unwrap(), first);
+        drop((g, again));
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&dir2);
+    }
+}

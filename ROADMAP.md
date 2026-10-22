@@ -444,9 +444,15 @@ Até aqui cada titular valia `CA × adaptação à função × condição × mor
 - **Peso da camisa**: a diferença de reputação dos dois clubes (até 4 000 pontos) dá até ±3% aos golos esperados de cada lado, também em campo neutro.
 - **Determinação**: a equipa que está a perder ataca com a Determinação média de quem está em campo, de -4% (1) a +4% (20).
 
-No patch, a Consistência está vazia em 91 mil dos 110 mil jogadores e a Pressão em 96 mil pessoas (o CM gera-as ao começar um jogo): vazio conta como 10, ou seja neutro. O potencial (PA) continua fora do jogo (só serve à evolução do CA). As bases de casa e fora passam de 1,46/0,94 a 1,44/0,95, porque a torcida e o peso da camisa empurravam as vitórias em casa para 50%.
+No patch, a Consistência está vazia em 91 mil dos 110 mil jogadores e a Pressão em 96 mil pessoas (o CM gera-as ao começar um jogo): vazio conta como 10, ou seja neutro. Logo a seguir passaram a ser gerados (ver abaixo). O potencial (PA) continua fora do jogo (só serve à evolução do CA). As bases de casa e fora passam de 1,46/0,94 a 1,44/0,95, porque a torcida e o peso da camisa empurravam as vitórias em casa para 50%.
 
 Números: `sim -- 7568 epoca 1 10` dá 2,59 golos por jogo e 49% de vitórias em casa (antes 2,58 e 49%); em 2026 (`carreira`, seeds 2 e 3) a Série A fica em 2,70–2,73, a Premier League em 2,46–2,63, a Liga dos Campeões em 2,71–2,76 e os estaduais em 2,2–3,0.
+
+#### Atributos gerados ao começar o jogo
+
+O patch só define todos os atributos de ~30 mil dos 110 mil jogadores: os outros têm as notas de posição e o CA, mas Finalização, Passe, Velocidade... vazios (~80 mil), e os ocultos (Consistência, Jogos Importantes, Pressão, Determinação...) faltam em quase todos. Nos clubes vivos isto é um terço da Série A e quase toda a Série D; esses jogadores apareciam com "-" no perfil e o motor tratava-os como 10 em tudo. Como o CM ao começar um jogo, `Game::create` gera-os (`regen.rs`, `fill_missing_attributes`): cada jogador com falhas copia o que lhe falta de um jogador real completo (com Finalização, Consistência, Jogos Importantes, Pressão e Determinação definidos, ~12 600 no patch) do mesmo papel (GR, defesa, meio, ataque) e com CA na mesma faixa de 10, sorteado com a seed do jogo. Os atributos técnicos do banco são relativos ao CA, então a cópia continua coerente; os que o patch define ficam iguais. Os saves de antes são completados uma vez ao carregar. Os jogadores criados pelo jogo (juniores, plantéis completados) já copiam de um modelo completo.
+
+Criar um jogo passa a levar ~4 s. As médias não mudam: `sim -- 7568 epoca 1 10` dá 2,58 golos, 49% de vitórias em casa, 1,74 amarelos e 0,11 lesões por equipa e jogo.
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)
