@@ -434,6 +434,19 @@ Decisões (com o utilizador): ligas vivas de **Inglaterra, Espanha, Itália, Ale
 Números (CLI `sim -- 7568 carreira 1 2`): 2025 em 11,8 s (transição do Brasil e da Argentina e a primeira metade da época europeia) e 2026 em 28,0 s, abaixo dos 30 s. Golos por jogo nas ligas novas: Premier League 2,3–2,5, La Liga 2,5–2,6, Serie A 2,3–2,4, Bundesliga 2,3–2,5, Ligue 1 2,3–2,6, Liga Portugal 2,2–2,3, Eredivisie 2,1, segundas divisões 1,8–2,5, Primera argentina 2,5, Saudi Pro League 2,5–2,8, Liga dos Campeões 2,5–2,6 e Liga Europa 2,4–2,5, quase sem goleadas de 6+. Campeões de 2025/26 com a seed 1: Arsenal, Real Madrid, Bayern, PSG, Porto e Ajax; Real Madrid na Liga dos Campeões e Villarreal na Liga Europa. O teste `a_full_2026_season` passa a conferir também a época europeia de 2025/26: todas as competições com campeão no historial de 2026, 36 clubes na fase de liga com 8 jogos e 4 em casa cada, os 3 últimos da Premier League no Championship e ninguém com dois jogos em menos de 3 dias ao longo de 2026. Os testes do core passaram a levar ~1 minuto (os dois testes de época jogam todas as ligas).
 
 **Em aberto:** as ligas das outras nações europeias (Bélgica, Turquia, Escócia...) continuam paradas: os clubes delas entram nas competições europeias por reputação. As taças nacionais (FA Cup, Copa del Rey...) e os potes da UEFA ficam para depois.
+
+#### Ajuste do motor: atributos mentais e peso da camisa (depois do 3.7)
+
+Até aqui cada titular valia `CA × adaptação à função × condição × moral`, com as instruções da equipa e um fator casa igual para todos; os atributos individuais só decidiam quem remata, quem leva cartão, quem se lesiona e quem cansa. Entram agora, cada um com efeito pequeno (`live.rs`, `Occasion` e `day_form`):
+- **Consistência → forma do dia**: o rendimento de cada jogador num jogo varia à volta de 100%, com desvio de 2% (Consistência 20) a 6% (1), entre 85% e 115%, sorteado com o RNG da partida.
+- **Jogos Importantes e Pressão → jogos decisivos**: numa eliminatória ou num clássico (os rivais do clube no banco), a média dos dois atributos dá de -4% (1) a +4% (20) ao rendimento.
+- **Torcida**: os golos esperados da casa variam com a lotação do estádio, de -3,75% (10 mil lugares ou menos) a +3,75% (70 mil ou mais); 40 mil = neutro. Em campo neutro não conta.
+- **Peso da camisa**: a diferença de reputação dos dois clubes (até 4 000 pontos) dá até ±3% aos golos esperados de cada lado, também em campo neutro.
+- **Determinação**: a equipa que está a perder ataca com a Determinação média de quem está em campo, de -4% (1) a +4% (20).
+
+No patch, a Consistência está vazia em 91 mil dos 110 mil jogadores e a Pressão em 96 mil pessoas (o CM gera-as ao começar um jogo): vazio conta como 10, ou seja neutro. O potencial (PA) continua fora do jogo (só serve à evolução do CA). As bases de casa e fora passam de 1,46/0,94 a 1,44/0,95, porque a torcida e o peso da camisa empurravam as vitórias em casa para 50%.
+
+Números: `sim -- 7568 epoca 1 10` dá 2,59 golos por jogo e 49% de vitórias em casa (antes 2,58 e 49%); em 2026 (`carreira`, seeds 2 e 3) a Série A fica em 2,70–2,73, a Premier League em 2,46–2,63, a Liga dos Campeões em 2,71–2,76 e os estaduais em 2,2–3,0.
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)

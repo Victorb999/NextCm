@@ -11,8 +11,8 @@ use crate::{ClubTactics, Result, World};
 
 /// Golos esperados de uma equipa média em casa e fora (com o efeito do `LEAD_EASE` de
 /// `live.rs` e das diferenças entre equipas, a Série A fica em ~2,6 por jogo).
-const BASE_HOME: f64 = 1.46;
-const BASE_AWAY: f64 = 0.94;
+const BASE_HOME: f64 = 1.44;
+const BASE_AWAY: f64 = 0.95;
 /// Quanto a razão ataque/defesa pesa: com 2,55, ser 10% melhor dá ~27% mais golos.
 const K_ATTACK: f64 = 2.55;
 /// Peso de quem domina o meio-campo.

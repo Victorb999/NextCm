@@ -21,7 +21,7 @@ mod competitions;
 mod regen;
 mod season;
 use crate::league::{self, Fixture, Match, StandingRow};
-use crate::live::{LiveMatch, LiveView, TeamStats};
+use crate::live::{LiveMatch, LiveView, Occasion, TeamStats};
 use crate::person::ClubRef;
 use crate::regulation::{self, SeasonKind};
 use crate::search::fold;
@@ -728,7 +728,9 @@ impl Game {
             };
             let user_ai = self.selection.as_ref().is_none_or(|s| s.auto);
             let rng = engine::match_rng(self.seed, self.matches[i].id);
-            let mut live = LiveMatch::new(&self.world, self.fixture(&self.matches[i]), home_t, away_t, side, user_ai, rng)?;
+            let occasion = self.occasion(&self.matches[i])?;
+            let mut live =
+                LiveMatch::new(&self.world, self.fixture(&self.matches[i]), home_t, away_t, side, user_ai, rng)?.with_occasion(occasion);
             if side.is_some() && self.watch {
                 user = Some(games.len());
                 live = live.detailed(engine::match_rng(self.seed ^ 0x0F1A_7E55, self.matches[i].id));
@@ -931,6 +933,25 @@ impl Game {
             "Alterações na equipa".into(),
             format!("O seu adjunto fez alterações na equipa para o jogo de hoje:\n\n{}", lines.join("\n")),
         ))
+    }
+
+    /// O que rodeia uma partida: decisiva (eliminatória ou clássico entre rivais), a lotação
+    /// do estádio da casa e as reputações dos dois clubes (o peso da camisa).
+    fn occasion(&self, m: &Match) -> Result<Occasion> {
+        let facts = |id: i32| -> Result<(i32, Option<i32>, [Option<i32>; 3])> {
+            Ok(self
+                .world
+                .conn
+                .prepare_cached(
+                    "SELECT COALESCE(c.reputation, 0), s.capacity, c.rival1_id, c.rival2_id, c.rival3_id
+                     FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id WHERE c.id = ?",
+                )?
+                .query_row([id], |r| Ok((r.get(0)?, r.get(1)?, [r.get(2)?, r.get(3)?, r.get(4)?])))?)
+        };
+        let (home_rep, capacity, home_rivals) = facts(m.home_id)?;
+        let (away_rep, _, away_rivals) = facts(m.away_id)?;
+        let derby = home_rivals.contains(&Some(m.away_id)) || away_rivals.contains(&Some(m.home_id));
+        Ok(Occasion::new(m.tie.is_some() || derby, m.neutral, capacity, home_rep, away_rep))
     }
 
     /// Competição do próximo jogo de um clube (para saber quem está castigado).

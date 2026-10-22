@@ -12,6 +12,7 @@
 //! relato dos minutos sem lances. Esse RNG nunca toca no resultado.
 
 use rand_chacha::ChaCha8Rng;
+use rand_core::RngCore;
 use serde::Serialize;
 use ts_rs::TS;
 
@@ -61,6 +62,11 @@ struct Profile {
     jumping: f64,
     /// Agressividade + Maldade.
     temper: f64,
+    /// Consistência: quanto o rendimento varia de jogo para jogo.
+    consistency: f64,
+    /// Jogos Importantes + Pressão: como reage nos jogos decisivos.
+    nerve: f64,
+    determination: f64,
 }
 
 fn load_profile(world: &World, id: i32) -> Result<Profile> {
@@ -70,7 +76,8 @@ fn load_profile(world: &World, id: i32) -> Result<Profile> {
                 pl.pos_midfielder, pl.pos_attacking_midfielder, pl.pos_attacker, pl.pos_wing_back,
                 pl.pos_right_side, pl.pos_left_side, pl.pos_central, pl.pos_free_role,
                 pl.finishing, pl.long_shots, pl.heading, pl.passing, pl.vision, pl.stamina,
-                pl.injury_proneness, pl.aggression, pl.dirtiness, pl.tackling, pl.jumping
+                pl.injury_proneness, pl.aggression, pl.dirtiness, pl.tackling, pl.jumping,
+                pl.consistency, pl.important_matches, p.pressure, p.determination
          FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
     )?;
     Ok(stmt.query_row([id], |r| {
@@ -92,6 +99,10 @@ fn load_profile(world: &World, id: i32) -> Result<Profile> {
             temper: v(20)? + v(21)?,
             tackling: v(22)?,
             jumping: v(23)?,
+            // Vazios no patch (o CM gera-os ao começar): contam como 10
+            consistency: v(24)?,
+            nerve: (v(25)? + v(26)?) / 2.0,
+            determination: v(27)?,
         })
     })?)
 }
@@ -117,6 +128,8 @@ struct MatchPlayer {
     /// Nota pelos lances (sem o resultado, que conta só na exibição).
     rating: f64,
     stats: PlayerStats,
+    /// Forma do dia (Consistência) e o efeito de um jogo decisivo (Jogos Importantes e Pressão).
+    form: f64,
 }
 
 /// Números de um jogador no jogo (a tela "Dados" do CM).
@@ -136,8 +149,59 @@ pub struct PlayerStats {
 
 impl MatchPlayer {
     fn value(&self) -> f64 {
-        value(&self.info, self.fit, self.condition, self.morale)
+        value(&self.info, self.fit, self.condition, self.morale) * self.form
     }
+}
+
+/// Forma do dia: rendimento à volta de 100% com desvio de 2% (Consistência 20) a 6% (1),
+/// entre 85% e 115%.
+fn day_form(consistency: f64, rng: &mut impl RngCore) -> f64 {
+    let sd = 0.02 + 0.04 * (20.0 - consistency.clamp(1.0, 20.0)) / 19.0;
+    // Normal pelo método de Box-Muller
+    let (u1, u2) = (uniform(rng).max(1e-12), uniform(rng));
+    let z = (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
+    (1.0 + sd * z).clamp(0.85, 1.15)
+}
+
+/// Num jogo decisivo: de -4% (Jogos Importantes e Pressão a 1) a +4% (a 20).
+fn nerve_factor(nerve: f64) -> f64 {
+    1.0 + 0.04 * (nerve.clamp(1.0, 20.0) - 10.5) / 9.5
+}
+
+/// O que rodeia um jogo além das equipas: decisivo ou não, a torcida e o peso da camisa.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Occasion {
+    /// Eliminatória ou clássico (rivais).
+    pub big: bool,
+    /// Golos esperados da casa × isto (estádio: ±3,75% entre 10 mil e 70 mil lugares).
+    pub crowd: f64,
+    /// Reputação da casa menos a de fora, de -1 a 1: ±3% nos golos esperados de cada lado.
+    pub shirt: f64,
+}
+
+impl Default for Occasion {
+    fn default() -> Self {
+        Occasion { big: false, crowd: 1.0, shirt: 0.0 }
+    }
+}
+
+impl Occasion {
+    /// A partir da lotação do estádio da casa e das reputações (0–10 000 no banco).
+    pub fn new(big: bool, neutral: bool, capacity: Option<i32>, home_rep: i32, away_rep: i32) -> Occasion {
+        let crowd = if neutral {
+            1.0
+        } else {
+            let fill = (capacity.unwrap_or(15_000) as f64 / 40_000.0).clamp(0.25, 1.75);
+            1.0 + 0.05 * (fill - 1.0)
+        };
+        let shirt = ((home_rep - away_rep) as f64 / 4000.0).clamp(-1.0, 1.0);
+        Occasion { big, crowd, shirt }
+    }
+}
+
+/// Golos esperados × isto para quem está a perder: de -4% (Determinação 1) a +4% (20).
+fn determination_factor(determination: f64) -> f64 {
+    1.0 + 0.04 * (determination.clamp(1.0, 20.0) - 10.5) / 9.5
 }
 
 /// Quanto um jogador rende numa função com uma nota e uma condição.
@@ -208,6 +272,7 @@ impl Team {
                     assists: 0,
                     rating: 0.0,
                     stats: PlayerStats::default(),
+                    form: 1.0,
                 });
             }
         }
@@ -229,6 +294,7 @@ impl Team {
                 assists: 0,
                 rating: 0.0,
                 stats: PlayerStats::default(),
+                form: 1.0,
             });
         }
         Ok(Team { club, tactics, players, subs: 0, tactical_subs: 0, ai, stats: TeamStats::default(), possession: 0.0 })
@@ -446,6 +512,7 @@ pub struct LiveMatch {
     zones: [f64; 3],
     zone_home: [f64; 3],
     useful: f64,
+    occasion: Occasion,
 }
 
 /// Escolhe uma variante do texto sem gastar o RNG (o relato não muda o jogo).
@@ -480,6 +547,7 @@ impl LiveMatch {
             zones: [0.0; 3],
             zone_home: [0.0; 3],
             useful: 0.0,
+            occasion: Occasion::default(),
         };
         // Forma do dia de cada titular: a nota parte de 6 ± 0,4
         for side in 0..2 {
@@ -489,7 +557,27 @@ impl LiveMatch {
                 }
             }
         }
+        // E o rendimento do dia de cada jogador (titulares e suplentes), pela Consistência
+        for side in 0..2 {
+            for i in 0..m.teams[side].players.len() {
+                let c = m.teams[side].players[i].prof.consistency;
+                m.teams[side].players[i].form = day_form(c, &mut m.rng);
+            }
+        }
         Ok(m)
+    }
+
+    /// Jogo decisivo, torcida e peso da camisa (sem isto, um jogo como os do 3.4).
+    pub fn with_occasion(mut self, occasion: Occasion) -> LiveMatch {
+        if occasion.big {
+            for team in &mut self.teams {
+                for p in &mut team.players {
+                    p.form *= nerve_factor(p.prof.nerve);
+                }
+            }
+        }
+        self.occasion = occasion;
+        self
     }
 
     /// Liga o enchimento das telas (o jogo que o treinador vê), com um RNG só dele.
@@ -582,9 +670,20 @@ impl LiveMatch {
         self.teams[1].possession += 1.0 - home_ball;
         self.ball.push(home_ball);
         let before = self.events.len();
+        // Torcida e peso da camisa
+        let o = self.occasion;
+        let (xh, xa) = (xh * o.crowd * (1.0 + 0.03 * o.shirt), xa * (1.0 - 0.03 * o.shirt));
         for (side, xg) in [(0, xh), (1, xa)] {
             let ease = if self.score[side] >= self.score[1 - side] + LEAD_EASE.0 { LEAD_EASE.1 } else { 1.0 };
-            self.attack(side, xg * ease);
+            // Quem está a perder vai à luta conforme a Determinação de quem está em campo
+            let chase = if self.score[side] < self.score[1 - side] {
+                let on = self.teams[side].on_pitch();
+                let det = on.iter().map(|&i| self.teams[side].players[i].prof.determination).sum::<f64>() / on.len().max(1) as f64;
+                determination_factor(det)
+            } else {
+                1.0
+            };
+            self.attack(side, xg * ease * chase);
         }
         for side in 0..2 {
             self.discipline(side);
@@ -1454,5 +1553,44 @@ impl LiveMatch {
             };
             self.push_lines("play", Some(side), None, line.clone(), vec![line]);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand_core::SeedableRng;
+
+    use super::*;
+
+    #[test]
+    fn day_form_spreads_with_low_consistency() {
+        let spread = |c: f64| {
+            let mut rng = ChaCha8Rng::seed_from_u64(9);
+            let v: Vec<f64> = (0..4000).map(|_| day_form(c, &mut rng)).collect();
+            let mean = v.iter().sum::<f64>() / v.len() as f64;
+            let sd = (v.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / v.len() as f64).sqrt();
+            assert!((mean - 1.0).abs() < 0.005, "média {mean}");
+            assert!(v.iter().all(|x| (0.85..=1.15).contains(x)));
+            sd
+        };
+        let (steady, erratic) = (spread(20.0), spread(1.0));
+        assert!((steady - 0.02).abs() < 0.004 && (erratic - 0.06).abs() < 0.006, "{steady} {erratic}");
+    }
+
+    #[test]
+    fn occasion_crowd_shirt_and_nerve() {
+        // Campo neutro: sem torcida; o peso da camisa conta na mesma
+        let neutral = Occasion::new(true, true, Some(80_000), 9000, 5000);
+        assert_eq!(neutral.crowd, 1.0);
+        assert_eq!(neutral.shirt, 1.0);
+        // Estádio grande empurra mais do que um pequeno, sempre perto de 100%
+        let big = Occasion::new(false, false, Some(70_000), 6000, 6000);
+        let small = Occasion::new(false, false, Some(8_000), 6000, 6000);
+        assert!(big.crowd > 1.03 && small.crowd < 0.97 && big.crowd <= 1.0375 && small.crowd >= 0.9625);
+        assert_eq!(big.shirt, 0.0);
+        assert!((Occasion::new(false, false, None, 3000, 5000).shirt + 0.5).abs() < 1e-9);
+        // Jogos decisivos e Determinação: ±4% nos extremos, nada a meio
+        assert!((nerve_factor(20.0) - 1.04).abs() < 1e-9 && (nerve_factor(1.0) - 0.96).abs() < 1e-9);
+        assert!((nerve_factor(10.5) - 1.0).abs() < 1e-9 && (determination_factor(10.5) - 1.0).abs() < 1e-9);
     }
 }
