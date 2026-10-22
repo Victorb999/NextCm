@@ -11,11 +11,11 @@ use rand_core::{RngCore, SeedableRng};
 use serde::Serialize;
 use ts_rs::TS;
 
-use super::{Game, NewsItem, cm_date, season_label, season_of};
+use super::{Game, NewsItem, cm_date};
 use crate::engine::{self, uniform};
 use crate::league::{self, Fixture, Match, SERIE_A, SERIE_B, SERIE_C, SERIE_D, StandingRow};
 use crate::person::ClubRef;
-use crate::regulation::{self, GroupDraw, Pairing, Pick, Regulation, SingleHome, StageKind, TRANSITION_YEAR};
+use crate::regulation::{self, ContinentPick, GroupDraw, Pairing, Pick, Regulation, SeasonKind, SingleHome, StageKind, TRANSITION_YEAR};
 use crate::{Error, Result};
 
 /// Uma tabela de uma fase: a classificação toda ou um grupo.
@@ -64,6 +64,47 @@ pub struct StageView {
     pub rounds: Vec<KoRoundView>,
 }
 
+/// Mando dos jogos de uma fase de liga: cada clube joga um número par de jogos, então
+/// orientar cada jogo no sentido em que um circuito de Euler (Hierholzer) o percorre dá a
+/// todos metade em casa e metade fora.
+fn orient_evenly(days: &mut [Vec<(i32, i32)>]) {
+    let games: Vec<(usize, usize)> = days.iter().enumerate().flat_map(|(d, g)| (0..g.len()).map(move |i| (d, i))).collect();
+    let mut adjacency: HashMap<i32, Vec<usize>> = HashMap::new();
+    let mut clubs = Vec::new();
+    for (e, &(d, i)) in games.iter().enumerate() {
+        let (a, b) = days[d][i];
+        for c in [a, b] {
+            if !adjacency.contains_key(&c) {
+                clubs.push(c);
+            }
+            adjacency.entry(c).or_default().push(e);
+        }
+    }
+    let mut used = vec![false; games.len()];
+    let mut next: HashMap<i32, usize> = HashMap::new();
+    for start in clubs {
+        let mut stack = vec![start];
+        while let Some(&v) = stack.last() {
+            let edges = &adjacency[&v];
+            let k = next.entry(v).or_default();
+            while *k < edges.len() && used[edges[*k]] {
+                *k += 1;
+            }
+            if *k == edges.len() {
+                stack.pop();
+                continue;
+            }
+            let e = edges[*k];
+            used[e] = true;
+            let (d, i) = games[e];
+            let (a, b) = days[d][i];
+            let w = if a == v { b } else { a };
+            days[d][i] = (v, w); // percorrido de v para w: v em casa
+            stack.push(w);
+        }
+    }
+}
+
 /// Ordem das posições num quadro de `n` (potência de 2): 1, 8, 4, 5, 2, 7, 3, 6 para 8.
 fn bracket_order(n: usize) -> Vec<usize> {
     let mut order = vec![1];
@@ -105,20 +146,26 @@ impl Game {
         ChaCha8Rng::seed_from_u64(mix)
     }
 
-    /// Jogos de uma competição numa época.
+    /// Jogos de uma competição numa época (o ano, ou o ano em que começa numa época europeia).
     pub(super) fn year_matches(&self, comp: i32, year: i32) -> impl Iterator<Item = &Match> {
-        self.matches.iter().filter(move |m| m.competition_id == comp && season_of(&m.date) == year)
+        self.matches.iter().filter(move |m| m.competition_id == comp && regulation::season_of(comp, &m.date) == year)
+    }
+
+    /// A época em curso de uma competição.
+    pub(super) fn current_season(&self, comp: i32) -> i32 {
+        regulation::season_of(comp, &self.date)
     }
 
     fn next_match_id(&self) -> i32 {
         self.matches.iter().map(|m| m.id).max().unwrap_or(0) + 1
     }
 
-    /// Sorteia as competições da época `year` (a 1 de janeiro; na criação do jogo, as da
-    /// época de transição). As fases seguintes saem à medida que as anteriores acabam.
-    pub(super) fn schedule_season(&mut self, year: i32, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+    /// Sorteia as competições de um tipo de época que começa em `year` (as do ano civil a 1
+    /// de janeiro, as europeias a 1 de julho; na criação do jogo, as da transição e a época
+    /// europeia de 2025/26). As fases seguintes saem à medida que as anteriores acabam.
+    pub(super) fn schedule_season(&mut self, kind: SeasonKind, year: i32, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         for reg in regulation::all() {
-            if year == TRANSITION_YEAR && reg.transition_dates.is_none() {
+            if reg.season != kind || (kind == SeasonKind::Calendar && year == TRANSITION_YEAR && reg.transition_dates.is_none()) {
                 continue;
             }
             self.create_stage(reg, 0, year, fresh, next_id)?;
@@ -192,9 +239,74 @@ impl Game {
                 }
             }
         }
+        // Vagas de várias ligas pela classificação da época anterior (Liga dos Campeões, Liga Europa)
+        for l in &e.leagues {
+            let order = self.final_order(l.competition, year - 1)?;
+            let picked: Vec<i32> = order
+                .into_iter()
+                .skip(l.from.saturating_sub(1))
+                .filter(|id| !excluded.contains(id) && !out.contains(id))
+                .take(l.count)
+                .collect();
+            add(&mut out, picked);
+        }
         for (k, q) in e.foreign.iter().enumerate() {
             let drawn = self.foreign_draw(reg.competition, year, k as u64, &q.nation, q.count, &out, &excluded)?;
             add(&mut out, drawn);
+        }
+        if let Some(c) = &e.continent {
+            let drawn = self.continent_draw(reg.competition, year, c, &out, &excluded)?;
+            add(&mut out, drawn);
+        }
+        Ok(out)
+    }
+
+    /// As vagas das outras nações de um continente: sorteio pesado pela reputação (ao quadrado)
+    /// entre os clubes mais fortes com plantel, no máximo `per_nation` por nação.
+    fn continent_draw(&self, comp: i32, year: i32, c: &ContinentPick, taken: &[i32], excluded: &HashSet<i32>) -> Result<Vec<i32>> {
+        let rows: Vec<(i32, i32, i32, String)> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT c.id, COALESCE(c.reputation, 1), n.id, n.name FROM clubs c JOIN nations n ON n.id = c.nation_id
+                 WHERE n.continent_id = ? AND c.is_national_team = 0
+                   AND (SELECT COUNT(*) FROM people p WHERE p.club_id = c.id AND p.is_player = 1) >= 11
+                 ORDER BY c.reputation DESC, c.id",
+            )?
+            .query_map([c.continent], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        // Os mais fortes de cada nação, e destes os 3 × `count` com mais reputação
+        let mut per_nation: HashMap<i32, usize> = HashMap::new();
+        let mut pool: Vec<(i32, i32, f64)> = Vec::new();
+        for (id, rep, nation, name) in rows {
+            if c.exclude_nations.contains(&name) || taken.contains(&id) || excluded.contains(&id) {
+                continue;
+            }
+            let n = per_nation.entry(nation).or_default();
+            if *n < c.per_nation + 1 {
+                *n += 1;
+                pool.push((id, nation, (rep as f64).powi(2)));
+            }
+        }
+        pool.truncate(3 * c.count);
+        let mut rng = self.comp_rng(comp, year, 0xC0_4714);
+        let mut chosen: HashMap<i32, usize> = HashMap::new();
+        let mut out = Vec::new();
+        while out.len() < c.count {
+            pool.retain(|p| chosen.get(&p.1).copied().unwrap_or(0) < c.per_nation);
+            if pool.is_empty() {
+                break;
+            }
+            let total: f64 = pool.iter().map(|p| p.2).sum();
+            let mut roll = uniform(&mut rng) * total;
+            let mut i = 0;
+            while i + 1 < pool.len() && roll >= pool[i].2 {
+                roll -= pool[i].2;
+                i += 1;
+            }
+            let (id, nation, _) = pool.remove(i);
+            *chosen.entry(nation).or_default() += 1;
+            out.push(id);
         }
         Ok(out)
     }
@@ -245,11 +357,23 @@ impl Game {
     }
 
     /// Clubes de uma competição pela ordem final de uma época: a classificação da 1ª fase,
-    /// ou (sem jogos nessa época) a divisão pela última posição do banco.
+    /// ou (sem jogos nessa época) quem esteve nela pela última posição do banco (a época de
+    /// 2024/25 no patch), e na falta disso a divisão atual.
     fn final_order(&self, comp: i32, year: i32) -> Result<Vec<i32>> {
         let table = self.stage_table(comp, year, 0, None);
         if !table.is_empty() {
             return Ok(table.iter().map(|r| r.club.id).collect());
+        }
+        let last: Vec<i32> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT id FROM clubs WHERE last_division_id = ? ORDER BY last_position IS NULL, last_position, reputation DESC, id",
+            )?
+            .query_map([comp], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        if !last.is_empty() {
+            return Ok(last);
         }
         Ok(self
             .world
@@ -319,6 +443,37 @@ impl Game {
         Ok(out)
     }
 
+    /// Fase de liga: `matchdays` jornadas tiradas de um calendário de todos contra todos (cada
+    /// clube encontra adversários diferentes), escolhido entre várias tentativas o que tem menos
+    /// jogos entre clubes da mesma nação; depois o mando fica em metade em casa e metade fora.
+    fn league_phase(&self, entrants: &[i32], matchdays: usize, rng: &mut impl RngCore) -> Result<Vec<Vec<(i32, i32)>>> {
+        let facts = self.club_facts(entrants)?;
+        let n = entrants.len() - entrants.len() % 2;
+        let mut best: Option<(usize, Vec<Vec<(i32, i32)>>)> = None;
+        for _ in 0..40 {
+            let mut t = entrants[..n].to_vec();
+            shuffle(&mut t, rng);
+            let mut rounds: Vec<Vec<(i32, i32)>> = Vec::with_capacity(n - 1);
+            for r in 0..n - 1 {
+                rounds.push((0..n / 2).map(|i| if (r + i) % 2 == 0 { (t[i], t[n - 1 - i]) } else { (t[n - 1 - i], t[i]) }).collect());
+                t[1..].rotate_right(1);
+            }
+            let mut idx: Vec<usize> = (0..n - 1).collect();
+            shuffle(&mut idx, rng);
+            let chosen: Vec<Vec<(i32, i32)>> = idx.iter().take(matchdays).map(|&r| rounds[r].clone()).collect();
+            let clashes = chosen.iter().flatten().filter(|(a, b)| facts[a].1.is_some() && facts[a].1 == facts[b].1).count();
+            if best.as_ref().is_none_or(|b| clashes < b.0) {
+                best = Some((clashes, chosen));
+                if clashes == 0 {
+                    break;
+                }
+            }
+        }
+        let mut days = best.map(|b| b.1).unwrap_or_default();
+        orient_evenly(&mut days);
+        Ok(days)
+    }
+
     fn draw_groups(&self, entrants: &[i32], size: usize, draw: GroupDraw, rng: &mut impl RngCore) -> Result<Vec<Vec<i32>>> {
         let n_groups = (entrants.len() / size.max(2)).max(1);
         let mut groups: Vec<Vec<i32>> = vec![Vec::new(); n_groups];
@@ -373,7 +528,7 @@ impl Game {
         };
         match st.kind {
             StageKind::League => {
-                let dates = regulation::dates(year, spec);
+                let dates = regulation::dates_in(year, spec, reg.season);
                 let mut ms = league::round_robin(comp, &entrants, &dates, st.legs, self.next_match_id(), &mut rng)?;
                 for m in &mut ms {
                     m.stage = stage as u8;
@@ -382,7 +537,7 @@ impl Game {
             }
             StageKind::Groups => {
                 let groups = self.draw_groups(&entrants, st.group_size, st.draw, &mut rng)?;
-                let dates = regulation::dates(year, spec);
+                let dates = regulation::dates_in(year, spec, reg.season);
                 for (g, clubs) in groups.iter().enumerate() {
                     let mut ms = league::round_robin(comp, clubs, &dates, st.legs, self.next_match_id(), &mut rng)?;
                     for m in &mut ms {
@@ -395,7 +550,7 @@ impl Game {
                         let body = format!(
                             "{} {}: o {} fica no {} com {}.",
                             self.competition_name(comp),
-                            season_label(year),
+                            regulation::season_label(comp, year),
                             self.club(self.club_id).short_name,
                             group_name(g as u8),
                             super::season::join_names(&others)
@@ -405,7 +560,49 @@ impl Game {
                     }
                 }
             }
+            StageKind::LeaguePhase => {
+                let dates = regulation::dates_in(year, spec, reg.season);
+                let days = self.league_phase(&entrants, st.matchdays, &mut rng)?;
+                let mut id = self.next_match_id();
+                for (d, games) in days.iter().enumerate() {
+                    for &(home_id, away_id) in games {
+                        self.matches.push(Match {
+                            id,
+                            competition_id: comp,
+                            stage: stage as u8,
+                            round: d as i32 + 1,
+                            date: dates[d].clone(),
+                            home_id,
+                            away_id,
+                            ..Default::default()
+                        });
+                        id += 1;
+                    }
+                }
+                if entrants.contains(&self.club_id) {
+                    let mut rivals: Vec<String> = Vec::new();
+                    for &(h, a) in days.iter().flatten() {
+                        if h == self.club_id {
+                            rivals.push(format!("{} (C)", self.club(a).short_name));
+                        } else if a == self.club_id {
+                            rivals.push(format!("{} (F)", self.club(h).short_name));
+                        }
+                    }
+                    let body = format!(
+                        "{} {}, {}: o {} joga com {}.",
+                        self.competition_name(comp),
+                        regulation::season_label(comp, year),
+                        st.name,
+                        self.club(self.club_id).short_name,
+                        super::season::join_names(&rivals)
+                    );
+                    fresh.push(self.news_item(*next_id, "competition", format!("Sorteio {}", self.of_competition(comp)), body));
+                    *next_id += 1;
+                }
+            }
             StageKind::Knockout => {
+                // Os primeiros `byes` só entram na 2ª ronda
+                let entrants = &entrants[st.byes.min(entrants.len())..];
                 let n = entrants.len();
                 let pairs: Vec<(i32, i32)> = match st.pairing {
                     Pairing::Bracket => {
@@ -455,7 +652,7 @@ impl Game {
     ) -> Result<()> {
         let st = &reg.stages[stage];
         let Some(r) = st.rounds.get(round) else { return Ok(()) };
-        let dates = regulation::dates(year, &r.dates);
+        let dates = regulation::dates_in(year, &r.dates, reg.season);
         let comp = reg.competition;
         let mut id = self.next_match_id();
         for (t, &(a, b)) in pairs.iter().enumerate() {
@@ -490,7 +687,7 @@ impl Game {
                 let body = format!(
                     "{} {}, {}: {} - {}.\n\n{when}",
                     self.competition_name(comp),
-                    season_label(year),
+                    regulation::season_label(comp, year),
                     r.name,
                     self.club(home).short_name,
                     self.club(away).short_name
@@ -544,7 +741,7 @@ impl Game {
     pub(super) fn settle_tie(&mut self, index: usize) {
         let m = &self.matches[index];
         let (Some(tie), true) = (m.tie, m.leg != 1) else { return };
-        let year = season_of(&m.date);
+        let year = regulation::season_of(m.competition_id, &m.date);
         let games = self.tie_games(m.competition_id, year, m.stage as usize, m.round, tie);
         let Some((gx, gy)) = Self::aggregate(&games, m.home_id) else { return };
         if gx == gy {
@@ -556,10 +753,10 @@ impl Game {
     /// Depois de um dia de jogos: as competições que acabaram uma ronda ou uma fase passam
     /// à seguinte. Devolve as que acabaram de vez.
     pub(super) fn progress(&mut self, comps: &[i32], fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<Vec<i32>> {
-        let year = self.season();
         let mut finished = Vec::new();
         for &comp in comps {
             let Some(reg) = regulation::get(comp) else { continue };
+            let year = self.current_season(comp);
             let ms: Vec<&Match> = self.year_matches(comp, year).collect();
             if ms.is_empty() || ms.iter().any(|m| m.result.is_none()) {
                 continue;
@@ -570,7 +767,11 @@ impl Game {
                 let round = ms.iter().filter(|m| m.stage as usize == stage).map(|m| m.round).max().unwrap_or(1);
                 if (round as usize) < st.rounds.len() {
                     let winners = self.round_winners(comp, year, stage, round).unwrap_or_default();
-                    let pairs: Vec<(i32, i32)> = winners.chunks(2).filter(|c| c.len() == 2).map(|c| (c[0], c[1])).collect();
+                    let pairs: Vec<(i32, i32)> = if round == 1 && st.byes > 0 {
+                        self.bye_pairs(reg, stage, year, &winners)?
+                    } else {
+                        winners.chunks(2).filter(|c| c.len() == 2).map(|c| (c[0], c[1])).collect()
+                    };
                     self.create_ko_round(reg, stage, round as usize, &pairs, year, fresh, next_id)?;
                     continue;
                 }
@@ -582,6 +783,31 @@ impl Game {
             finished.push(comp);
         }
         Ok(finished)
+    }
+
+    /// A 2ª ronda de uma eliminatória com isentos (Liga dos Campeões): o isento k (1º, 2º...)
+    /// encontra o vencedor da eliminatória do play-off cujo cabeça de série é o 2·isentos − k
+    /// (o 1º com o vencedor de 16º-17º, o 8º com o de 9º-24º), pela ordem do quadro dos isentos.
+    fn bye_pairs(&self, reg: &Regulation, stage: usize, year: i32, winners: &[i32]) -> Result<Vec<(i32, i32)>> {
+        let byes = reg.stages[stage].byes;
+        let seeded = self.entrants(reg, stage, year)?;
+        let comp = reg.competition;
+        // O cabeça de série de cada eliminatória é quem jogou a 2ª mão em casa
+        let top: Vec<Option<usize>> = (0..winners.len())
+            .map(|t| {
+                let games = self.tie_games(comp, year, stage, 1, t as u16);
+                games.last().and_then(|g| seeded.iter().position(|&c| c == g.home_id))
+            })
+            .collect();
+        let mut pairs = Vec::new();
+        for k in bracket_order(byes) {
+            let seed = k - 1;
+            let target = 2 * byes - 1 - seed;
+            if let (Some(&club), Some(t)) = (seeded.get(seed), top.iter().position(|&p| p == Some(target))) {
+                pairs.push((club, winners[t]));
+            }
+        }
+        Ok(pairs)
     }
 
     /// Campeão, vice e 3º de uma competição acabada numa época.
@@ -600,6 +826,19 @@ impl Game {
                 let last = games.last()?;
                 let loser = if last.home_id == winner { last.away_id } else { last.home_id };
                 Some((winner, Some(loser), None))
+            }
+            // Só grupos (Primera Nacional): o vencedor de grupo com mais pontos é campeão
+            StageKind::Groups => {
+                let mut firsts: Vec<StandingRow> = (0..self.group_count(comp, year, stage))
+                    .filter_map(|g| self.stage_table(comp, year, stage, Some(g)).into_iter().next())
+                    .collect();
+                firsts.sort_by(|a, b| {
+                    b.points
+                        .cmp(&a.points)
+                        .then(b.won.cmp(&a.won))
+                        .then((b.goals_for - b.goals_against).cmp(&(a.goals_for - a.goals_against)))
+                });
+                Some((firsts.first()?.club.id, firsts.get(1).map(|r| r.club.id), firsts.get(2).map(|r| r.club.id)))
             }
             _ => {
                 let t = self.stage_table(comp, year, stage, None);
@@ -624,6 +863,7 @@ impl Game {
                 }
             }
             StageKind::Groups => format!("{} · {}ª jornada", group_name(m.group.unwrap_or(0)), m.round),
+            StageKind::LeaguePhase => format!("{} · {}ª jornada", st.name, m.round),
             StageKind::League if reg.stages.len() > 1 && !st.name.is_empty() => format!("{} · {}ª jornada", st.name, m.round),
             StageKind::League => format!("{}ª jornada", m.round),
         }
@@ -646,6 +886,11 @@ impl Game {
                 Some(if round.name == "Final" { format!("O {us} perdeu a final.") } else { format!("O {us} caiu nos {}.", round.name) })
             }
             StageKind::Groups => Some(format!("O {us} ficou pela {}.", if st.name.is_empty() { "fase de grupos" } else { &st.name })),
+            StageKind::LeaguePhase => {
+                let t = self.stage_table(comp, year, last.stage as usize, None);
+                let r = t.iter().find(|r| r.club.id == club)?;
+                Some(format!("O {us} ficou pela {} ({}º lugar).", st.name.to_lowercase(), r.position))
+            }
             StageKind::League => {
                 let t = self.stage_table(comp, year, last.stage as usize, None);
                 let r = t.iter().find(|r| r.club.id == club)?;
@@ -656,7 +901,7 @@ impl Game {
 
     /// As fases de uma competição viva na época em curso, para a tela Classificação.
     pub fn competition_stages(&self, comp: i32) -> Vec<StageView> {
-        let year = self.season();
+        let year = self.current_season(comp);
         let Some(reg) = regulation::get(comp) else { return Vec::new() };
         let mut out = Vec::new();
         for (i, st) in reg.stages.iter().enumerate() {
@@ -666,7 +911,7 @@ impl Game {
             }
             let name = if st.name.is_empty() { self.competition_name(comp).to_string() } else { st.name.clone() };
             let view = match st.kind {
-                StageKind::League => StageView {
+                StageKind::League | StageKind::LeaguePhase => StageView {
                     name,
                     kind: "league".into(),
                     tables: vec![GroupTable { name: String::new(), rows: self.stage_table(comp, year, i, None) }],
@@ -722,7 +967,7 @@ impl Game {
         if m.tie.is_some() {
             return Vec::new();
         }
-        self.stage_table(m.competition_id, season_of(&m.date), m.stage as usize, m.group)
+        self.stage_table(m.competition_id, regulation::season_of(m.competition_id, &m.date), m.stage as usize, m.group)
     }
 }
 

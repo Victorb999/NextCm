@@ -1,0 +1,25 @@
+{
+  "competition": 7,
+  "order": 1,
+  "season": "european",
+  "managed": true,
+  "stages": [
+    {
+      "kind": "league",
+      "name": "",
+      "legs": 2,
+      "entrants": {
+        "divisions": [
+          7
+        ]
+      },
+      "dates": "w32-w51 w2-w20"
+    }
+  ],
+  "relegation": {
+    "to": 8,
+    "stage": 0,
+    "bottom": 3,
+    "count": 3
+  }
+}

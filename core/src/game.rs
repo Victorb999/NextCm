@@ -23,6 +23,7 @@ mod season;
 use crate::league::{self, Fixture, Match, StandingRow};
 use crate::live::{LiveMatch, LiveView, TeamStats};
 use crate::person::ClubRef;
+use crate::regulation::{self, SeasonKind};
 use crate::search::fold;
 use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
 use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
@@ -364,12 +365,18 @@ impl Game {
                 live: None,
                 records: Vec::new(),
             };
-            // Calendários da época de transição, sorteados com a seed do jogo
+            // Calendários da época de transição e da época europeia de 2025/26, sorteados com a seed do jogo
             let (mut fresh, mut next_id) = (Vec::new(), 2);
-            game.schedule_season(year, &mut fresh, &mut next_id)?;
+            game.competitions = competition_names(&game.world, &[])?;
+            game.schedule_season(SeasonKind::Calendar, year, &mut fresh, &mut next_id)?;
+            game.schedule_season(SeasonKind::European, year, &mut fresh, &mut next_id)?;
+            game.complete_squads()?;
             game.refresh_live()?;
-            if let Some(n) = game.season_news(next_id) {
-                fresh.push(n);
+            for kind in [SeasonKind::Calendar, SeasonKind::European] {
+                if let Some(n) = game.season_news(next_id, kind) {
+                    fresh.push(n);
+                    next_id += 1;
+                }
             }
             for n in fresh {
                 game.news.insert(0, n);
@@ -540,7 +547,15 @@ impl Game {
         };
         if redraw {
             let (mut fresh, mut next_id) = (Vec::new(), game.news.iter().map(|n| n.id).max().unwrap_or(0) + 1);
-            game.schedule_season(game.season(), &mut fresh, &mut next_id)?;
+            let year = game.season();
+            game.competitions = competition_names(&game.world, &[])?;
+            game.schedule_season(SeasonKind::Calendar, year, &mut fresh, &mut next_id)?;
+            game.schedule_season(
+                SeasonKind::European,
+                regulation::season_of(crate::league::PREMIER_LEAGUE, &game.date),
+                &mut fresh,
+                &mut next_id,
+            )?;
             game.news.splice(0..0, fresh.into_iter().rev());
             game.unsaved = true;
         }
@@ -943,8 +958,10 @@ impl Game {
         format!("{} {name}", if name.starts_with("Campeonato") { "o" } else { "a" })
     }
 
+    /// Um clube por id: dos clubes vivos em memória ou, para um que acabou de entrar numa
+    /// competição (sorteios da nova época), do banco.
     fn club(&self, id: i32) -> ClubRef {
-        self.clubs.get(&id).cloned().unwrap_or_else(|| ClubRef {
+        self.clubs.get(&id).cloned().or_else(|| self.world.club_ref(Some(id)).ok().flatten()).unwrap_or_else(|| ClubRef {
             id,
             name: format!("clube {id}"),
             short_name: format!("clube {id}"),
@@ -965,6 +982,7 @@ impl Game {
             home_goals: m.result.map(|r| r.0 as i32),
             away_goals: m.result.map(|r| r.1 as i32),
             label: self.match_label(m),
+            season: regulation::season_label(m.competition_id, regulation::season_of(m.competition_id, &m.date)),
             neutral: m.neutral,
             home_pens: m.pens.map(|r| r.0 as i32),
             away_pens: m.pens.map(|r| r.1 as i32),
@@ -1054,7 +1072,7 @@ impl Game {
 
     /// Classificação da 1ª fase de uma competição viva, se for de pontos corridos (vazia nas outras).
     pub fn table(&self, competition_id: i32) -> Vec<StandingRow> {
-        self.stage_table(competition_id, self.season(), 0, None)
+        self.stage_table(competition_id, self.current_season(competition_id), 0, None)
     }
 
     /// Notícia do resultado do jogo do treinador, com a posição na tabela e os marcadores.
@@ -1108,9 +1126,9 @@ impl Game {
 
     /// Notícia do campeão, com o que aconteceu à equipa do treinador.
     fn champion_news(&self, id: i32, competition_id: i32) -> Result<Option<NewsItem>> {
-        let year = self.season();
+        let year = self.current_season(competition_id);
         let Some((winner, second, _)) = self.podium(competition_id, year) else { return Ok(None) };
-        let label = season_label(year);
+        let label = regulation::season_label(competition_id, year);
         let champion = self.club(winner).short_name;
         let table = self.table(competition_id);
         let single_stage = crate::regulation::get(competition_id).is_some_and(|r| r.stages.len() == 1);
@@ -1147,9 +1165,11 @@ impl Game {
         }))
     }
 
-    /// Notícia do início da época: as competições do clube do treinador e o primeiro jogo.
-    fn season_news(&self, id: i32) -> Option<NewsItem> {
-        let mine = |m: &&Match| m.home_id == self.club_id || m.away_id == self.club_id;
+    /// Notícia do início de uma época (do ano civil ou europeia): as competições dessa época
+    /// em que joga o clube do treinador e o primeiro jogo; `None` se não joga nenhuma.
+    fn season_news(&self, id: i32, kind: SeasonKind) -> Option<NewsItem> {
+        let mine =
+            |m: &&Match| (m.home_id == self.club_id || m.away_id == self.club_id) && regulation::season_kind(m.competition_id) == kind;
         let mut ours: Vec<&Match> = self.season_matches().filter(mine).collect();
         ours.sort_by(|a, b| a.date.cmp(&b.date).then(a.id.cmp(&b.id)));
         let first = ours.first()?;
@@ -1160,8 +1180,8 @@ impl Game {
             }
         }
         let us = self.club(self.club_id).short_name;
-        let year = self.season();
-        let mut body = format!("Época {}: o {us} joga ", season_label(year));
+        let label = regulation::season_label(first.competition_id, regulation::season_of(first.competition_id, &first.date));
+        let mut body = format!("Época {label}: o {us} joga ");
         let names: Vec<String> = comps
             .iter()
             .map(|&c| {
@@ -1180,14 +1200,7 @@ impl Game {
             self.competition_name(first.competition_id),
             self.match_label(first)
         );
-        Some(NewsItem {
-            id,
-            date: self.date.clone(),
-            kind: "competition".into(),
-            title: format!("Calendário {}", season_label(year)),
-            body,
-            read: false,
-        })
+        Some(NewsItem { id, date: self.date.clone(), kind: "competition".into(), title: format!("Calendário {label}"), body, read: false })
     }
 
     /// A época em curso (o ano).
@@ -1195,10 +1208,9 @@ impl Game {
         season_of(&self.date)
     }
 
-    /// Jogos da época em curso.
+    /// Jogos da época em curso de cada competição (o ano civil ou a época europeia).
     fn season_matches(&self) -> impl Iterator<Item = &Match> {
-        let s = self.season();
-        self.matches.iter().filter(move |m| season_of(&m.date) == s)
+        self.matches.iter().filter(move |m| regulation::season_of(m.competition_id, &m.date) == self.current_season(m.competition_id))
     }
 
     pub fn info(&self) -> Result<GameInfo> {
@@ -1552,11 +1564,6 @@ pub(crate) fn season_of(date: &str) -> i32 {
     date.get(0..4).and_then(|y| y.parse().ok()).unwrap_or(0)
 }
 
-/// "2026"
-pub(crate) fn season_label(season: i32) -> String {
-    season.to_string()
-}
-
 fn league_club_ids(world: &World, division_id: i32) -> Result<Vec<i32>> {
     let ids = world
         .conn
@@ -1576,19 +1583,20 @@ fn club_refs(world: &World, ids: &[i32]) -> Result<HashMap<i32, ClubRef>> {
     Ok(out)
 }
 
+/// Nomes das competições dos jogos e de todas as que têm regulamento (as notícias dos
+/// sorteios da nova época saem antes de haver jogos).
 fn competition_names(world: &World, matches: &[Match]) -> Result<HashMap<i32, String>> {
     let mut out = HashMap::new();
-    for m in matches {
-        if let std::collections::hash_map::Entry::Vacant(e) = out.entry(m.competition_id) {
+    let ids = matches.iter().map(|m| m.competition_id).chain(regulation::all().iter().map(|r| r.competition));
+    for comp in ids {
+        if let std::collections::hash_map::Entry::Vacant(e) = out.entry(comp) {
             // O nome do regulamento quando o do banco não serve ("Copa Sudamericana")
-            if let Some(name) = crate::regulation::get(m.competition_id).and_then(|r| r.name.clone()) {
+            if let Some(name) = crate::regulation::get(comp).and_then(|r| r.name.clone()) {
                 e.insert(name);
                 continue;
             }
             let (name, short): (String, String) =
-                world.conn.query_row("SELECT name, short_name FROM competitions WHERE id = ?", [m.competition_id], |r| {
-                    Ok((r.get(0)?, r.get(1)?))
-                })?;
+                world.conn.query_row("SELECT name, short_name FROM competitions WHERE id = ?", [comp], |r| Ok((r.get(0)?, r.get(1)?)))?;
             e.insert(if short.is_empty() { name } else { short });
         }
     }

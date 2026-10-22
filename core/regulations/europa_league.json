@@ -1,0 +1,109 @@
+{
+  "competition": 328,
+  "name": "Liga Europa",
+  "order": 6,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "league_phase",
+      "name": "Fase de liga",
+      "matchdays": 8,
+      "entrants": {
+        "leagues": [
+          {
+            "competition": 7,
+            "from": 5,
+            "count": 2
+          },
+          {
+            "competition": 52,
+            "from": 5,
+            "count": 2
+          },
+          {
+            "competition": 24,
+            "from": 5,
+            "count": 2
+          },
+          {
+            "competition": 16,
+            "from": 5,
+            "count": 2
+          },
+          {
+            "competition": 11,
+            "from": 4,
+            "count": 2
+          },
+          {
+            "competition": 46,
+            "from": 3,
+            "count": 2
+          },
+          {
+            "competition": 22,
+            "from": 3,
+            "count": 2
+          }
+        ],
+        "continent": {
+          "continent": 2,
+          "count": 22,
+          "per_nation": 2,
+          "exclude_nations": [
+            "England",
+            "Spain",
+            "Italy",
+            "Germany",
+            "France",
+            "Portugal",
+            "Netherlands"
+          ]
+        },
+        "exclude": [
+          326
+        ]
+      },
+      "dates": "m38 m40 m43 m45 m48 m50 m4 m5"
+    },
+    {
+      "kind": "knockout",
+      "name": "Eliminatórias",
+      "pairing": "bracket",
+      "byes": 8,
+      "entrants": {
+        "previous": {
+          "top": 24
+        }
+      },
+      "rounds": [
+        {
+          "name": "Play-off",
+          "legs": 2,
+          "dates": "m7 m8"
+        },
+        {
+          "name": "Oitavas de final",
+          "legs": 2,
+          "dates": "m10 m11"
+        },
+        {
+          "name": "Quartos de final",
+          "legs": 2,
+          "dates": "m14 m15"
+        },
+        {
+          "name": "Meias-finais",
+          "legs": 2,
+          "dates": "m17 m18"
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "m21",
+          "neutral": true
+        }
+      ]
+    }
+  ]
+}

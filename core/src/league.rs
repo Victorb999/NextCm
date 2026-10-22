@@ -17,6 +17,9 @@ pub const SERIE_D: i32 = 175;
 pub const COPA_DO_BRASIL: i32 = 68;
 pub const LIBERTADORES: i32 = 58;
 pub const SUL_AMERICANA: i32 = 92;
+pub const PREMIER_LEAGUE: i32 = 7;
+pub const CHAMPIONS_LEAGUE: i32 = 326;
+pub const EUROPA_LEAGUE: i32 = 328;
 
 /// Uma partida do calendário, como fica na memória e na tabela `fixtures` do save.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -59,6 +62,8 @@ pub struct Fixture {
     pub away_goals: Option<i32>,
     /// "12ª jornada", "Grupo B · 3ª jornada", "Oitavas de final · 1ª mão", "Final".
     pub label: String,
+    /// Época do jogo: "2026" ou "2025/26".
+    pub season: String,
     pub neutral: bool,
     pub home_pens: Option<i32>,
     pub away_pens: Option<i32>,

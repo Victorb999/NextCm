@@ -53,5 +53,6 @@
     "to": 175,
     "stage": 0,
     "bottom": 4
-  }
+  },
+  "managed": true
 }

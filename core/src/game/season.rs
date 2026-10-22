@@ -1,8 +1,9 @@
-//! Épocas (marco 3.5; ano civil desde o 3.6): o fim de época a 20 de dezembro (subidas e
-//! descidas, historial, contratos, reformas e plantéis mínimos), a nova época a 1 de janeiro
-//! (sorteios e calendários), os contratos de meio do ano a 30 de junho, a evolução do CA no
-//! dia 1 de cada mês e os juniores a 1 de março. Regras e números no ROADMAP (detalhe do 3.5
-//! e do 3.6). Tudo sorteado com a seed do jogo e a data, então a mesma seed dá a mesma carreira.
+//! Épocas (marco 3.5; ano civil desde o 3.6, europeias desde o 3.7). Ano civil: fim de época
+//! a 20 de dezembro (subidas e descidas, historial, contratos, reformas e plantéis mínimos) e
+//! nova época a 1 de janeiro (sorteios e calendários). Época europeia: fim a 10 de junho e nova
+//! a 1 de julho. Os contratos de meio do ano a 30 de junho, a evolução do CA no dia 1 de cada
+//! mês e os juniores a 1 de março. Regras e números no ROADMAP (detalhe do 3.5, 3.6 e 3.7).
+//! Tudo sorteado com a seed do jogo e a data, então a mesma seed dá a mesma carreira.
 
 use std::collections::HashMap;
 
@@ -11,15 +12,21 @@ use rand_core::{RngCore, SeedableRng};
 use rusqlite::{OptionalExtension, params};
 
 use super::regen::{self, PLAYER_JOB};
-use super::{Game, NewsItem, club_refs, competition_names, fix_squad_numbers, league_club_ids, season_label, season_of};
+use super::{Game, NewsItem, club_refs, competition_names, fix_squad_numbers, league_club_ids};
 use crate::engine::{expected_goals, poisson, uniform};
-use crate::league::{self, SERIE_A, SERIE_C, SERIE_D, StandingRow};
+use crate::league::{self, SERIE_A, SERIE_C, StandingRow};
 use crate::person::ClubRef;
+use crate::regulation::{Regulation, SeasonKind, StageKind};
 use crate::squad::Squads;
 use crate::{Result, regulation};
 
-/// Divisões cujos plantéis evoluem, renovam contratos e recebem juniores (A, B e C).
-const MANAGED_SQL: &str = "65, 79, 80";
+/// Divisões geridas (as de regulamento com `managed`: plantéis que evoluem, renovam contratos
+/// e recebem juniores), de um tipo de época ou de todos, para um `IN (...)` do SQL.
+fn managed_sql(kind: Option<SeasonKind>) -> String {
+    let ids: Vec<String> =
+        regulation::all().iter().filter(|r| r.managed && kind.is_none_or(|k| r.season == k)).map(|r| r.competition.to_string()).collect();
+    if ids.is_empty() { "-1".into() } else { ids.join(", ") }
+}
 /// Quantos sobem e descem entre duas divisões.
 const SWAP: usize = 4;
 /// Abaixo disto o clube contrata jogadores livres (até [`FILL_TO`]).
@@ -84,8 +91,10 @@ impl Game {
                 self.contracts(fresh, next_id, &today)?;
                 self.clean_selection()?;
             }
-            "12-20" => self.end_of_season(fresh, next_id)?,
-            "01-01" => self.new_season(fresh, next_id)?,
+            "06-10" => self.end_of_season(SeasonKind::European, fresh, next_id)?,
+            "07-01" => self.new_season(SeasonKind::European, fresh, next_id)?,
+            "12-20" => self.end_of_season(SeasonKind::Calendar, fresh, next_id)?,
+            "01-01" => self.new_season(SeasonKind::Calendar, fresh, next_id)?,
             _ => {}
         }
         Ok(())
@@ -97,7 +106,7 @@ impl Game {
     }
 
     fn managed_clubs(&self) -> Result<Vec<i32>> {
-        let sql = format!("SELECT id FROM clubs WHERE division_id IN ({MANAGED_SQL}) ORDER BY id");
+        let sql = format!("SELECT id FROM clubs WHERE division_id IN ({}) ORDER BY id", managed_sql(None));
         Ok(self.world.conn.prepare(&sql)?.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?)
     }
 
@@ -170,30 +179,54 @@ impl Game {
             .unwrap_or_else(|_| format!("competição {comp}"))
     }
 
-    fn end_of_season(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
-        let a = self.table(SERIE_A);
-        if a.is_empty() || a.iter().any(|r| r.played == 0) {
-            return Ok(()); // a época não chegou a ser jogada
+    /// Fim de uma época do ano civil (20/12) ou europeia (10/6): historial, posições finais,
+    /// subidas e descidas, reformas e plantéis mínimos das divisões desse tipo de época.
+    fn end_of_season(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        // A época que acaba: o ano, ou a europeia que começou no ano anterior
+        let year = if kind == SeasonKind::European { self.season() - 1 } else { self.season() };
+        let regs: Vec<&'static Regulation> = regulation::all().iter().filter(|r| r.season == kind).collect();
+        match kind {
+            SeasonKind::Calendar => {
+                let a = self.table(SERIE_A);
+                if a.is_empty() || a.iter().any(|r| r.played == 0) {
+                    return Ok(()); // a época não chegou a ser jogada
+                }
+            }
+            // Um save de antes do 3.7 não tem as ligas europeias
+            SeasonKind::European => {
+                if !regs.iter().any(|r| r.managed && self.year_matches(r.competition, year).next().is_some()) {
+                    return Ok(());
+                }
+            }
         }
-        let year = self.season();
+        let label = regulation::season_label(regs[0].competition, year);
+        // O historial guarda o ano em que a época acaba, como os anos do patch
+        let history_year = if kind == SeasonKind::European { year + 1 } else { year };
 
-        // Historial: as competições vivas acabadas (a C, se não jogou, calculada com o motor v1)
-        let c_virtual = if self.year_matches(SERIE_C, year).next().is_none() { Some(self.virtual_league(SERIE_C)?) } else { None };
+        // Historial: as competições vivas acabadas (a Série C, se não jogou, calculada com o motor v1)
+        let c_virtual = if kind == SeasonKind::Calendar && self.year_matches(SERIE_C, year).next().is_none() {
+            Some(self.virtual_league(SERIE_C)?)
+        } else {
+            None
+        };
         let mut podiums: Vec<(i32, (i32, Option<i32>, Option<i32>))> =
-            regulation::all().iter().filter_map(|r| self.podium(r.competition, year).map(|p| (r.competition, p))).collect();
+            regs.iter().filter_map(|r| self.podium(r.competition, year).map(|p| (r.competition, p))).collect();
         if let Some(c) = &c_virtual {
             let at = |i: usize| c.get(i).map(|r| r.club.id);
             podiums.push((SERIE_C, (c[0].club.id, at(1), at(2))));
         }
         for (comp, (winner, second, third)) in &podiums {
-            self.world.conn.execute("DELETE FROM competition_history WHERE competition_id = ? AND year = ?", params![comp, year])?;
+            self.world
+                .conn
+                .execute("DELETE FROM competition_history WHERE competition_id = ? AND year = ?", params![comp, history_year])?;
             self.world.conn.execute(
                 "INSERT INTO competition_history (competition_id, year, winner_id, runner_up_id, third_id) VALUES (?, ?, ?, ?, ?)",
-                params![comp, year, winner, second, third],
+                params![comp, history_year, winner, second, third],
             )?;
         }
         // Posição final de cada clube nas divisões com tabela
-        for div in [SERIE_A, league::SERIE_B, SERIE_C] {
+        for reg in regs.iter().filter(|r| r.managed && r.stages[0].kind == StageKind::League) {
+            let div = reg.competition;
             let table = match (&c_virtual, div) {
                 (Some(c), SERIE_C) => c.clone(),
                 _ => self.stage_table(div, year, 0, None),
@@ -207,25 +240,31 @@ impl Game {
         }
 
         // Subidas e descidas pelos regulamentos (calculadas todas antes de mexer nas divisões).
-        // Uma divisão que não jogou (a C e a D na transição) usa a tabela do motor v1 ou o sorteio.
+        // Uma divisão que não jogou (a C e a D na transição) usa a tabela do motor v1 ou o
+        // sorteio; das 3ªs divisões paradas sobe-se por sorteio (`draw_up`).
         let mut moves: Vec<(Vec<i32>, i32, String)> = Vec::new();
-        for div in [SERIE_A, league::SERIE_B, SERIE_C, SERIE_D] {
-            let Some(reg) = regulation::get(div) else { continue };
+        for reg in regs.iter().filter(|r| r.promotion.is_some() || r.relegation.is_some() || r.draw_up.is_some()) {
+            let div = reg.competition;
             let played = self.year_matches(div, year).next().is_some();
             for (mv, up) in [(&reg.relegation, false), (&reg.promotion, true)] {
                 let Some(mv) = mv else { continue };
+                let count = mv.count.unwrap_or(SWAP);
                 let clubs = if played {
                     self.pick(reg, &mv.pick, 0, year)?
                 } else if let Some(c) = c_virtual.as_ref().filter(|_| div == SERIE_C) {
                     let ids = c.iter().map(|r| r.club.id);
-                    if up { ids.take(SWAP).collect() } else { ids.rev().take(SWAP).collect() }
+                    if up { ids.take(count).collect() } else { ids.rev().take(count).collect() }
                 } else if up {
-                    self.promoted_by_draw(div, SWAP)?
+                    self.promoted_by_draw(&[div], count)?
                 } else {
                     continue;
                 };
                 let label = format!("{} à {}", if up { "Sobem" } else { "Descem" }, self.short_name(mv.to));
                 moves.push((clubs, mv.to, label));
+            }
+            if let Some(d) = &reg.draw_up {
+                let clubs = self.promoted_by_draw(&d.from, d.count)?;
+                moves.push((clubs, div, format!("Sobem à {}", self.short_name(div))));
             }
         }
         let mut lines = Vec::new();
@@ -240,16 +279,24 @@ impl Game {
             let names: Vec<String> = clubs.iter().map(|&id| self.club_short(id)).collect();
             lines.push(format!("{label}: {}.", join_names(&names)));
         }
-        let us = self.club_short(self.club_id);
-        let mut body = format!("A época {} chegou ao fim.\n\n{}", season_label(year), lines.join("\n"));
-        if let Some(label) = ours {
-            body += &format!("\n\nO {us} {}.", label.to_lowercase().replacen("sobem", "sobe", 1).replacen("descem", "desce", 1));
+        // A notícia só para quem tem o clube num campeonato deste tipo de época
+        let ours_here =
+            regs.iter().any(|r| self.year_matches(r.competition, year).any(|m| m.home_id == self.club_id || m.away_id == self.club_id));
+        if ours_here || kind == SeasonKind::Calendar {
+            let us = self.club_short(self.club_id);
+            let mut body = format!("A época {label} chegou ao fim.\n\n{}", lines.join("\n"));
+            if let Some(l) = ours {
+                body += &format!("\n\nO {us} {}.", l.to_lowercase().replacen("sobem", "sobe", 1).replacen("descem", "desce", 1));
+            }
+            self.push_news(fresh, next_id, "competition", format!("Fim da época {label}"), body);
         }
-        self.push_news(fresh, next_id, "competition", format!("Fim da época {}", season_label(year)), body);
 
-        self.contracts(fresh, next_id, &format!("{year}-12-31"))?;
-        self.retirements(fresh, next_id)?;
-        self.fill_squads(fresh, next_id)?;
+        // Os contratos de dezembro tratam-se aqui; os de junho já foram a 30/6
+        if kind == SeasonKind::Calendar {
+            self.contracts(fresh, next_id, &format!("{year}-12-31"))?;
+        }
+        self.retirements(kind, fresh, next_id)?;
+        self.fill_squads(kind, fresh, next_id)?;
         self.clean_selection()?;
         self.unsaved = true;
         Ok(())
@@ -271,13 +318,15 @@ impl Game {
         Ok(league::standings(&matches, &clubs))
     }
 
-    /// Os `n` que sobem de uma divisão sem tabela: sorteio pesado pela força de cada clube.
-    fn promoted_by_draw(&self, comp: i32, n: usize) -> Result<Vec<i32>> {
-        let mut rng = self.season_rng(comp as u64);
+    /// Os `n` que sobem de divisões sem tabela: sorteio pesado pela força de cada clube.
+    fn promoted_by_draw(&self, divisions: &[i32], n: usize) -> Result<Vec<i32>> {
+        let mut rng = self.season_rng(divisions.first().copied().unwrap_or(0) as u64);
         let mut scored = Vec::new();
-        for id in league_club_ids(&self.world, comp)? {
-            let s = self.world.team_strength(id)?;
-            scored.push((id, (s.attack + s.midfield + s.defence) * (0.85 + 0.3 * uniform(&mut rng))));
+        for &comp in divisions {
+            for id in league_club_ids(&self.world, comp)? {
+                let s = self.world.team_strength(id)?;
+                scored.push((id, (s.attack + s.midfield + s.defence) * (0.85 + 0.3 * uniform(&mut rng))));
+            }
         }
         scored.sort_by(|x, y| y.1.total_cmp(&x.1).then(x.0.cmp(&y.0)));
         Ok(scored.into_iter().take(n).map(|s| s.0).collect())
@@ -358,15 +407,16 @@ impl Game {
 
     /// Reformas a partir dos 34 anos (guarda-redes dois anos depois), nos plantéis das
     /// divisões geridas e entre os livres dessas nações.
-    fn retirements(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+    fn retirements(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        let managed = managed_sql(Some(kind));
         let today = self.date.clone();
         let mut rng = self.season_rng(0x0E7E);
         let sql = format!(
             "SELECT p.id, p.display_name, p.club_id, p.birth_date, p.birth_year, pl.pos_goalkeeper
              FROM people p JOIN players pl ON pl.person_id = p.id
              WHERE p.is_player = 1 AND p.id NOT IN (SELECT person_id FROM retired)
-               AND (p.club_id IN (SELECT id FROM clubs WHERE division_id IN ({MANAGED_SQL}))
-                    OR (p.club_id IS NULL AND p.nation_id IN (SELECT DISTINCT nation_id FROM clubs WHERE division_id IN ({MANAGED_SQL}))))
+               AND (p.club_id IN (SELECT id FROM clubs WHERE division_id IN ({managed}))
+                    OR (p.club_id IS NULL AND p.nation_id IN (SELECT DISTINCT nation_id FROM clubs WHERE division_id IN ({managed}))))
              ORDER BY p.id"
         );
         let rows: Vec<(i32, String, Option<i32>, Option<String>, Option<i32>, Option<i32>)> = self
@@ -405,12 +455,13 @@ impl Game {
 
     /// Plantéis com menos de [`MIN_SQUAD`] jogadores contratam livres (primeiro do país, com
     /// CA à medida do plantel, um guarda-redes se faltar). Provisório até ao mercado do 3.7.
-    fn fill_squads(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+    fn fill_squads(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        let managed = managed_sql(Some(kind));
         let today = self.date.clone();
         let year: i32 = today[0..4].parse().unwrap_or(0);
         let mut rng = self.season_rng(0xF111);
         // Os clubes com mais reputação escolhem primeiro
-        let sql = format!("SELECT id FROM clubs WHERE division_id IN ({MANAGED_SQL}) ORDER BY reputation DESC, id");
+        let sql = format!("SELECT id FROM clubs WHERE division_id IN ({managed}) ORDER BY reputation DESC, id");
         let clubs: Vec<i32> = self.world.conn.prepare(&sql)?.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
         for club in clubs {
             let (count, keepers, avg, nation): (i64, i64, Option<f64>, Option<i32>) = self.world.conn.query_row(
@@ -494,18 +545,24 @@ impl Game {
 
     // ---- Nova época (1 de janeiro) ----
 
-    fn new_season(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+    /// Nova época do ano civil (1/1) ou europeia (1/7): sorteios, calendários e plantéis.
+    fn new_season(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let season = self.season();
-        self.world.start_year = season; // as idades nas telas contam a partir daqui
-        for st in self.squads.states.values_mut() {
-            st.apps = 0;
-            st.clear_cards();
+        let starts_here = |comp: i32| regulation::season_kind(comp) == kind;
+        if kind == SeasonKind::Calendar {
+            self.world.start_year = season; // as idades nas telas contam a partir daqui
         }
-        self.schedule_season(season, fresh, next_id)?;
+        for st in self.squads.states.values_mut() {
+            if kind == SeasonKind::Calendar {
+                st.apps = 0;
+            }
+            st.clear_cards(starts_here);
+        }
+        self.schedule_season(kind, season, fresh, next_id)?;
         // Clubes pequenos sem jogadores no patch ganham plantel, como no CM
         self.complete_squads()?;
         self.refresh_live()?;
-        if let Some(n) = self.season_news(*next_id) {
+        if let Some(n) = self.season_news(*next_id, kind) {
             fresh.push(n);
             *next_id += 1;
         }
@@ -515,9 +572,7 @@ impl Game {
     /// Volta a ler os clubes vivos (os que jogam nesta época, mais o do treinador): nomes,
     /// números de camisola e os atributos que o estado dos jogadores usa.
     pub(super) fn refresh_live(&mut self) -> Result<()> {
-        let year = self.season();
-        let mut live: Vec<i32> =
-            self.matches.iter().filter(|m| season_of(&m.date) == year).flat_map(|m| [m.home_id, m.away_id]).chain([self.club_id]).collect();
+        let mut live: Vec<i32> = self.season_matches().flat_map(|m| [m.home_id, m.away_id]).chain([self.club_id]).collect();
         live.sort_unstable();
         live.dedup();
         fix_squad_numbers(&self.world, &live, self.seed)?;
@@ -534,6 +589,7 @@ impl Game {
 
     fn develop(&mut self) -> Result<()> {
         let today = self.date.clone();
+        let managed = managed_sql(None);
         let mut rng = self.season_rng(0xDE7E);
         // Jogos já feitos por cada clube nesta época, para medir quanto cada um jogou
         let mut club_games: HashMap<i32, i32> = HashMap::new();
@@ -545,7 +601,7 @@ impl Game {
             "SELECT p.id, p.club_id, p.birth_date, p.birth_year, pl.current_ability, pl.potential_ability, pl.pos_goalkeeper,
                     p.determination, p.professionalism
              FROM people p JOIN players pl ON pl.person_id = p.id JOIN clubs c ON c.id = p.club_id
-             WHERE c.division_id IN ({MANAGED_SQL}) AND p.is_player = 1 ORDER BY p.id"
+             WHERE c.division_id IN ({managed}) AND p.is_player = 1 ORDER BY p.id"
         );
         type Row = (i32, i32, Option<String>, Option<i32>, Option<i32>, Option<i32>, Option<i32>, Option<i32>, Option<i32>);
         let rows: Vec<Row> = self
@@ -610,7 +666,7 @@ impl Game {
     fn youth_intake(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let year: i32 = self.date[0..4].parse().unwrap_or(0);
         let mut rng = self.season_rng(0x1A7E);
-        let sql = format!("SELECT id, nation_id, reputation FROM clubs WHERE division_id IN ({MANAGED_SQL}) ORDER BY id");
+        let sql = format!("SELECT id, nation_id, reputation FROM clubs WHERE division_id IN ({}) ORDER BY id", managed_sql(None));
         let clubs: Vec<(i32, Option<i32>, Option<i32>)> =
             self.world.conn.prepare(&sql)?.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
         let mut factory = self.player_factory()?;
@@ -657,7 +713,7 @@ mod tests {
 
     use super::*;
     use crate::date;
-    use crate::league::SERIE_B;
+    use crate::league::{SERIE_B, SERIE_D};
     use crate::{NewGame, World};
 
     fn temp_dir(name: &str) -> PathBuf {
@@ -774,12 +830,16 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir2);
     }
 
-    /// O "pronto quando" do 3.6: a época de 2026 inteira, com todas as competições.
+    /// O "pronto quando" do 3.6 e do 3.7: a época de 2026 inteira com as competições do ano
+    /// civil, e a época europeia de 2025/26 inteira (ligas, Liga dos Campeões e Liga Europa).
     #[test]
     fn a_full_2026_season() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let dir = temp_dir("2026");
         let mut g = Game::create(&world, &dir, &new_game(7568), 5).unwrap();
+        until(&mut g, "2026-06-09");
+        // Os 3 últimos da Premier League e os 3 sorteados da League One, antes do fim da época europeia
+        let pl_bottom: Vec<i32> = g.stage_table(crate::PREMIER_LEAGUE, 2025, 0, None).iter().rev().take(3).map(|r| r.club.id).collect();
         until(&mut g, "2026-12-21");
         let year: Vec<&crate::league::Match> = g.matches.iter().filter(|m| m.date.starts_with("2026")).collect();
         assert!(year.len() > 2500, "{} jogos", year.len());
@@ -796,14 +856,31 @@ mod tests {
             let gap = days.windows(2).map(|w| w[1] - w[0]).min().unwrap_or(99);
             assert!(gap >= 3, "{} joga com {gap} dias de intervalo", g.club(club).short_name);
         }
-        // Todas as competições acabaram, com campeão no historial
+        // Todas as competições acabaram, com campeão no historial: as do ano civil em 2026 e as
+        // europeias na época de 2025/26 (o historial guarda o ano em que acaba, 2026)
         for r in regulation::all() {
-            assert!(g.podium(r.competition, 2026).is_some(), "competição {} sem campeão", r.competition);
+            let season = if r.season == SeasonKind::European { 2025 } else { 2026 };
+            assert!(g.podium(r.competition, season).is_some(), "competição {} sem campeão", r.competition);
         }
         let ids: Vec<String> = regulation::all().iter().map(|r| r.competition.to_string()).collect();
         let sql = format!("SELECT COUNT(*) FROM competition_history WHERE year = 2026 AND competition_id IN ({})", ids.join(","));
         let history: i64 = g.world.conn.query_row(&sql, [], |r| r.get(0)).unwrap();
         assert_eq!(history as usize, regulation::all().len());
+        // Liga dos Campeões: 36 clubes na fase de liga, 8 jogos cada, 4 em casa e 4 fora
+        let phase = g.stage_table(crate::CHAMPIONS_LEAGUE, 2025, 0, None);
+        assert_eq!(phase.len(), 36);
+        assert!(phase.iter().all(|r| r.played == 8));
+        let homes = |club: i32| g.year_matches(crate::CHAMPIONS_LEAGUE, 2025).filter(|m| m.stage == 0 && m.home_id == club).count();
+        assert!(phase.iter().all(|r| homes(r.club.id) == 4));
+        // Os 3 últimos da Premier League desceram ao Championship
+        let division =
+            |club: i32| -> i32 { g.world.conn.query_row("SELECT division_id FROM clubs WHERE id = ?", [club], |r| r.get(0)).unwrap() };
+        assert!(pl_bottom.iter().all(|&c| division(c) == 8), "desceram");
+        assert_eq!(g.table(crate::PREMIER_LEAGUE).len(), 20, "a época 2026/27 já corre");
+        // As notícias dos sorteios saem com os nomes dos clubes e das competições
+        let draws: Vec<&NewsItem> = g.news().iter().filter(|n| n.title.starts_with("Sorteio")).collect();
+        assert!(!draws.is_empty());
+        assert!(draws.iter().all(|n| !n.body.contains("clube ") && n.title != "Sorteio da Liga"), "{:?}", draws[0].body);
         // Eliminatórias empatadas foram a penáltis
         assert!(year.iter().any(|m| m.pens.is_some()));
         drop(g);

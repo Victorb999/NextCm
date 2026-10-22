@@ -69,11 +69,14 @@ impl PlayerState {
         self.cards.values().map(|k| k.yellows).sum()
     }
 
-    /// Nova época: os amarelos acabam; os castigos por cumprir ficam.
-    pub fn clear_cards(&mut self) {
-        self.cards.retain(|_, k| k.suspended > 0);
-        for k in self.cards.values_mut() {
-            k.yellows = 0;
+    /// Nova época das competições em que `starts` é verdade: os amarelos acabam; os
+    /// castigos por cumprir ficam.
+    pub fn clear_cards(&mut self, starts: impl Fn(i32) -> bool) {
+        self.cards.retain(|&comp, k| k.suspended > 0 || !starts(comp));
+        for (&comp, k) in self.cards.iter_mut() {
+            if starts(comp) {
+                k.yellows = 0;
+            }
         }
     }
 }

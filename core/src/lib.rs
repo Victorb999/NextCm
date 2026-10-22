@@ -27,7 +27,10 @@ pub use game::{
     DivisionStats, Game, GameInfo, GroupTable, KoRoundView, MatchPreview, MatchRecord, NewGame, NewsItem, SaveSummary, StageView, TieView,
     delete_save, list_saves,
 };
-pub use league::{COPA_DO_BRASIL, Fixture, LIBERTADORES, SERIE_A, SERIE_B, SERIE_C, SERIE_D, SUL_AMERICANA, StandingRow};
+pub use league::{
+    CHAMPIONS_LEAGUE, COPA_DO_BRASIL, EUROPA_LEAGUE, Fixture, LIBERTADORES, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, SERIE_D,
+    SUL_AMERICANA, StandingRow,
+};
 pub use live::{LivePlayer, LiveTeam, LiveView, MAX_SUBS, MatchEvent, ScoreLine, TeamStats};
 pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};

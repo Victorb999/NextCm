@@ -1,0 +1,25 @@
+{
+  "competition": 196,
+  "order": 1,
+  "season": "european",
+  "managed": true,
+  "stages": [
+    {
+      "kind": "league",
+      "name": "",
+      "legs": 2,
+      "entrants": {
+        "divisions": [
+          196
+        ]
+      },
+      "dates": "w33-w51 w5-w19"
+    }
+  ],
+  "relegation": {
+    "to": 396,
+    "stage": 0,
+    "bottom": 3,
+    "count": 3
+  }
+}

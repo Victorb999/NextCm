@@ -1,0 +1,25 @@
+{
+  "competition": 396,
+  "order": 1,
+  "season": "european",
+  "managed": true,
+  "stages": [
+    {
+      "kind": "league",
+      "name": "",
+      "legs": 2,
+      "entrants": {
+        "divisions": [
+          396
+        ]
+      },
+      "dates": "w33-w51 w5-w19"
+    }
+  ],
+  "promotion": {
+    "to": 196,
+    "stage": 0,
+    "top": 3,
+    "count": 3
+  }
+}

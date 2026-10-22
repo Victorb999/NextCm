@@ -1,0 +1,25 @@
+{
+  "competition": 23,
+  "order": 1,
+  "season": "european",
+  "managed": true,
+  "stages": [
+    {
+      "kind": "league",
+      "name": "",
+      "legs": 2,
+      "entrants": {
+        "divisions": [
+          23
+        ]
+      },
+      "dates": "w32-w51 w2-w20"
+    }
+  ],
+  "promotion": {
+    "to": 22,
+    "stage": 0,
+    "top": 2,
+    "count": 2
+  }
+}

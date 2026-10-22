@@ -1,0 +1,26 @@
+{
+  "competition": 63,
+  "order": 1,
+  "season": "calendar",
+  "managed": true,
+  "stages": [
+    {
+      "kind": "league",
+      "name": "",
+      "legs": 1,
+      "entrants": {
+        "divisions": [
+          63
+        ]
+      },
+      "dates": "w6-w34"
+    }
+  ],
+  "relegation": {
+    "to": 64,
+    "stage": 0,
+    "bottom": 2,
+    "count": 2
+  },
+  "transition_dates": "w31-w49 m32-m41"
+}

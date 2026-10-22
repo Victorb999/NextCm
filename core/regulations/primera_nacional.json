@@ -1,0 +1,27 @@
+{
+  "competition": 64,
+  "order": 1,
+  "season": "calendar",
+  "managed": true,
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "",
+      "legs": 2,
+      "group_size": 18,
+      "draw": "pots",
+      "entrants": {
+        "divisions": [
+          64
+        ]
+      },
+      "dates": "w6-w39"
+    }
+  ],
+  "promotion": {
+    "to": 63,
+    "stage": 0,
+    "group_top": 1,
+    "count": 2
+  }
+}

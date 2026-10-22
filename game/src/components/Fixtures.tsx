@@ -89,8 +89,6 @@ export function RoundGames({ fixtures, table, own }: { fixtures: Fixture[]; tabl
   )
 }
 
-/** Época a partir da data de um jogo: o ano civil, como no futebol brasileiro. */
-const seasonOf = (iso: string) => iso.slice(0, 4)
 
 /** Calendário do clube, como o do CM: data, adversário, C/F, competição e o resultado. */
 export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures: Fixture[] }) {
@@ -105,7 +103,7 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
           {'Época >>'}
         </button>
       </div>
-      <div className="shrink-0 py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Época {seasonOf(fixtures[0].date)}</div>
+      <div className="shrink-0 py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Época {fixtures[0].season}</div>
       <div className="min-h-0 flex-1 overflow-auto px-2 pb-2">
         {fixtures.map((f) => {
           const home = f.home.id === clubId

@@ -8,4 +8,8 @@ export type Fixture = { id: number, competitionId: number, competition: string, 
 /**
  * "12ª jornada", "Grupo B · 3ª jornada", "Oitavas de final · 1ª mão", "Final".
  */
-label: string, neutral: boolean, homePens: number | null, awayPens: number | null, };
+label: string, 
+/**
+ * Época do jogo: "2026" ou "2025/26".
+ */
+season: string, neutral: boolean, homePens: number | null, awayPens: number | null, };
