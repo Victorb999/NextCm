@@ -9,13 +9,17 @@ use rand_core::{RngCore, SeedableRng};
 use crate::tactics::{Instructions, Mentality, Passing, Tackling};
 use crate::{ClubTactics, Result, World};
 
-/// Golos esperados de uma equipa média em casa e fora (média da Série A: ~2,4 por jogo).
-const BASE_HOME: f64 = 1.38;
-const BASE_AWAY: f64 = 0.89;
-/// Quanto a razão ataque/defesa pesa: com 3, ser 10% melhor dá ~33% mais golos.
-const K_ATTACK: f64 = 3.0;
+/// Golos esperados de uma equipa média em casa e fora (com o efeito do `LEAD_EASE` de
+/// `live.rs` e das diferenças entre equipas, a Série A fica em ~2,6 por jogo).
+const BASE_HOME: f64 = 1.46;
+const BASE_AWAY: f64 = 0.94;
+/// Quanto a razão ataque/defesa pesa: com 2,55, ser 10% melhor dá ~27% mais golos.
+const K_ATTACK: f64 = 2.55;
 /// Peso de quem domina o meio-campo.
-const K_MIDFIELD: f64 = 1.5;
+const K_MIDFIELD: f64 = 1.275;
+/// Teto da vantagem (em logaritmo, por tanh): no máximo e ≈ 2,7 vezes os golos da base,
+/// para a Série A contra um clube de estadual não dar 15 golos.
+const MAX_EDGE: f64 = 1.0;
 /// Nota de uma função sem jogador (plantel incompleto).
 const EMPTY_SLOT: f64 = 20.0;
 /// Cada jogador a menos em campo (expulso, lesionado sem substituto) tira 10% a tudo.
@@ -177,17 +181,14 @@ pub fn expected_goals_neutral(home: &TeamStrength, away: &TeamStrength) -> (f64,
     (h * base / BASE_HOME, a * base / BASE_AWAY)
 }
 
-/// Acima de 3 golos esperados a curva achata até um teto de 5: com equipas muito desiguais
-/// (Série A contra um clube de estadual) a potência do motor daria 15 ou 20 golos.
-fn soft_cap(xg: f64) -> f64 {
-    if xg <= 3.0 { xg } else { 3.0 + 2.0 * (1.0 - (-(xg - 3.0) / 2.0).exp()) }
-}
-
-/// Golos esperados (casa, fora).
+/// Golos esperados (casa, fora): a base vezes a vantagem `(ataque/defesa)^K_ATTACK ×
+/// (2 × meio-campo)^K_MIDFIELD`, achatada em logaritmo até `MAX_EDGE`. Diferenças pequenas
+/// quase não sentem o teto; as grandes (promovidos, estaduais) deixam de explodir.
 pub fn expected_goals(home: &TeamStrength, away: &TeamStrength) -> (f64, f64) {
     let mid_home = home.midfield / (home.midfield + away.midfield);
     let xg = |base: f64, att: &TeamStrength, def: &TeamStrength, mid_share: f64| {
-        soft_cap(base * (att.attacking() / def.defending()).powf(K_ATTACK) * (2.0 * mid_share).powf(K_MIDFIELD))
+        let edge = K_ATTACK * (att.attacking() / def.defending()).ln() + K_MIDFIELD * (2.0 * mid_share).ln();
+        base * (MAX_EDGE * (edge / MAX_EDGE).tanh()).exp()
     };
     (xg(BASE_HOME, home, away, mid_home), xg(BASE_AWAY, away, home, 1.0 - mid_home))
 }
@@ -258,7 +259,7 @@ mod tests {
         let (h, a) = expected_goals(&team(140.0), &team(120.0));
         assert!(h > 2.0 && a < 0.8, "favorito marca mais: {h:.2} x {a:.2}");
         // Equipas muito desiguais: o teto segura os golos esperados
-        let (h, _) = expected_goals(&team(150.0), &team(50.0));
-        assert!(h > 4.0 && h <= 5.0, "{h:.2}");
+        let (h, a) = expected_goals(&team(150.0), &team(50.0));
+        assert!(h > 3.5 && h < BASE_HOME * MAX_EDGE.exp() && a > 0.3, "{h:.2} x {a:.2}");
     }
 }

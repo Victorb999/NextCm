@@ -36,6 +36,9 @@ const YELLOWS_PER_90: f64 = 1.9;
 const REDS_PER_90: f64 = 0.025;
 /// Cantos que não vêm de remates.
 const CORNERS_PER_90: f64 = 1.5;
+/// Quem ganha por 3 ou mais tira o pé: os seus golos esperados caem para 65%. Segura as
+/// goleadas de 6+ entre equipas desiguais e quase não mexe na média de golos.
+const LEAD_EASE: (u8, f64) = (3, 0.65);
 /// Minutos em que o adjunto pensa numa substituição (46 = ao intervalo).
 const AI_SUB_MINUTES: [u8; 5] = [46, 58, 66, 74, 82];
 /// Substituições tácticas do adjunto (as outras ficam para lesões).
@@ -580,7 +583,8 @@ impl LiveMatch {
         self.ball.push(home_ball);
         let before = self.events.len();
         for (side, xg) in [(0, xh), (1, xa)] {
-            self.attack(side, xg);
+            let ease = if self.score[side] >= self.score[1 - side] + LEAD_EASE.0 { LEAD_EASE.1 } else { 1.0 };
+            self.attack(side, xg * ease);
         }
         for side in 0..2 {
             self.discipline(side);

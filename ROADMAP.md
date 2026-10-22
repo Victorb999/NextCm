@@ -359,7 +359,7 @@ Decisões (com o utilizador): a época brasileira passa para o **ano civil**, co
 - Notícias: resultado do jogo do treinador em todas as competições (com a fase), sorteios do clube do treinador, campeões.
 - Desempenho: ~3 000 jogos por ano no Brasil e nas continentais; uma época na CLI deve ficar abaixo de ~30 s.
 - **Plantéis completados**: 92 dos 182 clubes dos estaduais e da Série D vêm do patch com menos de 11 jogadores (55 sem nenhum), e davam resultados de 20-0. Como o CM, o jogo cria jogadores para eles na nova época: até 18 (2 GR, 6 D, 6 M e 4 A no mínimo), com nomes da nação, atributos copiados de um jogador real da posição e CA à medida da reputação do clube (o CA médio dos 11 melhores no patch é ≈ 74,6 + 0,0101 × reputação).
-- **Teto dos golos esperados**: acima de 3 por equipa a curva achata até 5, para os jogos muito desiguais (Série A contra um clube de estadual) não darem goleadas de 15. As bases de casa e fora descem 3% (1,42 → 1,38 e 0,92 → 0,89) porque as jornadas a meio da semana da transição cansam mais e subiam a média da A para 2,72.
+- **Teto dos golos esperados**: os jogos muito desiguais (Série A contra um clube de estadual) não podem dar goleadas de 15. Primeiro foi um teto suave nos golos esperados (achatar acima de 3, teto 5); a recalibração abaixo trocou-o por um teto na vantagem, em logaritmo.
 
 **Telas**
 - Competição: abas Classificação (com as fases e os grupos), Calendário (por fase/jornada) e Resultados; eliminatórias com o total e os penáltis.
@@ -381,7 +381,23 @@ Decisões (com o utilizador): a época brasileira passa para o **ano civil**, co
 
 Números (CLI `sim -- 7568 carreira 1 2`): a transição de 2025 em 3,0 s e a época de 2026 inteira (mais de 2 500 jogos, todas as competições com campeão) em 6,5 s. Golos por jogo em 2026: estaduais 2,7–4,0, Série A 2,7–2,9, B 2,2–2,6, C 1,6–2,1, D 2,4, Copa do Brasil 2,5–3,0, Libertadores 2,8–3,3, Sul-Americana 2,5–3,3. As médias da A na transição (`sim -- 7568 epoca 1 10`) continuam em 2,62 golos e 49% de vitórias em casa. O teste `a_full_2026_season` confere que ninguém joga duas vezes em menos de 3 dias, que todas as competições acabam com campeão no historial e que há eliminatórias decididas nos penáltis. No navegador, com o Palmeiras: Paulista (campeão, final em ida e volta), Série A, Copa do Brasil (eliminado nas oitavas) e Libertadores (Grupo A) no mesmo ano.
 
-**Em aberto:** a partir de 2026 a Série A dá 2,7–2,9 golos por jogo e 7 a 14 goleadas de 6 ou mais por época (na transição, 2,6): os promovidos da B são bem mais fracos (CA dos 18 melhores ~108 contra ~127) e a potência 3 do motor (marco 3.2) castiga demasiado essas diferenças. Fica para uma revisão da calibração do motor.
+**Recalibração do motor para equipas desiguais (resolvido):** a partir de 2026 a Série A dava 2,7–2,9 golos por jogo e 7 a 14 goleadas de 6 ou mais por época (na transição, 2,6 e 4 a 7): os promovidos da B são bem mais fracos (CA dos 18 melhores ~108 contra ~127) e a potência 3 do motor (marco 3.2) castigava demasiado essas diferenças. Puxar o joelho do teto para 2,5 ou acelerar o regresso da moral quase não mexia. Com o registo de cada jogo de três carreiras (força dos dois lados e resultado), a vantagem `L = 3·ln(ataque/defesa) + 1,5·ln(2·meio-campo)` mostrou que quase todas as goleadas vêm de `L` acima de 1,5 (golos esperados de 3 a 5): com `L` em 3,5, 1 jogo em 3 acabava com 6+ de diferença. Decisão:
+- `engine.rs`: potências mais suaves (K_ATTACK 3 → 2,55, K_MIDFIELD 1,5 → 1,275) e a vantagem achatada por `tanh` até `MAX_EDGE` = 1 (no máximo e ≈ 2,7 vezes a base). Diferenças pequenas ficam quase como estavam; sai o teto suave nos golos esperados.
+- `live.rs`: `LEAD_EASE`, quem ganha por 3 ou mais tira o pé (golos esperados a 65%). Era o que mais cortava as goleadas de 6+ sem baixar a média, porque poucos jogos chegam a +3.
+- Bases de casa e fora sobem 6% (1,38 → 1,46 e 0,89 → 0,94) para repor a média, que a curva mais suave e o `LEAD_EASE` baixavam para 2,48.
+
+| | Antes | Depois |
+|---|---|---|
+| `sim -- 7568 epoca 1 10` (Série A da transição) | 2,62 golos, 49% em casa; Flamengo 86 pts de média, o último 19 | 2,58 golos, 49% em casa; Flamengo e Palmeiras 77–78 pts de média, o último 26 |
+| Série A 2025 (carreira, seeds 2/3/4) | 2,60 / 2,67 / 2,64; 6, 7 e 4 com 6+ | 2,51 / 2,57 / 2,57; 2, 2 e 0 com 6+ |
+| Série A 2026 | 2,95 / 2,79 / 2,74; 14, 13 e 7 com 6+ | 2,69 / 2,74 / 2,55; 1, 1 e 4 com 6+ |
+| Estaduais 2026 | 2,5–3,7; até 13 com 6+ (Carioca, Paulista e Gaúcho com 8–12) | 2,2–3,1; no máximo 3 com 6+ |
+| Série D 2026 | 2,4; 7–9 com 6+ | 2,4; 1–3 com 6+ |
+| Libertadores e Sul-Americana 2026 | 2,5–3,3; até 15 com 6+ | 2,5–3,2; até 2 com 6+ |
+
+Os favoritos continuam em cima: campeões de 2026 Santos, Flamengo e Palmeiras (77–85 pts), com Flamengo e Palmeiras nos dois primeiros em quase todas as épocas. Remates e cantos por equipa quase iguais (12,1 e 4,4 contra 11,9 e 4,3). A CLI `carreira` passa a mostrar os seis primeiros da Série A de cada época.
+
+**Em aberto:** a Série A de 2026 ainda tem ~0,1 golo por jogo a mais do que a transição, e já não por causa das diferenças de força: o setor de ataque médio dos clubes da A fica ~3 pontos de CA acima da defesa ao longo de 2026 (em 2025, ~1), o que sobe a soma das vantagens dos dois lados. Deve vir da evolução do CA ou das contratações entre épocas (`season.rs`), não do motor.
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)

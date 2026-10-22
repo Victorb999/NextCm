@@ -60,9 +60,11 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
             let big = fx.iter().filter(|f| (f.home_goals.unwrap_or(0) - f.away_goals.unwrap_or(0)).abs() >= 6).count();
             goals_report.push(format!("{} {:.2} ({big} com 6+)", fx[0].competition, goals as f64 / fx.len() as f64));
         }
+        let top: Vec<String> = game.table(SERIE_A).iter().take(6).map(|r| format!("{} {}", r.club.short_name, r.points)).collect();
         game.advance_day().expect("falhou ao avançar o dia");
         println!("\nÉpoca {year} ({:?}):", t.elapsed());
         println!("  golos por jogo: {}", goals_report.join(", "));
+        println!("  Série A: {}", top.join(", "));
         // As notícias da época: campeões e o resumo do fim de época
         let fresh: Vec<_> = game.news()[..game.news().len() - before].iter().rev().collect();
         for n in &fresh {
