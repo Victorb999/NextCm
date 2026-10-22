@@ -154,7 +154,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **3.3** O seu time | Escolher o onze, os suplentes e editar a táctica (formação, funções, instruções à equipa como no diálogo do CM), condição física, moral, lesões, suspensões | O onze e a táctica escolhidos mudam os resultados |
 | ✅ **3.4** Dia de jogo | Match Engine v2 por eventos (remates, defesas, golos, cartões, substituições, minuto a minuto, mesma seed = mesmo jogo) e a tela da partida do CM: placar e relógio, relato em texto com velocidade ajustável, estatísticas, escalações; intervalo com mudança de táctica e substituições; resultados da jornada no fim | Ver um jogo do Palmeiras do início ao fim, mexer na equipa ao intervalo, e as médias do 3.2 (golos, vantagem em casa) continuam a bater na CLI |
 | ✅ **3.5** Fim de época | Subidas/descidas, envelhecimento e evolução do CA, contratos, regens; CLI `sim` com 10 épocas | 10 épocas seguidas sem UI, com números plausíveis |
-| **3.6** Mais competições | Série B, Copa do Brasil, estaduais, Libertadores, ligas europeias; regulamentos num arquivo de dados por competição | Calendário brasileiro completo numa época |
+| ✅ **3.6** Mais competições | Época no ano civil; Séries C e D, Copa do Brasil, estaduais, Libertadores e Sul-Americana; regulamentos num arquivo de dados por competição. As ligas europeias passam para um marco seguinte | Calendário brasileiro completo numa época |
 | **3.7** Mercado | Transferências e empréstimos com IA, finanças, propostas | Clubes compram e vendem entre si |
 | **3.8** Polimento | Notícias completas, ofertas de emprego, férias | — |
 
@@ -327,6 +327,61 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | Plantéis da A | 27–42 | 24–32 | 24–27 | 24–29 |
 
 Nas épocas 11–20 a idade desce até 24,0 e volta a 25: é a onda de reformas da geração que vem do patch (muitos jogadores entre os 28 e os 33 anos em 2025), substituída por juniores. O único plantel acima de 40 é um de 42 jogadores que já vem do patch e encolhe com os contratos. Médias de jogo inalteradas (10 épocas de `sim -- 7568 epoca 1 10`: 2,67 golos por jogo, 49% vitórias em casa). Na ponte de dev, na nova época a Série B arranca do zero, o historial da A, B e C ganha 2026 e as idades sobem um ano.
+
+#### Marco 3.6 — Mais competições (detalhe)
+
+Decisões (com o utilizador): a época brasileira passa para o **ano civil**, como no Brasil real; o marco cobre o **Brasil e as continentais** (Libertadores e Sul-Americana); as ligas europeias ficam para um marco seguinte.
+
+**Ano civil**
+- A época é o ano: estaduais de janeiro a abril, Séries A–D de abril a dezembro, Copa do Brasil, Libertadores e Sul-Americana a meio da semana. A etiqueta da época passa a ser o ano ("2026").
+- **2025 é de transição**: o jogo começa a 1.7.2025 (data do patch) e só a A e a B jogam, de agosto a dezembro, com jornadas ao fim de semana e a meio da semana (38 jornadas em 19 semanas). C e D contam no fim da época como no 3.5.
+- **Fim de época** a 20 de dezembro (depois de todas as competições): subidas e descidas, historial de todas as competições vivas, contratos que acabam até 31/12, reformas, plantéis mínimos. **Nova época** a 1 de janeiro: calendários e sorteios. Os contratos que acabam a 30/6 tratam-se a 30/6 (renova ou sai). Juniores continuam a 1 de março; evolução do CA todo dia 1.
+- A época de um jogo é o ano da data dele: todas as competições de uma época cabem no ano.
+
+**Regulamentos** (`core/regulations/*.json`, um por competição, embutidos no executável)
+- Cada competição tem fases. Uma fase é `league` (pontos corridos, turno só ou turno e returno), `groups` (grupos de N, turno e returno) ou `knockout` (eliminatórias de jogo único ou ida e volta; empate no total vai a penáltis, sem golo fora; a final pode ser em campo neutro).
+- Participantes: clubes de uma divisão, de um estadual, os primeiros de outra fase ou de outra competição (ex.: Libertadores = 1º a 5º da A + campeão da Copa do Brasil), ou clubes de outras nações (quotas por nação, sorteio pesado pela reputação entre os da 1ª divisão).
+- Datas por **semana ISO e tipo de dia**: `w14` = fim de semana da semana 14 (sábado e domingo), `m15` = meio da semana 15 (quarta e quinta). Assim as datas servem para qualquer ano com os mesmos dias da semana. Fins de semana são das ligas e dos estaduais; cada meio de semana é de uma só competição (ou Libertadores e Sul-Americana juntas, que não partilham clubes), para nenhum clube jogar duas vezes em três dias. Um teste confere isto para a época inteira.
+
+**Competições**
+- **Série A e B**: 20 clubes, turno e returno (abril–dezembro). Descem 4.
+- **Série C**: 20 clubes em turno único; os 8 primeiros fazem 2 grupos de 4 (turno e returno); os 2 primeiros de cada grupo sobem e os vencedores dos grupos jogam a final. Descem os 4 últimos da 1ª fase.
+- **Série D**: 96 clubes em 16 grupos de 6 (turno e returno); os 2 primeiros de cada grupo vão às eliminatórias de ida e volta; os 4 vencedores dos quartos de final sobem.
+- **Copa do Brasil**: 64 clubes (A, B, C e os 4 da D com mais reputação). 1ª e 2ª fases em jogo único (em casa do clube de divisão mais baixa); oitavas, quartos, meias e final em ida e volta. O campeão vai à Libertadores.
+- **Estaduais** (os 12 "Campeonato X" do patch com clubes: Carioca, Paulista, Mineiro, Gaúcho, Paranaense, Catarinense, Baiano, Pernambucano, Goiano, Nordeste, Norte e Central): turno único; com 12 ou mais clubes os 8 primeiros vão aos quartos, senão os 4 primeiros às meias (jogo único, em casa do mais bem classificado); final em ida e volta. As divisões inferiores dos estaduais continuam paradas.
+- **Libertadores**: 32 clubes em 8 grupos de 4; Brasil 6 (1º–5º da A e o campeão da Copa do Brasil, ou o 6º), Argentina 6, Uruguai, Paraguai, Chile, Colômbia e Equador 3, Peru e Bolívia 2, Venezuela 1. Os 2 primeiros de cada grupo vão às oitavas; eliminatórias de ida e volta e final em campo neutro. Sem fases prévias.
+- **Sul-Americana**: igual, com o 7º–12º da A e outros clubes das mesmas nações (nunca os que já estão na Libertadores).
+- Na época 2026 a Libertadores e a Sul-Americana usam a tabela final da A de 2025; os clubes de fora são escolhidos a cada época (as ligas deles continuam paradas).
+
+**Jogo**
+- Todas estas partidas são jogadas com o Match Engine v2; o treinador vê ao vivo as do clube dele. Penáltis no fim do jogo quando a eliminatória fica empatada. Em campo neutro não há vantagem de casa.
+- Cartões: os amarelos contam por competição (3 amarelos = 1 jogo de castigo nessa competição); o vermelho também castiga só na competição em que foi visto.
+- Notícias: resultado do jogo do treinador em todas as competições (com a fase), sorteios do clube do treinador, campeões.
+- Desempenho: ~3 000 jogos por ano no Brasil e nas continentais; uma época na CLI deve ficar abaixo de ~30 s.
+- **Plantéis completados**: 92 dos 182 clubes dos estaduais e da Série D vêm do patch com menos de 11 jogadores (55 sem nenhum), e davam resultados de 20-0. Como o CM, o jogo cria jogadores para eles na nova época: até 18 (2 GR, 6 D, 6 M e 4 A no mínimo), com nomes da nação, atributos copiados de um jogador real da posição e CA à medida da reputação do clube (o CA médio dos 11 melhores no patch é ≈ 74,6 + 0,0101 × reputação).
+- **Teto dos golos esperados**: acima de 3 por equipa a curva achata até 5, para os jogos muito desiguais (Série A contra um clube de estadual) não darem goleadas de 15. As bases de casa e fora descem 3% (1,42 → 1,38 e 0,92 → 0,89) porque as jornadas a meio da semana da transição cansam mais e subiam a média da A para 2,72.
+
+**Telas**
+- Competição: abas Classificação (com as fases e os grupos), Calendário (por fase/jornada) e Resultados; eliminatórias com o total e os penáltis.
+- Clube: Calendário com todas as competições; Próximo/Último Jogo com a fase ("Oitavas de final · 2ª mão").
+- O menu Competições e Nações & Clubes levam às competições vivas como a qualquer outra.
+
+**Save**: `SAVE_VERSION` 7, com as colunas novas em `fixtures` (fase, grupo, eliminatória, mão, campo neutro, penáltis) e a tabela `cards` (amarelos e castigos por competição). Um save do 3.5 sem jogos disputados é migrado e as competições voltam a ser sorteadas no formato novo; com jogos disputados é recusado com mensagem, porque as jornadas que faltam da época de julho a junho não cabem até dezembro.
+
+**Passos**
+1. Ano civil, regulamentos e datas por semana; Séries A–D vivas com as fases da C e da D; época de transição 2025; migração do save.
+2. Eliminatórias (ida e volta, penáltis, sorteios) e a Copa do Brasil.
+3. Estaduais.
+4. Libertadores e Sul-Americana (clubes de fora, grupos, campo neutro).
+5. Telas, notícias e CLI (`sim -- <clube> carreira` mostra os campeões de todas as competições).
+
+**Pronto quando:** uma época de 2026 inteira na CLI com todas estas competições, sem nenhum clube com dois jogos em menos de 3 dias, e no navegador o Palmeiras joga Paulista, Série A, Copa do Brasil e Libertadores no mesmo ano.
+
+**Feito (3.6):** `core/src/regulation.rs` e os 19 regulamentos em `core/regulations/*.json` (Séries A–D, Copa do Brasil, Libertadores, Sul-Americana e 12 estaduais), `core/src/game/competitions.rs` (participantes, sorteios de grupos e eliminatórias, calendários por fase, penáltis, passagem de fase, campeões e as vistas para a tela), `core/src/game/regen.rs` (jogadores criados: juniores e plantéis completados), fim e nova época no ano civil em `season.rs`, cartões por competição em `squad.rs`, campo neutro e penáltis em `engine.rs`/`live.rs`, comando `competition_stages` (Tauri e ponte de dev). Telas: Classificação por fases (pontos corridos, grupos em duas colunas, eliminatórias com as mãos, o total e os penáltis), Calendário e Resultados por jornada ou ronda, etiqueta da fase nos jogos e "g.p." nos penáltis.
+
+Números (CLI `sim -- 7568 carreira 1 2`): a transição de 2025 em 3,0 s e a época de 2026 inteira (mais de 2 500 jogos, todas as competições com campeão) em 6,5 s. Golos por jogo em 2026: estaduais 2,7–4,0, Série A 2,7–2,9, B 2,2–2,6, C 1,6–2,1, D 2,4, Copa do Brasil 2,5–3,0, Libertadores 2,8–3,3, Sul-Americana 2,5–3,3. As médias da A na transição (`sim -- 7568 epoca 1 10`) continuam em 2,62 golos e 49% de vitórias em casa. O teste `a_full_2026_season` confere que ninguém joga duas vezes em menos de 3 dias, que todas as competições acabam com campeão no historial e que há eliminatórias decididas nos penáltis. No navegador, com o Palmeiras: Paulista (campeão, final em ida e volta), Série A, Copa do Brasil (eliminado nas oitavas) e Libertadores (Grupo A) no mesmo ano.
+
+**Em aberto:** a partir de 2026 a Série A dá 2,7–2,9 golos por jogo e 7 a 14 goleadas de 6 ou mais por época (na transição, 2,6): os promovidos da B são bem mais fracos (CA dos 18 melhores ~108 contra ~127) e a potência 3 do motor (marco 3.2) castiga demasiado essas diferenças. Fica para uma revisão da calibração do motor.
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)

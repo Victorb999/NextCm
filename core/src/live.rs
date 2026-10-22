@@ -15,7 +15,9 @@ use rand_chacha::ChaCha8Rng;
 use serde::Serialize;
 use ts_rs::TS;
 
-use crate::engine::{SlotRating, TeamStrength, condition_factor, expected_goals, fit_factor, morale_factor, sector, uniform};
+use crate::engine::{
+    SlotRating, TeamStrength, condition_factor, expected_goals, expected_goals_neutral, fit_factor, morale_factor, sector, uniform,
+};
 use crate::league::Fixture;
 use crate::person::ClubRef;
 use crate::squad::Side;
@@ -570,7 +572,7 @@ impl LiveMatch {
         }
 
         let st = [self.teams[0].strength(), self.teams[1].strength()];
-        let (xh, xa) = expected_goals(&st[0], &st[1]);
+        let (xh, xa) = if self.fixture.neutral { expected_goals_neutral(&st[0], &st[1]) } else { expected_goals(&st[0], &st[1]) };
         let mid = st[0].midfield / (st[0].midfield + st[1].midfield);
         let home_ball = (0.5 + (mid - 0.5) * 1.5).clamp(0.3, 0.7);
         self.teams[0].possession += home_ball;

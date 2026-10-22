@@ -17,7 +17,11 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 |---|---|
 | `core/src/game.rs` (~2000 linhas) | `Game`: save SQLite, dia a dia, dia de jogo (`advance_day` → `live_*` → `live_finish`), notícias, testes de integração no fim |
 | `core/src/live.rs` (~1450) | Match Engine v2 por lances, relato, notas, substituições, `LiveView` da tela da partida |
-| `core/src/engine.rs` | Força das equipas e golos esperados (base do v2) |
+| `core/src/engine.rs` | Força das equipas, golos esperados (base do v2) e penáltis |
+| `core/src/regulation.rs`, `core/regulations/*.json` | Regulamentos das competições vivas: fases, participantes, datas por semana ISO (`w14` = fim de semana, `m15` = quarta), subidas e descidas |
+| `core/src/game/competitions.rs` | Sorteios, calendários por fase, eliminatórias, passagem de fase, campeões, vistas da Classificação |
+| `core/src/game/season.rs` | Fim de época (20/12) e nova época (1/1), contratos, reformas, evolução do CA, juniores |
+| `core/src/game/regen.rs` | Jogadores criados pelo jogo (juniores e plantéis dos clubes pequenos) |
 | `core/src/tactics.rs` | Formações, escolha automática, `Selection` do treinador, `tactics_from_selection` |
 | `core/src/squad.rs` | Condição, moral, lesões e castigos entre jogos |
 | `core/src/session.rs` | O que o app tem aberto; usado igual pelo Tauri e pela ponte de dev |

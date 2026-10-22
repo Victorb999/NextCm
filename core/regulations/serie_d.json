@@ -1,0 +1,61 @@
+{
+  "competition": 175,
+  "order": 1,
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "1ª fase",
+      "legs": 2,
+      "group_size": 6,
+      "draw": "pots",
+      "entrants": {
+        "divisions": [
+          175
+        ]
+      },
+      "dates": "w15-w24"
+    },
+    {
+      "kind": "knockout",
+      "name": "Eliminatórias",
+      "pairing": "cross",
+      "entrants": {
+        "previous": {
+          "group_top": 2
+        }
+      },
+      "rounds": [
+        {
+          "name": "2ª fase",
+          "legs": 2,
+          "dates": "w25-w26"
+        },
+        {
+          "name": "Oitavas de final",
+          "legs": 2,
+          "dates": "w27-w28"
+        },
+        {
+          "name": "Quartos de final",
+          "legs": 2,
+          "dates": "w29-w30"
+        },
+        {
+          "name": "Meias-finais",
+          "legs": 2,
+          "dates": "w31-w32"
+        },
+        {
+          "name": "Final",
+          "legs": 2,
+          "dates": "w33-w34"
+        }
+      ]
+    }
+  ],
+  "promotion": {
+    "to": 80,
+    "stage": 1,
+    "round_winners": 2
+  }
+}

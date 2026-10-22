@@ -1,0 +1,57 @@
+{
+  "competition": 80,
+  "order": 1,
+  "stages": [
+    {
+      "kind": "league",
+      "name": "1ª fase",
+      "legs": 1,
+      "entrants": {
+        "divisions": [
+          80
+        ]
+      },
+      "dates": "w15-w33"
+    },
+    {
+      "kind": "groups",
+      "name": "2ª fase",
+      "legs": 2,
+      "group_size": 4,
+      "draw": "snake",
+      "entrants": {
+        "previous": {
+          "top": 8
+        }
+      },
+      "dates": "w34-w39"
+    },
+    {
+      "kind": "knockout",
+      "name": "Final",
+      "pairing": "bracket",
+      "entrants": {
+        "previous": {
+          "group_top": 1
+        }
+      },
+      "rounds": [
+        {
+          "name": "Final",
+          "legs": 2,
+          "dates": "w40-w41"
+        }
+      ]
+    }
+  ],
+  "promotion": {
+    "to": 79,
+    "stage": 1,
+    "group_top": 2
+  },
+  "relegation": {
+    "to": 175,
+    "stage": 0,
+    "bottom": 4
+  }
+}

@@ -59,3 +59,8 @@ export function longDate(iso: string, today?: string): string {
   const days = Math.round((Date.UTC(y, m - 1, d) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)
   return days === 0 ? `${base} (hoje)` : days === 1 ? `${base} (amanhã)` : base
 }
+
+/** Penáltis de uma eliminatória empatada: " (4-3 g.p.)". */
+export function pensText(f: { homePens: number | null; awayPens: number | null }): string {
+  return f.homePens !== null && f.awayPens !== null ? ` (${f.homePens}-${f.awayPens} g.p.)` : ''
+}

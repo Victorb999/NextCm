@@ -1,0 +1,28 @@
+{
+  "competition": 79,
+  "order": 1,
+  "stages": [
+    {
+      "kind": "league",
+      "name": "",
+      "legs": 2,
+      "entrants": {
+        "divisions": [
+          79
+        ]
+      },
+      "dates": "w15-w49 m24 m33 m42"
+    }
+  ],
+  "transition_dates": "w31-w49 m32-m50",
+  "promotion": {
+    "to": 65,
+    "stage": 0,
+    "top": 4
+  },
+  "relegation": {
+    "to": 80,
+    "stage": 0,
+    "bottom": 4
+  }
+}

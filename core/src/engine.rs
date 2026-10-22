@@ -10,8 +10,8 @@ use crate::tactics::{Instructions, Mentality, Passing, Tackling};
 use crate::{ClubTactics, Result, World};
 
 /// Golos esperados de uma equipa média em casa e fora (média da Série A: ~2,4 por jogo).
-const BASE_HOME: f64 = 1.42;
-const BASE_AWAY: f64 = 0.92;
+const BASE_HOME: f64 = 1.38;
+const BASE_AWAY: f64 = 0.89;
 /// Quanto a razão ataque/defesa pesa: com 3, ser 10% melhor dá ~33% mais golos.
 const K_ATTACK: f64 = 3.0;
 /// Peso de quem domina o meio-campo.
@@ -170,11 +170,24 @@ impl TeamStrength {
     }
 }
 
+/// Golos esperados em campo neutro: as duas equipas com a média das bases de casa e fora.
+pub fn expected_goals_neutral(home: &TeamStrength, away: &TeamStrength) -> (f64, f64) {
+    let (h, a) = expected_goals(home, away);
+    let base = (BASE_HOME + BASE_AWAY) / 2.0;
+    (h * base / BASE_HOME, a * base / BASE_AWAY)
+}
+
+/// Acima de 3 golos esperados a curva achata até um teto de 5: com equipas muito desiguais
+/// (Série A contra um clube de estadual) a potência do motor daria 15 ou 20 golos.
+fn soft_cap(xg: f64) -> f64 {
+    if xg <= 3.0 { xg } else { 3.0 + 2.0 * (1.0 - (-(xg - 3.0) / 2.0).exp()) }
+}
+
 /// Golos esperados (casa, fora).
 pub fn expected_goals(home: &TeamStrength, away: &TeamStrength) -> (f64, f64) {
     let mid_home = home.midfield / (home.midfield + away.midfield);
     let xg = |base: f64, att: &TeamStrength, def: &TeamStrength, mid_share: f64| {
-        base * (att.attacking() / def.defending()).powf(K_ATTACK) * (2.0 * mid_share).powf(K_MIDFIELD)
+        soft_cap(base * (att.attacking() / def.defending()).powf(K_ATTACK) * (2.0 * mid_share).powf(K_MIDFIELD))
     };
     (xg(BASE_HOME, home, away, mid_home), xg(BASE_AWAY, away, home, 1.0 - mid_home))
 }
@@ -202,6 +215,27 @@ pub(crate) fn poisson(lambda: f64, rng: &mut impl RngCore) -> u8 {
     k
 }
 
+/// Desempate por penáltis: 5 para cada lado (acaba antes se um já não pode ser apanhado)
+/// e, empatados, morte súbita. Cada penálti é golo 3 vezes em 4.
+pub(crate) fn shootout(rng: &mut impl RngCore) -> (u8, u8) {
+    let mut goals = [0u8; 2];
+    let mut taken = [0u8; 2];
+    for kick in 0..10 {
+        let side = kick % 2;
+        taken[side] += 1;
+        goals[side] += (uniform(rng) < 0.75) as u8;
+        let left = [5 - taken[0], 5 - taken[1]];
+        if goals[0] > goals[1] + left[1] || goals[1] > goals[0] + left[0] {
+            return (goals[0], goals[1]);
+        }
+    }
+    while goals[0] == goals[1] {
+        goals[0] += (uniform(rng) < 0.75) as u8;
+        goals[1] += (uniform(rng) < 0.75) as u8;
+    }
+    (goals[0], goals[1])
+}
+
 impl World {
     /// Força do onze que o clube escolheria hoje.
     pub fn team_strength(&self, club_id: i32) -> Result<TeamStrength> {
@@ -223,5 +257,8 @@ mod tests {
         assert!((h - BASE_HOME).abs() < 1e-9 && (a - BASE_AWAY).abs() < 1e-9);
         let (h, a) = expected_goals(&team(140.0), &team(120.0));
         assert!(h > 2.0 && a < 0.8, "favorito marca mais: {h:.2} x {a:.2}");
+        // Equipas muito desiguais: o teto segura os golos esperados
+        let (h, _) = expected_goals(&team(150.0), &team(50.0));
+        assert!(h > 4.0 && h <= 5.0, "{h:.2}");
     }
 }

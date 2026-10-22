@@ -4,7 +4,9 @@ import { api } from '../api'
 import type { ClubRef } from '../bindings/ClubRef'
 import type { CompetitionProfile } from '../bindings/CompetitionProfile'
 import type { Fixture } from '../bindings/Fixture'
+import type { StageView } from '../bindings/StageView'
 import type { StandingRow } from '../bindings/StandingRow'
+import type { TieView } from '../bindings/TieView'
 import { FixtureRows, RoundGames } from '../components/Fixtures'
 import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
 import { continentPt } from '../continents'
@@ -66,25 +68,27 @@ function History({ c }: { c: CompetitionProfile }) {
   )
 }
 
+const COLS = ['J', 'V', 'E', 'D', 'M', 'S', 'P']
+const values = (r: StandingRow) => [r.played, r.won, r.drawn, r.lost, r.goalsFor, r.goalsAgainst, r.points]
+
 /** Classificação: a real quando a competição está viva no jogo; senão, a de pré-temporada
  * (todos a zero, por ordem alfabética), como no CM. */
-function Table({ c, rows, own }: { c: CompetitionProfile; rows: StandingRow[]; own?: number }) {
+function Table({ c, rows, own, title = 'Classificação Geral' }: { c: CompetitionProfile; rows: StandingRow[]; own?: number; title?: string }) {
   const nav = useNav()
   const shown: { club: ClubRef; values: number[] }[] = rows.length
-    ? rows.map((r) => ({ club: r.club, values: [r.played, r.won, r.drawn, r.lost, r.goalsFor, r.goalsAgainst, r.points] }))
+    ? rows.map((r) => ({ club: r.club, values: values(r) }))
     : [...c.clubs]
         .sort((a, b) => a.club.shortName.localeCompare(b.club.shortName))
         .map((r) => ({ club: r.club, values: [0, 0, 0, 0, 0, 0, 0] }))
-  const cols = ['J', 'V', 'E', 'D', 'M', 'S', 'P']
   return (
     <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
-      <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Classificação Geral</div>
+      <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">{title}</div>
       <table className="w-full border-separate border-spacing-x-1 border-spacing-y-0">
         <thead className="sticky top-0 bg-cm-panel">
           <tr className="h-6">
             <th className="w-12" />
             <th />
-            {cols.map((h) => (
+            {COLS.map((h) => (
               <th key={h} className="w-14 border border-black bg-cm-head font-normal text-white">
                 {h}
               </th>
@@ -105,7 +109,7 @@ function Table({ c, rows, own }: { c: CompetitionProfile; rows: StandingRow[]; o
               </td>
               {row.values.map((v, j) => (
                 <td
-                  key={cols[j]}
+                  key={COLS[j]}
                   className={`text-center tabular-nums text-white ${j === 6 ? 'border border-cm-tabline bg-black/60' : ''}`}
                 >
                   {v}
@@ -119,30 +123,154 @@ function Table({ c, rows, own }: { c: CompetitionProfile; rows: StandingRow[]; o
   )
 }
 
-/** Jornadas agrupadas: número da jornada → jogos. */
-function byRound(fixtures: Fixture[]): Map<number, Fixture[]> {
-  const rounds = new Map<number, Fixture[]>()
-  for (const f of fixtures) rounds.set(f.round, [...(rounds.get(f.round) ?? []), f])
-  return rounds
+/** Um grupo em ponto pequeno, para caberem dois por linha. */
+function GroupBox({ name, rows, own }: { name: string; rows: StandingRow[]; own?: number }) {
+  const nav = useNav()
+  return (
+    <div>
+      <div className="pb-0.5 text-center font-title text-lg font-bold text-cm-yellow">{name}</div>
+      <table className="w-full border-separate border-spacing-x-0.5 border-spacing-y-0 text-[14px]">
+        <thead>
+          <tr className="h-5">
+            <th />
+            {COLS.map((h) => (
+              <th key={h} className="w-8 border border-black bg-cm-head font-normal text-white">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.club.id} className="h-[21px]">
+              <td className="truncate px-1">
+                <Link
+                  onClick={() => nav.go({ kind: 'club', id: r.club.id })}
+                  className={`font-title text-[16px] ${r.club.id === own ? 'text-cm-pink' : 'text-white'}`}
+                >
+                  {r.position}. {r.club.shortName}
+                </Link>
+              </td>
+              {values(r).map((v, j) => (
+                <td key={COLS[j]} className={`text-center tabular-nums text-white ${j === 6 ? 'bg-black/60' : ''}`}>
+                  {v}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** Uma eliminatória: os dois clubes, os resultados de cada mão, o total e os penáltis. */
+function Tie({ tie, own }: { tie: TieView; own?: number }) {
+  const nav = useNav()
+  const name = (c: ClubRef, align: string) => (
+    <Link
+      onClick={() => nav.go({ kind: 'club', id: c.id })}
+      className={`block truncate font-title text-[18px] ${align} ${tie.winner === c.id ? 'font-bold' : ''} ${
+        c.id === own ? 'text-cm-pink' : tie.winner !== null && tie.winner !== c.id ? 'text-[#9aa0aa]' : 'text-white'
+      }`}
+    >
+      {c.shortName}
+    </Link>
+  )
+  // Golos de cada mão do ponto de vista do primeiro clube
+  const legs = tie.games.map((g) =>
+    g.homeGoals === null ? 'v' : g.home.id === tie.first.id ? `${g.homeGoals}-${g.awayGoals}` : `${g.awayGoals}-${g.homeGoals}`,
+  )
+  const extra = [
+    tie.aggregate ? `total ${tie.aggregate[0]}-${tie.aggregate[1]}` : '',
+    tie.pens ? `${tie.pens[0]}-${tie.pens[1]} g.p.` : '',
+  ]
+    .filter(Boolean)
+    .join(', ')
+  return (
+    <div className="flex h-[26px] items-center gap-2 border-b border-cm-line bg-black/40 px-2">
+      <div className="min-w-0 flex-1">{name(tie.first, 'text-right')}</div>
+      <span className="w-28 shrink-0 text-center font-bold tabular-nums text-cm-yellow">{legs.join(' · ')}</span>
+      <div className="min-w-0 flex-1">{name(tie.second, 'text-left')}</div>
+      <span className="w-36 shrink-0 text-right text-[13px] text-cm-orange">{extra}</span>
+    </div>
+  )
+}
+
+/** Classificação de uma competição viva, fase a fase (pontos corridos, grupos, eliminatórias). */
+function Stages({ c, stages, own }: { c: CompetitionProfile; stages: StageView[]; own?: number }) {
+  const [index, setIndex] = useState(stages.length - 1)
+  const stage = stages[Math.min(index, stages.length - 1)]
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {stages.length > 1 && (
+        <div className="flex shrink-0 justify-center gap-1 pt-1.5">
+          {stages.map((st, i) => (
+            <button key={st.name} className={`cm-purple h-6 w-44 ${i === index ? '!text-cm-yellow' : ''}`} onClick={() => setIndex(i)}>
+              {st.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {stage.kind === 'league' && (
+        <Table c={c} rows={stage.tables[0]?.rows ?? []} own={own} title={stages.length > 1 ? stage.name : 'Classificação Geral'} />
+      )}
+      {stage.kind === 'groups' && (
+        <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-x-6 gap-y-2 overflow-auto px-3 py-2">
+          {stage.tables.map((t) => (
+            <GroupBox key={t.name} name={t.name} rows={t.rows} own={own} />
+          ))}
+        </div>
+      )}
+      {stage.kind === 'knockout' && (
+        <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
+          {[...stage.rounds].reverse().map((r) => (
+            <div key={r.name}>
+              <div className="pb-1 pt-2 text-center font-title text-lg font-bold text-cm-yellow">{r.name}</div>
+              {r.ties.map((t, i) => (
+                <Tie key={i} tie={t} own={own} />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** "Jornada" de um jogo para o Calendário: a etiqueta sem o grupo ("Grupo B · 3ª jornada" → "3ª jornada"). */
+const roundKey = (f: Fixture) => f.label.replace(/^Grupo [A-Z] · /, '')
+
+/** Jogos agrupados por jornada (ou ronda e mão), pela ordem das datas. */
+function byRound(fixtures: Fixture[]): [string, Fixture[]][] {
+  const rounds = new Map<string, Fixture[]>()
+  const sorted = [...fixtures].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+  for (const f of sorted) rounds.set(roundKey(f), [...(rounds.get(roundKey(f)) ?? []), f])
+  return [...rounds.entries()]
 }
 
 /** Calendário: uma jornada de cada vez, com ◀ ▶; abre na próxima por jogar. */
 function Calendar({ fixtures, table, own }: { fixtures: Fixture[]; table: StandingRow[]; own?: number }) {
   const rounds = byRound(fixtures)
-  const last = Math.max(...rounds.keys())
-  const next = fixtures.find((f) => f.homeGoals === null)?.round ?? last
-  const [round, setRound] = useState(next)
-  const games = rounds.get(round) ?? []
+  const next = rounds.findIndex(([, games]) => games.some((f) => f.homeGoals === null))
+  const [index, setIndex] = useState(next < 0 ? rounds.length - 1 : next)
+  const [name, games] = rounds[Math.min(index, rounds.length - 1)]
   return (
     <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
       <div className="flex shrink-0 items-center justify-center gap-2 py-1.5">
-        <button className="cm-purple h-6 w-10" disabled={round <= 1} onClick={() => setRound(round - 1)} aria-label="Jornada anterior">
+        <button className="cm-purple h-6 w-10" disabled={index <= 0} onClick={() => setIndex(index - 1)} aria-label="Jornada anterior">
           ◀
         </button>
-        <div className="w-72 text-center font-title text-xl font-bold text-cm-yellow">
-          {round}ª jornada{games[0] ? ` · ${matchDate(games[0].date).slice(4)}` : ''}
+        <div className="w-[26rem] text-center font-title text-xl font-bold text-cm-yellow">
+          {name}
+          {games[0] ? ` · ${matchDate(games[0].date).slice(4)}` : ''}
         </div>
-        <button className="cm-purple h-6 w-10" disabled={round >= last} onClick={() => setRound(round + 1)} aria-label="Jornada seguinte">
+        <button
+          className="cm-purple h-6 w-10"
+          disabled={index >= rounds.length - 1}
+          onClick={() => setIndex(index + 1)}
+          aria-label="Jornada seguinte"
+        >
           ▶
         </button>
       </div>
@@ -155,13 +283,13 @@ function Calendar({ fixtures, table, own }: { fixtures: Fixture[]; table: Standi
 
 /** Resultados: jornadas já disputadas, da mais recente para a mais antiga. */
 function Results({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
-  const rounds = [...byRound(fixtures.filter((f) => f.homeGoals !== null)).entries()].reverse()
+  const rounds = byRound(fixtures.filter((f) => f.homeGoals !== null)).reverse()
   if (rounds.length === 0) return <div className="p-6 text-center text-cm-magenta">Ainda não há resultados.</div>
   return (
     <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
-      {rounds.map(([round, games]) => (
-        <div key={round}>
-          <div className="pb-1 pt-2 text-center font-title text-lg font-bold text-cm-yellow">{round}ª jornada</div>
+      {rounds.map(([name, games]) => (
+        <div key={name}>
+          <div className="pb-1 pt-2 text-center font-title text-lg font-bold text-cm-yellow">{name}</div>
           <FixtureRows fixtures={games} own={own} />
         </div>
       ))}
@@ -176,6 +304,7 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
   useEscBack()
   const [comp, setComp] = useState<CompetitionProfile | null>(null)
   const [table, setTable] = useState<StandingRow[]>([])
+  const [stages, setStages] = useState<StageView[]>([])
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState(initialTab ?? 'table')
@@ -184,8 +313,8 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
     api.getCompetition(id).then(
       (c) => {
         setComp(c)
-        // Sem participantes (ex.: Libertadores fora do jogo): só há o historial
-        if (!initialTab && c.clubs.length === 0 && c.history.length > 0) setTab('history')
+        // Sem participantes no banco (ex.: Libertadores): o historial, até haver jogos
+        if (!initialTab && c.clubs.length === 0 && c.history.length > 0) setTab((t) => (t === 'table' ? 'history' : t))
       },
       (e) => setError(String(e)),
     )
@@ -197,7 +326,14 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
     if (!date) return
     api.leagueTable(id).then(setTable, () => {})
     api.listFixtures(id).then(setFixtures, () => {})
-  }, [id, date])
+    api.competitionStages(id).then(
+      (st) => {
+        setStages(st)
+        if (st.length > 0 && !initialTab) setTab((t) => (t === 'history' ? 'table' : t))
+      },
+      () => {},
+    )
+  }, [id, date, initialTab])
 
   const own = game.info?.club.id
   const where: ReactNode = comp?.nation ? (
@@ -211,7 +347,7 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
       <TitleBand title={comp?.name ?? ''} fg="#ffffff" bg="#1e9cf0" />
       <Tabs
         tabs={TABS.map((t) => {
-          if (t.key === 'table') return { ...t, disabled: !comp || (comp.clubs.length === 0 && table.length === 0) }
+          if (t.key === 'table') return { ...t, disabled: !comp || (comp.clubs.length === 0 && stages.length === 0) }
           if (t.key === 'fixtures') return { ...t, disabled: fixtures.length === 0 }
           if (t.key === 'results') return { ...t, disabled: !fixtures.some((f) => f.homeGoals !== null) }
           return t
@@ -227,7 +363,7 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
             {comp.kind === 'national' && ' · Seleções'}
           </div>
         )}
-        {comp && tab === 'table' && <Table c={comp} rows={table} own={own} />}
+        {comp && tab === 'table' && (stages.length > 0 ? <Stages c={comp} stages={stages} own={own} /> : <Table c={comp} rows={[]} own={own} />)}
         {tab === 'fixtures' && fixtures.length > 0 && <Calendar fixtures={fixtures} table={table} own={own} />}
         {tab === 'results' && <Results fixtures={fixtures} own={own} />}
         {comp && tab === 'history' && <History c={comp} />}

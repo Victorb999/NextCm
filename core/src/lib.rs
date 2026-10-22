@@ -13,6 +13,7 @@ mod league;
 mod live;
 mod nation;
 mod person;
+pub mod regulation;
 mod search;
 mod session;
 pub mod squad;
@@ -22,8 +23,11 @@ mod world;
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry};
 pub use engine::{TeamStrength, expected_goals};
-pub use game::{DivisionStats, Game, GameInfo, MatchPreview, MatchRecord, NewGame, NewsItem, SaveSummary, delete_save, list_saves};
-pub use league::{Fixture, SERIE_A, SERIE_B, SERIE_C, SERIE_D, StandingRow};
+pub use game::{
+    DivisionStats, Game, GameInfo, GroupTable, KoRoundView, MatchPreview, MatchRecord, NewGame, NewsItem, SaveSummary, StageView, TieView,
+    delete_save, list_saves,
+};
+pub use league::{COPA_DO_BRASIL, Fixture, LIBERTADORES, SERIE_A, SERIE_B, SERIE_C, SERIE_D, SUL_AMERICANA, StandingRow};
 pub use live::{LivePlayer, LiveTeam, LiveView, MAX_SUBS, MatchEvent, ScoreLine, TeamStats};
 pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};

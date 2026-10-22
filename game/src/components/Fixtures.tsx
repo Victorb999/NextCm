@@ -5,7 +5,7 @@ import type { ClubRef } from '../bindings/ClubRef'
 import type { Fixture } from '../bindings/Fixture'
 import type { MatchPreview } from '../bindings/MatchPreview'
 import type { StandingRow } from '../bindings/StandingRow'
-import { longDate, matchDate, shortDate } from '../format'
+import { longDate, matchDate, pensText, shortDate } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import { Link } from './Screen'
@@ -37,8 +37,9 @@ export function FixtureRows({ fixtures, own, showDate = true }: { fixtures: Fixt
             <td className="px-2 text-right">
               <ClubName club={f.home} own={own} />
             </td>
-            <td className="w-20 whitespace-nowrap text-center font-bold tabular-nums text-cm-yellow">
+            <td className="w-36 whitespace-nowrap text-center font-bold tabular-nums text-cm-yellow">
               {played(f) ? `${f.homeGoals} - ${f.awayGoals}` : 'v'}
+              {played(f) && <span className="text-[12px] font-normal text-cm-orange">{pensText(f)}</span>}
             </td>
             <td className="px-2">
               <ClubName club={f.away} own={own} />
@@ -74,8 +75,11 @@ export function RoundGames({ fixtures, table, own }: { fixtures: Fixture[]; tabl
         <div key={f.id} className="flex h-[30px] items-center gap-3 px-2">
           <span className="cm-cell h-[22px] w-11 shrink-0 text-center text-[13px] leading-[20px] text-white">{pos(f.home.id)}</span>
           <div className="min-w-0 flex-1">{name(f.home, 'text-left')}</div>
-          <span className="w-16 shrink-0 text-center font-title text-[20px] font-bold text-cm-magenta">
+          <span className="w-16 shrink-0 text-center font-title text-[20px] font-bold leading-none text-cm-magenta">
             {played(f) ? <span className="text-cm-yellow">{`${f.homeGoals} - ${f.awayGoals}`}</span> : 'v'}
+            {played(f) && f.homePens !== null && (
+              <span className="block font-sans text-[11px] font-normal text-cm-orange">{`${f.homePens}-${f.awayPens} g.p.`}</span>
+            )}
           </span>
           <div className="min-w-0 flex-1">{name(f.away, 'text-left')}</div>
           <span className="cm-cell h-[22px] w-11 shrink-0 text-center text-[13px] leading-[20px] text-white">{pos(f.away.id)}</span>
@@ -85,12 +89,8 @@ export function RoundGames({ fixtures, table, own }: { fixtures: Fixture[]; tabl
   )
 }
 
-/** Época "2025/6" a partir da data de um jogo (a época começa em julho). */
-const seasonOf = (iso: string) => {
-  const [y, m] = iso.split('-').map(Number)
-  const start = m >= 7 ? y : y - 1
-  return `${start}/${String(start + 1).slice(-1)}`
-}
+/** Época a partir da data de um jogo: o ano civil, como no futebol brasileiro. */
+const seasonOf = (iso: string) => iso.slice(0, 4)
 
 /** Calendário do clube, como o do CM: data, adversário, C/F, competição e o resultado. */
 export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures: Fixture[] }) {
@@ -117,8 +117,10 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
                 <ClubName club={opponent} className="!text-[20px] leading-[26px]" />
               </div>
               <span className="w-6 shrink-0 text-center font-bold text-cm-magenta">{home ? 'C' : 'F'}</span>
-              <span className="w-52 shrink-0 truncate text-cm-orange">{f.competition}</span>
-              <span className="cm-cell w-16 shrink-0 text-center tabular-nums text-white">
+              <span className="w-52 shrink-0 truncate text-cm-orange" title={f.label}>
+                {f.competition}
+              </span>
+              <span className="cm-cell w-16 shrink-0 text-center tabular-nums text-white" title={pensText(f).trim() || undefined}>
                 {played(f) ? `${f.homeGoals}:${f.awayGoals}` : '---'}
               </span>
             </div>
@@ -186,12 +188,13 @@ export function MatchInfo({
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-4 pb-2">
         <div className="mb-2 inline-block border-b-2 border-cm-orange font-title text-[20px] font-bold text-cm-orange">
-          {fixture.competition} · {fixture.round}ª jornada
+          {fixture.competition} · {fixture.label}
         </div>
         <div className="space-y-0.5">
           {played(fixture) && (
             <InfoRow label="Resultado">
               {fixture.home.shortName} {fixture.homeGoals}-{fixture.awayGoals} {fixture.away.shortName}
+              {pensText(fixture)}
             </InfoRow>
           )}
           <InfoRow label="Data">{longDate(fixture.date, game.info?.date)}</InfoRow>

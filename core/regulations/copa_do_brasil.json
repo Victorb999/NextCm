@@ -1,0 +1,55 @@
+{
+  "competition": 68,
+  "order": 2,
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "pots",
+      "single_home": "weaker",
+      "entrants": {
+        "divisions": [
+          65,
+          79,
+          80
+        ],
+        "best_of": {
+          "division": 175,
+          "count": 4
+        }
+      },
+      "rounds": [
+        {
+          "name": "1ª fase",
+          "legs": 1,
+          "dates": "m7"
+        },
+        {
+          "name": "2ª fase",
+          "legs": 1,
+          "dates": "m9"
+        },
+        {
+          "name": "Oitavas de final",
+          "legs": 2,
+          "dates": "m14 m18"
+        },
+        {
+          "name": "Quartos de final",
+          "legs": 2,
+          "dates": "m26 m27"
+        },
+        {
+          "name": "Meias-finais",
+          "legs": 2,
+          "dates": "m37 m38"
+        },
+        {
+          "name": "Final",
+          "legs": 2,
+          "dates": "m44 m45"
+        }
+      ]
+    }
+  ]
+}

@@ -86,7 +86,7 @@ function DayList({
         <CompetitionBand name={fixture.competition} />
       </div>
       <div className="mx-1.5 flex h-12 shrink-0 items-center justify-center bg-black/60 font-title text-[26px] font-bold text-cm-yellow">
-        {title} · {fixture.round}ª jornada
+        {title} · {fixture.label}
       </div>
       <div className="mx-1.5 mt-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-cm-panel/80 px-5 pt-4">
         {games.map((f) => (

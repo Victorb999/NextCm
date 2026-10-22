@@ -1,0 +1,42 @@
+{
+  "competition": 266,
+  "order": 0,
+  "stages": [
+    {
+      "kind": "league",
+      "name": "1ª fase",
+      "legs": 1,
+      "entrants": {
+        "estadual": true
+      },
+      "dates": "w3-w11 m4-m6 m8 m10 m12"
+    },
+    {
+      "kind": "knockout",
+      "name": "Fase final",
+      "pairing": "bracket",
+      "entrants": {
+        "previous": {
+          "top": 8
+        }
+      },
+      "rounds": [
+        {
+          "name": "Quartos de final",
+          "legs": 1,
+          "dates": "w12"
+        },
+        {
+          "name": "Meias-finais",
+          "legs": 1,
+          "dates": "m13"
+        },
+        {
+          "name": "Final",
+          "legs": 2,
+          "dates": "w13-w14"
+        }
+      ]
+    }
+  ]
+}

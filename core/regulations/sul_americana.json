@@ -1,0 +1,96 @@
+{
+  "competition": 92,
+  "name": "Copa Sul-Americana",
+  "order": 4,
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "Fase de grupos",
+      "legs": 2,
+      "group_size": 4,
+      "draw": "pots",
+      "entrants": {
+        "league": {
+          "competition": 65,
+          "from": 7,
+          "count": 6
+        },
+        "foreign": [
+          {
+            "nation": "Argentina",
+            "count": 6
+          },
+          {
+            "nation": "Uruguay",
+            "count": 3
+          },
+          {
+            "nation": "Paraguay",
+            "count": 3
+          },
+          {
+            "nation": "Chile",
+            "count": 3
+          },
+          {
+            "nation": "Colombia",
+            "count": 3
+          },
+          {
+            "nation": "Ecuador",
+            "count": 3
+          },
+          {
+            "nation": "Peru",
+            "count": 2
+          },
+          {
+            "nation": "Bolivia",
+            "count": 2
+          },
+          {
+            "nation": "Venezuela",
+            "count": 1
+          }
+        ],
+        "exclude": [
+          58
+        ]
+      },
+      "dates": "m15-m17 m19-m21"
+    },
+    {
+      "kind": "knockout",
+      "name": "Eliminatórias",
+      "pairing": "cross",
+      "entrants": {
+        "previous": {
+          "group_top": 2
+        }
+      },
+      "rounds": [
+        {
+          "name": "Oitavas de final",
+          "legs": 2,
+          "dates": "m31 m32"
+        },
+        {
+          "name": "Quartos de final",
+          "legs": 2,
+          "dates": "m35 m36"
+        },
+        {
+          "name": "Meias-finais",
+          "legs": 2,
+          "dates": "m39 m40"
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "m47",
+          "neutral": true
+        }
+      ]
+    }
+  ]
+}

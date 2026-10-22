@@ -4,4 +4,8 @@ import type { ClubRef } from "./ClubRef";
 /**
  * Uma partida para a interface (com os clubes por extenso).
  */
-export type Fixture = { id: number, competitionId: number, competition: string, round: number, date: string, home: ClubRef, away: ClubRef, homeGoals: number | null, awayGoals: number | null, };
+export type Fixture = { id: number, competitionId: number, competition: string, round: number, date: string, home: ClubRef, away: ClubRef, homeGoals: number | null, awayGoals: number | null, 
+/**
+ * "12ª jornada", "Grupo B · 3ª jornada", "Oitavas de final · 1ª mão", "Final".
+ */
+label: string, neutral: boolean, homePens: number | null, awayPens: number | null, };

@@ -18,6 +18,7 @@ import type { NationOption } from './bindings/NationOption'
 import type { PersonProfile } from './bindings/PersonProfile'
 import type { SearchQuery } from './bindings/SearchQuery'
 import type { SearchResult } from './bindings/SearchResult'
+import type { StageView } from './bindings/StageView'
 import type { StandingRow } from './bindings/StandingRow'
 
 export const inTauri = isTauri()
@@ -72,6 +73,8 @@ export const api = {
   /** Classificação real; vazia sem jogo ou numa competição parada. */
   leagueTable: (id: number) => call<StandingRow[]>('league_table', { id }),
   listFixtures: (id: number) => call<Fixture[]>('list_fixtures', { id }),
+  /** Fases de uma competição viva: classificações, grupos e eliminatórias. */
+  competitionStages: (id: number) => call<StageView[]>('competition_stages', { id }),
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),
   listNews: () => call<NewsItem[]>('list_news'),
   readNews: (id: number) => call<GameInfo>('read_news', { id }),

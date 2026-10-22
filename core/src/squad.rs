@@ -1,8 +1,9 @@
 //! Estado dos jogadores num jogo em curso (marco 3.3): condição física, moral, lesões,
 //! cartões e suspensões. Desde o 3.4 o cansaço, os cartões e as lesões acontecem em campo
 //! (`live.rs`); aqui fica o que eles deixam depois do jogo e a recuperação dia a dia.
+//! Desde o 3.6 os cartões e os castigos contam por competição.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use rand_core::RngCore;
 use serde::Serialize;
@@ -19,13 +20,19 @@ const BACK_FROM_INJURY: i32 = 80;
 /// Amarelos que dão um jogo de suspensão.
 const YELLOWS_FOR_BAN: i32 = 3;
 
+/// Amarelos e jogos de castigo por cumprir numa competição.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Cards {
+    pub yellows: i32,
+    pub suspended: i32,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlayerState {
     pub condition: i32,
     pub morale: i32,
-    pub yellows: i32,
-    /// Jogos de suspensão por cumprir.
-    pub suspended: i32,
+    /// Por competição (id da competição → cartões).
+    pub cards: BTreeMap<i32, Cards>,
     pub injury: Option<String>,
     /// Data ("AAAA-MM-DD") em que volta a estar disponível.
     pub injury_until: Option<String>,
@@ -35,13 +42,39 @@ pub struct PlayerState {
 
 impl Default for PlayerState {
     fn default() -> Self {
-        PlayerState { condition: 100, morale: START_MORALE, yellows: 0, suspended: 0, injury: None, injury_until: None, apps: 0 }
+        PlayerState { condition: 100, morale: START_MORALE, cards: BTreeMap::new(), injury: None, injury_until: None, apps: 0 }
     }
 }
 
 impl PlayerState {
-    pub fn availability(&self) -> Availability {
-        Availability { condition: self.condition, morale: self.morale, injured: self.injury.is_some(), suspended: self.suspended > 0 }
+    /// Para um jogo de `comp` (sem competição: castigado em alguma).
+    pub fn availability(&self, comp: Option<i32>) -> Availability {
+        Availability {
+            condition: self.condition,
+            morale: self.morale,
+            injured: self.injury.is_some(),
+            suspended: self.suspended_in(comp) > 0,
+        }
+    }
+
+    /// Jogos de castigo numa competição (ou em todas).
+    pub fn suspended_in(&self, comp: Option<i32>) -> i32 {
+        match comp {
+            Some(c) => self.cards.get(&c).map_or(0, |k| k.suspended),
+            None => self.cards.values().map(|k| k.suspended).sum(),
+        }
+    }
+
+    pub fn yellows(&self) -> i32 {
+        self.cards.values().map(|k| k.yellows).sum()
+    }
+
+    /// Nova época: os amarelos acabam; os castigos por cumprir ficam.
+    pub fn clear_cards(&mut self) {
+        self.cards.retain(|_, k| k.suspended > 0);
+        for k in self.cards.values_mut() {
+            k.yellows = 0;
+        }
     }
 }
 
@@ -142,9 +175,9 @@ impl Squads {
         self.states.entry(id).or_default()
     }
 
-    /// Estado de quem é de `club`, para a escolha da equipa.
-    pub fn squad_state(&self, club: i32) -> SquadState {
-        self.traits.iter().filter(|(_, t)| t.club_id == club).map(|(&id, _)| (id, self.state(id).availability())).collect()
+    /// Estado de quem é de `club` para um jogo de `comp`, para a escolha da equipa.
+    pub fn squad_state(&self, club: i32, comp: Option<i32>) -> SquadState {
+        self.traits.iter().filter(|(_, t)| t.club_id == club).map(|(&id, _)| (id, self.state(id).availability(comp))).collect()
     }
 
     pub fn status(&self, id: i32) -> Option<PlayerStatus> {
@@ -154,8 +187,8 @@ impl Squads {
                 condition: s.condition,
                 morale: s.morale,
                 morale_label: morale_label(s.morale).into(),
-                yellows: s.yellows,
-                suspended: s.suspended,
+                yellows: s.yellows(),
+                suspended: s.suspended_in(None),
                 injury: s.injury,
                 injury_until: s.injury_until,
             }
@@ -190,9 +223,9 @@ impl Squads {
         healed
     }
 
-    /// Depois de uma partida: suspensões cumpridas, condição com que acabaram, moral,
+    /// Depois de uma partida de `comp`: suspensões cumpridas, condição com que acabaram, moral,
     /// lesões (a duração é sorteada aqui, com o RNG da partida) e cartões.
-    pub fn after_match(&mut self, sides: [Side; 2], today: &str, rng: &mut impl RngCore) -> Vec<Event> {
+    pub fn after_match(&mut self, sides: [Side; 2], today: &str, comp: i32, rng: &mut impl RngCore) -> Vec<Event> {
         let mut events = Vec::new();
         for side in &sides {
             let played = |id: i32| side.played.iter().any(|p| p.0 == id);
@@ -201,9 +234,12 @@ impl Squads {
             let result = side.goals_for.cmp(&side.goals_against) as i32; // 1, 0, -1
             for &id in &squad {
                 let s = self.state_mut(id);
-                // Quem estava suspenso cumpriu este jogo
-                if s.suspended > 0 && !played(id) {
-                    s.suspended -= 1;
+                // Quem estava suspenso nesta competição cumpriu este jogo
+                if let Some(k) = s.cards.get_mut(&comp)
+                    && k.suspended > 0
+                    && !played(id)
+                {
+                    k.suspended -= 1;
                 }
                 let delta = if played(id) { 2 * result } else { result };
                 s.morale = (s.morale + delta).clamp(1, 20);
@@ -232,16 +268,16 @@ impl Squads {
                 events.push(Event::Injured { player: id, club: side.club, injury, days });
             }
             for &id in &side.yellows {
-                let s = self.state_mut(id);
-                s.yellows += 1;
-                if s.yellows >= YELLOWS_FOR_BAN {
-                    s.yellows = 0;
-                    s.suspended += 1;
+                let k = self.state_mut(id).cards.entry(comp).or_default();
+                k.yellows += 1;
+                if k.yellows >= YELLOWS_FOR_BAN {
+                    k.yellows = 0;
+                    k.suspended += 1;
                     events.push(Event::Suspended { player: id, club: side.club, red: false });
                 }
             }
             for &id in &side.sent_off {
-                self.state_mut(id).suspended += 1;
+                self.state_mut(id).cards.entry(comp).or_default().suspended += 1;
                 events.push(Event::Suspended { player: id, club: side.club, red: true });
             }
         }
@@ -269,7 +305,7 @@ mod tests {
         let mut sq = squads(20, 1);
         let starters: Vec<i32> = (0..11).collect();
         let mut rng = ChaCha8Rng::seed_from_u64(1);
-        sq.after_match([side(1, &starters, 1, 0), side(2, &[], 0, 1)], "2025-08-02", &mut rng);
+        sq.after_match([side(1, &starters, 1, 0), side(2, &[], 0, 1)], "2025-08-02", 65, &mut rng);
         assert_eq!(sq.state(0).condition, 76);
         assert_eq!(sq.state(15).condition, 100, "quem não jogou não cansa");
         assert_eq!(sq.state(0).morale, START_MORALE + 2);
@@ -285,13 +321,16 @@ mod tests {
         let mut sq = squads(20, 1);
         let starters: Vec<i32> = (0..11).collect();
         let mut rng = ChaCha8Rng::seed_from_u64(2);
-        sq.state_mut(3).yellows = 2;
+        sq.state_mut(3).cards.insert(65, Cards { yellows: 2, suspended: 0 });
         let ours = Side { yellows: vec![3, 4], sent_off: vec![5], injured: vec![6], ..side(1, &starters, 0, 0) };
-        let events = sq.after_match([ours, side(2, &[], 0, 0)], "2025-08-02", &mut rng);
-        assert_eq!(sq.state(3).suspended, 1, "terceiro amarelo");
-        assert_eq!(sq.state(3).yellows, 0);
-        assert_eq!(sq.state(4).yellows, 1);
-        assert_eq!(sq.state(5).suspended, 1, "vermelho");
+        let events = sq.after_match([ours, side(2, &[], 0, 0)], "2025-08-02", 65, &mut rng);
+        assert_eq!(sq.state(3).suspended_in(Some(65)), 1, "terceiro amarelo");
+        assert_eq!(sq.state(3).yellows(), 0);
+        assert_eq!(sq.state(4).yellows(), 1);
+        assert_eq!(sq.state(5).suspended_in(Some(65)), 1, "vermelho");
+        // O castigo é só nesta competição
+        assert!(sq.state(5).availability(Some(68)).can_play());
+        assert!(!sq.state(5).availability(Some(65)).can_play());
         assert!(sq.state(6).injury.is_some() && sq.state(6).injury_until.is_some());
         assert_eq!(events.len(), 3);
     }
@@ -299,12 +338,15 @@ mod tests {
     #[test]
     fn suspension_is_served_in_the_next_match() {
         let mut sq = squads(20, 1);
-        sq.state_mut(5).suspended = 1;
+        sq.state_mut(5).cards.insert(65, Cards { yellows: 0, suspended: 1 });
         let starters: Vec<i32> = (0..5).chain(6..12).collect();
         let mut rng = ChaCha8Rng::seed_from_u64(3);
-        sq.after_match([side(1, &starters, 0, 1), side(2, &[], 1, 0)], "2025-08-02", &mut rng);
-        assert_eq!(sq.state(5).suspended, 0);
-        assert!(sq.state(5).availability().can_play());
+        // Um jogo de outra competição não conta
+        sq.after_match([side(1, &starters, 0, 1), side(2, &[], 1, 0)], "2025-08-02", 68, &mut rng);
+        assert_eq!(sq.state(5).suspended_in(Some(65)), 1);
+        sq.after_match([side(1, &starters, 0, 1), side(2, &[], 1, 0)], "2025-08-06", 65, &mut rng);
+        assert_eq!(sq.state(5).suspended_in(Some(65)), 0);
+        assert!(sq.state(5).availability(Some(65)).can_play());
     }
 
     #[test]

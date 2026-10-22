@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, PersonProfile,
-    Result, SaveSummary, Selection, StandingRow, World, list_saves,
+    Result, SaveSummary, Selection, StageView, StandingRow, World, list_saves,
 };
 
 pub struct Session {
@@ -189,6 +189,11 @@ impl Session {
     /// Classificação real de uma competição viva; vazia sem jogo ou numa competição parada.
     pub fn league_table(&self, id: i32) -> Result<Vec<StandingRow>> {
         Ok(self.game.as_ref().map(|g| g.table(id)).unwrap_or_default())
+    }
+
+    /// Fases de uma competição viva na época em curso (classificações, grupos, eliminatórias).
+    pub fn competition_stages(&self, id: i32) -> Result<Vec<StageView>> {
+        Ok(self.game.as_ref().map(|g| g.competition_stages(id)).unwrap_or_default())
     }
 
     /// Calendário e resultados de uma competição viva.

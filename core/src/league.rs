@@ -1,5 +1,5 @@
-//! Liga a pontos corridos (marco 3.2: só a Série A): calendário de turno e returno e
-//! classificação calculada dos resultados.
+//! Pontos corridos: calendário de turno (e returno) pelo método do círculo e a
+//! classificação calculada dos resultados. As datas vêm dos regulamentos (`regulation.rs`).
 
 use rand_core::RngCore;
 use serde::Serialize;
@@ -7,33 +7,40 @@ use ts_rs::TS;
 
 use crate::date;
 use crate::person::ClubRef;
+use crate::regulation;
+use crate::{Error, Result};
 
-/// Campeonato Brasileiro Série A, a única liga viva até o marco 3.5.
 pub const SERIE_A: i32 = 65;
-/// Série B, viva desde o marco 3.5 (subidas e descidas de verdade).
 pub const SERIE_B: i32 = 79;
-/// Série C e D: só contam no fim da época (marco 3.5).
 pub const SERIE_C: i32 = 80;
 pub const SERIE_D: i32 = 175;
-
-/// Primeira jornada: o primeiro sábado a partir deste dia.
-const FIRST_ROUND_FROM: &str = "08-01";
-
-/// Pausa de fim de ano: sem jornadas aos sábados entre estes dias (dezembro e janeiro).
-const BREAK_FROM: &str = "12-20";
-const BREAK_TO: &str = "01-17";
+pub const COPA_DO_BRASIL: i32 = 68;
+pub const LIBERTADORES: i32 = 58;
+pub const SUL_AMERICANA: i32 = 92;
 
 /// Uma partida do calendário, como fica na memória e na tabela `fixtures` do save.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Match {
     pub id: i32,
     pub competition_id: i32,
-    /// Jornada, a partir de 1.
+    /// Fase do regulamento (0 = a primeira).
+    pub stage: u8,
+    /// Pontos corridos e grupos: a jornada, a partir de 1. Eliminatórias: a ronda, a partir de 1.
     pub round: i32,
+    /// Grupo (0 = A) na fase de grupos.
+    pub group: Option<u8>,
+    /// Eliminatória dentro da ronda (0 = a primeira do quadro).
+    pub tie: Option<u16>,
+    /// 0 = jogo de liga ou jogo único; 1 e 2 = ida e volta.
+    pub leg: u8,
+    /// Em campo neutro (sem vantagem de casa).
+    pub neutral: bool,
     pub date: String,
     pub home_id: i32,
     pub away_id: i32,
     pub result: Option<(u8, u8)>,
+    /// Penáltis no fim de uma eliminatória empatada.
+    pub pens: Option<(u8, u8)>,
 }
 
 /// Uma partida para a interface (com os clubes por extenso).
@@ -50,6 +57,11 @@ pub struct Fixture {
     pub away: ClubRef,
     pub home_goals: Option<i32>,
     pub away_goals: Option<i32>,
+    /// "12ª jornada", "Grupo B · 3ª jornada", "Oitavas de final · 1ª mão", "Final".
+    pub label: String,
+    pub neutral: bool,
+    pub home_pens: Option<i32>,
+    pub away_pens: Option<i32>,
 }
 
 /// Uma linha da classificação: J V E D M S P.
@@ -70,28 +82,18 @@ pub struct StandingRow {
     pub form: String,
 }
 
-/// Datas das `rounds` jornadas: sábados a partir de agosto, sem a pausa de fim de ano.
-fn round_dates(start_year: i32, rounds: usize) -> Vec<String> {
-    let mut day = date::parse(&format!("{start_year}-{FIRST_ROUND_FROM}")).expect("data fixa");
-    while date::weekday(&date::format(day)) != Some(6) {
-        day += 1;
-    }
-    let mut out = Vec::with_capacity(rounds);
-    while out.len() < rounds {
-        let iso = date::format(day);
-        let md = &iso[5..];
-        if !(md >= BREAK_FROM || md <= BREAK_TO) {
-            out.push(iso);
-        }
-        day += 7;
-    }
-    out
-}
-
-/// Calendário de turno e returno pelo método do círculo. A ordem dos clubes é sorteada,
-/// então cada jogo novo tem um calendário diferente. Metade das partidas de cada jornada
-/// joga ao sábado e a outra metade ao domingo. Os ids começam em `first_id`.
-pub fn round_robin(competition_id: i32, clubs: &[i32], start_year: i32, first_id: i32, rng: &mut impl RngCore) -> Vec<Match> {
+/// Calendário pelo método do círculo, em turno único (`legs` = 1) ou turno e returno (2).
+/// A ordem dos clubes é sorteada, então cada jogo novo tem um calendário diferente. Uma
+/// jornada num sábado tem metade das partidas ao domingo; a meio da semana são à quarta.
+/// Os ids começam em `first_id`; `dates` são as datas das jornadas (ver `regulation::dates`).
+pub fn round_robin(
+    competition_id: i32,
+    clubs: &[i32],
+    dates: &[String],
+    legs: u8,
+    first_id: i32,
+    rng: &mut impl RngCore,
+) -> Result<Vec<Match>> {
     let mut teams: Vec<Option<i32>> = clubs.iter().copied().map(Some).collect();
     // Fisher-Yates com o RNG do jogo
     for i in (1..teams.len()).rev() {
@@ -102,8 +104,11 @@ pub fn round_robin(competition_id: i32, clubs: &[i32], start_year: i32, first_id
         teams.push(None); // folga
     }
     let n = teams.len();
-    let half_rounds = n - 1;
-    let dates = round_dates(start_year, half_rounds * 2);
+    let half_rounds = n.saturating_sub(1);
+    let rounds = half_rounds * legs.max(1) as usize;
+    if dates.len() < rounds {
+        return Err(Error::Invalid(format!("regulamento da competição {competition_id}: {rounds} jornadas e só {} datas", dates.len())));
+    }
 
     let mut first_half: Vec<Vec<(i32, i32)>> = Vec::with_capacity(half_rounds);
     for r in 0..half_rounds {
@@ -119,27 +124,28 @@ pub fn round_robin(competition_id: i32, clubs: &[i32], start_year: i32, first_id
         teams[1..].rotate_right(1);
     }
 
-    let mut out = Vec::with_capacity(half_rounds * n);
+    let mut out = Vec::with_capacity(rounds * n / 2);
     let mut id = first_id;
-    for (r, pairs) in first_half.iter().chain(first_half.iter()).enumerate() {
+    for (r, pairs) in first_half.iter().cycle().take(rounds).enumerate() {
         let returno = r >= half_rounds;
-        let saturday = &dates[r];
-        let sunday = date::add_days(saturday, 1).expect("data válida");
+        let day = &dates[r];
+        let weekend = regulation::is_weekend(day);
+        let sunday = date::add_days(day, 1).expect("data válida");
         for (i, &(h, a)) in pairs.iter().enumerate() {
             let (home_id, away_id) = if returno { (a, h) } else { (h, a) };
             out.push(Match {
                 id,
                 competition_id,
                 round: r as i32 + 1,
-                date: if i % 2 == 0 { saturday.clone() } else { sunday.clone() },
+                date: if weekend && i % 2 == 1 { sunday.clone() } else { day.clone() },
                 home_id,
                 away_id,
-                result: None,
+                ..Default::default()
             });
             id += 1;
         }
     }
-    out
+    Ok(out)
 }
 
 /// Classificação dos jogos já disputados. Desempate como no Brasileirão: pontos,
@@ -214,7 +220,8 @@ mod tests {
     #[test]
     fn double_round_robin_is_complete_and_fair() {
         let clubs: Vec<i32> = (1..=20).collect();
-        let ms = round_robin(SERIE_A, &clubs, 2025, 1, &mut ChaCha8Rng::seed_from_u64(3));
+        let dates = regulation::dates(2025, "w31-w49 m32-m50");
+        let ms = round_robin(SERIE_A, &clubs, &dates, 2, 1, &mut ChaCha8Rng::seed_from_u64(3)).unwrap();
         assert_eq!(ms.len(), 380);
         // Cada par joga uma vez em casa de cada um
         let pairs: HashSet<(i32, i32)> = ms.iter().map(|m| (m.home_id, m.away_id)).collect();
@@ -229,12 +236,15 @@ mod tests {
             *home.entry(m.home_id).or_default() += 1;
         }
         assert!(home.values().all(|&h| h == 19), "{home:?}");
-        // Começa num sábado de agosto, fins de semana, sem jogos na pausa de fim de ano
+        // Começa num sábado de agosto; fins de semana (sábado e domingo) e quartas
         assert_eq!(ms[0].date, "2025-08-02");
-        assert!(ms.iter().all(|m| matches!(date::weekday(&m.date), Some(0 | 6))));
-        assert!(!ms.iter().any(|m| m.date.as_str() > "2025-12-20" && m.date.as_str() < "2026-01-17"));
+        assert!(ms.iter().all(|m| matches!(date::weekday(&m.date), Some(0 | 3 | 6))));
+        assert_eq!(ms.iter().map(|m| m.date.as_str()).max(), Some("2025-12-10"));
         // Mesma seed, mesmo calendário
-        assert_eq!(ms, round_robin(SERIE_A, &clubs, 2025, 1, &mut ChaCha8Rng::seed_from_u64(3)));
+        assert_eq!(ms, round_robin(SERIE_A, &clubs, &dates, 2, 1, &mut ChaCha8Rng::seed_from_u64(3)).unwrap());
+        // Turno único: 19 jornadas; datas a menos é um erro
+        assert_eq!(round_robin(SERIE_A, &clubs, &dates, 1, 1, &mut ChaCha8Rng::seed_from_u64(3)).unwrap().len(), 190);
+        assert!(round_robin(SERIE_A, &clubs, &dates[..10], 2, 1, &mut ChaCha8Rng::seed_from_u64(3)).is_err());
     }
 
     #[test]
@@ -249,6 +259,7 @@ mod tests {
             home_id: h,
             away_id: a,
             result: r,
+            ..Default::default()
         };
         let ms = vec![m(1, 1, 2, Some((2, 0))), m(2, 3, 1, Some((1, 1))), m(3, 2, 3, Some((3, 0))), m(4, 2, 1, None)];
         let t = standings(&ms, &clubs);

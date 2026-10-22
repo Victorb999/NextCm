@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::time::Instant;
 
-use nextcm_core::{Game, NewGame, SERIE_A, SERIE_B, SERIE_C, StandingRow, World};
+use nextcm_core::{Game, NewGame, SERIE_A, SERIE_B, SERIE_C, StandingRow, World, regulation};
 
 /// `sim -- <clube> carreira <seed> <épocas>`: um só jogo por várias épocas seguidas (marco 3.5).
 fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
@@ -41,18 +41,32 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
     print_stats(&game);
     let (mut last_id, mut last_retired, _) = game.career_counts().expect("totais");
     let start = Instant::now();
-    for s in 0..seasons {
+    for _ in 0..seasons {
         let t = Instant::now();
-        let target = format!("{}-07-01", game.season() + 1);
+        let year = game.season();
         let before = game.news().len();
-        while game.date() < target.as_str() {
+        // Até 31/12, para ver os jogos da época antes de a seguinte os esconder
+        let last_day = format!("{year}-12-31");
+        while game.date() < last_day.as_str() {
             game.advance_day().expect("falhou ao avançar o dia");
         }
-        println!("\nÉpoca {} ({:?}):", s + 1, t.elapsed());
+        let mut goals_report = Vec::new();
+        for r in regulation::all() {
+            let fx: Vec<_> = game.fixtures(r.competition).into_iter().filter(|f| f.home_goals.is_some()).collect();
+            if fx.is_empty() {
+                continue;
+            }
+            let goals: i32 = fx.iter().map(|f| f.home_goals.unwrap_or(0) + f.away_goals.unwrap_or(0)).sum();
+            let big = fx.iter().filter(|f| (f.home_goals.unwrap_or(0) - f.away_goals.unwrap_or(0)).abs() >= 6).count();
+            goals_report.push(format!("{} {:.2} ({big} com 6+)", fx[0].competition, goals as f64 / fx.len() as f64));
+        }
+        game.advance_day().expect("falhou ao avançar o dia");
+        println!("\nÉpoca {year} ({:?}):", t.elapsed());
+        println!("  golos por jogo: {}", goals_report.join(", "));
         // As notícias da época: campeões e o resumo do fim de época
         let fresh: Vec<_> = game.news()[..game.news().len() - before].iter().rev().collect();
         for n in &fresh {
-            if n.title.contains("campeão da Série") {
+            if n.title.contains(" campeão do ") || n.title.contains(" campeão da ") {
                 println!("  {}", n.title);
             }
             if n.title.starts_with("Fim da época") {
@@ -63,7 +77,11 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         }
         print_stats(&game);
         let (id, retired, free) = game.career_counts().expect("totais");
-        println!("  juniores {}, reformas {}, jogadores livres {free}", id - last_id, retired - last_retired);
+        println!(
+            "  jogadores novos {} (juniores e plantéis completados), reformas {}, jogadores livres {free}",
+            id - last_id,
+            retired - last_retired
+        );
         (last_id, last_retired) = (id, retired);
     }
     println!("\n{seasons} épocas em {:?}", start.elapsed());
