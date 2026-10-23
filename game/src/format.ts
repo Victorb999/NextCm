@@ -16,7 +16,9 @@ export function money(v: number | null | undefined): string {
   const sign = v < 0 ? '-' : ''
   const a = Math.round(Math.abs(v) * c.rate)
   if (a >= 1_000_000) return `${sign}${c.symbol}${(a / 1_000_000).toFixed(a % 1_000_000 >= 50_000 ? 1 : 0)}M`
-  if (a >= 1_000) return `${sign}${c.symbol}${Math.round(a / 1_000)}K`
+  if (a >= 10_000) return `${sign}${c.symbol}${Math.round(a / 1_000)}K`
+  // Os salários pequenos por inteiro: "€1.600"
+  if (a >= 1_000) return `${sign}${c.symbol}${a.toLocaleString('pt-BR')}`
   return `${sign}${c.symbol}${a}`
 }
 
@@ -45,6 +47,13 @@ const WEEKDAYS_LONG = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sext
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const MONTHS_LONG = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
+/** "2036-06-30" -> "Jun 2036" (fim de contrato). */
+export function monthYear(iso: string): string {
+  if (!iso) return '-'
+  const [y, m] = iso.split('-').map(Number)
+  return `${MONTHS_SHORT[m - 1]} ${y}`
+}
+
 /** "2025-08-02" -> "Sáb 2 Ago" (calendários do CM). */
 export function shortDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
@@ -63,4 +72,21 @@ export function longDate(iso: string, today?: string): string {
 /** Penáltis de uma eliminatória empatada: " (4-3 g.p.)". */
 export function pensText(f: { homePens: number | null; awayPens: number | null }): string {
   return f.homePens !== null && f.awayPens !== null ? ` (${f.homePens}-${f.awayPens} g.p.)` : ''
+}
+
+/** Moeda escolhida nas Definições (símbolo e câmbio a partir do euro). */
+export function currency() {
+  return CURRENCIES.find((c) => c.key === getSettings().currency) ?? CURRENCIES[0]
+}
+
+/** Período dos salários escolhido nas Definições (fator a partir do semanal). */
+export function wagePeriod() {
+  return WAGES.find((w) => w.key === getSettings().wages) ?? WAGES[0]
+}
+
+/** Passo "redondo" para os botões − / + de um valor: ~5% dele. */
+export function moneyStep(v: number): number {
+  const target = Math.max(Math.abs(v) * 0.05, 100)
+  const p = 10 ** Math.floor(Math.log10(target))
+  return [1, 2, 5, 10].map((m) => m * p).find((s) => s >= target) ?? p * 10
 }

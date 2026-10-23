@@ -18,6 +18,7 @@ use ts_rs::TS;
 use crate::engine;
 
 mod competitions;
+mod deals;
 mod finances;
 mod market;
 mod regen;
@@ -31,6 +32,7 @@ use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
 use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
 use crate::{Error, Result, World, date};
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
+pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, TransferView};
 pub use market::TransferItem;
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
@@ -43,7 +45,30 @@ pub(crate) use season::age_on;
 /// 7: fases, grupos, eliminatórias e penáltis em `fixtures`; cartões por competição (3.6).
 /// 8: livro de contas dos clubes (`finances`), marco 3.8.
 /// 9: transferências (`transfers`) e empréstimos (`loans`), marco 3.8.
-pub const SAVE_VERSION: i32 = 9;
+/// 10: propostas (`offers`), lista de transferências, negociações, funções no clube e
+/// `news.offer_id` (3.8).
+pub const SAVE_VERSION: i32 = 10;
+
+/// Tabelas do mercado do treinador (save 10).
+const DEALS_SCHEMA: &str = "
+-- kind: transfer, loan. status: pending, countered, agreed, raised, done, rejected, withdrawn, collapsed
+CREATE TABLE offers (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL,
+    person_id INTEGER NOT NULL,
+    buyer INTEGER NOT NULL,
+    seller INTEGER,
+    fee INTEGER NOT NULL,
+    asked INTEGER,
+    status TEXT NOT NULL,
+    answer_on TEXT,
+    created TEXT NOT NULL
+);
+CREATE TABLE transfer_list (person_id INTEGER PRIMARY KEY, transfer INTEGER NOT NULL, loan INTEGER NOT NULL, asking INTEGER);
+CREATE TABLE talks (person_id INTEGER PRIMARY KEY, tries INTEGER NOT NULL, blocked_until TEXT);
+-- Função no clube combinada no contrato (`deals::SQUAD_ROLES`)
+CREATE TABLE squad_roles (person_id INTEGER PRIMARY KEY, role TEXT NOT NULL);
+";
 
 /// Quantos dias "Continuar Jogo" avança no máximo quando não acontece nada.
 const MAX_IDLE_DAYS: i32 = 42;
@@ -70,7 +95,8 @@ CREATE TABLE news (
     kind TEXT NOT NULL,
     title TEXT NOT NULL,
     body TEXT NOT NULL,
-    read INTEGER NOT NULL DEFAULT 0
+    read INTEGER NOT NULL DEFAULT 0,
+    offer_id INTEGER
 );
 CREATE TABLE fixtures (
     id INTEGER PRIMARY KEY,
@@ -190,6 +216,8 @@ pub struct NewsItem {
     pub title: String,
     pub body: String,
     pub read: bool,
+    /// Proposta ligada à mensagem (botões para responder), marco 3.8.
+    pub offer_id: Option<i32>,
 }
 
 /// O que a coluna esquerda e o menu do treinador precisam.
@@ -338,6 +366,7 @@ impl Game {
 
             let tx = world.conn.unchecked_transaction()?;
             tx.execute_batch(SCHEMA)?;
+            tx.execute_batch(DEALS_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -504,6 +533,11 @@ impl Game {
             )?;
             version = 9;
         }
+        if version == 9 {
+            world.conn.execute_batch(DEALS_SCHEMA)?;
+            world.conn.execute_batch("ALTER TABLE news ADD COLUMN offer_id INTEGER; UPDATE game SET version = 10;")?;
+            version = 10;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -511,7 +545,7 @@ impl Game {
         }
         let news = world
             .conn
-            .prepare("SELECT id, date, kind, title, body, read FROM news ORDER BY date DESC, id DESC")?
+            .prepare("SELECT id, date, kind, title, body, read, offer_id FROM news ORDER BY date DESC, id DESC")?
             .query_map([], |r| {
                 Ok(NewsItem {
                     id: r.get(0)?,
@@ -520,6 +554,7 @@ impl Game {
                     title: r.get(3)?,
                     body: r.get(4)?,
                     read: r.get::<_, i32>(5)? != 0,
+                    offer_id: r.get(6)?,
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -631,9 +666,9 @@ impl Game {
         tx.execute("UPDATE game SET date = ?, seed = ?", params![self.date, self.seed])?;
         tx.execute("DELETE FROM news", [])?;
         {
-            let mut stmt = tx.prepare("INSERT INTO news (id, date, kind, title, body, read) VALUES (?, ?, ?, ?, ?, ?)")?;
+            let mut stmt = tx.prepare("INSERT INTO news (id, date, kind, title, body, read, offer_id) VALUES (?, ?, ?, ?, ?, ?, ?)")?;
             for n in &self.news {
-                stmt.execute(params![n.id, n.date, n.kind, n.title, n.body, n.read as i32])?;
+                stmt.execute(params![n.id, n.date, n.kind, n.title, n.body, n.read as i32, n.offer_id])?;
             }
         }
         tx.execute("DELETE FROM fixtures", [])?;
@@ -764,6 +799,7 @@ impl Game {
         // Salários à segunda-feira, receitas mensais no dia 1; o mercado nas janelas
         self.daily_finances()?;
         self.market_day(&mut fresh, &mut next_id)?;
+        self.offers_day(&mut fresh, &mut next_id)?;
 
         let today: Vec<usize> =
             (0..self.matches.len()).filter(|&i| self.matches[i].date == self.date && self.matches[i].result.is_none()).collect();
@@ -950,7 +986,7 @@ impl Game {
     }
 
     fn news_item(&self, id: i32, kind: &str, title: String, body: String) -> NewsItem {
-        NewsItem { id, date: self.date.clone(), kind: kind.into(), title, body, read: false }
+        NewsItem { id, date: self.date.clone(), kind: kind.into(), title, body, read: false, offer_id: None }
     }
 
     /// Lesões e suspensões dos jogadores do treinador.
@@ -1207,6 +1243,7 @@ impl Game {
             title: format!("{} {hg}-{ag} {}", home.short_name, away.short_name),
             body: format!("{}, {}.\n\n{what}{pens}{scorers}{standing}", self.competition_name(m.competition_id), self.match_label(m)),
             read: false,
+            offer_id: None,
         }
     }
 
@@ -1248,6 +1285,7 @@ impl Game {
             title: format!("{champion} campeão {}", self.of_competition(competition_id)),
             body,
             read: false,
+            offer_id: None,
         }))
     }
 
@@ -1286,7 +1324,15 @@ impl Game {
             self.competition_name(first.competition_id),
             self.match_label(first)
         );
-        Some(NewsItem { id, date: self.date.clone(), kind: "competition".into(), title: format!("Calendário {label}"), body, read: false })
+        Some(NewsItem {
+            id,
+            date: self.date.clone(),
+            kind: "competition".into(),
+            title: format!("Calendário {label}"),
+            body,
+            read: false,
+            offer_id: None,
+        })
     }
 
     /// A época em curso (o ano).
@@ -1722,6 +1768,7 @@ fn welcome_news(world: &World, club: &ClubRef, manager: &str, date: &str) -> Res
             club.name
         ),
         read: false,
+        offer_id: None,
     })
 }
 
@@ -1872,7 +1919,11 @@ mod tests {
         let mut g = Game::create(world, &dir, &new_game(7568), seed).unwrap();
         // Continuar Jogo pára na véspera do 1º jogo do Palmeiras e, a seguir, depois dele
         let first = g.club_fixtures(7568)[0].clone();
-        assert!(g.advance_to_next_event().unwrap().is_empty());
+        // (as propostas dos outros clubes pelos jogadores também param)
+        while date::add_days(g.date(), 1).unwrap() < first.date {
+            let news = g.advance_to_next_event().unwrap();
+            assert!(news.iter().all(|n| n.offer_id.is_some() || n.kind == "transfer"), "{}", news[0].title);
+        }
         assert_eq!(date::add_days(g.date(), 1).unwrap(), first.date);
         let news = g.advance_to_next_event().unwrap();
         assert_eq!(g.date(), first.date);
@@ -2329,7 +2380,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; ALTER TABLE news DROP COLUMN offer_id; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

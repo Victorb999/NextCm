@@ -346,8 +346,8 @@ impl Game {
     }
 
     /// Contratos que acabam até `cutoff`: renova quem está entre os melhores do plantel e não
-    /// é velho; os outros saem livres. No clube do treinador decide o adjunto (a negociação é
-    /// do 3.7). Os contratos sem data só se tratam no fim da época.
+    /// é velho; os outros saem livres. No clube do treinador renova só quem o treinador
+    /// renovou (3.8); os contratos sem data, aí e nos outros, só se tratam no fim da época.
     fn contracts(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32, cutoff: &str) -> Result<()> {
         let today = self.date.clone();
         let year_end = today.ends_with("12-20");
@@ -384,6 +384,7 @@ impl Game {
                 // Fica quem é dos melhores do plantel; os veteranos só se forem titulares e os
                 // juniores só se já forem do grupo principal
                 let keep = match age {
+                    _ if club == self.club_id && expires.is_some() => false,
                     ..=20 => rank < YOUTH_RANK,
                     21..=33 => rank < KEEP_BEST,
                     _ => rank < VETERAN_RANK && age < 36,
@@ -405,7 +406,7 @@ impl Game {
                 }
             }
             if club == self.club_id && !(renewed.is_empty() && left.is_empty()) {
-                let mut body = String::from("O seu adjunto tratou dos contratos que acabavam esta época.");
+                let mut body = String::from("Acabaram os contratos desta época.");
                 if !renewed.is_empty() {
                     body += &format!("\n\nRenovaram: {}.", join_names(&renewed));
                 }
@@ -539,7 +540,7 @@ impl Game {
 
     /// Tira da escolha do treinador quem já não é do clube (saiu, reformou-se); as funções
     /// vazias o adjunto preenche no dia do jogo.
-    fn clean_selection(&mut self) -> Result<()> {
+    pub(super) fn clean_selection(&mut self) -> Result<()> {
         let Some(sel) = &mut self.selection else { return Ok(()) };
         let squad: Vec<i32> = self
             .world

@@ -73,6 +73,31 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "list_fixtures" => out(serde_json::to_value(session.list_fixtures(id()?).map_err(e)?)),
         "competition_stages" => out(serde_json::to_value(session.competition_stages(id()?).map_err(e)?)),
         "club_finances" => out(serde_json::to_value(session.club_finances(id()?).map_err(e)?)),
+        "transfer_view" => out(serde_json::to_value(session.transfer_view(id()?).map_err(e)?)),
+        "make_offer" => {
+            let fee = args["fee"].as_i64().ok_or("falta fee")?;
+            out(serde_json::to_value(session.make_offer(id()?, fee).map_err(e)?))
+        }
+        "ask_loan" => out(serde_json::to_value(session.ask_loan(id()?).map_err(e)?)),
+        "contract_terms" => {
+            let role = args["role"].as_str().map(str::to_string);
+            out(serde_json::to_value(session.contract_terms(id()?, role).map_err(e)?))
+        }
+        "negotiate" => {
+            let role = args["role"].as_str().ok_or("falta role")?.to_string();
+            let (wage, bonus) = (args["wage"].as_i64().ok_or("falta wage")?, args["bonus"].as_i64().unwrap_or(0));
+            let years = args["years"].as_i64().ok_or("falta years")? as i32;
+            out(serde_json::to_value(session.negotiate(id()?, role, wage, bonus, years).map_err(e)?))
+        }
+        "set_listing" => {
+            let (transfer, loan) = (args["transfer"].as_bool().unwrap_or(false), args["loan"].as_bool().unwrap_or(false));
+            out(serde_json::to_value(session.set_listing(id()?, transfer, loan, args["asking"].as_i64()).map_err(e)?))
+        }
+        "offer_view" => out(serde_json::to_value(session.offer_view(id()?).map_err(e)?)),
+        "answer_offer" => {
+            let key = args["key"].as_str().ok_or("falta key")?.to_string();
+            out(serde_json::to_value(session.answer_offer(id()?, key, args["fee"].as_i64()).map_err(e)?))
+        }
         "club_transfers" => out(serde_json::to_value(session.club_transfers(id()?).map_err(e)?)),
         "club_fixtures" => out(serde_json::to_value(session.club_fixtures(id()?).map_err(e)?)),
         "live_match" => out(serde_json::to_value(session.live_match().map_err(e)?)),

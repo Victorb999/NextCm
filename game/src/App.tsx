@@ -17,6 +17,7 @@ import { useSettings } from './settings'
 import ClubHistoryPage from './pages/ClubHistoryPage'
 import ClubPage from './pages/ClubPage'
 import CompetitionPage from './pages/CompetitionPage'
+import ContractPage from './pages/ContractPage'
 import CompetitionsPage from './pages/CompetitionsPage'
 import LoadGamePage from './pages/LoadGamePage'
 import NationPage from './pages/NationPage'
@@ -262,6 +263,7 @@ function Screens() {
       </div>
       {current.kind === 'news' && <NewsPage />}
       {current.kind === 'person' && <PersonPage key={current.id} id={current.id} />}
+      {current.kind === 'contract' && <ContractPage key={current.id} id={current.id} />}
       {current.kind === 'club' && <ClubPage key={current.id} id={current.id} />}
       {current.kind === 'tactics' && <TacticsPage key={current.id} id={current.id} />}
       {current.kind === 'clubHistory' && <ClubHistoryPage key={current.id} id={current.id} />}

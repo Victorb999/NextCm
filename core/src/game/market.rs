@@ -23,7 +23,7 @@ use crate::{Result, date};
 /// Papel de um jogador: 0 GR, 1 defesa, 2 meio, 3 ataque.
 const ROLES: usize = 4;
 /// Mínimo por papel num plantel (abaixo disto o clube procura e não vende).
-const MIN_ROLE: [usize; ROLES] = [2, 6, 6, 3];
+pub(super) const MIN_ROLE: [usize; ROLES] = [2, 6, 6, 3];
 /// Titulares por papel (para o titular mais fraco de cada posição).
 const STARTERS: [usize; ROLES] = [1, 4, 4, 2];
 /// Plantel máximo (jogadores de 21 anos ou mais) para comprar; acima de `RELEASE_ABOVE`
@@ -183,7 +183,7 @@ pub struct TransferItem {
     pub kind: String,
 }
 
-fn role_of(gk: i32, def: i32, mid: i32, att: i32) -> usize {
+pub(super) fn role_of(gk: i32, def: i32, mid: i32, att: i32) -> usize {
     if gk >= 15 {
         0
     } else if att > mid && att > def {
@@ -196,7 +196,7 @@ fn role_of(gk: i32, def: i32, mid: i32, att: i32) -> usize {
 }
 
 /// Janela de transferências de um tipo de época num dia ("MM-DD").
-fn window_open(kind: SeasonKind, md: &str) -> bool {
+pub(super) fn window_open(kind: SeasonKind, md: &str) -> bool {
     match kind {
         SeasonKind::European => ("07-01"..="08-31").contains(&md) || ("01-01"..="01-31").contains(&md),
         SeasonKind::Calendar => ("01-01"..="03-15").contains(&md) || ("07-01"..="08-15").contains(&md),
@@ -212,7 +212,7 @@ fn window_closing(kind: SeasonKind, md: &str) -> bool {
 }
 
 /// Fim de um empréstimo: o fim da época do clube que recebe.
-fn loan_until(kind: SeasonKind, today: &str) -> String {
+pub(super) fn loan_until(kind: SeasonKind, today: &str) -> String {
     let year: i32 = today[0..4].parse().unwrap_or(0);
     match kind {
         SeasonKind::Calendar => format!("{year}-12-31"),
@@ -223,6 +223,24 @@ fn loan_until(kind: SeasonKind, today: &str) -> String {
                 format!("{year}-06-30")
             }
         }
+    }
+}
+
+/// Fim de um contrato de `years` épocas assinado hoje: o fim de uma época do clube.
+pub(super) fn contract_until(kind: SeasonKind, today: &str, years: i32) -> String {
+    let year: i32 = today[0..4].parse().unwrap_or(0);
+    match kind {
+        SeasonKind::Calendar => format!("{}-12-31", year + years - 1),
+        SeasonKind::European => format!("{}-06-30", year + years - if &today[5..] >= "07-01" { 0 } else { 1 }),
+    }
+}
+
+/// Anos de contrato que um clube da IA oferece pela idade.
+pub(super) fn contract_years(age: i32, rng: &mut ChaCha8Rng) -> i32 {
+    match age {
+        ..=24 => 4 + (rng.next_u32() % 2) as i32,
+        25..=28 => 3 + (rng.next_u32() % 2) as i32,
+        _ => 1 + (rng.next_u32() % 2) as i32,
     }
 }
 
@@ -241,7 +259,7 @@ struct Buyer {
 
 impl Game {
     /// Tipo de época (e de janela) de um clube: o da liga dele.
-    fn club_kind(&self, division: Option<i32>) -> SeasonKind {
+    pub(super) fn club_kind(&self, division: Option<i32>) -> SeasonKind {
         division.map_or(SeasonKind::Calendar, regulation::season_kind)
     }
 
@@ -322,6 +340,7 @@ impl Game {
         let any_open = [SeasonKind::European, SeasonKind::Calendar].iter().any(|&k| window_open(k, &md));
         if !any_open || !(trading || closing) {
             if moved {
+                self.clean_selection()?;
                 self.refresh_live()?;
             }
             return Ok(());
@@ -370,6 +389,7 @@ impl Game {
             }
         }
         if moved {
+            self.clean_selection()?;
             self.refresh_live()?;
             self.unsaved = true;
         }
@@ -502,15 +522,15 @@ impl Game {
         candidates.truncate(5);
         let (pick, fee, wage) = candidates[(rng.next_u64() % candidates.len() as u64) as usize];
         // Contrato: 2 a 5 anos, menos para os mais velhos
-        let years = match pick.age {
-            ..=24 => 4 + (rng.next_u32() % 2) as i32,
-            25..=28 => 3 + (rng.next_u32() % 2) as i32,
-            _ => 1 + (rng.next_u32() % 2) as i32,
-        };
+        let years = contract_years(pick.age, rng);
         let from = pick.club;
         // Quem sai de um clube custa pelo menos €10K (mesmo com o contrato no fim)
         let fee = if from.is_some() { finance::round_money(fee as f64).max(10_000) } else { 0 };
         self.execute_move(pick.id, from, Some(club), fee, wage, years, if from.is_some() { "transfer" } else { "free" }, b.kind)?;
+        // Um livre recebe um prémio de assinatura (8 semanas de salário)
+        if from.is_none() {
+            self.book(club, "bonuses", wage * 8)?;
+        }
         for c in [from, Some(club)].into_iter().flatten() {
             *done.entry(c).or_default() += 1;
         }
@@ -623,16 +643,12 @@ impl Game {
         kind: &str,
         season_kind: SeasonKind,
     ) -> Result<()> {
-        let year: i32 = self.date[0..4].parse().unwrap_or(0);
-        // Os contratos acabam no fim de uma época do clube que contrata
-        let until = match season_kind {
-            SeasonKind::Calendar => format!("{}-12-31", year + years - 1),
-            SeasonKind::European => format!("{}-06-30", year + years - if &self.date[5..] >= "07-01" { 0 } else { 1 }),
-        };
+        let until = contract_until(season_kind, &self.date, years);
         self.world.conn.execute(
             "UPDATE people SET club_id = ?, club_job = ?, club_joined = ?, contract_expires = ?, wage = ? WHERE id = ?",
             params![to, super::regen::PLAYER_JOB, self.date, until, wage, id],
         )?;
+        self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [id])?;
         if fee > 0 {
             if let Some(t) = to {
                 self.book(t, "purchases", fee)?;
@@ -641,14 +657,10 @@ impl Game {
                 self.book(f, "sales", fee)?;
             }
         }
-        // Um livre recebe um prémio de assinatura (8 semanas de salário)
-        if let (None, Some(t)) = (from, to) {
-            self.book(t, "bonuses", wage * 8)?;
-        }
         self.log_transfer(id, from, to, fee, kind)
     }
 
-    fn log_transfer(&self, id: i32, from: Option<i32>, to: Option<i32>, fee: i64, kind: &str) -> Result<()> {
+    pub(super) fn log_transfer(&self, id: i32, from: Option<i32>, to: Option<i32>, fee: i64, kind: &str) -> Result<()> {
         self.world.conn.execute(
             "INSERT INTO transfers (date, person_id, from_club, to_club, fee, kind) VALUES (?, ?, ?, ?, ?, ?)",
             params![self.date, id, from, to, fee, kind],
@@ -746,13 +758,21 @@ impl Game {
     }
 }
 
-/// "€12,5M", "€850K"
-fn money_text(v: i64) -> String {
-    if v >= 1_000_000 { format!("€{:.1}M", v as f64 / 1e6).replace('.', ",") } else { format!("€{}K", v / 1000) }
+/// "€12,5M", "€850K", "€1.900" (os salários pequenos por inteiro)
+pub(super) fn money_text(v: i64) -> String {
+    if v >= 1_000_000 {
+        format!("€{:.1}M", v as f64 / 1e6).replace('.', ",")
+    } else if v >= 10_000 {
+        format!("€{}K", v / 1000)
+    } else if v >= 1000 {
+        format!("€{}.{:03}", v / 1000, v % 1000)
+    } else {
+        format!("€{v}")
+    }
 }
 
 /// Ids das divisões geridas para um `IN (...)`.
-fn managed_ids() -> String {
+pub(super) fn managed_ids() -> String {
     let ids: Vec<String> = regulation::all().iter().filter(|r| r.managed).map(|r| r.competition.to_string()).collect();
     ids.join(", ")
 }
@@ -771,6 +791,7 @@ mod tests {
         assert_eq!(loan_until(SeasonKind::European, "2026-01-10"), "2026-06-30");
         assert_eq!(loan_until(SeasonKind::Calendar, "2026-02-10"), "2026-12-31");
         assert_eq!(money_text(12_500_000), "€12,5M");
+        assert_eq!((money_text(850_000), money_text(1_900), money_text(500)), ("€850K".into(), "€1.900".into(), "€500".into()));
     }
 
     fn summer_game(dir: &std::path::Path, until: &str) -> Option<Game> {

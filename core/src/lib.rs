@@ -26,8 +26,8 @@ pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, Con
 pub use engine::{TeamStrength, expected_goals};
 pub use finance::{ClubFinances, FinanceLine, SeasonBooks};
 pub use game::{
-    DivisionStats, Game, GameInfo, GroupTable, KoRoundView, MatchPreview, MatchRecord, NewGame, NewsItem, SaveSummary, StageView, TieView,
-    TransferItem, delete_save, list_saves,
+    ContractReply, ContractTerms, DivisionStats, Game, GameInfo, GroupTable, KoRoundView, MatchPreview, MatchRecord, NewGame, NewsItem,
+    OfferAction, OfferView, RoleOption, SaveSummary, StageView, TieView, TransferItem, TransferView, delete_save, list_saves,
 };
 pub use league::{
     CHAMPIONS_LEAGUE, COPA_DO_BRASIL, EUROPA_LEAGUE, Fixture, LIBERTADORES, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, SERIE_D,

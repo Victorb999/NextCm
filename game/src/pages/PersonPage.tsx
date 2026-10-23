@@ -3,7 +3,9 @@ import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { PersonProfile } from '../bindings/PersonProfile'
 import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
+import TransferTab from '../components/TransferTab'
 import { cmDate, money, wage } from '../format'
+import { useGame } from '../game'
 import { useNav } from '../nav'
 
 // Atributos na ordem e com os nomes do perfil do CM 01/02 em português.
@@ -72,7 +74,7 @@ const TABS = [
   { key: 'profile', label: 'Perfil' },
   { key: 'injuries', label: 'Lesões & Castigos', disabled: true },
   { key: 'contract', label: 'Contrato' },
-  { key: 'transfer', label: 'Transferência', disabled: true },
+  { key: 'transfer', label: 'Transferência' },
   { key: 'history', label: 'Historial' },
 ]
 
@@ -278,10 +280,12 @@ function History({ p }: { p: PersonProfile }) {
 
 export default function PersonPage({ id }: { id: number }) {
   const nav = useNav()
+  const game = useGame()
   const [person, setPerson] = useState<PersonProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('profile')
 
+  const reload = () => api.getPerson(id).then(setPerson, (e) => setError(String(e)))
   useEffect(() => {
     api.getPerson(id).then(setPerson, (e) => setError(String(e)))
   }, [id])
@@ -314,7 +318,13 @@ export default function PersonPage({ id }: { id: number }) {
     <div className="flex h-full flex-col">
       <TitleBand title={title} fg={colours.fg} bg={colours.bg} />
       <Tabs
-        tabs={TABS.map((t) => (t.key === 'injuries' ? { ...t, disabled: !person?.status } : t))}
+        tabs={TABS.map((t) =>
+          t.key === 'injuries'
+            ? { ...t, disabled: !person?.status }
+            : t.key === 'transfer'
+              ? { ...t, disabled: game.mode !== 'game' || !person?.player }
+              : t,
+        )}
         active={tab}
         onChange={setTab}
       />
@@ -324,6 +334,7 @@ export default function PersonPage({ id }: { id: number }) {
         {person && tab === 'contract' && <Contract p={person} />}
         {person && tab === 'injuries' && <Injuries p={person} />}
         {person && tab === 'history' && <History p={person} />}
+        {person && tab === 'transfer' && <TransferTab personId={id} name={person.name} onChanged={() => void reload()} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
     </div>

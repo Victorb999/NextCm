@@ -4,8 +4,9 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    ClubFinances, ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem,
-    PersonProfile, Result, SaveSummary, Selection, StageView, StandingRow, TransferItem, World, list_saves,
+    ClubFinances, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game, GameInfo, Instructions, LiveView,
+    MatchPreview, NewGame, NewsItem, OfferView, PersonProfile, Result, SaveSummary, Selection, StageView, StandingRow, TransferItem,
+    TransferView, World, list_saves,
 };
 
 pub struct Session {
@@ -203,6 +204,46 @@ impl Session {
     /// Finanças de um clube no jogo em curso.
     pub fn club_finances(&self, id: i32) -> Result<ClubFinances> {
         self.game()?.club_finances(id)
+    }
+
+    /// Aba Transferência do perfil de um jogador.
+    pub fn transfer_view(&self, id: i32) -> Result<TransferView> {
+        self.game()?.transfer_view(id)
+    }
+
+    /// Proposta de transferência por um jogador de outro clube (ou por um livre).
+    pub fn make_offer(&mut self, id: i32, fee: i64) -> Result<TransferView> {
+        self.game_mut()?.make_offer(id, fee)
+    }
+
+    /// Pedido de empréstimo de um jogador de outro clube.
+    pub fn ask_loan(&mut self, id: i32) -> Result<TransferView> {
+        self.game_mut()?.ask_loan(id)
+    }
+
+    /// Funções no clube e o que o jogador pede pela função escolhida.
+    pub fn contract_terms(&self, id: i32, role: Option<String>) -> Result<ContractTerms> {
+        self.game()?.contract_terms(id, role.as_deref())
+    }
+
+    /// Proposta de contrato (renovação ou contratação).
+    pub fn negotiate(&mut self, id: i32, role: String, wage: i64, bonus: i64, years: i32) -> Result<ContractReply> {
+        self.game_mut()?.negotiate(id, &role, wage, bonus, years)
+    }
+
+    /// Listas de transferências e de empréstimos do plantel.
+    pub fn set_listing(&mut self, id: i32, transfer: bool, loan: bool, asking: Option<i64>) -> Result<TransferView> {
+        self.game_mut()?.set_listing(id, transfer, loan, asking)
+    }
+
+    /// Uma proposta com o texto e os botões.
+    pub fn offer_view(&self, id: i32) -> Result<OfferView> {
+        self.game()?.offer_view(id)
+    }
+
+    /// Resposta do treinador numa proposta.
+    pub fn answer_offer(&mut self, id: i32, key: String, fee: Option<i64>) -> Result<OfferView> {
+        self.game_mut()?.answer_offer(id, &key, fee)
     }
 
     /// Entradas e saídas de um clube nos últimos 12 meses.

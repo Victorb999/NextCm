@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import type { NewsItem } from '../bindings/NewsItem'
+import type { OfferView } from '../bindings/OfferView'
 import { BottomBar, Tabs, TitleBand } from '../components/Screen'
+import { OfferButtons } from '../components/TransferTab'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -44,6 +46,14 @@ export default function NewsPage() {
     if (current && !current.read) api.readNews(current.id).then(game.update, () => {})
   }, [current, game.update])
 
+  // A proposta da mensagem (botões para responder) e o diálogo do contrato
+  const [loaded, setOffer] = useState<OfferView | null>(null)
+  const offerId = current?.offerId ?? null
+  const offer = loaded && loaded.id === offerId ? loaded : null
+  useEffect(() => {
+    if (offerId !== null) api.offerView(offerId).then(setOffer, () => setOffer(null))
+  }, [offerId, game.info?.date])
+
   const readNext = () => {
     const next = shown.find((n) => !n.read && n.id !== current?.id)
     if (next) setSelected(next.id)
@@ -77,6 +87,15 @@ export default function NewsPage() {
             <>
               <div className="pb-3 font-title text-[22px] font-bold text-cm-yellow">{current.title}</div>
               <div className="whitespace-pre-line font-title text-[19px] leading-snug text-white">{current.body}</div>
+              {offer && (
+                <div className="mt-4 border-t border-cm-line pt-3">
+                  <OfferButtons
+                    offer={offer}
+                    onChange={setOffer}
+                    onNegotiate={() => nav.go({ kind: 'contract', id: offer.personId })}
+                  />
+                </div>
+              )}
             </>
           )}
         </div>

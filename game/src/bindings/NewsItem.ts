@@ -4,4 +4,8 @@ export type NewsItem = { id: number, date: string,
 /**
  * "message" (mensagens), "competition", "injury"
  */
-kind: string, title: string, body: string, read: boolean, };
+kind: string, title: string, body: string, read: boolean, 
+/**
+ * Proposta ligada à mensagem (botões para responder), marco 3.8.
+ */
+offerId: number | null, };

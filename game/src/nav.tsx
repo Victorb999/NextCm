@@ -7,6 +7,7 @@ export type Screen =
   | { kind: 'search' }
   | { kind: 'news' }
   | { kind: 'person'; id: number }
+  | { kind: 'contract'; id: number }
   | { kind: 'club'; id: number }
   | { kind: 'tactics'; id: number }
   | { kind: 'clubHistory'; id: number }

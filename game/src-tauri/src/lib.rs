@@ -2,9 +2,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::{
-    ClubFinances, ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, Instructions,
-    LiveView, MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery,
-    SearchResult, Selection, Session, StageView, StandingRow, TransferItem, World,
+    ClubFinances, ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, ContractReply, ContractTerms, Fixture,
+    GameInfo, Instructions, LiveView, MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, OfferView,
+    PersonProfile, SaveSummary, SearchQuery, SearchResult, Selection, Session, StageView, StandingRow, TransferItem, TransferView, World,
 };
 use tauri::{Manager, State};
 
@@ -76,6 +76,14 @@ session_command!(list_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(competition_stages(id: i32) -> Vec<StageView>);
 session_command!(club_finances(id: i32) -> ClubFinances);
 session_command!(club_transfers(id: i32) -> Vec<TransferItem>);
+session_command!(transfer_view(id: i32) -> TransferView);
+session_command!(make_offer(id: i32, fee: i64) -> TransferView);
+session_command!(ask_loan(id: i32) -> TransferView);
+session_command!(contract_terms(id: i32, role: Option<String>) -> ContractTerms);
+session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: i32) -> ContractReply);
+session_command!(set_listing(id: i32, transfer: bool, loan: bool, asking: Option<i64>) -> TransferView);
+session_command!(offer_view(id: i32) -> OfferView);
+session_command!(answer_offer(id: i32, key: String, fee: Option<i64>) -> OfferView);
 session_command!(club_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(live_match() -> LiveView);
 session_command!(live_step(minute: i32) -> LiveView);
@@ -179,6 +187,14 @@ pub fn run() {
             competition_stages,
             club_finances,
             club_transfers,
+            transfer_view,
+            make_offer,
+            ask_loan,
+            contract_terms,
+            negotiate,
+            set_listing,
+            offer_view,
+            answer_offer,
             club_fixtures,
             preview_tactics,
             set_tactics,

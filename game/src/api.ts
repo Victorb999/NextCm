@@ -6,6 +6,8 @@ import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import type { CompetitionProfile } from './bindings/CompetitionProfile'
 import type { Fixture } from './bindings/Fixture'
 import type { GameInfo } from './bindings/GameInfo'
+import type { ContractReply } from './bindings/ContractReply'
+import type { ContractTerms } from './bindings/ContractTerms'
 import type { Instructions } from './bindings/Instructions'
 import type { LiveView } from './bindings/LiveView'
 import type { MatchPreview } from './bindings/MatchPreview'
@@ -14,6 +16,7 @@ import type { NationOption } from './bindings/NationOption'
 import type { NationProfile } from './bindings/NationProfile'
 import type { NewGame } from './bindings/NewGame'
 import type { NewsItem } from './bindings/NewsItem'
+import type { OfferView } from './bindings/OfferView'
 import type { PersonProfile } from './bindings/PersonProfile'
 import type { SaveSummary } from './bindings/SaveSummary'
 import type { SearchQuery } from './bindings/SearchQuery'
@@ -22,6 +25,7 @@ import type { Selection } from './bindings/Selection'
 import type { StageView } from './bindings/StageView'
 import type { StandingRow } from './bindings/StandingRow'
 import type { TransferItem } from './bindings/TransferItem'
+import type { TransferView } from './bindings/TransferView'
 
 export const inTauri = isTauri()
 
@@ -79,6 +83,20 @@ export const api = {
   competitionStages: (id: number) => call<StageView[]>('competition_stages', { id }),
   /** Finanças de um clube no jogo em curso (saldo, folha, contas da época). */
   clubFinances: (id: number) => call<ClubFinances>('club_finances', { id }),
+  /** Aba Transferência do perfil de um jogador (jogo em curso). */
+  transferView: (id: number) => call<TransferView>('transfer_view', { id }),
+  makeOffer: (id: number, fee: number) => call<TransferView>('make_offer', { id, fee }),
+  askLoan: (id: number) => call<TransferView>('ask_loan', { id }),
+  /** Funções no clube e o que o jogador pede pela função escolhida (sem ela, pela que espera). */
+  contractTerms: (id: number, role: string | null) => call<ContractTerms>('contract_terms', { id, role }),
+  /** Proposta de contrato: renovação ou contratação depois de o clube aceitar. */
+  negotiate: (id: number, role: string, wage: number, bonus: number, years: number) =>
+    call<ContractReply>('negotiate', { id, role, wage, bonus, years }),
+  setListing: (id: number, transfer: boolean, loan: boolean, asking: number | null) =>
+    call<TransferView>('set_listing', { id, transfer, loan, asking }),
+  offerView: (id: number) => call<OfferView>('offer_view', { id }),
+  /** Responder a uma proposta: accept, reject, counter (com fee), pay, withdraw. */
+  answerOffer: (id: number, key: string, fee: number | null) => call<OfferView>('answer_offer', { id, key, fee }),
   /** Entradas e saídas de um clube nos últimos 12 meses. */
   clubTransfers: (id: number) => call<TransferItem[]>('club_transfers', { id }),
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),
