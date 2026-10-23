@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     ClubFinances, ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem,
-    PersonProfile, Result, SaveSummary, Selection, StageView, StandingRow, World, list_saves,
+    PersonProfile, Result, SaveSummary, Selection, StageView, StandingRow, TransferItem, World, list_saves,
 };
 
 pub struct Session {
@@ -203,6 +203,11 @@ impl Session {
     /// Finanças de um clube no jogo em curso.
     pub fn club_finances(&self, id: i32) -> Result<ClubFinances> {
         self.game()?.club_finances(id)
+    }
+
+    /// Entradas e saídas de um clube nos últimos 12 meses.
+    pub fn club_transfers(&self, id: i32) -> Result<Vec<TransferItem>> {
+        Ok(self.game.as_ref().map(|g| g.club_transfers(id)).transpose()?.unwrap_or_default())
     }
 
     /// Calendário e resultados de uma competição viva.

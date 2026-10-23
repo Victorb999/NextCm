@@ -9,18 +9,19 @@ import type { GameInfo } from './bindings/GameInfo'
 import type { Instructions } from './bindings/Instructions'
 import type { LiveView } from './bindings/LiveView'
 import type { MatchPreview } from './bindings/MatchPreview'
+import type { NationListItem } from './bindings/NationListItem'
+import type { NationOption } from './bindings/NationOption'
+import type { NationProfile } from './bindings/NationProfile'
 import type { NewGame } from './bindings/NewGame'
 import type { NewsItem } from './bindings/NewsItem'
-import type { SaveSummary } from './bindings/SaveSummary'
-import type { Selection } from './bindings/Selection'
-import type { NationListItem } from './bindings/NationListItem'
-import type { NationProfile } from './bindings/NationProfile'
-import type { NationOption } from './bindings/NationOption'
 import type { PersonProfile } from './bindings/PersonProfile'
+import type { SaveSummary } from './bindings/SaveSummary'
 import type { SearchQuery } from './bindings/SearchQuery'
 import type { SearchResult } from './bindings/SearchResult'
+import type { Selection } from './bindings/Selection'
 import type { StageView } from './bindings/StageView'
 import type { StandingRow } from './bindings/StandingRow'
+import type { TransferItem } from './bindings/TransferItem'
 
 export const inTauri = isTauri()
 
@@ -78,6 +79,8 @@ export const api = {
   competitionStages: (id: number) => call<StageView[]>('competition_stages', { id }),
   /** Finanças de um clube no jogo em curso (saldo, folha, contas da época). */
   clubFinances: (id: number) => call<ClubFinances>('club_finances', { id }),
+  /** Entradas e saídas de um clube nos últimos 12 meses. */
+  clubTransfers: (id: number) => call<TransferItem[]>('club_transfers', { id }),
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),
   listNews: () => call<NewsItem[]>('list_news'),
   readNews: (id: number) => call<GameInfo>('read_news', { id }),

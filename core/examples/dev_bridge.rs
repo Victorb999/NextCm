@@ -73,6 +73,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "list_fixtures" => out(serde_json::to_value(session.list_fixtures(id()?).map_err(e)?)),
         "competition_stages" => out(serde_json::to_value(session.competition_stages(id()?).map_err(e)?)),
         "club_finances" => out(serde_json::to_value(session.club_finances(id()?).map_err(e)?)),
+        "club_transfers" => out(serde_json::to_value(session.club_transfers(id()?).map_err(e)?)),
         "club_fixtures" => out(serde_json::to_value(session.club_fixtures(id()?).map_err(e)?)),
         "live_match" => out(serde_json::to_value(session.live_match().map_err(e)?)),
         "live_step" => {

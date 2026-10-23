@@ -22,6 +22,8 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/competitions.rs` | Sorteios, calendários por fase, eliminatórias, passagem de fase, campeões, vistas da Classificação |
 | `core/src/game/season.rs` | Fim de época (20/12) e nova época (1/1), contratos, reformas, evolução do CA, juniores |
 | `core/src/game/regen.rs` | Jogadores criados pelo jogo (juniores e plantéis dos clubes pequenos) |
+| `core/src/finance.rs`, `core/src/game/finances.rs` | Valor de mercado, salário pedido, receitas e despesas de cada clube (livro de contas) |
+| `core/src/game/market.rs` | Mercado da IA nas janelas: compras, livres, empréstimos, dispensas, histórico `transfers` |
 | `core/src/tactics.rs` | Formações, escolha automática, `Selection` do treinador, `tactics_from_selection` |
 | `core/src/squad.rs` | Condição, moral, lesões e castigos entre jogos |
 | `core/src/session.rs` | O que o app tem aberto; usado igual pelo Tauri e pela ponte de dev |

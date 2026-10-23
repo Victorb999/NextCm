@@ -85,12 +85,14 @@ export default function NewsPage() {
         <Tabs
           tabs={[
             { key: 'press', label: 'Contratos e Imprensa', disabled: true },
-            { key: 'transfers', label: 'Transferências', disabled: true },
+            { key: 'transfer', label: 'Transferências' },
             { key: 'jobs', label: 'Empregos', disabled: true },
             { key: 'records', label: 'Registos', disabled: true },
           ]}
-          active=""
-          onChange={() => {}}
+          active={tab === 'transfer' ? 'transfer' : ''}
+          onChange={(k) => {
+            if (k === 'transfer') setTab('transfer')
+          }}
         />
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

@@ -19,6 +19,7 @@ use crate::engine;
 
 mod competitions;
 mod finances;
+mod market;
 mod regen;
 mod season;
 use crate::league::{self, Fixture, Match, StandingRow};
@@ -30,6 +31,7 @@ use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
 use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
 use crate::{Error, Result, World, date};
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
+pub use market::TransferItem;
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
 
@@ -40,7 +42,8 @@ pub(crate) use season::age_on;
 /// 6: jogos na época (`player_state.apps`) e reformados (`retired`), marco 3.5.
 /// 7: fases, grupos, eliminatórias e penáltis em `fixtures`; cartões por competição (3.6).
 /// 8: livro de contas dos clubes (`finances`), marco 3.8.
-pub const SAVE_VERSION: i32 = 8;
+/// 9: transferências (`transfers`) e empréstimos (`loans`), marco 3.8.
+pub const SAVE_VERSION: i32 = 9;
 
 /// Quantos dias "Continuar Jogo" avança no máximo quando não acontece nada.
 const MAX_IDLE_DAYS: i32 = 42;
@@ -114,6 +117,22 @@ CREATE TABLE finances (
 CREATE TABLE club_economy (
     club_id INTEGER PRIMARY KEY,
     base REAL NOT NULL
+);
+-- kind: transfer, free, loan, return, release
+CREATE TABLE transfers (
+    id INTEGER PRIMARY KEY,
+    date TEXT NOT NULL,
+    person_id INTEGER NOT NULL,
+    from_club INTEGER,
+    to_club INTEGER,
+    fee INTEGER NOT NULL,
+    kind TEXT NOT NULL
+);
+CREATE INDEX transfers_date ON transfers (date);
+CREATE TABLE loans (
+    person_id INTEGER PRIMARY KEY,
+    parent_id INTEGER NOT NULL,
+    until TEXT NOT NULL
 );
 CREATE TABLE retired (
     person_id INTEGER PRIMARY KEY,
@@ -475,6 +494,16 @@ impl Game {
             )?;
             version = 8;
         }
+        if version == 8 {
+            world.conn.execute_batch(
+                "CREATE TABLE transfers (id INTEGER PRIMARY KEY, date TEXT NOT NULL, person_id INTEGER NOT NULL, from_club INTEGER,
+                                         to_club INTEGER, fee INTEGER NOT NULL, kind TEXT NOT NULL);
+                 CREATE INDEX transfers_date ON transfers (date);
+                 CREATE TABLE loans (person_id INTEGER PRIMARY KEY, parent_id INTEGER NOT NULL, until TEXT NOT NULL);
+                 UPDATE game SET version = 9;",
+            )?;
+            version = 9;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -732,8 +761,9 @@ impl Game {
         }
         // Evolução do CA, juniores, fim de época e nova época
         self.calendar_events(&mut fresh, &mut next_id)?;
-        // Salários à segunda-feira, receitas mensais no dia 1
+        // Salários à segunda-feira, receitas mensais no dia 1; o mercado nas janelas
         self.daily_finances()?;
+        self.market_day(&mut fresh, &mut next_id)?;
 
         let today: Vec<usize> =
             (0..self.matches.len()).filter(|&i| self.matches[i].date == self.date && self.matches[i].result.is_none()).collect();
@@ -839,7 +869,8 @@ impl Game {
     pub fn advance_to_next_event(&mut self) -> Result<Vec<NewsItem>> {
         for _ in 0..MAX_IDLE_DAYS {
             let news = self.advance_day()?;
-            if !news.is_empty() || self.live.is_some() {
+            // As transferências do dia ficam nas notícias mas não param o Continuar Jogo
+            if news.iter().any(|n| n.kind != "transfer") || self.live.is_some() {
                 return Ok(news);
             }
             let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
@@ -2298,7 +2329,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

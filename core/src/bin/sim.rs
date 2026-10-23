@@ -72,6 +72,9 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         game.advance_day().expect("falhou ao avançar o dia");
         println!("\nÉpoca {year} ({:?}):", t.elapsed());
         println!("  golos por jogo: {}", goals_report.join(", "));
+        let (sold, free, loans, released, fees) =
+            game.market_totals(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("mercado");
+        println!("  mercado: {sold} transferências (€{:.0}M), {free} livres, {loans} empréstimos, {released} dispensas", fees as f64 / 1e6);
         println!("  Série A: {}", top.join(", "));
         // As notícias da época: campeões e o resumo do fim de época
         let fresh: Vec<_> = game.news()[..game.news().len() - before].iter().rev().collect();

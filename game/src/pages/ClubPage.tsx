@@ -6,6 +6,7 @@ import type { ClubTactics } from '../bindings/ClubTactics'
 import type { Fixture } from '../bindings/Fixture'
 import { ClubFixtureList, MatchInfo } from '../components/Fixtures'
 import FinancesPanel from '../components/FinancesPanel'
+import TransfersPanel from '../components/TransfersPanel'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import { money, shortListName } from '../format'
 import { useGame } from '../game'
@@ -14,7 +15,7 @@ import { BENCH, selectionOf, spotOf, swap, useDragSwap, type Spot } from '../sel
 
 const TABS = [
   { key: 'squad', label: 'Plantel' },
-  { key: 'transfers', label: 'Transferências', disabled: true },
+  { key: 'transfers', label: 'Transferências' },
   { key: 'next', label: 'Próximo Jogo' },
   { key: 'fixtures', label: 'Calendário' },
   { key: 'info', label: 'Finanças & Info' },
@@ -293,7 +294,9 @@ export default function ClubPage({ id }: { id: number }) {
     <div className="flex h-full flex-col">
       <TitleBand title={club?.club.name ?? ''} fg={colours.fg} bg={colours.bg} />
       <Tabs
-        tabs={TABS.map((t) => (t.key === 'next' || t.key === 'fixtures' ? { ...t, disabled: fixtures.length === 0 } : t))}
+        tabs={TABS.map((t) =>
+          t.key === 'next' || t.key === 'fixtures' ? { ...t, disabled: fixtures.length === 0 } : t.key === 'transfers' ? { ...t, disabled: game.mode !== 'game' } : t,
+        )}
         active={tab}
         onChange={setTab}
       />
@@ -383,6 +386,7 @@ export default function ClubPage({ id }: { id: number }) {
         {tab === 'last' && (
           <MatchInfo key="last" clubId={id} fixtures={fixtures} start={lastMatch ? fixtures.indexOf(lastMatch) : -1} empty="Ainda não jogou." />
         )}
+        {tab === 'transfers' && <TransfersPanel clubId={id} />}
         {tab === 'fixtures' && <ClubFixtureList clubId={id} fixtures={fixtures} />}
       </div>
 
