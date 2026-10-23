@@ -21,4 +21,8 @@ attributes: { [key in string]: number | null },
 /**
  * Valores do banco, sem conversão: técnicos/físicos (tabela players) + mentais (people).
  */
-rawAttributes: { [key in string]: number | null }, };
+rawAttributes: { [key in string]: number | null }, 
+/**
+ * Valor de mercado (€), calculado pelo jogo (marco 3.8).
+ */
+value: number | null, };

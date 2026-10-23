@@ -1,4 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
+import type { ClubFinances } from './bindings/ClubFinances'
 import type { ClubProfile } from './bindings/ClubProfile'
 import type { ClubTactics } from './bindings/ClubTactics'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
@@ -75,6 +76,8 @@ export const api = {
   listFixtures: (id: number) => call<Fixture[]>('list_fixtures', { id }),
   /** Fases de uma competição viva: classificações, grupos e eliminatórias. */
   competitionStages: (id: number) => call<StageView[]>('competition_stages', { id }),
+  /** Finanças de um clube no jogo em curso (saldo, folha, contas da época). */
+  clubFinances: (id: number) => call<ClubFinances>('club_finances', { id }),
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),
   listNews: () => call<NewsItem[]>('list_news'),
   readNews: (id: number) => call<GameInfo>('read_news', { id }),

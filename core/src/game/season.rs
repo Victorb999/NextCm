@@ -51,6 +51,9 @@ pub struct DivisionStats {
     pub avg_age: f64,
     pub min_squad: usize,
     pub max_squad: usize,
+    /// Saldo médio dos clubes (€) e quantos estão negativos.
+    pub avg_cash: f64,
+    pub in_debt: usize,
 }
 
 /// Idade numa data ("AAAA-MM-DD").
@@ -137,6 +140,14 @@ impl Game {
             age += age_on(birth.as_deref(), *birth_year, &today) as f64;
         }
         let n = rows.len().max(1) as f64;
+        let cash: Vec<i64> = self
+            .world
+            .conn
+            .prepare("SELECT COALESCE(cash, 0) FROM clubs WHERE division_id = ?")?
+            .query_map([division], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let avg_cash = cash.iter().sum::<i64>() as f64 / cash.len().max(1) as f64;
+        let in_debt = cash.iter().filter(|&&c| c < 0).count();
         let top: Vec<i32> = by_club
             .into_values()
             .flat_map(|mut v| {
@@ -153,6 +164,8 @@ impl Game {
             avg_age: age / n,
             min_squad: squads.values().copied().min().unwrap_or(0),
             max_squad: squads.values().copied().max().unwrap_or(0),
+            avg_cash,
+            in_debt,
         })
     }
 

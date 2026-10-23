@@ -4,8 +4,8 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, PersonProfile,
-    Result, SaveSummary, Selection, StageView, StandingRow, World, list_saves,
+    ClubFinances, ClubProfile, ClubTactics, Error, Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem,
+    PersonProfile, Result, SaveSummary, Selection, StageView, StandingRow, World, list_saves,
 };
 
 pub struct Session {
@@ -42,6 +42,10 @@ impl Session {
     pub fn get_person(&self, id: i32) -> Result<PersonProfile> {
         let mut p = self.db().get_person(id)?;
         p.status = self.game.as_ref().and_then(|g| g.player_status(id));
+        // O valor muda com a idade e o contrato: na data do jogo
+        if let (Some(g), Some(player)) = (&self.game, &mut p.player) {
+            player.value = g.world().market_value_of(id, g.date())?;
+        }
         Ok(p)
     }
 
@@ -194,6 +198,11 @@ impl Session {
     /// Fases de uma competição viva na época em curso (classificações, grupos, eliminatórias).
     pub fn competition_stages(&self, id: i32) -> Result<Vec<StageView>> {
         Ok(self.game.as_ref().map(|g| g.competition_stages(id)).unwrap_or_default())
+    }
+
+    /// Finanças de um clube no jogo em curso.
+    pub fn club_finances(&self, id: i32) -> Result<ClubFinances> {
+        self.game()?.club_finances(id)
     }
 
     /// Calendário e resultados de uma competição viva.

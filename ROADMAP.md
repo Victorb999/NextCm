@@ -156,7 +156,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **3.5** Fim de época | Subidas/descidas, envelhecimento e evolução do CA, contratos, regens; CLI `sim` com 10 épocas | 10 épocas seguidas sem UI, com números plausíveis |
 | ✅ **3.6** Mais competições | Época no ano civil; Séries C e D, Copa do Brasil, estaduais, Libertadores e Sul-Americana; regulamentos num arquivo de dados por competição. As ligas europeias passam para um marco seguinte | Calendário brasileiro completo numa época |
 | ✅ **3.7** Mundo | Ligas de Inglaterra, Espanha, Itália, Alemanha, França, Portugal, Holanda, Argentina e Arábia Saudita (1ª e 2ª divisão), Liga dos Campeões e Liga Europa; épocas de agosto a maio ao lado do ano civil | Uma época europeia inteira com campeões, subidas e descidas e a final da Liga dos Campeões |
-| **3.8** Mercado | Transferências e empréstimos com IA, finanças, propostas | Clubes compram e vendem entre si |
+| **3.8** Mercado | Transferências e empréstimos (IA e treinador) nas janelas reais, renovações negociadas, finanças completas, orçamentos e despedimento | Clubes compram e vendem entre si com números plausíveis; o treinador compra, vende, renova e vê as finanças |
 | **3.9** Polimento | Notícias completas, ofertas de emprego, férias | — |
 
 #### Marco 3.1 — Novo jogo e tempo (detalhe)
@@ -453,6 +453,71 @@ Números: `sim -- 7568 epoca 1 10` dá 2,59 golos por jogo e 49% de vitórias em
 O patch só define todos os atributos de ~30 mil dos 110 mil jogadores: os outros têm as notas de posição e o CA, mas Finalização, Passe, Velocidade... vazios (~80 mil), e os ocultos (Consistência, Jogos Importantes, Pressão, Determinação...) faltam em quase todos. Nos clubes vivos isto é um terço da Série A e quase toda a Série D; esses jogadores apareciam com "-" no perfil e o motor tratava-os como 10 em tudo. Como o CM ao começar um jogo, `Game::create` gera-os (`regen.rs`, `fill_missing_attributes`): cada jogador com falhas copia o que lhe falta de um jogador real completo (com Finalização, Consistência, Jogos Importantes, Pressão e Determinação definidos, ~12 600 no patch) do mesmo papel (GR, defesa, meio, ataque) e com CA na mesma faixa de 10, sorteado com a seed do jogo. Os atributos técnicos do banco são relativos ao CA, então a cópia continua coerente; os que o patch define ficam iguais. Os saves de antes são completados uma vez ao carregar. Os jogadores criados pelo jogo (juniores, plantéis completados) já copiam de um modelo completo.
 
 Criar um jogo passa a levar ~4 s. As médias não mudam: `sim -- 7568 epoca 1 10` dá 2,58 golos, 49% de vitórias em casa, 1,74 amarelos e 0,11 lesões por equipa e jogo.
+
+#### Marco 3.8 — Mercado (detalhe)
+
+Decisões (com o utilizador): o mercado é da **IA e do treinador**; transferências só nas **janelas reais**; **finanças completas** (com patrocínios, TV, dívidas, despedimento e falência); **contratos negociados e empréstimos**.
+
+**O que o banco já tem**: o saldo de cada clube (`clubs.cash`: Palmeiras €8M, Flamengo €14M, Arsenal €65M), o salário semanal de cada jogador (`people.wage`, em euros, até €100K por semana como no formato do CM 01/02: a folha do Palmeiras é €225K por semana, a do Arsenal €1,3M) e o fim do contrato. Não tem valores de transferência: o jogo calcula-os, como o CM.
+
+**Valor e salário de um jogador** (core, à parte da IA e das telas)
+- Valor de mercado a partir do CA (curva forte: CA 180 vale dezenas de milhões, CA 130 alguns milhões, CA 80 dezenas de milhares), da idade (prémio para jovens com PA acima do CA, desconto depois dos 30), da reputação do jogador e do nível da liga onde joga, e do contrato que falta (no último ano vale bem menos; livre no fim do contrato).
+- Salário pedido a partir do valor, da reputação e do clube que contrata (um clube maior paga mais). Calibrado contra os salários do patch.
+
+**Janelas**
+- Europa e Arábia Saudita: de 1 de julho a 31 de agosto e de 1 a 31 de janeiro. Brasil e Argentina: de 1 de janeiro a meados de março e de julho a meados de agosto. A janela de um clube é a da liga dele; um jogador vai para um clube de outra liga se a janela do clube que compra estiver aberta.
+- Jogadores livres (sem contrato) assinam a qualquer altura. Os pré-contratos (assinar a 6 meses do fim do contrato) ficam para depois.
+
+**IA de transferências** (entre clubes da IA e com o clube do treinador)
+- Cada clube vê as suas necessidades: posições com poucos jogadores ou com titulares fracos para o nível do clube, e o tamanho do plantel (22 a 30). Tem um orçamento de transferências e um teto salarial da direção.
+- Alvos: jogadores melhores que o titular mais fraco da posição, com valor e salário dentro do orçamento, e que aceitem mudar (reputação do clube que compra pelo menos perto da do clube atual, ambição).
+- Proposta → o clube que vende aceita, recusa ou faz contra-proposta conforme o valor, a importância do jogador no plantel e o saldo dele. Depois o jogador negocia salário e anos e pode recusar. Tudo em dias diferentes (a resposta chega no dia seguinte), sorteado com a seed.
+- Vendas: clubes com saldo negativo ou com jogadores a mais põem jogadores à venda.
+- Empréstimos: clubes grandes emprestam jovens (até 21 anos, fora dos 18 melhores) a clubes mais pequenos por uma época; voltam no fim dela.
+- Volume calibrado na CLI: ordem de grandeza da realidade (uns 5 a 10 jogadores entram em cada clube da Série A por ano, contando livres e empréstimos).
+
+**Treinador**
+- Lista de transferências e de empréstimos do plantel (definir um preço pedido).
+- Propostas por jogadores de outros clubes (a partir do perfil e da pesquisa): valor, e depois o contrato com o jogador (salário, anos). As respostas chegam como mensagens.
+- Ofertas recebidas pelos jogadores dele: aceitar, recusar ou pedir mais, a partir da mensagem.
+- Renovações: oferecer contrato (salário e anos) a um jogador do plantel; ele aceita, recusa ou pede mais. O adjunto deixa de decidir pelo treinador (continua nos outros clubes, com a regra do 3.5).
+- Pedir e receber empréstimos.
+
+**Finanças completas** (por clube; as dos clubes da IA são o mesmo modelo, sem tela)
+- Receitas: bilheteira de cada jogo em casa (assistência, que já se calcula, × preço do bilhete pelo país e pela reputação), direitos de TV por liga (mensais, mais para as grandes ligas), patrocínios e merchandising pela reputação (mensais), prémios por fase e posição nas competições, vendas de jogadores.
+- Despesas: salários dos jogadores e do staff (semanais), compras, prémios de assinatura, manutenção do estádio.
+- Saldo negativo dá juros. Muito negativo: a direção avisa, depois proíbe contratações e manda vender; nos clubes da IA, venda forçada de jogadores e, no limite, falência (descida administrativa).
+- Calibradas para que os clubes do patch fiquem perto do equilíbrio numa época normal (os grandes com mais receitas e mais folha).
+
+**Direção**
+- Orçamento de transferências e teto salarial no início de cada janela, pela situação financeira e pela expectativa da época (a da mensagem de boas-vindas).
+- Confiança da direção pelos resultados contra a expectativa e pelas finanças; avisos nas mensagens; com a confiança no fundo, o treinador é despedido. Até haver ofertas de emprego (3.9), o despedimento acaba o jogo com uma mensagem.
+
+**Telas**
+- Clube → Finanças & Info: saldo, receitas e despesas da época por categoria, folha salarial, orçamentos.
+- Clube → Transferências: entradas e saídas da época; lista de transferências.
+- Perfil do jogador: valor, salário, contrato; botões Fazer Proposta / Pedir Empréstimo / Oferecer Contrato (nos do plantel).
+- Diálogos verdes do CM para a proposta ao clube e a negociação com o jogador; respostas e ofertas nas Mensagens, com os botões de responder.
+- Notícias de transferências importantes do mundo (as maiores do dia).
+
+**Save**: `SAVE_VERSION` 8 com tabelas de transferências (histórico), propostas pendentes, empréstimos, lista de transferências e o livro de contas por clube.
+
+**Passos**
+1. Valor de mercado, salário pedido e finanças (receitas e despesas no dia a dia), tela Finanças.
+2. IA de transferências e empréstimos entre clubes nas janelas, jogadores livres; CLI com o mercado ao longo das épocas.
+3. Treinador: propostas, ofertas recebidas, negociação, renovações, empréstimos, lista de transferências.
+4. Direção: orçamentos, confiança, avisos, despedimento; falência dos clubes da IA.
+
+**Pronto quando:** na CLI, 3 épocas seguidas com os clubes a comprar, vender e emprestar entre si em números plausíveis, finanças estáveis (poucos clubes com saldo muito negativo) e o CA médio das ligas estável; no navegador, o treinador vende um jogador, compra outro, renova um contrato e vê as finanças a mudar.
+
+**Feito (passo 1):** `core/src/finance.rs` (valor de mercado, salário pedido, arredondamento como o CM, as partes das receitas e despesas) e `core/src/game/finances.rs` (livro de contas por clube e época, `SAVE_VERSION` 8 com as tabelas `finances` e `club_economy`).
+- **Valor de mercado**: `12 × (CA/10)^5,5`, × liga `0,15 + 0,85 × (reputação/20)^1,5`, × idade (jovens com potencial acima do CA valem mais; depois dos 28, −15% por ano), × reputação do jogador (80% a 120%), × contrato (último ano metade, sem contrato nada). Exemplos (na ponte de dev, 1.9.2025): Yamal €166M, Haaland €155,5M, Vitor Roque €27M e Raphael Veiga €16M (Palmeiras). Aparece no perfil do jogador (aba Contrato), na data do jogo.
+- **Salário pedido** (para os passos 2 e 3): ~2,3% do valor por ano (a mediana do patch), ajustado à riqueza do clube que paga, nunca menos de 10% acima do atual.
+- **Receitas de uma época normal** de cada clube: fixadas quando entra no jogo em 1,3 vezes a folha salarial anual de então (todos começam perto do equilíbrio). A primeira versão tirava-as da reputação, mas a curva do patch exagera nos grandes (a Premier League acumulava €30M por clube por época e 10 clubes ficavam negativos). Partes: TV 40% (da liga: cada clube recebe a média das bases da liga, então os promovidos ganham e os despromovidos perdem), patrocínios 20% e merchandising 10% (mensais), bilheteira ~20% (cada jogo em casa, pela assistência, que agora também depende da reputação), prémios (7% das receitas dos participantes numa liga, repartidos pela posição; 3% nas taças e 6% nas continentais, 40% ao campeão, 20% ao vice, o resto por todos).
+- **Despesas**: salários dos jogadores à segunda-feira, staff a 12% da folha, estádio 2% das receitas por mês, juros de 1% ao mês sobre o saldo negativo. Compras e prémios de assinatura entram no passo 2.
+- **Tela**: Clube → Finanças & Info no clube do treinador: saldo, folha salarial, receitas de uma época normal, receitas e despesas da época por categoria (e a anterior), resultado da época.
+
+Números (`sim -- 7568 carreira 1 3`, ainda sem mercado): saldo médio da Série A de €4,4M a €9,8M em 3 épocas, da Premier League de €34,5M a €43,5M; quase nenhum clube negativo. Os saldos crescem devagar porque os plantéis encolhem sem mercado; as compras do passo 2 vão gastar isso.
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)

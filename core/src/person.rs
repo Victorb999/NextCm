@@ -45,6 +45,9 @@ pub struct PlayerDetails {
     pub attributes: Attributes,
     /// Valores do banco, sem conversão: técnicos/físicos (tabela players) + mentais (people).
     pub raw_attributes: Attributes,
+    /// Valor de mercado (€), calculado pelo jogo (marco 3.8).
+    #[ts(type = "number | null")]
+    pub value: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -277,9 +280,13 @@ impl World {
                     morale: r.get("morale")?,
                     attributes: displayed_attributes(&attributes, current_ability, pos[0]),
                     raw_attributes: attributes,
+                    value: None,
                 })
             })
             .optional()?;
+        if let Some(p) = &mut person.player {
+            p.value = self.market_value_of(id, &format!("{}-07-01", self.start_year))?;
+        }
 
         person.staff = self
             .conn

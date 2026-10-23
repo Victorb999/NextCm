@@ -2,9 +2,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::{
-    ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, Instructions, LiveView,
-    MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery, SearchResult,
-    Selection, Session, StageView, StandingRow, World,
+    ClubFinances, ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, Fixture, GameInfo, Instructions,
+    LiveView, MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, PersonProfile, SaveSummary, SearchQuery,
+    SearchResult, Selection, Session, StageView, StandingRow, World,
 };
 use tauri::{Manager, State};
 
@@ -74,6 +74,7 @@ session_command!(continue_game() -> GameInfo);
 session_command!(league_table(id: i32) -> Vec<StandingRow>);
 session_command!(list_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(competition_stages(id: i32) -> Vec<StageView>);
+session_command!(club_finances(id: i32) -> ClubFinances);
 session_command!(club_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(live_match() -> LiveView);
 session_command!(live_step(minute: i32) -> LiveView);
@@ -175,6 +176,7 @@ pub fn run() {
             league_table,
             list_fixtures,
             competition_stages,
+            club_finances,
             club_fixtures,
             preview_tactics,
             set_tactics,

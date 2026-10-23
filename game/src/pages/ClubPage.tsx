@@ -5,6 +5,7 @@ import type { ClubProfile } from '../bindings/ClubProfile'
 import type { ClubTactics } from '../bindings/ClubTactics'
 import type { Fixture } from '../bindings/Fixture'
 import { ClubFixtureList, MatchInfo } from '../components/Fixtures'
+import FinancesPanel from '../components/FinancesPanel'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import { money, shortListName } from '../format'
 import { useGame } from '../game'
@@ -111,7 +112,7 @@ function financesLabel(cash: number | null) {
 }
 
 /** "Finanças & Info" → Informação Geral do CM: dados do clube e a lista do staff. */
-function Info({ c }: { c: ClubProfile }) {
+function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
   const nav = useNav()
   const row = (label: string, value: ReactNode) => (
     <div key={label} className="flex min-h-[26px] items-baseline gap-4">
@@ -122,6 +123,7 @@ function Info({ c }: { c: ClubProfile }) {
   const competition = c.division?.name
   return (
     <div className="min-h-0 flex-1 overflow-auto px-4 pb-3">
+      {finances}
       <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Informação Geral</div>
       {row('País', c.nationId !== null && c.nation ? <Link onClick={() => nav.go({ kind: 'nation', id: c.nationId! })}>{c.nation}</Link> : '-')}
       {row('Estatuto', `${c.status ?? '-'}${competition ? ` (${competition})` : ''}`)}
@@ -374,7 +376,7 @@ export default function ClubPage({ id }: { id: number }) {
             </div>
           </>
         )}
-        {club && tab === 'info' && <Info c={club} />}
+        {club && tab === 'info' && <Info c={club} finances={mine ? <FinancesPanel clubId={id} /> : undefined} />}
         {tab === 'next' && (
           <MatchInfo key="next" clubId={id} fixtures={fixtures} start={nextMatch ? fixtures.indexOf(nextMatch) : fixtures.length} empty="Não há mais jogos marcados." />
         )}

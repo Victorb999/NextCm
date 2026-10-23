@@ -8,6 +8,7 @@ mod club;
 mod competition;
 pub mod date;
 mod engine;
+pub mod finance;
 mod game;
 mod league;
 mod live;
@@ -23,6 +24,7 @@ mod world;
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry};
 pub use engine::{TeamStrength, expected_goals};
+pub use finance::{ClubFinances, FinanceLine, SeasonBooks};
 pub use game::{
     DivisionStats, Game, GameInfo, GroupTable, KoRoundView, MatchPreview, MatchRecord, NewGame, NewsItem, SaveSummary, StageView, TieView,
     delete_save, list_saves,

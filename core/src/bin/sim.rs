@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::time::Instant;
 
-use nextcm_core::{Game, NewGame, SERIE_A, SERIE_B, SERIE_C, StandingRow, World, regulation};
+use nextcm_core::{Game, NewGame, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, StandingRow, World, regulation};
 
 /// `sim -- <clube> carreira <seed> <épocas>`: um só jogo por várias épocas seguidas (marco 3.5).
 fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
@@ -27,13 +27,21 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         club_id,
     };
     let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
-    let divisions = [(SERIE_A, "A"), (SERIE_B, "B"), (SERIE_C, "C")];
+    let divisions = [(SERIE_A, "Série A"), (SERIE_B, "Série B"), (SERIE_C, "Série C"), (PREMIER_LEAGUE, "Premier League")];
     let print_stats = |game: &Game| {
         for (div, name) in divisions {
             let s = game.division_stats(div).expect("estatísticas");
             println!(
-                "  Série {name}: {:>2} clubes, {:>4} jogadores, CA médio {:>5.1} (18 melhores {:>5.1}), idade {:>4.1}, plantéis {}–{}",
-                s.clubs, s.players, s.avg_ca, s.avg_ca_top, s.avg_age, s.min_squad, s.max_squad
+                "  {name}: {:>2} clubes, {:>4} jogadores, CA médio {:>5.1} (18 melhores {:>5.1}), idade {:>4.1}, plantéis {}–{}, saldo médio €{:.1}M ({} negativos)",
+                s.clubs,
+                s.players,
+                s.avg_ca,
+                s.avg_ca_top,
+                s.avg_age,
+                s.min_squad,
+                s.max_squad,
+                s.avg_cash / 1e6,
+                s.in_debt
             );
         }
     };
