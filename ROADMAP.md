@@ -156,8 +156,12 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **3.5** Fim de época | Subidas/descidas, envelhecimento e evolução do CA, contratos, regens; CLI `sim` com 10 épocas | 10 épocas seguidas sem UI, com números plausíveis |
 | ✅ **3.6** Mais competições | Época no ano civil; Séries C e D, Copa do Brasil, estaduais, Libertadores e Sul-Americana; regulamentos num arquivo de dados por competição. As ligas europeias passam para um marco seguinte | Calendário brasileiro completo numa época |
 | ✅ **3.7** Mundo | Ligas de Inglaterra, Espanha, Itália, Alemanha, França, Portugal, Holanda, Argentina e Arábia Saudita (1ª e 2ª divisão), Liga dos Campeões e Liga Europa; épocas de agosto a maio ao lado do ano civil | Uma época europeia inteira com campeões, subidas e descidas e a final da Liga dos Campeões |
-| **3.8** Mercado | Transferências e empréstimos (IA e treinador) nas janelas reais, renovações negociadas, finanças completas, orçamentos e despedimento | Clubes compram e vendem entre si com números plausíveis; o treinador compra, vende, renova e vê as finanças |
-| **3.9** Polimento | Notícias completas, ofertas de emprego, férias | — |
+| ✅ **3.8** Mercado | Transferências e empréstimos (IA e treinador) nas janelas reais, renovações negociadas, finanças completas, orçamentos e despedimento | Clubes compram e vendem entre si com números plausíveis; o treinador compra, vende, renova e vê as finanças |
+| **3.9** Olheiros e conhecimento | Atributos escondidos como no CM (o clube só vê o que conhece), observar jogadores, designar olheiros (clube, próximo adversário, jovens, país, região), listas Olheiro #1–#7, orçamento limitado para quem a direção não conhece, relatórios do médico e do preparador físico | Um jogador europeu desconhecido aparece com "-", é observado, o relatório chega e a direção passa a autorizar a proposta inteira |
+| **3.10** Personalidade | Os atributos ocultos que ainda não fazem nada (Ambição, Lealdade, Adaptabilidade, Versatilidade, Desportivismo, Temperamento) passam a contar no mercado, no motor e na moral | As médias do motor e do mercado continuam na CLI e cada atributo tem um efeito testado |
+| **3.11** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
+| **3.12** Palestras | Discurso aos jogadores como no FM08: antes do jogo, ao intervalo, no fim e a quem entra; a reação de cada um pela personalidade e pela situação do jogo muda a moral e a motivação na partida | Uma palestra boa ou má muda a moral e o rendimento de forma visível, sem tirar o motor das médias na CLI |
+| **3.13** Polimento | Notícias completas, ofertas de emprego, férias, Auto Gravação, os ajustes pelos prints do 3.8 (menu Acção, proposta em tela inteira, Prémios e Cláusulas do contrato) | — |
 
 #### Marco 3.1 — Novo jogo e tempo (detalhe)
 
@@ -491,7 +495,7 @@ Decisões (com o utilizador): o mercado é da **IA e do treinador**; transferên
 
 **Direção**
 - Orçamento de transferências e teto salarial no início de cada janela, pela situação financeira e pela expectativa da época (a da mensagem de boas-vindas).
-- Confiança da direção pelos resultados contra a expectativa e pelas finanças; avisos nas mensagens; com a confiança no fundo, o treinador é despedido. Até haver ofertas de emprego (3.9), o despedimento acaba o jogo com uma mensagem.
+- Confiança da direção pelos resultados contra a expectativa e pelas finanças; avisos nas mensagens; com a confiança no fundo, o treinador é despedido. Até haver ofertas de emprego (3.13), o despedimento acaba o jogo com uma mensagem.
 
 **Telas**
 - Clube → Finanças & Info: saldo, receitas e despesas da época por categoria, folha salarial, orçamentos.
@@ -538,7 +542,7 @@ Números (`sim -- 7568 carreira 1 3`): por época ~170–400 transferências (~�
 
 **Feito (passo 4):** `core/src/game/board.rs`, `SAVE_VERSION` 11 com a tabela `board` (uma linha: objetivo, confiança, orçamentos, avisos, despedido).
 - **Expectativa**: a da mensagem de boas-vindas, agora com uma posição alvo na liga (lutar pelo título 3º, primeira metade, meio da tabela total−5, evitar a despromoção total−4). Renova-se em cada época nova da liga do treinador ("Objectivos da época").
-- **Confiança** (0–100, começa em 60): vitória +1, derrota −2; no dia 1 de cada mês a posição na liga contra a alvo (−6 a +4, a partir da 4ª jornada) e as finanças (saldo negativo −2, dívida acima de 10% das receitas −4 e orçamento a zero); no fim da época subir +20, título +20, objetivo cumprido +12, falhar por mais de 3 lugares −15, descer −35 ("Balanço da época"). Abaixo de 35 a direção avisa, abaixo de 15 dá um ultimato, a 0 despede: o jogo acaba (diálogo "Despedido"; Continuar Jogo deixa de avançar) até haver ofertas de emprego (3.9). Na CLI, o Palmeiras fica entre 73 e 100.
+- **Confiança** (0–100, começa em 60): vitória +1, derrota −2; no dia 1 de cada mês a posição na liga contra a alvo (−6 a +4, a partir da 4ª jornada) e as finanças (saldo negativo −2, dívida acima de 10% das receitas −4 e orçamento a zero); no fim da época subir +20, título +20, objetivo cumprido +12, falhar por mais de 3 lugares −15, descer −35 ("Balanço da época"). Abaixo de 35 a direção avisa, abaixo de 15 dá um ultimato, a 0 despede: o jogo acaba (diálogo "Despedido"; Continuar Jogo deixa de avançar) até haver ofertas de emprego (3.13). Na CLI, o Palmeiras fica entre 73 e 100.
 - **Orçamentos** (a 1/1 e a 1/7, com a mensagem "Orçamentos da Direcção"): transferências = metade de (saldo + 20% das receitas de uma época), nada com dívida grande; as compras (valor + prémio de assinatura) gastam-no e as vendas devolvem metade. Folha salarial até 90% das receitas (nunca abaixo da atual) e salário máximo por jogador (o maior do plantel +25%, ou 10% da folha permitida). Substituem o saldo nas propostas e nos contratos: "A sua direcção autoriza transferências até…" / "salários até…", como nos prints.
 - **Clubes da IA com dívidas**: abaixo de −25% das receitas, num dia de mercado vendem o jogador mais valioso (até 31 anos) a 80% do valor a um clube com orçamento; abaixo de −60% no fim da época vão à falência: descem no lugar do melhor colocado dos que desciam (ou, sem descida, só reestruturam) e as dívidas ficam a zero. Na CLI, 3 épocas sem nenhuma (os saldos ficam estáveis).
 - **Telas**: Finanças & Info com Confiança da Direcção, Objectivo, Orçamento de transferências e Limite salarial; o orçamento na aba Transferência, na proposta e no contrato.
@@ -547,6 +551,63 @@ Números (`sim -- 7568 carreira 1 3`): por época ~170–400 transferências (~�
 - `perfil-menu-accao.png`: as ações do jogador ficam num menu amarelo **Acção** no canto da faixa do título (Retirar/Adicionar à Lista Preferencial, Abordar Para Comprar, Propôr Empréstimo, Observar Jogador, Definir Alcunha, Criar Nota Treinador, Comparar Jogadores), em vez dos botões roxos da aba Transferência.
 - `proposta-de-transferencia.png`: a proposta é uma tela inteira, não um diálogo: faixa com as cores do clube do treinador, título amarelo "Proposta de transferência <clube> por <jogador>", o texto "<jogador>, <clube>, está avaliado em €X. A sua direcção autoriza transferências até €Y." (o orçamento do passo 4), linhas Valor Transferência (− valor ▾ + =), Prestações Mensais, Percentagem da Próxima Venda, Valor após 10 jogos no campeonato, Valor após 10 internacionalizações, Tornar proposta pública; botões Troca / Remover; Valor Total; Atrás / Oferecer em baixo.
 - `aba-transferencia.png`: a aba Transferência do perfil mostra Disponibilidade, Valor, segunda nacionalidade, Línguas, Propostas, **Interessados** (clubes) e **Futuro** (o que o jogador pensa do clube), com a tabela de jogos da época em baixo.
+
+#### Marco 3.9 — Olheiros e conhecimento (por detalhar)
+
+Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os números com o utilizador antes de programar.
+
+**Conhecimento: os atributos escondidos como no CM**
+- O clube do treinador só vê os atributos dos jogadores que conhece; os outros aparecem com "-" (`perfil-jogador-desconhecido.png`: um checo do Jablonec, visto da Juventus, tudo "-"; `perfil-atributos-desconhecidos.png`: um jogador do Corinthians com parte dos atributos e o resto "-"). Continuam visíveis o nome, a idade, a nacionalidade, a posição, a forma, a moral, a condição e os jogos da época.
+- Três níveis por jogador: **desconhecido** (tudo "-"), **parcial** (uma parte dos atributos) e **conhecido** (tudo). Quem se conhece por completo: o plantel próprio e os jogadores observados (durante algum tempo; depois o conhecimento envelhece). Parcial: pela reputação do jogador e pela proximidade (mesma liga, mesmo país do clube). Num clube europeu, os jogadores de ligas pequenas e de outros continentes começam desconhecidos.
+- As regras ficam no core: a vista do perfil e a pesquisa recebem os atributos já tapados (nada de esconder só no front).
+
+**Orçamento para quem a direção não conhece** (`proposta-sem-conhecimento.png`)
+- "A sua direcção só autorizará transferências até €X porque ela não sabe nada sobre este jogador." Sem conhecimento, a proposta fica limitada a uma parte do orçamento de transferências do passo 4 do 3.8 (no print, ~40%); com conhecimento parcial, uma parte maior; depois de observado, o orçamento inteiro.
+
+**Observar e designar olheiros**
+- Menu Acção do perfil → Observar Jogador: "Ter <jogador> a ser observado pelos seus olheiros?" Não / Sim (`observar-jogador.png`). O relatório chega em alguns dias (pela distância e pela qualidade do olheiro) e o jogador passa a conhecido.
+- Pesquisa Jogador & Staff → Pesquisar → Designar Olheiro → Clube / Próximo Adversário / Jogadores Jovens / País / Região (`designar-olheiro-menu.png`). Cada olheiro do staff fica com uma tarefa ("Olheiro P. Cristallini indicado para espiar próximo adversário") e vai enchendo a sua lista.
+- Abas Olheiro #1–#7 (`pesquisa-olheiro-resultados.png`): Rec (estrelas da recomendação, pela avaliação do olheiro, com erro sorteado pela seed: Avaliar Jogadores e Avaliar Potencial), Inf (Les / Des), Nome, Clube, Base, Posição, Valor; "N jogadores encontrados"; Carregar, Gravar, Gravar Como, Apagar, Anular, Limpar; "Fundos" no canto da faixa.
+- Aba Transferência do perfil (`aba-transferencia-futuro.png`): Disponibilidade, Valor, Línguas, Propostas, Interessados, Futuro e Possíveis Despesas.
+
+**Relatórios do staff** (no próprio jogador, menu Acção: `accao-jogador-proprio.png`)
+- Pedir Relatório Médico: escolher o fisioterapeuta (`relatorio-medico-escolher.png`); a notícia diz o estado físico pela Fisioterapia de quem escreve e pela lesão, propensão e condição reais (`relatorio-medico-noticia.png`).
+- Pedir Relatório Preparador Físico: escolher um ou mais preparadores, "Escolher Todos" (`relatorio-preparador-escolher.png`); cada um manda a sua notícia, com a opinião sobre o papel no plantel e os pontos fortes, mais certa quanto melhor for o preparador (`relatorio-preparador-noticia.png`).
+
+#### Marco 3.10 — Personalidade: atributos ocultos úteis (por detalhar)
+
+Hoje já contam: Consistência (forma do dia), Jogos Importantes e Pressão (jogos grandes), Propensão a Lesões, Maldade e Agressividade (faltas e cartões), Profissionalismo e Determinação (evolução do CA). Falta dar uso a:
+- **Ambição**: recusa descer de nível e pede mais para ficar num clube pequeno; quer sair de um clube pequeno para ele (mercado do 3.8: `STEP_DOWN`, salário pedido, propostas recebidas).
+- **Lealdade**: desconto para renovar, resistência a ser vendido; o clube da IA pede mais por ele.
+- **Adaptabilidade**: tempo de adaptação a um país novo (rende menos nos primeiros meses).
+- **Versatilidade**: rendimento fora da posição natural.
+- **Desportivismo** e **Temperamento**: cartões, discussões e moral.
+Cada efeito com teste; as médias do motor (~2,6 golos, ~48% vitórias em casa) e do mercado continuam na CLI.
+
+#### Marco 3.11 — Editor de jogos salvos (por detalhar)
+
+Um modo no menu inicial que abre um save fechado de `saves/` (nunca o que está aberto como jogo) e edita jogadores e staff (atributos visíveis e ocultos, CA/PA, reputações, posições, nascimento, nacionalidade, clube, contrato, salário) e clubes (saldo, reputação, estádio, cores), no visual do CM. A validação (1–20, CA ≤ 200, PA ≥ CA, datas) e a gravação ficam no core; saves de outra versão são recusados como no Carregar Jogo.
+
+#### Marco 3.12 — Palestras (por detalhar)
+
+Uma ideia do FM08 que o CM 01/02 não tem: o treinador fala aos jogadores, e cada um reage pela personalidade e pela situação do jogo.
+
+**Momentos**
+- **Antes do jogo**, no dia de jogo, depois de escolher a equipa (ou deixar o adjunto falar).
+- **Ao intervalo**, com o resultado e as estatísticas da primeira parte à vista.
+- **No fim do jogo**: muda só a moral para os dias seguintes.
+- **A quem entra**: uma palavra ao suplente na substituição.
+- À equipa toda ou a um jogador de cada vez (o capitão, quem está mal, quem marcou).
+
+**O que se diz**: um tom (calmo, assertivo, agressivo, motivador) e uma frase pela situação, por exemplo "Espero uma vitória", "Não há pressão, divirtam-se", "Estou desiludido", "Continuem assim", "Mostrem o que valem", "Estou orgulhoso", "Não estou contente". O adjunto sugere uma, como no FM.
+
+**Como reagem**
+- A situação: favorito ou não (força das equipas e reputação), casa ou fora, importância do jogo (final, clássico, luta pelo título ou contra a descida), resultado e exibição no intervalo, sequência de resultados.
+- A personalidade de cada jogador: Determinação, Pressão, Jogos Importantes, Temperamento, Profissionalismo, Influência e a moral atual. Por exemplo, um jogador com pouca Pressão fica nervoso com "Espero uma vitória" numa final; um com Temperamento baixo reage mal à agressividade; a crítica a quem jogou bem desmotiva.
+- A reação aparece por jogador ("motivado", "focado", "nervoso", "complacente", "sem interesse", "irritado") e mexe em duas coisas: a **moral** (a de `core/src/squad.rs`, que dura) e uma **motivação só desta partida** no motor (`core/src/live.rs`), pequena.
+- Tudo determinístico com a seed. A palestra média tem efeito perto de zero: os ~2,6 golos e os ~48% de vitórias em casa têm de continuar na CLI (que não dá palestras ou deixa o adjunto falar).
+
+**Telas**: no dia de jogo, antes do pontapé de saída e ao intervalo, um painel "Palestra" no visual do CM (lista dos jogadores com a reação ao lado, tom e frase em menus amarelos, botão para a equipa toda ou por jogador); no fim do jogo, antes dos resultados da jornada; na substituição, a frase ao suplente.
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)
