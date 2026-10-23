@@ -73,6 +73,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "list_fixtures" => out(serde_json::to_value(session.list_fixtures(id()?).map_err(e)?)),
         "competition_stages" => out(serde_json::to_value(session.competition_stages(id()?).map_err(e)?)),
         "club_finances" => out(serde_json::to_value(session.club_finances(id()?).map_err(e)?)),
+        "board_view" => out(serde_json::to_value(session.board_view().map_err(e)?)),
         "transfer_view" => out(serde_json::to_value(session.transfer_view(id()?).map_err(e)?)),
         "make_offer" => {
             let fee = args["fee"].as_i64().ok_or("falta fee")?;

@@ -29,4 +29,8 @@ ends: Array<string>,
 /**
  * Valor da transferência acordada (0 numa renovação ou num livre) e saldo do clube.
  */
-fee: number, cash: number, };
+fee: number, cash: number, 
+/**
+ * O que a direção autoriza: transferências (valor + prémio) e salário semanal.
+ */
+budget: number, maxWage: number, };

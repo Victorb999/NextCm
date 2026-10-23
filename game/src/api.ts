@@ -1,4 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
+import type { BoardView } from './bindings/BoardView'
 import type { ClubFinances } from './bindings/ClubFinances'
 import type { ClubProfile } from './bindings/ClubProfile'
 import type { ClubTactics } from './bindings/ClubTactics'
@@ -83,6 +84,8 @@ export const api = {
   competitionStages: (id: number) => call<StageView[]>('competition_stages', { id }),
   /** Finanças de um clube no jogo em curso (saldo, folha, contas da época). */
   clubFinances: (id: number) => call<ClubFinances>('club_finances', { id }),
+  /** A direção do clube do treinador: expectativa, confiança e orçamentos. */
+  boardView: () => call<BoardView>('board_view'),
   /** Aba Transferência do perfil de um jogador (jogo em curso). */
   transferView: (id: number) => call<TransferView>('transfer_view', { id }),
   makeOffer: (id: number, fee: number) => call<TransferView>('make_offer', { id, fee }),

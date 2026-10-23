@@ -55,8 +55,12 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         let before = game.news().len();
         // Até 31/12, para ver os jogos da época antes de a seguinte os esconder
         let last_day = format!("{year}-12-31");
-        while game.date() < last_day.as_str() {
+        while game.date() < last_day.as_str() && !game.sacked() {
             game.advance_day().expect("falhou ao avançar o dia");
+        }
+        if game.sacked() {
+            println!("\nO treinador foi despedido a {}.", game.date());
+            break;
         }
         let mut goals_report = Vec::new();
         for r in regulation::all() {
@@ -71,6 +75,8 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         let top: Vec<String> = game.table(SERIE_A).iter().take(6).map(|r| format!("{} {}", r.club.short_name, r.points)).collect();
         game.advance_day().expect("falhou ao avançar o dia");
         println!("\nÉpoca {year} ({:?}):", t.elapsed());
+        let b = game.board_view().expect("direção");
+        println!("  direção: confiança {} ({}), objetivo {} ({}º)", b.confidence, b.confidence_label, b.goal, b.target);
         println!("  golos por jogo: {}", goals_report.join(", "));
         let (sold, free, loans, released, fees) =
             game.market_totals(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("mercado");
@@ -83,7 +89,7 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
                 println!("  {}", n.title);
             }
             if n.title.starts_with("Fim da época") {
-                for line in n.body.lines().filter(|l| l.starts_with("Sobem") || l.starts_with("Descem")) {
+                for line in n.body.lines().filter(|l| l.starts_with("Sobem") || l.starts_with("Descem") || l.starts_with("Falência")) {
                     println!("  {line}");
                 }
             }

@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::{
-    ClubFinances, ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, ContractReply, ContractTerms, Fixture,
-    GameInfo, Instructions, LiveView, MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, OfferView,
+    BoardView, ClubFinances, ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, ContractReply, ContractTerms,
+    Fixture, GameInfo, Instructions, LiveView, MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, OfferView,
     PersonProfile, SaveSummary, SearchQuery, SearchResult, Selection, Session, StageView, StandingRow, TransferItem, TransferView, World,
 };
 use tauri::{Manager, State};
@@ -76,6 +76,7 @@ session_command!(list_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(competition_stages(id: i32) -> Vec<StageView>);
 session_command!(club_finances(id: i32) -> ClubFinances);
 session_command!(club_transfers(id: i32) -> Vec<TransferItem>);
+session_command!(board_view() -> BoardView);
 session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, fee: i64) -> TransferView);
 session_command!(ask_loan(id: i32) -> TransferView);
@@ -187,6 +188,7 @@ pub fn run() {
             competition_stages,
             club_finances,
             club_transfers,
+            board_view,
             transfer_view,
             make_offer,
             ask_loan,

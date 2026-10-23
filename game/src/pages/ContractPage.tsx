@@ -158,7 +158,12 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
         <div className="mt-3 font-title text-[19px] text-white">
           {terms.renewal
             ? `Contrato actual: ${wageText(terms.currentWage, true)} até ${monthYear(terms.currentExpires ?? '')}.`
-            : `${terms.fee ? `Transferência acordada: ${money(terms.fee)}. ` : ''}O clube tem ${money(terms.cash) || '€0'} em caixa.`}
+            : terms.fee
+              ? `Transferência acordada: ${money(terms.fee)}.`
+              : 'Jogador livre.'}
+        </div>
+        <div className="mt-1 font-title text-[19px] text-white">
+          A sua direcção autoriza salários até {wageText(terms.maxWage, true)} e transferências até {money(terms.budget) || '€0'}.
         </div>
         <div className="mt-5 pl-6">
           <TermRow label="Função" value={ROLE_SHORT[terms.role] ?? terms.role} onPlus={over ? undefined : onRole} />

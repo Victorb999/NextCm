@@ -41,6 +41,11 @@ const MAX_DEALS: usize = 3;
 const MAX_LOANS_OUT: usize = 2;
 /// Parte do saldo que um clube gasta numa janela, e o teto da folha sobre as receitas.
 const BUDGET_SHARE: f64 = 0.5;
+/// Dívida (saldo negativo sobre as receitas de uma época) a partir da qual um clube da IA vende
+/// o jogador mais valioso num dia de mercado, a 80% do valor; e a partir da qual vai à falência
+/// no fim da época (passo 4).
+const FORCED_SALE_DEBT: f64 = 0.25;
+pub(super) const BANKRUPT_DEBT: f64 = 0.6;
 /// Parte das receitas de uma época que entra no orçamento mesmo sem saldo.
 const BUDGET_REVENUE: f64 = 0.2;
 const WAGE_CAP: f64 = 0.90;
@@ -368,6 +373,11 @@ impl Game {
             if !window_open(kind, &md) {
                 continue;
             }
+            if trading && let Some(deal) = self.ai_forced_sale(club, rep, &market, &loaned, &managed, &mut done, &mut rng)? {
+                market.move_player(deal.person_id, deal.to.as_ref().map(|c| c.id));
+                deals.push(deal);
+                moved = true;
+            }
             if trading && uniform(&mut rng) < 0.5 {
                 if let Some(deal) = self.ai_buy(club, rep, kind, &market, &loaned, &mut done, &mut rng)? {
                     market.move_player(deal.person_id, deal.to.as_ref().map(|c| c.id));
@@ -444,6 +454,64 @@ impl Game {
             weakest,
             level,
         })
+    }
+
+    /// Um clube da IA com dívidas grandes vende o jogador mais valioso a um clube que o possa
+    /// pagar (reputação até 1000 abaixo, janela aberta), a 80% do valor.
+    #[allow(clippy::too_many_arguments)]
+    fn ai_forced_sale(
+        &mut self,
+        club: i32,
+        rep: i32,
+        market: &Market,
+        loaned: &HashSet<i32>,
+        managed: &[(i32, i32, Option<i32>)],
+        done: &mut HashMap<i32, usize>,
+        rng: &mut ChaCha8Rng,
+    ) -> Result<Option<TransferItem>> {
+        let cash: i64 =
+            self.world.conn.prepare_cached("SELECT COALESCE(cash, 0) FROM clubs WHERE id = ?")?.query_row([club], |r| r.get(0))?;
+        if cash as f64 >= -FORCED_SALE_DEBT * self.club_base(club)? || done.get(&club).copied().unwrap_or(0) >= MAX_DEALS {
+            return Ok(None);
+        }
+        let Some(pick) =
+            market.squad(club).filter(|l| !loaned.contains(&l.id) && !l.recent && l.age <= 31).max_by_key(|l| (l.value(), -l.id))
+        else {
+            return Ok(None);
+        };
+        let value = pick.value();
+        if value <= 0 {
+            return Ok(None);
+        }
+        let fee = finance::round_money(value as f64 * 0.8).max(10_000);
+        let md = self.date[5..].to_string();
+        let buyers: Vec<(i32, i32, SeasonKind)> = managed
+            .iter()
+            .filter(|&&(id, r, _)| id != club && id != self.club_id && r + 1000 >= rep)
+            .map(|&(id, r, div)| (id, r, self.club_kind(div)))
+            .filter(|&(_, _, k)| window_open(k, &md))
+            .collect();
+        if buyers.is_empty() {
+            return Ok(None);
+        }
+        // Até 10 tentativas, a começar num clube ao acaso
+        let start = (rng.next_u64() % buyers.len() as u64) as usize;
+        for i in 0..buyers.len().min(10) {
+            let (b, b_rep, kind) = buyers[(start + i) % buyers.len()];
+            let buyer = self.buyer(b, b_rep, kind, market)?;
+            if buyer.budget < fee as f64 || buyer.squad >= MAX_SQUAD {
+                continue;
+            }
+            let wage = wage_demand(value.max(pick.ca as i64 * 20_000), pick.wage, b_rep);
+            let years = contract_years(pick.age, rng);
+            let id = pick.id;
+            self.execute_move(id, Some(club), Some(b), fee, wage, years, "transfer", kind)?;
+            for c in [club, b] {
+                *done.entry(c).or_default() += 1;
+            }
+            return Ok(Some(self.transfer_item(id, Some(club), Some(b), fee, "transfer")?));
+        }
+        Ok(None)
     }
 
     /// Uma compra (ou um livre) de um clube da IA para a posição que mais precisa.

@@ -4,9 +4,9 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    ClubFinances, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game, GameInfo, Instructions, LiveView,
-    MatchPreview, NewGame, NewsItem, OfferView, PersonProfile, Result, SaveSummary, Selection, StageView, StandingRow, TransferItem,
-    TransferView, World, list_saves,
+    BoardView, ClubFinances, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game, GameInfo, Instructions,
+    LiveView, MatchPreview, NewGame, NewsItem, OfferView, PersonProfile, Result, SaveSummary, Selection, StageView, StandingRow,
+    TransferItem, TransferView, World, list_saves,
 };
 
 pub struct Session {
@@ -204,6 +204,11 @@ impl Session {
     /// Finanças de um clube no jogo em curso.
     pub fn club_finances(&self, id: i32) -> Result<ClubFinances> {
         self.game()?.club_finances(id)
+    }
+
+    /// A direção do clube do treinador: expectativa, confiança e orçamentos.
+    pub fn board_view(&self) -> Result<BoardView> {
+        self.game()?.board_view()
     }
 
     /// Aba Transferência do perfil de um jogador.

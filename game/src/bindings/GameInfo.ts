@@ -12,4 +12,8 @@ unsaved: boolean,
 /**
  * O jogo do treinador de hoje está por acabar (tela da partida).
  */
-live: boolean, };
+live: boolean, 
+/**
+ * A direção despediu o treinador: o jogo acabou.
+ */
+sacked: boolean, };

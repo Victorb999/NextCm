@@ -116,6 +116,7 @@ export default function TransferTab({ personId, name, onChanged }: { personId: n
     rows.push(['Lista', `De ${lists}${view.asking ? ` (pede ${money(view.asking)})` : ''}`])
   }
   rows.push(['Saldo do clube', money(view.cash) || '€0'])
+  rows.push(['Orçamento de transferências', money(view.budget) || '€0'])
 
   const setList = (transfer: boolean, loan: boolean, asking: number | null) => run(() => api.setListing(personId, transfer, loan, asking))
   const signFree = async () => {
@@ -197,7 +198,11 @@ export default function TransferTab({ personId, name, onChanged }: { personId: n
           name={name}
           value={view.value}
           initial={view.mine ? (view.asking ?? view.value) : view.value}
-          note={view.mine ? 'Os clubes interessados oferecem perto do preço pedido.' : 'O clube responde amanhã.'}
+          note={
+            view.mine
+              ? 'Os clubes interessados oferecem perto do preço pedido.'
+              : `A sua direcção autoriza transferências até ${money(view.budget) || '€0'}. O clube responde amanhã.`
+          }
           error={error}
           onCancel={() => setDialog(null)}
           onOk={(fee) => void run(() => (view.mine ? api.setListing(personId, true, view.loanListed, fee) : api.makeOffer(personId, fee)))}

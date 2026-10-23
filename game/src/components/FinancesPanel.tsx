@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import type { BoardView } from '../bindings/BoardView'
 import type { ClubFinances } from '../bindings/ClubFinances'
 import type { SeasonBooks } from '../bindings/SeasonBooks'
 import { money, wage } from '../format'
@@ -29,11 +30,14 @@ function Column({ title, lines, total }: { title: string; lines: SeasonBooks['in
 export default function FinancesPanel({ clubId }: { clubId: number }) {
   const game = useGame()
   const [data, setData] = useState<ClubFinances | null>(null)
+  const [board, setBoard] = useState<BoardView | null>(null)
   const [last, setLast] = useState(false)
   const date = game.info?.date
 
   useEffect(() => {
-    if (date) api.clubFinances(clubId).then(setData, () => setData(null))
+    if (!date) return
+    api.clubFinances(clubId).then(setData, () => setData(null))
+    api.boardView().then(setBoard, () => setBoard(null))
   }, [clubId, date])
 
   if (!data) return null
@@ -51,6 +55,14 @@ export default function FinancesPanel({ clubId }: { clubId: number }) {
       {row('Saldo', money(data.cash) || '€0', data.cash < 0)}
       {row('Folha salarial', wage(data.wageBill, true))}
       {row('Receitas por época', money(data.expectedRevenue))}
+      {board && (
+        <>
+          {row('Confiança da Direcção', `${board.confidenceLabel} (${board.confidence}%)`, board.confidence < 35)}
+          {row('Objectivo', `${board.goal.charAt(0).toUpperCase()}${board.goal.slice(1)} (${board.target}º lugar)`)}
+          {row('Orçamento', `${money(board.transferBudget) || '€0'} para transferências`)}
+          {row('Limite salarial', `${wage(board.wageBudget, true)} (máximo ${wage(board.maxWage, true)} por jogador)`)}
+        </>
+      )}
       <div className="mt-2 flex items-center gap-1">
         <button className={`cm-purple h-6 w-44 ${!last ? '!text-cm-yellow' : ''}`} onClick={() => setLast(false)}>
           Esta época

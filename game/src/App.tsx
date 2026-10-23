@@ -313,12 +313,36 @@ function ExitDialog({ onCancel, notify }: { onCancel: () => void; notify: (msg: 
   )
 }
 
+/** A direção despediu o treinador: o jogo acabou (até haver ofertas de emprego, 3.9). */
+function SackedDialog({ onRead }: { onRead: () => void }) {
+  const game = useGame()
+  return (
+    <Overlay>
+      <DialogFrame title="Despedido" width={560}>
+        <div className="py-3 text-center font-title text-[19px] text-white">
+          A Direcção do {game.info?.club.name} dispensou-o do cargo de treinador. O jogo acabou.
+        </div>
+        <div className="flex gap-1 pb-1">
+          <button className="cm-purple h-9 flex-1 font-title text-lg" onClick={onRead}>
+            Ver Notícias
+          </button>
+          <button className="cm-purple h-9 flex-1 font-title text-lg" onClick={() => void game.close()}>
+            Sair para o Menu
+          </button>
+        </div>
+      </DialogFrame>
+    </Overlay>
+  )
+}
+
 function Shell() {
   const game = useGame()
   const [options, setOptions] = useState(false)
   const [exiting, setExiting] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
+  // O aviso do despedimento, até o treinador ir ler as notícias
+  const [sackedSeen, setSackedSeen] = useState(false)
   const nav = useNav()
   const [match, setMatch] = useState<MatchDayData | null>(null)
   // Cada Continuar Jogo com o dia de jogo aberto avança uma fase (como o Seguinte)
@@ -378,6 +402,14 @@ function Shell() {
         {game.mode === 'start' && <StartScreen onOptions={() => setOptions(true)} />}
         {game.mode === 'newGame' && <NewGamePage />}
         {game.mode === 'loadGame' && <LoadGamePage />}
+        {game.mode === 'game' && game.info?.sacked && !match && !sackedSeen && (
+          <SackedDialog
+            onRead={() => {
+              setSackedSeen(true)
+              nav.go({ kind: 'news' })
+            }}
+          />
+        )}
         {exiting && <ExitDialog onCancel={() => setExiting(false)} notify={setNotice} />}
         {options && <OptionsDialog onClose={() => setOptions(false)} />}
         {processing && <Loading title="Continuar Jogo" detail="A processar…" delay={250} />}

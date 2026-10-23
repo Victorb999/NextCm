@@ -94,9 +94,11 @@ pub struct TransferView {
     pub asking: Option<i64>,
     /// Janela do clube do treinador aberta hoje.
     pub window_open: bool,
-    /// Saldo do clube do treinador.
+    /// Saldo do clube do treinador e o que a direção autoriza em transferências.
     #[ts(type = "number")]
     pub cash: i64,
+    #[ts(type = "number")]
+    pub budget: i64,
     pub offer: Option<OfferView>,
     pub can_offer: bool,
     pub can_loan: bool,
@@ -165,6 +167,11 @@ pub struct ContractTerms {
     pub fee: i64,
     #[ts(type = "number")]
     pub cash: i64,
+    /// O que a direção autoriza: transferências (valor + prémio) e salário semanal.
+    #[ts(type = "number")]
+    pub budget: i64,
+    #[ts(type = "number")]
+    pub max_wage: i64,
 }
 
 /// Resposta do jogador a uma proposta de contrato.
@@ -332,7 +339,7 @@ impl Game {
         Ok(self.world.conn.query_row("SELECT COALESCE(cash, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?)
     }
 
-    fn kind_of(&self, club: i32) -> Result<SeasonKind> {
+    pub(super) fn kind_of(&self, club: i32) -> Result<SeasonKind> {
         let division: Option<i32> = self.world.conn.query_row("SELECT division_id FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
         Ok(self.club_kind(division))
     }
@@ -430,6 +437,15 @@ impl Game {
         Ok(contract_until(kind, &start, years))
     }
 
+    /// A direção autoriza este valor em transferências?
+    fn check_budget(&self, amount: i64) -> Result<()> {
+        let budget = self.transfer_budget()?;
+        if amount > budget {
+            return Err(Error::Invalid(format!("A sua direcção autoriza transferências até {}.", money_text(budget))));
+        }
+        Ok(())
+    }
+
     /// Uma mensagem fora do avanço do dia (respostas imediatas do treinador).
     fn post_news(&mut self, title: String, body: String, offer: Option<i32>) {
         let id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
@@ -509,6 +525,7 @@ impl Game {
             asking: listing.and_then(|l| l.2),
             window_open: window,
             cash: self.cash_of(self.club_id)?,
+            budget: self.transfer_budget()?,
             can_offer: f.club != Some(self.club_id) && !busy && (f.club.is_none() || window) && self.loan_of(person)?.is_none(),
             can_loan: f.club.is_some() && f.club != Some(self.club_id) && !busy && window && self.loan_of(person)?.is_none(),
             can_renew: mine && blocked.is_none() && !busy,
@@ -599,10 +616,7 @@ impl Game {
                 if fee <= 0 {
                     return Err(Error::Invalid("Indique o valor da proposta.".into()));
                 }
-                let cash = self.cash_of(self.club_id)?;
-                if fee > cash {
-                    return Err(Error::Invalid(format!("A direção não aprova: o clube tem {} em caixa.", money_text(cash.max(0)))));
-                }
+                self.check_budget(fee)?;
                 let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
                 self.world.conn.execute(
                     "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created) VALUES ('transfer', ?, ?, ?, ?, 'pending', ?, ?)",
@@ -642,10 +656,7 @@ impl Game {
         match (incoming, o.status.as_str(), key) {
             (false, "pending" | "countered" | "agreed", "withdraw") => self.set_status(id, "withdrawn", None)?,
             (false, "countered", "pay") => {
-                let cash = self.cash_of(self.club_id)?;
-                if o.fee > cash {
-                    return Err(Error::Invalid(format!("A direção não aprova: o clube tem {} em caixa.", money_text(cash.max(0)))));
-                }
+                self.check_budget(o.fee)?;
                 let until = date::add_days(&self.date, AGREED_DAYS).unwrap_or_default();
                 self.set_status(id, "agreed", Some(&until))?;
             }
@@ -687,6 +698,7 @@ impl Game {
             let kind = self.kind_of(o.buyer)?;
             self.execute_move(o.person, Some(self.club_id), Some(o.buyer), fee, wage, years, "transfer", kind)?;
             self.world.conn.execute("UPDATE offers SET fee = ? WHERE id = ?", params![fee, o.id])?;
+            self.sale_to_budget(fee)?;
             (format!("{name} vendido"), format!("{name} foi vendido ao {buyer} por {}.", money_text(fee)))
         };
         self.set_status(o.id, "done", None)?;
@@ -764,6 +776,8 @@ impl Game {
             ends,
             fee: deal.map_or(0, |o| o.fee),
             cash: self.cash_of(self.club_id)?,
+            budget: self.transfer_budget()?,
+            max_wage: self.board_view()?.max_wage,
         })
     }
 
@@ -781,6 +795,20 @@ impl Game {
             return Err(Error::Invalid("Vetado pela direcção devido à idade do jogador.".into()));
         }
         let (wage, bonus) = (wage.max(0), bonus.max(0));
+        // Os limites da direção: salário máximo, folha salarial e orçamento de transferências
+        let board = self.board_view()?;
+        if wage > board.max_wage {
+            return Err(Error::Invalid(format!("A sua direcção autoriza salários até {} por semana.", money_text(board.max_wage))));
+        }
+        let old = if deal.is_none() { f.wage } else { 0 };
+        if board.wage_bill - old + wage > board.wage_budget {
+            return Err(Error::Invalid(format!(
+                "A folha salarial passaria o limite da direcção ({} por semana).",
+                money_text(board.wage_budget)
+            )));
+        }
+        let fee = deal.as_ref().map_or(0, |o| o.fee);
+        self.check_budget(fee + bonus)?;
         // Não desce para um clube muito menor
         if let (Some(o), Some(club)) = (&deal, f.club)
             && self.club_rep(club)? > self.club_rep(self.club_id)? + STEP_DOWN
@@ -822,11 +850,6 @@ impl Game {
             };
             return Ok(ContractReply { accepted: false, over, wage: round_wage(wanted), bonus: d.bonus, years: d.years, text });
         }
-        let cash = self.cash_of(self.club_id)?;
-        let fee = deal.as_ref().map_or(0, |o| o.fee);
-        if fee + bonus > cash {
-            return Err(Error::Invalid(format!("A direção não aprova: o clube tem {} em caixa.", money_text(cash.max(0)))));
-        }
         let kind = self.kind_of(self.club_id)?;
         let until = self.contract_end(&f, deal.is_none(), years)?;
         let text = match deal {
@@ -861,6 +884,7 @@ impl Game {
             }
         };
         self.book(self.club_id, "bonuses", bonus)?;
+        self.spend_budget(fee + bonus)?;
         self.world.conn.execute("DELETE FROM talks WHERE person_id = ?", [person])?;
         self.world.conn.execute("INSERT OR REPLACE INTO squad_roles (person_id, role) VALUES (?, ?)", params![person, role])?;
         self.unsaved = true;
@@ -1191,6 +1215,7 @@ mod tests {
         };
         let mut g = Game::create(&path, &dir, &new, 3).unwrap();
         g.world.conn.execute("UPDATE clubs SET cash = 200000000 WHERE id = ?", [PALMEIRAS]).unwrap();
+        g.refresh_budgets().unwrap();
         let targets = for_sale(&g);
         assert!(targets.len() >= 3, "{targets:?}");
         let (buy, ask) = targets[0];

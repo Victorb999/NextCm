@@ -23,6 +23,6 @@ loanFrom: ClubRef | null, loanUntil: string | null, transferListed: boolean, loa
  */
 windowOpen: boolean, 
 /**
- * Saldo do clube do treinador.
+ * Saldo do clube do treinador e o que a direção autoriza em transferências.
  */
-cash: number, offer: OfferView | null, canOffer: boolean, canLoan: boolean, canRenew: boolean, note: string | null, };
+cash: number, budget: number, offer: OfferView | null, canOffer: boolean, canLoan: boolean, canRenew: boolean, note: string | null, };

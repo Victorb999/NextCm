@@ -237,7 +237,8 @@ impl Game {
                 params![comp, history_year, winner, second, third],
             )?;
         }
-        // Posição final de cada clube nas divisões com tabela
+        // Posição final de cada clube nas divisões com tabela (e a do treinador, para a direção)
+        let mut our_position = None;
         for reg in regs.iter().filter(|r| r.managed && r.stages[0].kind == StageKind::League) {
             let div = reg.competition;
             let table = match (&c_virtual, div) {
@@ -249,6 +250,9 @@ impl Game {
                     "UPDATE clubs SET last_division_id = ?, last_position = ? WHERE id = ?",
                     params![div, r.position, r.club.id],
                 )?;
+                if r.club.id == self.club_id {
+                    our_position = Some(r.position);
+                }
             }
         }
 
@@ -256,6 +260,23 @@ impl Game {
         // Uma divisão que não jogou (a C e a D na transição) usa a tabela do motor v1 ou o
         // sorteio; das 3ªs divisões paradas sobe-se por sorteio (`draw_up`).
         let mut moves: Vec<(Vec<i32>, i32, String)> = Vec::new();
+        // Falências (3.8): clubes da IA com dívidas acima de 60% das receitas de uma época descem
+        // no lugar do melhor dos que desciam, e as dívidas ficam a zero
+        let mut bankrupt: Vec<(i32, Option<i32>)> = Vec::new();
+        for reg in regs.iter().filter(|r| r.managed) {
+            let clubs: Vec<(i32, i64)> = self
+                .world
+                .conn
+                .prepare("SELECT id, COALESCE(cash, 0) FROM clubs WHERE division_id = ? ORDER BY id")?
+                .query_map([reg.competition], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<_>>()?;
+            for (id, cash) in clubs {
+                if id != self.club_id && (cash as f64) < -super::market::BANKRUPT_DEBT * self.club_base(id)? {
+                    bankrupt.push((id, Some(reg.competition)));
+                }
+            }
+        }
+        let mut relegated_for_debt: Vec<i32> = Vec::new();
         for reg in regs.iter().filter(|r| r.promotion.is_some() || r.relegation.is_some() || r.draw_up.is_some()) {
             let div = reg.competition;
             let played = self.year_matches(div, year).next().is_some();
@@ -272,6 +293,20 @@ impl Game {
                 } else {
                     continue;
                 };
+                let mut clubs = clubs;
+                if !up && played {
+                    let table = self.stage_table(div, year, 0, None);
+                    let pos = |id: i32| table.iter().find(|r| r.club.id == id).map_or(i32::MAX, |r| r.position);
+                    let here: Vec<i32> = bankrupt.iter().filter(|(b, d)| *d == Some(div) && !clubs.contains(b)).map(|b| b.0).collect();
+                    for b in here {
+                        // Fica o melhor colocado dos que desciam
+                        let spared = (0..clubs.len()).filter(|&i| !relegated_for_debt.contains(&clubs[i])).min_by_key(|&i| pos(clubs[i]));
+                        if let Some(i) = spared {
+                            clubs[i] = b;
+                            relegated_for_debt.push(b);
+                        }
+                    }
+                }
                 let label = format!("{} à {}", if up { "Sobem" } else { "Descem" }, self.short_name(mv.to));
                 moves.push((clubs, mv.to, label));
             }
@@ -292,16 +327,29 @@ impl Game {
             let names: Vec<String> = clubs.iter().map(|&id| self.club_short(id)).collect();
             lines.push(format!("{label}: {}.", join_names(&names)));
         }
+        for &(id, _) in &bankrupt {
+            self.world.conn.execute("UPDATE clubs SET cash = 0 WHERE id = ?", [id])?;
+            let what = if relegated_for_debt.contains(&id) {
+                "desce de divisão administrativamente"
+            } else {
+                "fica com as dívidas reestruturadas"
+            };
+            lines.push(format!("Falência: o {} {what}.", self.club_short(id)));
+        }
         // A notícia só para quem tem o clube num campeonato deste tipo de época
         let ours_here =
             regs.iter().any(|r| self.year_matches(r.competition, year).any(|m| m.home_id == self.club_id || m.away_id == self.club_id));
         if ours_here || kind == SeasonKind::Calendar {
             let us = self.club_short(self.club_id);
             let mut body = format!("A época {label} chegou ao fim.\n\n{}", lines.join("\n"));
-            if let Some(l) = ours {
+            if let Some(l) = &ours {
                 body += &format!("\n\nO {us} {}.", l.to_lowercase().replacen("sobem", "sobe", 1).replacen("descem", "desce", 1));
             }
             self.push_news(fresh, next_id, "competition", format!("Fim da época {label}"), body);
+        }
+        if let Some(pos) = our_position {
+            let (up, down) = ours.as_deref().map_or((false, false), |l| (l.starts_with("Sobem"), l.starts_with("Descem")));
+            self.board_season_end(pos, up, down, fresh, next_id)?;
         }
 
         // Os contratos de dezembro tratam-se aqui; os de junho já foram a 30/6
@@ -579,6 +627,9 @@ impl Game {
         if let Some(n) = self.season_news(*next_id, kind) {
             fresh.push(n);
             *next_id += 1;
+        }
+        if self.kind_of(self.club_id)? == kind {
+            self.board_new_season(fresh, next_id)?;
         }
         Ok(())
     }
