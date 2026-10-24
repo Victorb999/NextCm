@@ -24,6 +24,7 @@ mod market;
 mod numbers;
 mod regen;
 mod season;
+mod unhappy;
 use crate::league::{self, Fixture, Match, StandingRow};
 use crate::live::{LiveMatch, LiveView, Occasion, TeamStats};
 use crate::person::ClubRef;
@@ -52,7 +53,16 @@ pub(crate) use season::age_on;
 /// `news.offer_id` (3.8).
 /// 11: direção do clube do treinador (`board`), marco 3.8.
 /// 12: número preferido de cada jogador (`players.preferred_number`) e `news.link`.
-pub const SAVE_VERSION: i32 = 12;
+/// 13: insatisfação (`unhappy`), jogos seguidos sem jogar (`player_state.missed`) e
+/// listados a pedido (`transfer_list.requested`).
+pub const SAVE_VERSION: i32 = 13;
+
+/// Insatisfação dos jogadores e pedidos para sair (save 13).
+const UNHAPPY_SCHEMA: &str = "
+ALTER TABLE player_state ADD COLUMN missed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE transfer_list ADD COLUMN requested INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE unhappy (person_id INTEGER NOT NULL, reason TEXT NOT NULL, since TEXT NOT NULL, PRIMARY KEY (person_id, reason));
+";
 
 /// Números escolhidos pelo treinador (save 12).
 const NUMBERS_SCHEMA: &str = "
@@ -401,6 +411,7 @@ impl Game {
             tx.execute_batch(DEALS_SCHEMA)?;
             tx.execute_batch(BOARD_SCHEMA)?;
             tx.execute_batch(NUMBERS_SCHEMA)?;
+            tx.execute_batch(UNHAPPY_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -585,6 +596,11 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 12", [])?;
             version = 12;
         }
+        if version == 12 {
+            world.conn.execute_batch(UNHAPPY_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 13", [])?;
+            version = 13;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -635,7 +651,7 @@ impl Game {
             .collect::<rusqlite::Result<_>>()?;
         let states = world
             .conn
-            .prepare("SELECT person_id, condition, morale, yellows, suspended, injury, injury_until, apps FROM player_state")?
+            .prepare("SELECT person_id, condition, morale, yellows, suspended, injury, injury_until, apps, missed FROM player_state")?
             .query_map([], |r| {
                 Ok((
                     r.get(0)?,
@@ -646,6 +662,7 @@ impl Game {
                         injury: r.get(5)?,
                         injury_until: r.get(6)?,
                         apps: r.get(7)?,
+                        missed: r.get(8)?,
                     },
                 ))
             })?
@@ -756,12 +773,12 @@ impl Game {
         tx.execute("DELETE FROM player_state", [])?;
         {
             let mut stmt = tx.prepare(
-                "INSERT INTO player_state (person_id, condition, morale, yellows, suspended, injury, injury_until, apps)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO player_state (person_id, condition, morale, yellows, suspended, injury, injury_until, apps, missed)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )?;
             for (id, st) in &self.squads.states {
                 if *st != PlayerState::default() {
-                    stmt.execute(params![id, st.condition, st.morale, 0, 0, st.injury, st.injury_until, st.apps])?;
+                    stmt.execute(params![id, st.condition, st.morale, 0, 0, st.injury, st.injury_until, st.apps, st.missed])?;
                 }
             }
         }
@@ -868,6 +885,7 @@ impl Game {
         self.market_day(&mut fresh, &mut next_id)?;
         self.offers_day(&mut fresh, &mut next_id)?;
         self.board_day(&mut fresh, &mut next_id)?;
+        self.unhappy_day(&mut fresh, &mut next_id)?;
 
         let today: Vec<usize> =
             (0..self.matches.len()).filter(|&i| self.matches[i].date == self.date && self.matches[i].result.is_none()).collect();
@@ -1049,7 +1067,9 @@ impl Game {
 
     /// Condição, moral, lesão e castigos de um jogador de um clube vivo.
     pub fn player_status(&self, id: i32) -> Option<PlayerStatus> {
-        self.squads.status(id)
+        let mut s = self.squads.status(id)?;
+        s.unhappy = self.unhappy_reasons(id).unwrap_or_default();
+        Some(s)
     }
 
     fn person_name(&self, id: i32) -> Result<String> {
@@ -2397,7 +2417,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

@@ -25,6 +25,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/finance.rs`, `core/src/game/finances.rs` | Valor de mercado, salário pedido, receitas e despesas de cada clube (livro de contas) |
 | `core/src/game/market.rs` | Mercado da IA nas janelas: compras, livres, empréstimos, dispensas, histórico `transfers` |
 | `core/src/game/deals.rs` | Mercado do treinador: propostas (`offers`), respostas, contratos, renovações, lista de transferências |
+| `core/src/game/unhappy.rs` | Insatisfação do plantel do treinador (motivos, moral) e pedidos para sair |
 | `core/src/game/board.rs` | Direção: expectativa, confiança, avisos e despedimento, orçamentos |
 | `core/src/tactics.rs` | Formações, escolha automática, `Selection` do treinador, `tactics_from_selection` |
 | `core/src/squad.rs` | Condição, moral, lesões e castigos entre jogos |

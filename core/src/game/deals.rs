@@ -199,7 +199,7 @@ struct Demand {
     years: i32,
 }
 
-struct Offer {
+pub(super) struct Offer {
     id: i32,
     kind: String,
     person: i32,
@@ -270,7 +270,7 @@ impl Game {
     }
 
     /// A proposta em aberto por um jogador: do treinador por ele, ou de outro clube se for do treinador.
-    fn open_offer(&self, person: i32) -> Result<Option<Offer>> {
+    pub(super) fn open_offer(&self, person: i32) -> Result<Option<Offer>> {
         Ok(self
             .offers_where(
                 "person_id = ?1 AND (buyer = ?2 OR seller = ?2) AND status IN ('pending', 'countered', 'agreed', 'raised')",
@@ -385,9 +385,19 @@ impl Game {
         f.joined.as_deref().is_some_and(|j| j > since.as_str())
     }
 
-    /// Quanto o clube pede por um jogador: o valor, +40% se for dos 11 melhores, +25% se
-    /// chegou há pouco, até +20% se for leal, e um acerto de −5% a +15% fixo por jogador e época.
+    /// Quanto o clube pede por um jogador: o preço da lista de transferências, se lá estiver;
+    /// senão o valor, +40% se for dos 11 melhores, +25% se chegou há pouco, até +20% se for
+    /// leal, e um acerto de −5% a +15% fixo por jogador e época.
     fn asking_price(&self, person: i32, f: &Facts, club: i32) -> Result<i64> {
+        // Na lista de transferências: o preço da lista
+        let listed: Option<Option<i64>> = self
+            .world
+            .conn
+            .query_row("SELECT asking FROM transfer_list WHERE person_id = ? AND transfer = 1", [person], |r| r.get(0))
+            .optional()?;
+        if let Some(asking) = listed {
+            return Ok(asking.unwrap_or(f.value).max(10_000));
+        }
         let (rank, _) = self.squad_rank(club, person, f.role)?;
         let mut ask = f.value as f64 * if rank < 11 { 1.4 } else { 1.0 } * personality::loyalty_fee(f.loyalty);
         if self.recent(f) {
@@ -563,6 +573,14 @@ impl Game {
         let loan = o.kind == "loan";
         let until = o.answer_on.as_deref().map(cm_date).unwrap_or_default();
         let (text, actions) = match (incoming, o.status.as_str()) {
+            _ if o.kind == "request" => match o.status.as_str() {
+                "pending" => (
+                    format!("{name} pede para ser posto na lista de transferências. Responda até {until}."),
+                    vec![action("accept", "Pôr na Lista"), action("reject", "Recusar")],
+                ),
+                "done" => (format!("{name} está na lista de transferências, a pedido dele."), Vec::new()),
+                _ => (format!("Recusou o pedido de {name} para sair."), Vec::new()),
+            },
             (false, "pending") if loan => {
                 (format!("Pediu {name} emprestado ao {seller_name}; a resposta chega amanhã."), vec![action("withdraw", "Retirar")])
             }
@@ -669,6 +687,9 @@ impl Game {
     /// Resposta do treinador numa proposta: "accept", "reject", "counter" (com `fee`), "pay", "withdraw".
     pub fn answer_offer(&mut self, id: i32, key: &str, fee: Option<i64>) -> Result<OfferView> {
         let o = self.offer(id)?;
+        if o.kind == "request" {
+            return self.answer_request(&o, key);
+        }
         let incoming = o.buyer != self.club_id;
         match (incoming, o.status.as_str(), key) {
             (false, "pending" | "countered" | "agreed", "withdraw") => self.set_status(id, "withdrawn", None)?,
@@ -718,6 +739,28 @@ impl Game {
         Ok(!leaves_europe(f.age, rank < 11, own == Some(nation)))
     }
 
+    /// Resposta a um pedido para sair: pô-lo na lista (a pedido) ou recusar.
+    fn answer_request(&mut self, o: &Offer, key: &str) -> Result<OfferView> {
+        match (o.status.as_str(), key) {
+            ("pending", "accept") => {
+                self.world.conn.execute(
+                    "INSERT INTO transfer_list (person_id, transfer, loan, asking, requested) VALUES (?, 1, 0, NULL, 1)
+                     ON CONFLICT (person_id) DO UPDATE SET transfer = 1, requested = 1",
+                    [o.person],
+                )?;
+                self.remove_unhappy(o.person, "blocked")?;
+                self.set_status(o.id, "done", None)?;
+            }
+            ("pending", "reject") => {
+                self.set_status(o.id, "rejected", None)?;
+                self.refuse_request(o.person)?;
+            }
+            _ => return Err(Error::Invalid("Este pedido já não aceita essa resposta.".into())),
+        }
+        self.unsaved = true;
+        self.offer_view(o.id)
+    }
+
     /// Um ambicioso a quem o clube recusa (ou deixa sem resposta) uma proposta de um clube
     /// maior fica desiludido: perde moral. Devolve a frase para a mensagem.
     fn letdown(&mut self, o: &Offer) -> Result<Option<String>> {
@@ -730,6 +773,7 @@ impl Game {
         }
         let s = self.squads.states.entry(o.person).or_default();
         s.morale = (s.morale - personality::LETDOWN_MORALE).max(1);
+        self.add_unhappy(o.person, "bigger")?;
         let name = self.person_name(o.person)?;
         Ok(Some(format!("{name} queria jogar no {} e ficou desiludido.", self.club(o.buyer).short_name)))
     }
@@ -953,6 +997,7 @@ impl Game {
         self.spend_budget(fee + bonus)?;
         self.world.conn.execute("DELETE FROM talks WHERE person_id = ?", [person])?;
         self.world.conn.execute("INSERT OR REPLACE INTO squad_roles (person_id, role) VALUES (?, ?)", params![person, role])?;
+        self.remove_unhappy(person, "contract")?;
         self.unsaved = true;
         Ok(ContractReply { accepted: true, over: true, wage, bonus, years, text })
     }
@@ -965,13 +1010,29 @@ impl Game {
         if f.club != Some(self.club_id) || self.loan_of(person)?.is_some() {
             return Err(Error::Invalid("Só os jogadores do seu plantel.".into()));
         }
+        let (was_listed, requested): (bool, bool) = self
+            .world
+            .conn
+            .query_row("SELECT transfer, requested FROM transfer_list WHERE person_id = ?", [person], |r| {
+                Ok((r.get::<_, i32>(0)? != 0, r.get::<_, i32>(1)? != 0))
+            })
+            .optional()?
+            .unwrap_or((false, false));
         if transfer || loan {
             self.world.conn.execute(
-                "INSERT OR REPLACE INTO transfer_list (person_id, transfer, loan, asking) VALUES (?, ?, ?, ?)",
+                "INSERT INTO transfer_list (person_id, transfer, loan, asking, requested) VALUES (?1, ?2, ?3, ?4, 0)
+                 ON CONFLICT (person_id) DO UPDATE SET transfer = ?2, loan = ?3, asking = ?4, requested = requested AND ?2",
                 params![person, transfer as i32, loan as i32, asking.filter(|&a| a > 0)],
             )?;
         } else {
             self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [person])?;
+        }
+        // Posto na lista sem pedir perde moral; tirado da lista depois de pedir fica frustrado
+        if transfer && !was_listed {
+            self.change_morale(person, -super::unhappy::LISTED_MORALE);
+        }
+        if requested && !transfer {
+            self.refuse_request(person)?;
         }
         self.unsaved = true;
         self.transfer_view(person)
@@ -982,14 +1043,18 @@ impl Game {
     /// Respostas dos outros clubes, prazos e propostas novas pelos jogadores do treinador.
     pub(super) fn offers_day(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let today = self.date.clone();
-        for o in self.offers_where("buyer = ?1 AND status = 'pending' AND answer_on <= ?2", params![self.club_id, today])? {
+        for o in
+            self.offers_where("buyer = ?1 AND kind <> 'request' AND status = 'pending' AND answer_on <= ?2", params![self.club_id, today])?
+        {
             self.seller_answers(&o, fresh, next_id)?;
         }
         for o in self.offers_where("seller = ?1 AND status = 'raised' AND answer_on <= ?2", params![self.club_id, today])? {
             self.buyer_answers(&o, fresh, next_id)?;
         }
         // Prazos: propostas recebidas sem resposta, acordos sem contrato
-        for o in self.offers_where("seller = ?1 AND status = 'pending' AND answer_on < ?2", params![self.club_id, today])? {
+        for o in
+            self.offers_where("seller = ?1 AND kind <> 'request' AND status = 'pending' AND answer_on < ?2", params![self.club_id, today])?
+        {
             self.set_status(o.id, "withdrawn", None)?;
             let name = self.person_name(o.person)?;
             let mut body = format!("O {} desistiu de {name}: a proposta ficou sem resposta.", self.club(o.buyer).short_name);
@@ -997,6 +1062,15 @@ impl Game {
                 body = format!("{body} {text}");
             }
             self.offer_news(fresh, next_id, format!("Proposta por {name} expirou"), body, o.id);
+        }
+        for o in
+            self.offers_where("kind = 'request' AND seller = ?1 AND status = 'pending' AND answer_on < ?2", params![self.club_id, today])?
+        {
+            self.set_status(o.id, "rejected", None)?;
+            self.refuse_request(o.person)?;
+            let name = self.person_name(o.person)?;
+            let body = format!("O pedido de {name} para sair ficou sem resposta: ele sente que não o deixam sair.");
+            self.offer_news(fresh, next_id, format!("{name} frustrado"), body, o.id);
         }
         for o in self.offers_where("buyer = ?1 AND status IN ('countered', 'agreed') AND answer_on < ?2", params![self.club_id, today])? {
             self.set_status(o.id, "collapsed", None)?;

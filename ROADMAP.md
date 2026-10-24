@@ -602,7 +602,7 @@ Pedidos do utilizador ao testar o 3.8 e o 3.9.
 - **Mercado**: `leaving_europe` e `leaves_europe` em `market.rs`: de um clube europeu para as Américas, África ou Oceânia (a Ásia fica de fora: a Arábia Saudita paga), só saem veteranos (31+), quem volta ao seu país (27+) e quem já não é titular (29+). Vale para a IA e para o treinador ("não quer deixar o futebol europeu").
 - **Notícias**: `transfer_news` só com o clube do treinador, os rivais, os clubes da liga com reputação até 500 abaixo, os jogadores por quem ele fez propostas e as 3 maiores do dia no mundo (de €20M ou mais).
 
-#### Listas da IA, insatisfação e pedidos para sair (depois dos ajustes, por detalhar)
+#### Listas da IA, insatisfação e pedidos para sair (depois dos ajustes)
 
 Referência: `docs/prints/insatisfacao/` (o editor de jogos salvos do CM 01/02: abas Unhappiness, Club Unhappiness e Contract). Usa a personalidade do 3.9 (Ambição, Lealdade, Temperamento, Profissionalismo) e enche os filtros "Listados" da pesquisa.
 
@@ -628,6 +628,13 @@ Referência: `docs/prints/insatisfacao/` (o editor de jogos salvos do CM 01/02: 
 - Os da IA também pedem: o clube dele lista-o, e isso alimenta as listas acima.
 
 Fica para o editor de jogos salvos (3.15): ver e mudar os motivos de cada jogador, como no editor do CM.
+
+**Feito (primeira parte):** `core/src/game/unhappy.rs`, listas da IA em `market.rs`, `SAVE_VERSION` 13 (`unhappy`, `player_state.missed`, `transfer_list.requested`). Números escolhidos:
+- **Listas da IA**, refeitas em cada dia de mercado com a janela aberta: na de transferências os que estão fora dos 18 melhores (23+) e os veteranos fora do onze (32+), até 3 por clube, sem deixar o papel abaixo do mínimo + 1; na de empréstimos os jovens (até 21) fora dos 18 melhores, até 2. Preço pedido = valor; a IA compra um listado por 90% do valor e prefere-os (+5 de CA na escolha); o treinador paga o preço da lista.
+- **Motivos** (só no plantel do treinador, revistos às segundas): "Sente que deve ser titular" (dos 11 melhores, 20+, 4 jogos seguidos sem jogar podendo; sai quando joga), "Quer negociar um novo contrato" (dos 15 melhores, até 32 anos, menos de um ano de contrato; sai ao renovar), "Quer mudar para um clube maior" (a desilusão do 3.9, dura 120 dias), "Frustrado por não o deixarem sair" (pedido recusado ou tirado da lista, 120 dias), "Tem saudades de casa" (estrangeiro chegado no jogo, Adaptabilidade até 7, durante a adaptação). Cada motivo novo chega numa mensagem e aparece no perfil.
+- **Moral**: com motivos, o teto é 12 − 3 por motivo (mínimo 4) e desce 2 por semana até lá. Pôr na lista sem ele pedir tira 2.
+- **Pedido para sair**: ao fim de 28 dias com "titular", "clube maior" ou "contrato", quem tem Ambição 12+ ou Lealdade até 10 pede (mensagem com Pôr na Lista / Recusar, 7 dias para responder). Pôr na lista marca-o "a pedido"; recusar (ou não responder) dá "Frustrado por não o deixarem sair" e −3 de moral, e ele não volta a pedir enquanto durar.
+- Por fazer: os outros motivos dos prints (colegas, treinador, adjunto, treino, imprensa), os pedidos dos jogadores da IA e o desabafo na imprensa (3.12).
 
 #### Marco 3.10 — Olheiros e conhecimento (por detalhar)
 

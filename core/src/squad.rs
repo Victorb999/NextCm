@@ -39,11 +39,13 @@ pub struct PlayerState {
     pub injury_until: Option<String>,
     /// Jogos na época (conta para a evolução do CA).
     pub apps: i32,
+    /// Jogos seguidos do clube em que, disponível, não jogou (insatisfação).
+    pub missed: i32,
 }
 
 impl Default for PlayerState {
     fn default() -> Self {
-        PlayerState { condition: 100, morale: START_MORALE, cards: BTreeMap::new(), injury: None, injury_until: None, apps: 0 }
+        PlayerState { condition: 100, morale: START_MORALE, cards: BTreeMap::new(), injury: None, injury_until: None, apps: 0, missed: 0 }
     }
 }
 
@@ -104,6 +106,8 @@ pub struct PlayerStatus {
     pub suspended: i32,
     pub injury: Option<String>,
     pub injury_until: Option<String>,
+    /// Motivos de insatisfação, como o CM os escreve (só no plantel do treinador).
+    pub unhappy: Vec<String>,
 }
 
 pub fn morale_label(m: i32) -> &'static str {
@@ -198,6 +202,7 @@ impl Squads {
                 suspended: s.suspended_in(None),
                 injury: s.injury,
                 injury_until: s.injury_until,
+                unhappy: Vec::new(),
             }
         })
     }
@@ -242,6 +247,12 @@ impl Squads {
             for &id in &squad {
                 let temperament = self.traits[&id].temperament;
                 let s = self.state_mut(id);
+                // Jogos seguidos sem jogar, só quando podia (sem lesão nem castigo)
+                if played(id) {
+                    s.missed = 0;
+                } else if s.injury.is_none() && s.suspended_in(Some(comp)) == 0 {
+                    s.missed += 1;
+                }
                 // Quem estava suspenso nesta competição cumpriu este jogo
                 if let Some(k) = s.cards.get_mut(&comp)
                     && k.suspended > 0
@@ -335,6 +346,24 @@ mod tests {
         assert_eq!(sq.state(0).morale, START_MORALE - 3, "cabeça quente");
         assert_eq!(sq.state(1).morale, START_MORALE - 1, "calmo");
         assert_eq!(sq.state(2).morale, START_MORALE - 2);
+    }
+
+    #[test]
+    fn missed_matches_in_a_row() {
+        let mut sq = squads(20, 1);
+        sq.state_mut(15).injury = Some("Entorse no tornozelo".into());
+        sq.state_mut(16).cards.insert(65, Cards { yellows: 0, suspended: 1 });
+        let starters: Vec<i32> = (0..11).collect();
+        let mut rng = ChaCha8Rng::seed_from_u64(5);
+        for d in 2..5 {
+            sq.after_match([side(1, &starters, 1, 1), side(2, &[], 1, 1)], &format!("2025-08-0{d}"), 65, &mut rng);
+        }
+        assert_eq!(sq.state(12).missed, 3);
+        assert_eq!(sq.state(0).missed, 0);
+        assert_eq!(sq.state(15).missed, 0, "lesionado não conta");
+        assert_eq!(sq.state(16).missed, 2, "o jogo do castigo não conta");
+        sq.after_match([side(1, &[12], 0, 0), side(2, &[], 0, 0)], "2025-08-06", 65, &mut rng);
+        assert_eq!(sq.state(12).missed, 0);
     }
 
     #[test]

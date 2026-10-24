@@ -181,6 +181,13 @@ function Profile({ p }: { p: PersonProfile }) {
           ]}
         />
       </div>
+      {!!p.status?.unhappy.length && (
+        <div className="mt-2 px-1.5 text-center text-cm-orange">
+          {p.status.unhappy.map((u) => (
+            <div key={u}>{u}.</div>
+          ))}
+        </div>
+      )}
       <div className="flex-1" />
       <div className="shrink-0 py-2 text-center font-title text-[22px] font-bold text-cm-magenta">
         {pl ? pl.positionLong || '-' : (p.job ?? '-')}

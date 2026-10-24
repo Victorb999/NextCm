@@ -50,6 +50,12 @@ pub(super) const BANKRUPT_DEBT: f64 = 0.6;
 /// Parte das receitas de uma época que entra no orçamento mesmo sem saldo.
 const BUDGET_REVENUE: f64 = 0.2;
 const WAGE_CAP: f64 = 0.90;
+/// Listas da IA: quantos na de transferências e na de empréstimos, o preço dos listados (parte
+/// do valor) e a vantagem (em CA) que têm na escolha de quem compra.
+const MAX_LISTED: usize = 3;
+const MAX_LOAN_LISTED: usize = 2;
+const LISTED_FEE: f64 = 0.9;
+const LISTED_EDGE: i32 = 5;
 
 /// Um jogador no índice do mercado.
 #[derive(Debug, Clone)]
@@ -90,6 +96,8 @@ struct Market {
     by_role: [Vec<usize>; ROLES],
     /// Os 11 melhores de cada clube (custam mais).
     key: HashSet<i32>,
+    /// Na lista de transferências do clube: mais baratos e os primeiros que a IA procura.
+    listed: HashSet<i32>,
 }
 
 impl Market {
@@ -102,7 +110,7 @@ impl Market {
         for r in &mut by_role {
             r.sort_by(|&a, &b| listings[b].ca.cmp(&listings[a].ca).then(listings[a].id.cmp(&listings[b].id)));
         }
-        let mut m = Market { listings, by_id, by_club: HashMap::new(), by_role, key: HashSet::new() };
+        let mut m = Market { listings, by_id, by_club: HashMap::new(), by_role, key: HashSet::new(), listed: HashSet::new() };
         for i in 0..m.listings.len() {
             if let Some(c) = m.listings[i].club {
                 m.by_club.entry(c).or_default().push(i);
@@ -380,6 +388,12 @@ impl Game {
             return Ok(());
         }
         let mut market = Market::new(self.market_index()?);
+        market.listed = self
+            .world
+            .conn
+            .prepare_cached("SELECT person_id FROM transfer_list WHERE transfer = 1")?
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
         let mut deals: Vec<TransferItem> = Vec::new();
         let mut rng = self.season_rng(0x3A_4B37);
         // Os clubes geridos, pela ordem do id (determinismo), menos o do treinador
@@ -401,6 +415,9 @@ impl Game {
             let kind = self.club_kind(division);
             if !window_open(kind, &md) {
                 continue;
+            }
+            if trading {
+                self.ai_listings(club, &market, &loaned)?;
             }
             if trading && let Some(deal) = self.ai_forced_sale(club, rep, &market, &loaned, &managed, &mut done, &mut rng)? {
                 market.move_player(deal.person_id, deal.to.as_ref().map(|c| c.id));
@@ -433,6 +450,52 @@ impl Game {
             self.unsaved = true;
         }
         self.transfer_news(&deals, fresh, next_id)?;
+        Ok(())
+    }
+
+    /// Listas de transferências e de empréstimos de um clube da IA, refeitas em cada dia de
+    /// mercado: na de transferências os que estão fora dos 18 melhores (23+) e os veteranos
+    /// fora do onze (32+), até 3, sem deixar o papel abaixo do mínimo; na de empréstimos os
+    /// jovens (até 21) fora dos 18 melhores, até 2. Os listados a pedido ficam.
+    fn ai_listings(&mut self, club: i32, market: &Market, loaned: &HashSet<i32>) -> Result<()> {
+        self.world
+            .conn
+            .execute("DELETE FROM transfer_list WHERE requested = 0 AND person_id IN (SELECT id FROM people WHERE club_id = ?)", [club])?;
+        let squad: Vec<&Listing> = market.squad(club).filter(|l| !loaned.contains(&l.id)).collect();
+        let mut count = [0; ROLES];
+        for l in &squad {
+            count[l.role] += 1;
+        }
+        let mut sell: Vec<&Listing> = Vec::new();
+        // Do pior para o melhor, os mais velhos primeiro
+        let mut out: Vec<(usize, &Listing)> =
+            squad.iter().copied().enumerate().filter(|(rank, l)| (*rank >= 18 && l.age >= 23) || (*rank >= 11 && l.age >= 32)).collect();
+        out.sort_by_key(|(rank, l)| (std::cmp::Reverse(l.age), std::cmp::Reverse(*rank), l.id));
+        for (_, l) in out {
+            if sell.len() >= MAX_LISTED || count[l.role] <= MIN_ROLE[l.role] + 1 {
+                continue;
+            }
+            count[l.role] -= 1;
+            sell.push(l);
+        }
+        let lend: Vec<&Listing> = squad
+            .iter()
+            .copied()
+            .enumerate()
+            .filter(|(rank, l)| *rank >= 18 && l.age <= 21 && !l.recent)
+            .map(|(_, l)| l)
+            .take(MAX_LOAN_LISTED)
+            .collect();
+        let mut insert = self
+            .world
+            .conn
+            .prepare_cached("INSERT OR IGNORE INTO transfer_list (person_id, transfer, loan, asking) VALUES (?, ?, ?, ?)")?;
+        for l in sell {
+            insert.execute(params![l.id, 1, 0, finance::round_money(l.value() as f64).max(10_000)])?;
+        }
+        for l in lend {
+            insert.execute(params![l.id, 0, 1, Option::<i64>::None])?;
+        }
         Ok(())
     }
 
@@ -617,9 +680,14 @@ impl Game {
                 continue;
             }
             let value = if l.club.is_some() { l.value() } else { 0 };
-            // Um titular do clube que vende (entre os 11 melhores) custa mais 40%; um leal até mais 20%
+            // Um titular do clube que vende (entre os 11 melhores) custa mais 40%; um leal até mais
+            // 20%; um da lista de transferências sai por 90% do valor
             let key = if market.key.contains(&l.id) { 1.4 } else { 1.0 };
-            let fee = if l.club.is_some() { (value as f64 * key * personality::loyalty_fee(l.loyalty)) as i64 } else { 0 };
+            let fee = match l.club {
+                None => 0,
+                Some(_) if market.listed.contains(&l.id) => (value as f64 * LISTED_FEE) as i64,
+                Some(_) => (value as f64 * key * personality::loyalty_fee(l.loyalty)) as i64,
+            };
             let wage = wage_demand(value.max(l.ca as i64 * 20_000), l.wage, b.rep);
             if fee as f64 > b.budget || wage as f64 > b.wage_room {
                 continue;
@@ -633,8 +701,9 @@ impl Game {
         if candidates.is_empty() {
             return Ok(None);
         }
-        // Os 5 melhores por CA, um deles ao acaso
-        candidates.sort_by(|x, y| y.0.ca.cmp(&x.0.ca).then(x.1.cmp(&y.1)).then(x.0.id.cmp(&y.0.id)));
+        // Os 5 melhores por CA (os da lista de transferências com 5 de vantagem), um deles ao acaso
+        let score = |l: &Listing| l.ca + if market.listed.contains(&l.id) { LISTED_EDGE } else { 0 };
+        candidates.sort_by(|x, y| score(y.0).cmp(&score(x.0)).then(x.1.cmp(&y.1)).then(x.0.id.cmp(&y.0.id)));
         candidates.truncate(5);
         let (pick, fee, wage) = candidates[(rng.next_u64() % candidates.len() as u64) as usize];
         // Contrato: 2 a 5 anos, menos para os mais velhos
@@ -824,7 +893,7 @@ impl Game {
         let wanted: HashSet<i32> = self
             .world
             .conn
-            .prepare_cached("SELECT DISTINCT person_id FROM offers WHERE buyer = ?")?
+            .prepare_cached("SELECT DISTINCT person_id FROM offers WHERE buyer = ? AND kind <> 'request'")?
             .query_map([self.club_id], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
         let mut biggest: Vec<&TransferItem> = deals.iter().filter(|d| d.fee >= WORLD_NEWS_FEE).collect();
@@ -1014,6 +1083,13 @@ mod tests {
         }
         let (sold, free, loans, _, fees) = g.market_totals("2025-07-01", "2025-09-02").unwrap();
         assert!(sold >= 50 && loans >= 10 && free >= 10 && fees > 0, "{sold} {free} {loans} {fees}");
+        // Os clubes da IA põem jogadores nas listas de transferências e de empréstimos
+        let (listed, lent): (i64, i64) = g
+            .world
+            .conn
+            .query_row("SELECT SUM(transfer), SUM(loan) FROM transfer_list WHERE requested = 0", [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap();
+        assert!(listed >= 50 && lent >= 20, "{listed} {lent}");
         for (_, id, from, to, _, kind) in all_transfers(&g) {
             assert!(from != Some(7568) && to != Some(7568) || kind == "return", "o clube do treinador fica de fora");
             let club: Option<i32> = g.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [id], |r| r.get(0)).unwrap();

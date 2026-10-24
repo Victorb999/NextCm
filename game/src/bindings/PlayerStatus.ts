@@ -7,4 +7,8 @@ export type PlayerStatus = { condition: number, morale: number,
 /**
  * "Excelente" … "Péssima"
  */
-moraleLabel: string, yellows: number, suspended: number, injury: string | null, injuryUntil: string | null, };
+moraleLabel: string, yellows: number, suspended: number, injury: string | null, injuryUntil: string | null, 
+/**
+ * Motivos de insatisfação, como o CM os escreve (só no plantel do treinador).
+ */
+unhappy: Array<string>, };
