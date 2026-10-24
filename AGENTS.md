@@ -30,6 +30,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/scout_tasks.rs` | Tarefas dos olheiros (Designar Olheiro) e as listas das abas Olheiro #1–#7 |
 | `core/src/game/discipline.rs` | Disciplinar Jogador, elogiar e criticar na imprensa (`player_log`) |
 | `core/src/game/staff_reports.rs` | Relatórios do médico e do preparador físico sobre um jogador do plantel |
+| `core/src/game/contracts.rs` | Propostas de contrato com resposta do jogador, contraproposta, confirmação e pré-contratos |
 | `core/src/game/board.rs` | Direção: expectativa, confiança, avisos e despedimento, orçamentos, Confiança da Direcção e adeptos |
 | `core/src/game/board_meeting.rs` | Reunião com a Direcção: estádio, camadas jovens, fundos, mais tempo |
 | `core/src/game/league_meeting.rs` | Reunião com a Federação: queixas sobre a arbitragem, adiamento de jogos |

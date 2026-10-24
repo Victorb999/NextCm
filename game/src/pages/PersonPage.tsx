@@ -335,8 +335,8 @@ export default function PersonPage({ id }: { id: number }) {
     ''
   )
 
-  // Menu Acção (num jogo em curso): observar um jogador de outro clube; relatórios do staff
-  // sobre um do plantel
+  // Menu Acção (num jogo em curso): de outro clube (ou livre), propor contrato e observar; do
+  // plantel, disciplina, imprensa e relatórios do staff. Quem pode assinar decide o core.
   const mine = !!person && person.club?.id === game.info?.club.id
   const canScout = game.mode === 'game' && !!person?.player && !mine && !person.reportOn
   const actions = mine
@@ -347,7 +347,7 @@ export default function PersonPage({ id }: { id: number }) {
         { key: 'medical', label: 'Pedir Relatório Médico' },
         { key: 'fitness', label: 'Pedir Relatório Preparador Físico' },
       ]
-    : [{ key: 'scout', label: 'Observar Jogador' }]
+    : [{ key: 'contract', label: 'Propor Contrato' }, ...(canScout ? [{ key: 'scout', label: 'Observar Jogador' }] : [])]
   // As mensagens novas contam no "por ler"
   const refreshInfo = () => void api.gameInfo().then((info) => info && game.update(info))
   const comment = async (kind: 'praise' | 'criticise') => {
@@ -381,9 +381,9 @@ export default function PersonPage({ id }: { id: number }) {
             label="Acção"
             align="right"
             options={actions}
-            disabled={!mine && !canScout}
             onChange={(k) => {
-              if (k === 'scout') setConfirm(true)
+              if (k === 'contract') nav.go({ kind: 'contract', id })
+              else if (k === 'scout') setConfirm(true)
               else if (k === 'discipline') setDiscipline(true)
               else if (k === 'praise' || k === 'criticise') void comment(k)
               else setReport(k as 'medical' | 'fitness')

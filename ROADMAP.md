@@ -636,13 +636,17 @@ Fica para o editor de jogos salvos (3.15): ver e mudar os motivos de cada jogado
 - **Pedido para sair**: ao fim de 28 dias com "titular", "clube maior" ou "contrato", quem tem Ambição 12+ ou Lealdade até 10 pede (mensagem com Pôr na Lista / Recusar, 7 dias para responder). Pôr na lista marca-o "a pedido"; recusar (ou não responder) dá "Frustrado por não o deixarem sair" e −3 de moral, e ele não volta a pedir enquanto durar.
 - Por fazer: os outros motivos dos prints (colegas, treinador, adjunto, treino, imprensa), os pedidos dos jogadores da IA e o desabafo na imprensa (3.12).
 
-#### Contratação como no CM (ajuste do mercado do treinador, por fazer)
+#### Contratação como no CM (ajuste do mercado do treinador)
 
 Pedido do utilizador ao testar: a contratação está "instantânea" demais.
 - **Propor Contrato no menu Acção** do perfil de um jogador sem clube (hoje só pela aba Transferência, e o perfil dele não mostra a opção) e de um jogador com **6 meses ou menos de contrato**: aí é um **pré-contrato** (Bosman), assinado já e com efeito quando o contrato atual acabar (o jogador chega livre nessa data; o clube dele não recebe nada).
 - **Negociação com resposta**: depois de o clube aceitar a proposta (ou para um livre), o treinador propõe o contrato e o jogador **responde no dia seguinte**: aceita, recusa, ou faz uma **contraproposta** (salário, prémio, anos) que o treinador pode aceitar ou voltar a negociar. Hoje a resposta do `negotiate` é imediata.
 - **Confirmar a contratação**: quando o jogador aceita, falta a confirmação final do treinador (mensagem com "Confirmar Contratação" / "Desistir"), que fecha o negócio (paga o valor e o prémio, o jogador muda de clube). Sem confirmar dentro do prazo, o negócio cai.
 - As renovações seguem a mesma regra (resposta no dia seguinte e confirmação).
+
+**Feito:** `core/src/game/contracts.rs`, `SAVE_VERSION` 20 (`contract_talks`), a proposta de contrato é uma linha de `offers` com `kind = 'contract'` (estados pending → agreed/countered → done, ou signed num pré-contrato). Menu Acção → Propor Contrato nos jogadores de outros clubes e nos livres. Com quem se negocia (`Party` em `deals.rs`): renovação, transferência acordada, livre (direto, sem proposta ao clube) ou pré-contrato (183 dias ou menos de contrato, sem empréstimo; o clube dele não o renova no fim de época e ele chega livre no dia a seguir ao fim do contrato). O jogador responde no dia seguinte pela regra antiga (salário a 90% e o contrato todo a chegar ao que pede): aceita (7 dias para confirmar), contraproposta com o que quer (Aceitar Contraproposta fecha o negócio; Negociar abre o contrato) ou, à terceira, rompe por 30 dias. Os limites da direção são verificados ao propor e outra vez ao fechar.
+- **Outras propostas** (pedido do utilizador): um livre ou um jogador em fim de contrato pode ter a proposta de outro clube gerido de reputação parecida (±2000), com probabilidade de 0% (CA 90) a 60% (CA 138+) e um salário de 95% a 125% do que pede; aí demora 2 a 5 dias a responder ("tem outras propostas e vai pensar"). Escolhe pelo contrato todo, com cada 1000 de reputação a valer 8% (mais para os ambiciosos); se escolher o outro clube, um livre assina já por ele e um jogador em fim de contrato deixa de falar connosco até ao fim do contrato ("X escolhe o Y").
+
 
 #### Marco 3.10 — Olheiros e conhecimento
 

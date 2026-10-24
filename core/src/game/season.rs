@@ -401,6 +401,8 @@ impl Game {
         let year_end = today.ends_with("12-20");
         let year: i32 = today[0..4].parse().unwrap_or(0);
         let mut rng = self.season_rng(0xC0DE);
+        // Quem assinou um pré-contrato com o treinador não renova: vai-se embora no fim do contrato
+        let precontracted = self.precontracted()?;
         for club in self.managed_clubs()? {
             type Row = (i32, String, Option<String>, Option<String>, Option<i32>, i32, i32);
             let mut rows: Vec<Row> = self
@@ -423,6 +425,9 @@ impl Game {
             rows.sort_by_key(|r| (std::cmp::Reverse(worth(r)), r.0));
             let (mut renewed, mut left) = (Vec::new(), Vec::new());
             for (rank, (id, name, expires, birth, birth_year, ..)) in rows.into_iter().enumerate() {
+                if precontracted.contains(&id) {
+                    continue;
+                }
                 match expires.as_deref() {
                     Some(e) if e > cutoff => continue,
                     None if !year_end => continue,

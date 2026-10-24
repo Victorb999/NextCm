@@ -26,8 +26,8 @@ const INCOMING_DAYS: i32 = 7;
 /// Dias para fechar o contrato depois de o clube aceitar (ou para pagar o que ele pede).
 const AGREED_DAYS: i32 = 14;
 /// Propostas recusadas antes de o jogador romper as negociações, e dias até voltar a falar.
-const TRIES: i32 = 3;
-const COOLDOWN_DAYS: i32 = 30;
+pub(super) const TRIES: i32 = 3;
+pub(super) const COOLDOWN_DAYS: i32 = 30;
 /// O clube que vende faz uma contraproposta se a oferta chegar a esta parte do que pede.
 const COUNTER_FROM: f64 = 0.6;
 /// Um clube que compra paga até mais 30% do que ofereceu quando o treinador pede mais.
@@ -149,6 +149,8 @@ pub struct ContractTerms {
     pub club: Option<ClubRef>,
     /// Renovação (do plantel) ou contratação.
     pub renewal: bool,
+    /// Pré-contrato: o contrato atual dele acaba em 6 meses ou menos; chega livre nessa data.
+    pub precontract: bool,
     #[ts(type = "number")]
     pub current_wage: i64,
     pub current_expires: Option<String>,
@@ -185,6 +187,8 @@ pub struct ContractReply {
     pub accepted: bool,
     /// Negociações terminadas (rompidas ou fechadas).
     pub over: bool,
+    /// A proposta seguiu: a resposta do jogador chega amanhã.
+    pub pending: bool,
     /// O que pede (ou o acordado): salário semanal, prémio e anos.
     #[ts(type = "number")]
     pub wage: i64,
@@ -195,36 +199,45 @@ pub struct ContractReply {
 }
 
 /// O que um jogador pede por um contrato.
-struct Demand {
-    wage: i64,
-    bonus: i64,
-    years: i32,
+pub(super) struct Demand {
+    pub(super) wage: i64,
+    pub(super) bonus: i64,
+    pub(super) years: i32,
 }
 
 pub(super) struct Offer {
-    id: i32,
-    kind: String,
-    person: i32,
-    buyer: i32,
-    seller: Option<i32>,
-    fee: i64,
-    asked: Option<i64>,
-    status: String,
-    answer_on: Option<String>,
+    pub(super) id: i32,
+    pub(super) kind: String,
+    pub(super) person: i32,
+    pub(super) buyer: i32,
+    pub(super) seller: Option<i32>,
+    pub(super) fee: i64,
+    pub(super) asked: Option<i64>,
+    pub(super) status: String,
+    pub(super) answer_on: Option<String>,
+}
+
+/// Com quem é um contrato: renovação, transferência acordada com o clube, livre (com ou sem
+/// a proposta a abrir o negócio) ou pré-contrato.
+pub(super) enum Party {
+    Renewal,
+    Transfer(Offer),
+    Free(Option<Offer>),
+    Precontract,
 }
 
 /// O que o mercado precisa de saber de um jogador hoje.
-struct Facts {
-    club: Option<i32>,
-    ca: i32,
-    role: usize,
-    age: i32,
-    wage: i64,
-    value: i64,
-    expires: Option<String>,
-    joined: Option<String>,
-    ambition: f64,
-    loyalty: f64,
+pub(super) struct Facts {
+    pub(super) club: Option<i32>,
+    pub(super) ca: i32,
+    pub(super) role: usize,
+    pub(super) age: i32,
+    pub(super) wage: i64,
+    pub(super) value: i64,
+    pub(super) expires: Option<String>,
+    pub(super) joined: Option<String>,
+    pub(super) ambition: f64,
+    pub(super) loyalty: f64,
 }
 
 const OFFER_COLUMNS: &str = "id, kind, person_id, buyer, seller, fee, asked, status, answer_on";
@@ -244,7 +257,7 @@ fn offer_row(r: &rusqlite::Row) -> rusqlite::Result<Offer> {
 }
 
 /// Salário arredondado a €100 (abaixo de €10K por semana) ou a €1K.
-fn round_wage(v: f64) -> i64 {
+pub(super) fn round_wage(v: f64) -> i64 {
     let step = if v < 10_000.0 { 100.0 } else { 1_000.0 };
     ((v / step).round() * step) as i64
 }
@@ -254,7 +267,7 @@ fn action(key: &str, label: &str) -> OfferAction {
 }
 
 impl Game {
-    fn offer(&self, id: i32) -> Result<Offer> {
+    pub(super) fn offer(&self, id: i32) -> Result<Offer> {
         self.world
             .conn
             .query_row(&format!("SELECT {OFFER_COLUMNS} FROM offers WHERE id = ?"), [id], offer_row)
@@ -262,7 +275,7 @@ impl Game {
             .ok_or_else(|| Error::Invalid("Proposta não encontrada.".into()))
     }
 
-    fn offers_where(&self, filter: &str, args: impl rusqlite::Params) -> Result<Vec<Offer>> {
+    pub(super) fn offers_where(&self, filter: &str, args: impl rusqlite::Params) -> Result<Vec<Offer>> {
         Ok(self
             .world
             .conn
@@ -275,18 +288,18 @@ impl Game {
     pub(super) fn open_offer(&self, person: i32) -> Result<Option<Offer>> {
         Ok(self
             .offers_where(
-                "person_id = ?1 AND (buyer = ?2 OR seller = ?2) AND status IN ('pending', 'countered', 'agreed', 'raised')",
+                "person_id = ?1 AND (buyer = ?2 OR seller = ?2) AND kind <> 'contract' AND status IN ('pending', 'countered', 'agreed', 'raised')",
                 params![person, self.club_id],
             )?
             .pop())
     }
 
-    fn set_status(&self, id: i32, status: &str, answer_on: Option<&str>) -> Result<()> {
+    pub(super) fn set_status(&self, id: i32, status: &str, answer_on: Option<&str>) -> Result<()> {
         self.world.conn.execute("UPDATE offers SET status = ?, answer_on = ? WHERE id = ?", params![status, answer_on, id])?;
         Ok(())
     }
 
-    fn facts(&self, id: i32) -> Result<Option<Facts>> {
+    pub(super) fn facts(&self, id: i32) -> Result<Option<Facts>> {
         type Row = (Option<i32>, i32, [i32; 4], Option<String>, Option<i32>, i64, Option<String>, Option<String>, [i32; 2]);
         let row: Option<Row> = self
             .world
@@ -340,11 +353,11 @@ impl Game {
             .optional()?)
     }
 
-    fn club_rep(&self, club: i32) -> Result<i32> {
+    pub(super) fn club_rep(&self, club: i32) -> Result<i32> {
         Ok(self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?)
     }
 
-    fn cash_of(&self, club: i32) -> Result<i64> {
+    pub(super) fn cash_of(&self, club: i32) -> Result<i64> {
         Ok(self.world.conn.query_row("SELECT COALESCE(cash, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?)
     }
 
@@ -353,7 +366,7 @@ impl Game {
         Ok(self.club_kind(division))
     }
 
-    fn window_open_for(&self, club: i32) -> Result<bool> {
+    pub(super) fn window_open_for(&self, club: i32) -> Result<bool> {
         Ok(window_open(self.kind_of(club)?, &self.date[5..]))
     }
 
@@ -411,7 +424,7 @@ impl Game {
     }
 
     /// Função que o jogador espera no plantel do treinador, pelos que lá são melhores do que ele.
-    fn expected_role(&self, person: i32, f: &Facts) -> Result<usize> {
+    pub(super) fn expected_role(&self, person: i32, f: &Facts) -> Result<usize> {
         let better: i64 = self.world.conn.query_row(
             "SELECT COUNT(*) FROM people p JOIN players pl ON pl.person_id = p.id
              WHERE p.club_id = ? AND p.is_player = 1 AND p.id <> ? AND pl.current_ability > ?",
@@ -433,7 +446,7 @@ impl Game {
     /// função que espera (−4% por degrau acima); o prémio em semanas de salário; os anos pela idade.
     /// A personalidade: o ambicioso que seria dos indispensáveis pede mais, o leal pede menos
     /// para renovar e mais para deixar o clube onde está.
-    fn demand(&self, person: i32, f: &Facts, role: usize, renewal: bool, free: bool) -> Result<Demand> {
+    pub(super) fn demand(&self, person: i32, f: &Facts, role: usize, renewal: bool, free: bool) -> Result<Demand> {
         let base = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.club_rep(self.club_id)?);
         let year: u64 = self.date[0..4].parse().unwrap_or(0);
         let mut ask = base as f64 * (0.95 + 0.15 * uniform(&mut self.deal_rng(person, 0xDE3A ^ year)));
@@ -458,7 +471,7 @@ impl Game {
     }
 
     /// Fim de um contrato de `years` épocas: numa renovação conta a partir do fim do atual.
-    fn contract_end(&self, f: &Facts, renewal: bool, years: i32) -> Result<String> {
+    pub(super) fn contract_end(&self, f: &Facts, renewal: bool, years: i32) -> Result<String> {
         let kind = self.kind_of(self.club_id)?;
         let from = if renewal { f.expires.clone().filter(|e| e.as_str() > self.date.as_str()) } else { None };
         let start = from.and_then(|e| date::add_days(&e, 1)).unwrap_or_else(|| self.date.clone());
@@ -466,7 +479,7 @@ impl Game {
     }
 
     /// A direção autoriza este valor em transferências?
-    fn check_budget(&self, amount: i64) -> Result<()> {
+    pub(super) fn check_budget(&self, amount: i64) -> Result<()> {
         let budget = self.transfer_budget()?;
         if amount > budget {
             return Err(Error::Invalid(format!("A sua direcção autoriza transferências até {}.", money_text(budget))));
@@ -482,7 +495,7 @@ impl Game {
         self.news.insert(0, n);
     }
 
-    fn offer_news(&self, fresh: &mut Vec<NewsItem>, next_id: &mut i32, title: String, body: String, offer: i32) {
+    pub(super) fn offer_news(&self, fresh: &mut Vec<NewsItem>, next_id: &mut i32, title: String, body: String, offer: i32) {
         let mut n = self.news_item(*next_id, "message", title, body);
         n.offer_id = Some(offer);
         fresh.push(n);
@@ -490,7 +503,7 @@ impl Game {
     }
 
     /// Depois de um jogador entrar ou sair do clube do treinador.
-    fn squad_changed(&mut self) -> Result<()> {
+    pub(super) fn squad_changed(&mut self) -> Result<()> {
         self.clean_selection()?;
         self.refresh_live()?;
         self.unsaved = true;
@@ -525,7 +538,7 @@ impl Game {
                 Ok((r.get::<_, i32>(0)? != 0, r.get::<_, i32>(1)? != 0, r.get(2)?))
             })
             .optional()?;
-        let offer = match self.open_offer(person)? {
+        let offer = match self.open_contract(person)?.or(self.open_offer(person)?) {
             Some(o) => Some(self.offer_view(o.id)?),
             None => None,
         };
@@ -576,6 +589,23 @@ impl Game {
         let loan = o.kind == "loan";
         let until = o.answer_on.as_deref().map(cm_date).unwrap_or_default();
         let (text, actions) = match (incoming, o.status.as_str()) {
+            _ if o.kind == "contract" => match o.status.as_str() {
+                "pending" => {
+                    (format!("Propôs um contrato a {name}; a resposta chega a {until}."), vec![action("withdraw", "Retirar Proposta")])
+                }
+                "agreed" => (
+                    format!("{name} aceitou o contrato. Confirme até {until} para fechar o negócio."),
+                    vec![action("confirm", "Confirmar Contratação"), action("withdraw", "Desistir")],
+                ),
+                "countered" => (
+                    format!("{name} fez uma contraproposta. Responda até {until}."),
+                    vec![action("accept", "Aceitar Contraproposta"), action("negotiate", "Negociar"), action("withdraw", "Desistir")],
+                ),
+                "signed" => (format!("Pré-contrato assinado: {name} chega a {until}."), Vec::new()),
+                "done" => ("Contrato assinado.".into(), Vec::new()),
+                "withdrawn" => ("Proposta retirada.".into(), Vec::new()),
+                _ => ("Negociações terminadas.".into(), Vec::new()),
+            },
             _ if o.kind == "request" => match o.status.as_str() {
                 "pending" => (
                     format!("{name} pede para ser posto na lista de transferências. Responda até {until}."),
@@ -698,6 +728,10 @@ impl Game {
         if o.kind == "request" {
             return self.answer_request(&o, key);
         }
+        if o.kind == "contract" {
+            self.answer_contract(&o, key)?;
+            return self.offer_view(id);
+        }
         let incoming = o.buyer != self.club_id;
         match (incoming, o.status.as_str(), key) {
             (false, "pending" | "countered" | "agreed", "withdraw") => self.set_status(id, "withdrawn", None)?,
@@ -736,7 +770,7 @@ impl Game {
     }
 
     /// Jogador de um clube europeu que não aceita vir para o clube do treinador, fora da Europa.
-    fn stays_in_europe(&self, person: i32, f: &Facts, club: i32) -> Result<bool> {
+    pub(super) fn stays_in_europe(&self, person: i32, f: &Facts, club: i32) -> Result<bool> {
         let (from, _) = self.club_place(club)?;
         let (to, nation) = self.club_place(self.club_id)?;
         if !leaving_europe(from, to) {
@@ -817,7 +851,7 @@ impl Game {
 
     // ---------------------------------------------------------------- contratos
 
-    fn blocked_until(&self, person: i32) -> Result<Option<String>> {
+    pub(super) fn blocked_until(&self, person: i32) -> Result<Option<String>> {
         let b: Option<Option<String>> =
             self.world.conn.query_row("SELECT blocked_until FROM talks WHERE person_id = ?", [person], |r| r.get(0)).optional()?;
         Ok(b.flatten().filter(|d| d.as_str() > self.date.as_str()))
@@ -825,26 +859,36 @@ impl Game {
 
     /// Com quem o treinador pode negociar um contrato: um do plantel (renovação) ou um jogador
     /// cujo clube aceitou a proposta (ou um livre). Devolve os factos, o nome e a proposta acordada.
-    fn contract_party(&self, person: i32) -> Result<(Facts, String, Option<Offer>)> {
+    pub(super) fn contract_party(&self, person: i32) -> Result<(Facts, String, Party)> {
         let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só os jogadores assinam contratos.".into()))?;
         let name = self.person_name(person)?;
-        let loaned_in = self.loan_of(person)?.is_some_and(|l| l.0 != self.club_id);
+        let loan = self.loan_of(person)?;
+        let loaned_in = loan.as_ref().is_some_and(|l| l.0 != self.club_id);
         let mine = f.club == Some(self.club_id) && !loaned_in;
         let deal = self.open_offer(person)?.filter(|o| o.buyer == self.club_id && o.status == "agreed");
-        if !mine && deal.is_none() {
+        let days_left = f.expires.as_deref().and_then(date::parse).zip(date::parse(&self.date)).map_or(i64::MAX, |(e, t)| (e - t) as i64);
+        let party = if mine {
+            Party::Renewal
+        } else if let Some(d) = deal {
+            if d.seller.is_some() { Party::Transfer(d) } else { Party::Free(Some(d)) }
+        } else if f.club.is_none() {
+            Party::Free(None)
+        } else if loan.is_none() && days_left <= super::contracts::PRECONTRACT_DAYS {
+            Party::Precontract
+        } else {
             return Err(Error::Invalid("Primeiro o clube dele tem de aceitar uma proposta.".into()));
-        }
+        };
         if let Some(b) = self.blocked_until(person)? {
             return Err(Error::Invalid(format!("{name} não quer falar de contrato até {}.", cm_date(&b))));
         }
-        Ok((f, name, deal))
+        Ok((f, name, party))
     }
 
-    fn role_index(key: &str) -> Result<usize> {
+    pub(super) fn role_index(key: &str) -> Result<usize> {
         SQUAD_ROLES.iter().position(|r| r.0 == key).ok_or_else(|| Error::Invalid("Função desconhecida.".into()))
     }
 
-    fn role_allowed(role: usize, age: i32) -> bool {
+    pub(super) fn role_allowed(role: usize, age: i32) -> bool {
         match role {
             4 => age <= PROSPECT_AGE,
             5 => age <= YOUNGSTER_AGE,
@@ -855,21 +899,24 @@ impl Game {
     /// As telas "Definir Função No Clube" e "Propôr Contrato": as funções e o que o jogador
     /// pede pela função `role` (sem ela, pela que ele espera).
     pub fn contract_terms(&self, person: i32, role: Option<&str>) -> Result<ContractTerms> {
-        let (f, name, deal) = self.contract_party(person)?;
+        let (f, name, party) = self.contract_party(person)?;
         let expected = self.expected_role(person, &f)?;
         let chosen = match role {
             Some(k) => Self::role_index(k)?,
             None => expected,
         };
-        let renewal = deal.is_none();
-        let free = deal.as_ref().is_some_and(|o| o.seller.is_none());
+        let renewal = matches!(party, Party::Renewal);
+        let precontract = matches!(party, Party::Precontract);
+        let free = matches!(party, Party::Free(_) | Party::Precontract);
         let d = self.demand(person, &f, chosen, renewal, free)?;
-        let ends = (1..=5).map(|y| self.contract_end(&f, renewal, y)).collect::<Result<Vec<_>>>()?;
+        let ends = (1..=5).map(|y| self.contract_end(&f, renewal || precontract, y)).collect::<Result<Vec<_>>>()?;
+        let fee = if let Party::Transfer(o) = &party { o.fee } else { 0 };
         Ok(ContractTerms {
             person_id: person,
             name,
             club: f.club.map(|c| self.club(c)),
             renewal,
+            precontract,
             current_wage: f.wage,
             current_expires: f.expires.clone(),
             roles: SQUAD_ROLES
@@ -883,137 +930,11 @@ impl Game {
             bonus: d.bonus,
             years: d.years,
             ends,
-            fee: deal.map_or(0, |o| o.fee),
+            fee,
             cash: self.cash_of(self.club_id)?,
             budget: self.transfer_budget()?,
             max_wage: self.board_view()?.max_wage,
         })
-    }
-
-    /// Proposta de contrato: função, salário semanal, prémio de assinatura e anos. O jogador
-    /// aceita se o contrato todo (salário × semanas + prémio) chegar ao que pede, com o salário
-    /// a pelo menos 90% do pedido (cada ano a mais ou a menos do que quer pede +4%); senão diz
-    /// o que quer e, à terceira recusa, rompe as negociações por 30 dias.
-    pub fn negotiate(&mut self, person: i32, role: &str, wage: i64, bonus: i64, years: i32) -> Result<ContractReply> {
-        if !(1..=5).contains(&years) {
-            return Err(Error::Invalid("Contratos de 1 a 5 anos.".into()));
-        }
-        let (f, name, deal) = self.contract_party(person)?;
-        let role_i = Self::role_index(role)?;
-        if !Self::role_allowed(role_i, f.age) {
-            return Err(Error::Invalid("Vetado pela direcção devido à idade do jogador.".into()));
-        }
-        let (wage, bonus) = (wage.max(0), bonus.max(0));
-        // Os limites da direção: salário máximo, folha salarial e orçamento de transferências
-        let board = self.board_view()?;
-        if wage > board.max_wage {
-            return Err(Error::Invalid(format!("A sua direcção autoriza salários até {} por semana.", money_text(board.max_wage))));
-        }
-        let old = if deal.is_none() { f.wage } else { 0 };
-        if board.wage_bill - old + wage > board.wage_budget {
-            return Err(Error::Invalid(format!(
-                "A folha salarial passaria o limite da direcção ({} por semana).",
-                money_text(board.wage_budget)
-            )));
-        }
-        let fee = deal.as_ref().map_or(0, |o| o.fee);
-        self.check_budget(fee + bonus)?;
-        // Não desce para um clube muito menor (quanto mais ambicioso, menos aceita descer)
-        if let (Some(o), Some(club)) = (&deal, f.club)
-            && self.club_rep(club)? > self.club_rep(self.club_id)? + personality::step_down(f.ambition)
-        {
-            self.set_status(o.id, "collapsed", None)?;
-            self.unsaved = true;
-            return Ok(ContractReply {
-                accepted: false,
-                over: true,
-                wage: 0,
-                bonus: 0,
-                years,
-                text: format!("{name} não está interessado em mudar para um clube menor."),
-            });
-        }
-        // Um europeu raramente aceita sair da Europa
-        if let (Some(o), Some(club)) = (&deal, f.club)
-            && self.stays_in_europe(person, &f, club)?
-        {
-            self.set_status(o.id, "collapsed", None)?;
-            self.unsaved = true;
-            return Ok(ContractReply {
-                accepted: false,
-                over: true,
-                wage: 0,
-                bonus: 0,
-                years,
-                text: format!("{name} não quer deixar o futebol europeu."),
-            });
-        }
-        let free = deal.as_ref().is_some_and(|o| o.seller.is_none());
-        let d = self.demand(person, &f, role_i, deal.is_none(), free)?;
-        let wanted = d.wage as f64 * (1.0 + 0.04 * (years - d.years).abs() as f64);
-        let weeks = 52.0 * years as f64;
-        let enough = wage as f64 >= 0.9 * wanted && wage as f64 * weeks + bonus as f64 >= wanted * weeks + d.bonus as f64;
-        if !enough {
-            let tries: i32 =
-                self.world.conn.query_row("SELECT tries FROM talks WHERE person_id = ?", [person], |r| r.get(0)).optional()?.unwrap_or(0)
-                    + 1;
-            let over = tries >= TRIES;
-            let blocked = over.then(|| date::add_days(&self.date, COOLDOWN_DAYS).unwrap_or_default());
-            self.world.conn.execute(
-                "INSERT OR REPLACE INTO talks (person_id, tries, blocked_until) VALUES (?, ?, ?)",
-                params![person, if over { 0 } else { tries }, blocked],
-            )?;
-            if over && let Some(o) = &deal {
-                self.set_status(o.id, "collapsed", None)?;
-            }
-            self.unsaved = true;
-            let text = if over {
-                format!("{name} rompeu as negociações e não volta a falar de contrato nos próximos {COOLDOWN_DAYS} dias.")
-            } else {
-                format!("{name} recusa a proposta.")
-            };
-            return Ok(ContractReply { accepted: false, over, wage: round_wage(wanted), bonus: d.bonus, years: d.years, text });
-        }
-        let kind = self.kind_of(self.club_id)?;
-        let until = self.contract_end(&f, deal.is_none(), years)?;
-        let text = match deal {
-            None => {
-                self.world.conn.execute("UPDATE people SET contract_expires = ?, wage = ? WHERE id = ?", params![until, wage, person])?;
-                format!("{name} renovou até {} por {} por semana.", cm_date(&until), money_text(wage))
-            }
-            Some(o) => {
-                if o.seller.is_some() && !self.window_open_for(self.club_id)? {
-                    self.set_status(o.id, "collapsed", None)?;
-                    self.unsaved = true;
-                    return Ok(ContractReply {
-                        accepted: false,
-                        over: true,
-                        wage,
-                        bonus,
-                        years,
-                        text: "A janela de transferências fechou.".into(),
-                    });
-                }
-                let move_kind = if o.seller.is_some() { "transfer" } else { "free" };
-                self.execute_move(person, o.seller, Some(self.club_id), o.fee, wage, years, move_kind, kind)?;
-                self.set_status(o.id, "done", None)?;
-                let how = match o.seller {
-                    Some(s) => format!("do {} por {}", self.club(s).short_name, money_text(o.fee)),
-                    None => "a custo zero".into(),
-                };
-                let text = format!("{name} assinou até {} ({} por semana). Chega {how}.", cm_date(&until), money_text(wage));
-                self.post_news(format!("{name} contratado"), text.clone(), None);
-                self.squad_changed()?;
-                text
-            }
-        };
-        self.book(self.club_id, "bonuses", bonus)?;
-        self.spend_budget(fee + bonus)?;
-        self.world.conn.execute("DELETE FROM talks WHERE person_id = ?", [person])?;
-        self.world.conn.execute("INSERT OR REPLACE INTO squad_roles (person_id, role) VALUES (?, ?)", params![person, role])?;
-        self.remove_unhappy(person, "contract")?;
-        self.unsaved = true;
-        Ok(ContractReply { accepted: true, over: true, wage, bonus, years, text })
     }
 
     // ---------------------------------------------------------------- lista de transferências
@@ -1057,18 +978,20 @@ impl Game {
     /// Respostas dos outros clubes, prazos e propostas novas pelos jogadores do treinador.
     pub(super) fn offers_day(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let today = self.date.clone();
-        for o in
-            self.offers_where("buyer = ?1 AND kind <> 'request' AND status = 'pending' AND answer_on <= ?2", params![self.club_id, today])?
-        {
+        for o in self.offers_where(
+            "buyer = ?1 AND kind NOT IN ('request', 'contract') AND status = 'pending' AND answer_on <= ?2",
+            params![self.club_id, today],
+        )? {
             self.seller_answers(&o, fresh, next_id)?;
         }
         for o in self.offers_where("seller = ?1 AND status = 'raised' AND answer_on <= ?2", params![self.club_id, today])? {
             self.buyer_answers(&o, fresh, next_id)?;
         }
         // Prazos: propostas recebidas sem resposta, acordos sem contrato
-        for o in
-            self.offers_where("seller = ?1 AND kind <> 'request' AND status = 'pending' AND answer_on < ?2", params![self.club_id, today])?
-        {
+        for o in self.offers_where(
+            "seller = ?1 AND kind NOT IN ('request', 'contract') AND status = 'pending' AND answer_on < ?2",
+            params![self.club_id, today],
+        )? {
             self.set_status(o.id, "withdrawn", None)?;
             let name = self.person_name(o.person)?;
             let mut body = format!("O {} desistiu de {name}: a proposta ficou sem resposta.", self.club(o.buyer).short_name);
@@ -1086,6 +1009,8 @@ impl Game {
             let body = format!("O pedido de {name} para sair ficou sem resposta: ele sente que não o deixam sair.");
             self.offer_news(fresh, next_id, format!("{name} frustrado"), body, o.id);
         }
+        self.contract_replies(fresh, next_id)?;
+        self.precontracts_due(fresh, next_id)?;
         for o in self.offers_where("buyer = ?1 AND status IN ('countered', 'agreed') AND answer_on < ?2", params![self.club_id, today])? {
             self.set_status(o.id, "collapsed", None)?;
             let name = self.person_name(o.person)?;
@@ -1396,15 +1321,27 @@ mod tests {
         if t.expected_role != "backup" {
             assert!(g.contract_terms(buy, Some("backup")).unwrap().wage > t.wage);
         }
+        // A resposta do jogador chega no dia seguinte
+        let next_day = |g: &mut Game| {
+            g.date = date::add_days(&g.date, 1).unwrap();
+            let (mut fresh, mut id) = (Vec::new(), 9000);
+            g.contract_replies(&mut fresh, &mut id).unwrap();
+            fresh
+        };
         let reply = g.negotiate(buy, &t.role, 100, 0, t.years).unwrap();
-        assert!(!reply.accepted && !reply.over && reply.wage == t.wage && reply.bonus == t.bonus, "{}", reply.text);
+        assert!(reply.pending && !reply.accepted && !reply.over, "{}", reply.text);
+        assert!(g.negotiate(buy, &t.role, 100, 0, t.years).is_err(), "uma proposta de cada vez");
+        assert!(next_day(&mut g).iter().any(|n| n.title.starts_with("Contraproposta")));
+        let offer = g.open_contract(buy).unwrap().unwrap();
+        assert_eq!(offer.status, "countered");
+        assert_eq!(g.transfer_view(buy).unwrap().offer.unwrap().kind, "contract", "a aba mostra a proposta de contrato");
+        // Aceitar a contraproposta fecha o negócio: o clube paga o valor e o prémio
         let cash = g.cash_of(PALMEIRAS).unwrap();
-        let reply = g.negotiate(buy, &t.role, t.wage, t.bonus, t.years).unwrap();
-        assert!(reply.accepted, "{}", reply.text);
+        assert_eq!(g.answer_offer(offer.id, "accept", None).unwrap().status, "done");
         assert_eq!(g.facts(buy).unwrap().unwrap().club, Some(PALMEIRAS));
         assert_eq!(g.cash_of(PALMEIRAS).unwrap(), cash - ask - t.bonus);
 
-        // A contraproposta: paga o que pedem e passa ao contrato
+        // A contraproposta do clube: paga o que pedem e passa ao contrato
         let offer = g.transfer_view(haggle).unwrap().offer.unwrap();
         assert_eq!(offer.fee, ask2);
         assert!(g.answer_offer(offer.id, "pay", None).unwrap().status == "agreed");
@@ -1416,10 +1353,11 @@ mod tests {
             |r| r.get::<_, i32>(0),
         ).unwrap();
         let role = g.contract_terms(mine, None).unwrap().role;
-        for _ in 0..2 {
-            assert!(!g.negotiate(mine, &role, 100, 0, 2).unwrap().over);
+        for k in 0..3 {
+            g.negotiate(mine, &role, 100, 0, 2).unwrap();
+            let news = next_day(&mut g);
+            assert_eq!(news.iter().any(|n| n.title.contains("rompe")), k == 2);
         }
-        assert!(g.negotiate(mine, &role, 100, 0, 2).unwrap().over);
         assert!(g.negotiate(mine, &role, 10_000_000, 0, 2).is_err());
         assert!(!g.transfer_view(mine).unwrap().can_renew);
         let other = g.world.conn.query_row(
@@ -1427,14 +1365,18 @@ mod tests {
             params![PALMEIRAS, mine, buy],
             |r| r.get::<_, i32>(0),
         ).unwrap();
-        // Renovação com 5% a menos de salário, compensados no prémio
+        // Renovação com 5% a menos de salário, compensados no prémio: ele aceita e falta confirmar
         let before = g.facts(other).unwrap().unwrap().expires;
         let t = g.contract_terms(other, None).unwrap();
         assert!(t.renewal && t.roles.iter().filter(|r| !r.allowed).all(|r| r.youth));
         let wage = t.wage * 95 / 100;
         let bonus = t.bonus + (t.wage - wage) * 52 * t.years as i64 + 10_000;
-        let reply = g.negotiate(other, &t.role, wage, bonus, t.years).unwrap();
-        assert!(reply.accepted, "{}", reply.text);
+        assert!(g.negotiate(other, &t.role, wage, bonus, t.years).unwrap().pending);
+        assert!(next_day(&mut g).iter().any(|n| n.title.contains("aceita o contrato")));
+        let offer = g.open_contract(other).unwrap().unwrap();
+        assert_eq!(offer.status, "agreed");
+        assert_eq!(g.facts(other).unwrap().unwrap().expires, before, "só depois de confirmar");
+        assert_eq!(g.answer_offer(offer.id, "confirm", None).unwrap().status, "done");
         let after = g.facts(other).unwrap().unwrap();
         assert!(after.expires > before && after.wage == wage);
         assert_eq!(after.expires.as_deref(), Some(t.ends[t.years as usize - 1].as_str()));
@@ -1459,6 +1401,62 @@ mod tests {
         assert_eq!(g.answer_offer(o.id, "accept", None).unwrap().status, "done");
         assert_eq!(g.facts(sell).unwrap().unwrap().club, Some(o.buyer.id));
         assert_eq!(g.cash_of(PALMEIRAS).unwrap(), cash + o.fee);
+
+        // Pré-contrato: um jogador de outro clube com 3 meses de contrato chega livre quando acaba
+        let (pre, _) = for_sale(&g)[3];
+        let expiry = date::add_days(&g.date, 90).unwrap();
+        g.world.conn.execute("UPDATE people SET contract_expires = ? WHERE id = ?", params![expiry, pre]).unwrap();
+        let t = g.contract_terms(pre, None).unwrap();
+        assert!(t.precontract && t.fee == 0);
+        g.negotiate(pre, &t.role, t.wage, t.bonus, t.years).unwrap();
+        // Com outras propostas pode demorar até 5 dias; tira-se o rival para o teste ser certo
+        g.world.conn.execute("UPDATE contract_talks SET rival = NULL, rival_wage = NULL WHERE person_id = ?", [pre]).unwrap();
+        for _ in 0..6 {
+            if g.open_contract(pre).unwrap().is_some_and(|o| o.status != "pending") {
+                break;
+            }
+            next_day(&mut g);
+        }
+        let offer = g.open_contract(pre).unwrap().unwrap();
+        assert_eq!(g.answer_offer(offer.id, "confirm", None).unwrap().status, "signed");
+        assert_eq!(g.facts(pre).unwrap().unwrap().club, Some(FLAMENGO), "fica até ao fim do contrato");
+        g.date = date::add_days(&expiry, 1).unwrap();
+        let (mut fresh, mut id) = (Vec::new(), 9000);
+        g.precontracts_due(&mut fresh, &mut id).unwrap();
+        assert_eq!(g.facts(pre).unwrap().unwrap().club, Some(PALMEIRAS));
+        assert!(fresh.iter().any(|n| n.title.contains("chega ao clube")));
+
+        // Um livre com uma proposta melhor de outro clube escolhe o outro clube
+        let free: i32 = g
+            .world
+            .conn
+            .query_row(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id IS NULL AND p.is_player = 1
+                 AND p.id NOT IN (SELECT person_id FROM retired) ORDER BY pl.current_ability DESC LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let t = g.contract_terms(free, None).unwrap();
+        g.negotiate(free, &t.role, t.wage, t.bonus, t.years).unwrap();
+        let rival: i32 = g
+            .world
+            .conn
+            .query_row("SELECT id FROM clubs WHERE id <> ? ORDER BY reputation DESC LIMIT 1", [PALMEIRAS], |r| r.get(0))
+            .unwrap();
+        g.world
+            .conn
+            .execute("UPDATE contract_talks SET rival = ?, rival_wage = ? WHERE person_id = ?", params![rival, t.wage * 3, free])
+            .unwrap();
+        let mut news = Vec::new();
+        for _ in 0..6 {
+            news.extend(next_day(&mut g));
+            if g.open_contract(free).unwrap().is_none() {
+                break;
+            }
+        }
+        assert!(news.iter().any(|n| n.title.contains("escolhe o")), "{:?}", news.iter().map(|n| &n.title).collect::<Vec<_>>());
+        assert_eq!(g.facts(free).unwrap().unwrap().club, Some(rival));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

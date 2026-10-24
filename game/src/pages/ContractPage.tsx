@@ -136,7 +136,8 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
     }
   }
 
-  const over = reply?.over ?? false
+  // Negociação parada: rompida, fechada, ou a proposta seguiu e a resposta chega amanhã
+  const over = (reply?.over ?? false) || (reply?.pending ?? false)
   const wants = `${terms.name} ${reply ? 'recusa: quer' : 'quer'} ${wageText(asks.wage, true)} até ${monthYear(end(asks.years))} mais um prémio de assinatura no valor de ${money(asks.bonus) || '€0'}.`
   return (
     <>
@@ -153,14 +154,16 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
       />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col overflow-auto border border-cm-line bg-cm-panel/70 px-5 py-3">
         <div className={`font-title text-[21px] leading-snug ${reply?.accepted ? 'text-cm-yellow' : 'text-white'}`}>
-          {reply && (reply.accepted || reply.over) ? reply.text : wants}
+          {reply && (reply.accepted || over) ? reply.text : wants}
         </div>
         <div className="mt-3 font-title text-[19px] text-white">
           {terms.renewal
             ? `Contrato actual: ${wageText(terms.currentWage, true)} até ${monthYear(terms.currentExpires ?? '')}.`
-            : terms.fee
-              ? `Transferência acordada: ${money(terms.fee)}.`
-              : 'Jogador livre.'}
+            : terms.precontract
+              ? `Pré-contrato: o contrato dele acaba a ${monthYear(terms.currentExpires ?? '')} e chega livre nessa data.`
+              : terms.fee
+                ? `Transferência acordada: ${money(terms.fee)}.`
+                : 'Jogador livre.'}
         </div>
         <div className="mt-1 font-title text-[19px] text-white">
           A sua direcção autoriza salários até {wageText(terms.maxWage, true)} e transferências até {money(terms.budget) || '€0'}.
@@ -195,9 +198,9 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
       </div>
       <BottomBar
         left={over ? 'Atrás' : 'Cancelar'}
-        right={reply?.accepted ? 'Continuar' : 'Oferecer'}
+        right={reply?.accepted || reply?.pending ? 'Continuar' : 'Oferecer'}
         onLeft={nav.back}
-        onRight={reply?.accepted ? nav.back : over ? undefined : () => void offer()}
+        onRight={reply?.accepted || reply?.pending ? nav.back : over ? undefined : () => void offer()}
       />
     </>
   )

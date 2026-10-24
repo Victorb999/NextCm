@@ -9,7 +9,11 @@ export type ContractTerms = { personId: number, name: string, club: ClubRef | nu
 /**
  * Renovação (do plantel) ou contratação.
  */
-renewal: boolean, currentWage: number, currentExpires: string | null, roles: Array<RoleOption>, 
+renewal: boolean, 
+/**
+ * Pré-contrato: o contrato atual dele acaba em 6 meses ou menos; chega livre nessa data.
+ */
+precontract: boolean, currentWage: number, currentExpires: string | null, roles: Array<RoleOption>, 
 /**
  * A função desta proposta (a escolhida ou a que ele espera).
  */

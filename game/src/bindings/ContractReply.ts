@@ -9,6 +9,10 @@ export type ContractReply = { accepted: boolean,
  */
 over: boolean, 
 /**
+ * A proposta seguiu: a resposta do jogador chega amanhã.
+ */
+pending: boolean, 
+/**
  * O que pede (ou o acordado): salário semanal, prémio e anos.
  */
 wage: number, bonus: number, years: number, text: string, };
