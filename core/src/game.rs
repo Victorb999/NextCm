@@ -36,7 +36,7 @@ use crate::search::fold;
 use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
 use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
 use crate::{Error, Result, World, date};
-pub use board::BoardView;
+pub use board::{BoardConfidence, BoardView};
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, TransferView};
 pub use market::TransferItem;
@@ -62,7 +62,11 @@ pub use staff_reports::ReportStaff;
 /// listados a pedido (`transfer_list.requested`).
 /// 14: conhecimento dos jogadores observados (`knowledge`) e olheiros em missão (`scouting`).
 /// 15: tarefas dos olheiros (`scout_tasks`) e os jogadores que encontraram (`scout_finds`).
-pub const SAVE_VERSION: i32 = 15;
+/// 16: satisfação dos adeptos (`board.fans`), marco 3.11.
+pub const SAVE_VERSION: i32 = 16;
+
+/// Adeptos (save 16).
+const FANS_SCHEMA: &str = "ALTER TABLE board ADD COLUMN fans INTEGER NOT NULL DEFAULT 60;";
 
 /// Tarefas dos olheiros (save 15).
 const SCOUT_TASKS_SCHEMA: &str = "
@@ -434,6 +438,7 @@ impl Game {
             tx.execute_batch(UNHAPPY_SCHEMA)?;
             tx.execute_batch(SCOUTING_SCHEMA)?;
             tx.execute_batch(SCOUT_TASKS_SCHEMA)?;
+            tx.execute_batch(FANS_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -632,6 +637,11 @@ impl Game {
             world.conn.execute_batch(SCOUT_TASKS_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 15", [])?;
             version = 15;
+        }
+        if version == 15 {
+            world.conn.execute_batch(FANS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 16", [])?;
+            version = 16;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(

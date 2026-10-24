@@ -1,4 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
+import type { BoardConfidence } from './bindings/BoardConfidence'
 import type { BoardView } from './bindings/BoardView'
 import type { ClubFinances } from './bindings/ClubFinances'
 import type { ClubListItem } from './bindings/ClubListItem'
@@ -96,6 +97,7 @@ export const api = {
   setSquadNumbers: (numbers: NumberAssign[]) => call<SquadNumbers>('set_squad_numbers', { numbers }),
   /** A direção do clube do treinador: expectativa, confiança e orçamentos. */
   boardView: () => call<BoardView>('board_view'),
+  boardConfidence: () => call<BoardConfidence>('board_confidence'),
   /** Aba Transferência do perfil de um jogador (jogo em curso). */
   transferView: (id: number) => call<TransferView>('transfer_view', { id }),
   makeOffer: (id: number, fee: number) => call<TransferView>('make_offer', { id, fee }),

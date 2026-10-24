@@ -8,6 +8,7 @@ use serde::Serialize;
 use ts_rs::TS;
 
 use super::{Game, NewsItem};
+use crate::person::ClubRef;
 use crate::{Result, World};
 
 /// Confiança ao chegar ao clube e os limites dos avisos (0–100; a 0 é despedido).
@@ -25,6 +26,20 @@ const MAX_WAGE_OVER_TOP: f64 = 1.25;
 const MAX_WAGE_SHARE: f64 = 0.1;
 /// Saldo negativo (sobre as receitas de uma época) a partir do qual a direção proíbe contratações.
 const NO_SIGNINGS_DEBT: f64 = 0.1;
+/// Vender um dos jogadores que a direção considera valiosos: confiança e adeptos que se perdem.
+const IDOL_CONFIDENCE: i32 = 5;
+const IDOL_FANS: i32 = 8;
+
+/// A tela "Confiança da Direcção": os parágrafos do CM.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardConfidence {
+    pub club: ClubRef,
+    pub paragraphs: Vec<String>,
+    /// Satisfação dos adeptos (0–100).
+    pub fans: i32,
+}
 
 /// A direção do clube do treinador (Finanças & Info).
 #[derive(Debug, Clone, Serialize, TS)]
@@ -147,6 +162,84 @@ impl Game {
         })
     }
 
+    /// "Confiança da Direcção": o desempenho (pela confiança), as finanças (saldo contra as
+    /// receitas), os adeptos e os jogadores que a direção considera valiosos.
+    pub fn board_confidence(&self) -> Result<BoardConfidence> {
+        let (confidence, fans): (i32, i32) =
+            self.world.conn.query_row("SELECT confidence, fans FROM board WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        let club = self.club(self.club_id);
+        let mood = match confidence {
+            85.. => "está deliciada com o seu desempenho como treinador",
+            70..=84 => "está muito satisfeita com o seu desempenho como treinador",
+            55..=69 => "está satisfeita com o seu desempenho como treinador",
+            40..=54 => "considera aceitável o seu desempenho como treinador",
+            25..=39 => "está preocupada com o seu desempenho como treinador",
+            _ => "está muito descontente com o seu desempenho como treinador",
+        };
+        let base = self.club_base(self.club_id)?.max(1.0);
+        let cash: i64 = self.world.conn.query_row("SELECT COALESCE(cash, 0) FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0))?;
+        let money = match cash as f64 / base {
+            r if r >= 0.5 => "extremamente segura",
+            r if r >= 0.15 => "segura",
+            r if r >= 0.0 => "estável",
+            r if r >= -NO_SIGNINGS_DEBT => "apertada",
+            _ => "preocupante",
+        };
+        let supporters = match fans {
+            75.. => "Estamos satisfeitos por constatar que você conseguiu construir uma relação positiva com os adeptos.",
+            50..=74 => "Os adeptos estão contentes com o rumo do clube.",
+            30..=49 => "Os adeptos começam a ficar impacientes.",
+            _ => "Os adeptos estão descontentes e a pressão sobre o clube é grande.",
+        };
+        let mut paragraphs =
+            vec![format!("A direcção {} {mood}.", club.name), format!("A situação financeira do clube é {money}."), supporters.to_string()];
+        let idols: Vec<String> = self.valuable_players()?.iter().map(|&id| self.person_name(id)).collect::<Result<_>>()?;
+        match idols.as_slice() {
+            [] => {}
+            [one] => paragraphs.push(format!("A direcção acredita que {one} é um elemento valioso do plantel.")),
+            [a, b, ..] => paragraphs.push(format!("A direcção acredita que {a} e {b} são elementos valiosos do plantel.")),
+        }
+        Ok(BoardConfidence { club, paragraphs, fans })
+    }
+
+    /// Os dois jogadores que a direção considera mais valiosos: os de maior valor no plantel.
+    pub(super) fn valuable_players(&self) -> Result<Vec<i32>> {
+        let ids: Vec<i32> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT p.id FROM people p WHERE p.club_id = ? AND p.is_player = 1
+                 AND p.id NOT IN (SELECT person_id FROM loans WHERE parent_id <> ?) ORDER BY p.id",
+            )?
+            .query_map([self.club_id, self.club_id], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut valued: Vec<(i64, i32)> = Vec::with_capacity(ids.len());
+        for id in ids {
+            valued.push((self.world.market_value_of(id, &self.date)?.unwrap_or(0), id));
+        }
+        valued.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        Ok(valued.into_iter().take(2).map(|v| v.1).collect())
+    }
+
+    /// Antes de vender um jogador: se for dos valiosos, a direção e os adeptos não gostam.
+    /// Devolve a frase para a mensagem da venda.
+    pub(super) fn idol_sold(&mut self, person: i32) -> Result<Option<String>> {
+        if !self.valuable_players()?.contains(&person) {
+            return Ok(None);
+        }
+        self.world.conn.execute(
+            "UPDATE board SET confidence = MAX(1, confidence - ?), fans = MAX(0, fans - ?) WHERE id = 1",
+            params![IDOL_CONFIDENCE, IDOL_FANS],
+        )?;
+        Ok(Some("A direcção e os adeptos não gostaram de ver sair um dos jogadores mais valiosos do plantel.".into()))
+    }
+
+    /// Satisfação dos adeptos, de 0 a 100.
+    fn change_fans(&self, delta: i32) -> Result<()> {
+        self.world.conn.execute("UPDATE board SET fans = MIN(100, MAX(0, fans + ?)) WHERE id = 1", [delta])?;
+        Ok(())
+    }
+
     pub fn sacked(&self) -> bool {
         self.world
             .conn
@@ -215,11 +308,14 @@ impl Game {
 
     /// Um jogo do treinador: a vitória sobe 1, a derrota desce 2.
     pub(super) fn board_result(&mut self, goals_for: i32, goals_against: i32, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
-        let delta = match goals_for.cmp(&goals_against) {
+        let delta: i32 = match goals_for.cmp(&goals_against) {
             std::cmp::Ordering::Greater => 1,
             std::cmp::Ordering::Equal => 0,
             std::cmp::Ordering::Less => -2,
         };
+        // Os adeptos: uma goleada conta a dobrar
+        let fans = if (goals_for - goals_against).abs() >= 3 { 2 * delta.signum() } else { delta.signum() };
+        self.change_fans(fans)?;
         self.change_confidence(delta, fresh, next_id)
     }
 
@@ -252,6 +348,8 @@ impl Game {
             if let Some(row) = table.iter().find(|r| r.club.id == self.club_id).filter(|r| r.played >= 4) {
                 let target: i32 = self.world.conn.query_row("SELECT target FROM board WHERE id = 1", [], |r| r.get(0))?;
                 delta += (target - row.position).clamp(-6, 4);
+                // Os adeptos querem ver a equipa onde a direção a espera (ou acima)
+                self.change_fans((target - row.position).clamp(-4, 4))?;
             }
         }
         let base = self.club_base(self.club_id)?;
@@ -341,6 +439,24 @@ mod tests {
         g.spend_budget(b.transfer_budget / 2).unwrap();
         g.sale_to_budget(1_000_000).unwrap();
         assert_eq!(g.transfer_budget().unwrap(), b.transfer_budget - b.transfer_budget / 2 + 500_000);
+
+        // Confiança da Direcção: os quatro parágrafos; vender um dos valiosos custa confiança e adeptos
+        let view = g.board_confidence().unwrap();
+        assert_eq!(view.paragraphs.len(), 4, "{:?}", view.paragraphs);
+        assert!(view.paragraphs[0].contains(&view.club.name) && view.paragraphs[3].contains("valiosos"));
+        let idol = g.valuable_players().unwrap()[0];
+        let before = g.board_view().unwrap().confidence;
+        assert!(g.idol_sold(idol).unwrap().is_some());
+        assert_eq!(g.board_view().unwrap().confidence, before - IDOL_CONFIDENCE);
+        assert_eq!(g.board_confidence().unwrap().fans, 60 - IDOL_FANS);
+        let modest: i32 = g
+            .world
+            .conn
+            .query_row("SELECT id FROM people WHERE club_id = ? AND is_player = 1 ORDER BY COALESCE(wage, 0) LIMIT 1", [g.club_id], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert!(g.idol_sold(modest).unwrap().is_none());
 
         // Avisos, ultimato e despedimento
         let (mut fresh, mut next_id) = (Vec::new(), 1000);

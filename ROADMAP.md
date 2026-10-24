@@ -674,7 +674,7 @@ Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os núm
 - **Médico**: a lesão e a data de regresso; senão a Propensão a Lesões vista com o erro da Fisioterapia (±6 com 1, exata com 20): "não tem qualquer tipo de preocupação…", "convém vigiá-lo" ou "tem tendência para se lesionar"; e o cansaço abaixo de 80% de condição.
 - **Preparador**: o lugar no plantel pelo CA visto com o erro (±20 a ±2, pela média de Treinar e Avaliar Jogadores): "elemento chave", "titular", "boa opção" ou "pouco lugar"; os dois pontos fortes (13+) e um ponto fraco (8 ou menos).
 
-#### Marco 3.11 — Direcção e Federação (por detalhar)
+#### Marco 3.11 — Direcção e Federação
 
 Referência: `docs/prints/direcao/`. Parte da direção do passo 4 do 3.8 (`core/src/game/board.rs`: confiança, objetivo, orçamentos).
 
@@ -683,6 +683,13 @@ Referência: `docs/prints/direcao/`. Parte da direção do passo 4 do 3.8 (`core
 - a situação financeira ("extremamente segura", "segura", "apertada", "preocupante"), pelo saldo contra as receitas;
 - a relação com os adeptos (precisa de uma medida da satisfação dos adeptos: resultados, assistências, venda de ídolos);
 - os jogadores que a direção considera valiosos (os de mais valor ou reputação do plantel; vendê-los pesa na confiança).
+
+**Feito (passo 1):** `BoardConfidence` e `board_confidence` em `core/src/game/board.rs`, `SAVE_VERSION` 16 (`board.fans`), `game/src/pages/BoardPage.tsx` (menu do treinador → Confiança da Direcção). Números escolhidos:
+- **Desempenho**, pela confiança: deliciada (85+), muito satisfeita (70+), satisfeita (55+), aceitável (40+), preocupada (25+), muito descontente.
+- **Finanças**, saldo sobre as receitas de uma época: extremamente segura (50%+), segura (15%+), estável (0+), apertada (até −10%), preocupante.
+- **Adeptos** (0–100, começam em 60): ±1 por vitória/derrota (±2 numa diferença de 3+ golos), e no dia 1 de cada mês a posição contra a esperada (−4 a +4). Frases a partir de 75, 50 e 30.
+- **Jogadores valiosos**: os dois de maior valor do plantel. Vender um custa 5 de confiança e 8 aos adeptos, e a mensagem da venda diz isso.
+- Os botões "Pedido à Direcção" e "Pedido à Liga" ficam apagados até aos passos 2 e 3.
 
 **Reunião com a Direcção** (`reuniao-com-a-direccao.png`): "Especificar os detalhes das exigências à direcção", com as opções indisponíveis a roxo (pela confiança, pelas finanças ou porque já foi pedido há pouco):
 - **Expandir o Estádio**: obra com custo e prazo, mais lotação no fim (a assistência e a bilheteira do 3.8 já dependem da lotação).

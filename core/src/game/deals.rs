@@ -799,10 +799,16 @@ impl Game {
             let wage = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.club_rep(o.buyer)?);
             let years = contract_years(f.age, &mut self.deal_rng(o.person, 0x5A1E));
             let kind = self.kind_of(o.buyer)?;
+            // Um dos valiosos: a direção e os adeptos não gostam (antes de ele sair)
+            let idol = self.idol_sold(o.person)?;
             self.execute_move(o.person, Some(self.club_id), Some(o.buyer), fee, wage, years, "transfer", kind)?;
             self.world.conn.execute("UPDATE offers SET fee = ? WHERE id = ?", params![fee, o.id])?;
             self.sale_to_budget(fee)?;
-            (format!("{name} vendido"), format!("{name} foi vendido ao {buyer} por {}.", money_text(fee)))
+            let mut body = format!("{name} foi vendido ao {buyer} por {}.", money_text(fee));
+            if let Some(idol) = idol {
+                body = format!("{body}\n\n{idol}");
+            }
+            (format!("{name} vendido"), body)
         };
         self.set_status(o.id, "done", None)?;
         self.squad_changed()?;

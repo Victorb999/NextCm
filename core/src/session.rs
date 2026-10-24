@@ -4,9 +4,10 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game, GameInfo,
-    Instructions, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, ReportStaff, Result, SaveSummary,
-    ScoutList, SearchQuery, SearchResult, Selection, SquadNumbers, StageView, StandingRow, TransferItem, TransferView, World, list_saves,
+    BoardConfidence, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game,
+    GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, ReportStaff, Result,
+    SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, SquadNumbers, StageView, StandingRow, TransferItem, TransferView, World,
+    list_saves,
 };
 
 pub struct Session {
@@ -236,6 +237,10 @@ impl Session {
     /// A direção do clube do treinador: expectativa, confiança e orçamentos.
     pub fn board_view(&self) -> Result<BoardView> {
         self.game()?.board_view()
+    }
+
+    pub fn board_confidence(&self) -> Result<BoardConfidence> {
+        self.game()?.board_confidence()
     }
 
     /// Aba Transferência do perfil de um jogador.

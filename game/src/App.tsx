@@ -18,6 +18,7 @@ import ClubHistoryPage from './pages/ClubHistoryPage'
 import ClubPage from './pages/ClubPage'
 import CompetitionPage from './pages/CompetitionPage'
 import ContractPage from './pages/ContractPage'
+import BoardPage from './pages/BoardPage'
 import SquadNumbersPage from './pages/SquadNumbersPage'
 import CompetitionsPage from './pages/CompetitionsPage'
 import LoadGamePage from './pages/LoadGamePage'
@@ -153,6 +154,7 @@ function SideBar({
       'separator',
       { label: info.unreadNews ? `Notícias (${info.unreadNews})` : 'Notícias', onSelect: () => nav.go({ kind: 'news' }) },
       { label: 'Pesquisa Jogador & Staff', onSelect: () => nav.go({ kind: 'search' }) },
+      { label: 'Confiança da Direcção', onSelect: () => nav.go({ kind: 'board' }) },
       { label: 'Perfil do Treinador', onSelect: () => nav.go({ kind: 'person', id: info.managerId }) },
       'separator',
       {
@@ -272,6 +274,7 @@ function Screens() {
       {current.kind === 'person' && <PersonPage key={current.id} id={current.id} />}
       {current.kind === 'contract' && <ContractPage key={current.id} id={current.id} />}
       {current.kind === 'squadNumbers' && <SquadNumbersPage />}
+      {current.kind === 'board' && <BoardPage />}
       {current.kind === 'club' && <ClubPage key={current.id} id={current.id} />}
       {current.kind === 'tactics' && <TacticsPage key={current.id} id={current.id} />}
       {current.kind === 'clubHistory' && <ClubHistoryPage key={current.id} id={current.id} />}
