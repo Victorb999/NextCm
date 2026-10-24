@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { BACKGROUND_PHOTOS } from '../backgrounds'
 import {
   CURRENCIES,
   DEFAULT_SETTINGS,
   FONTS,
   MATCH_SPEEDS,
   SIDE_PRESETS,
+  TEXT_FONTS,
   WAGES,
   applyScreenMode,
   getSettings,
@@ -133,8 +135,11 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
           <Row label="Moeda">
             <Cycle options={CURRENCIES} value={s.currency} onChange={(currency) => set({ currency })} />
           </Row>
-          <Row label="Tipos de Letra">
+          <Row label="Letra dos Títulos">
             <Cycle options={FONTS} value={s.font} onChange={(font) => set({ font })} />
+          </Row>
+          <Row label="Letra do Texto">
+            <Cycle options={TEXT_FONTS} value={s.textFont} onChange={(textFont) => set({ textFont })} />
           </Row>
           <Row label="Remunerações">
             {WAGES.map((w) => (
@@ -186,6 +191,12 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
               Liso
             </Option>
             <Option
+              selected={s.background === 'photo'}
+              onClick={() => set({ background: 'photo', backgroundPhoto: s.backgroundPhoto ?? BACKGROUND_PHOTOS[0].key })}
+            >
+              Foto
+            </Option>
+            <Option
               selected={s.background === 'image'}
               onClick={() => (s.backgroundImage ? set({ background: 'image' }) : file.current?.click())}
             >
@@ -212,12 +223,27 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
               />
             )}
           </Row>
-          <Row label="Escurecer Fundo" disabled={s.background !== 'image'}>
+          {s.background === 'photo' &&
+            (['Estádios', 'Momentos'] as const).map((group) => (
+              <Row key={group} label={group}>
+                {BACKGROUND_PHOTOS.filter((p) => p.group === group).map((p) => (
+                  <button
+                    key={p.key}
+                    title={p.label}
+                    aria-pressed={s.backgroundPhoto === p.key}
+                    onClick={() => set({ backgroundPhoto: p.key })}
+                    className={`h-12 w-20 border-2 bg-cover bg-center ${s.backgroundPhoto === p.key ? 'border-cm-yellow' : 'border-black'}`}
+                    style={{ backgroundImage: `url("${p.url}")` }}
+                  />
+                ))}
+              </Row>
+            ))}
+          <Row label="Escurecer Fundo" disabled={s.background !== 'image' && s.background !== 'photo'}>
             {[0, 0.25, 0.5, 0.75].map((d) => (
               <Option
                 key={d}
                 selected={s.backgroundDim === d}
-                disabled={s.background !== 'image'}
+                disabled={s.background !== 'image' && s.background !== 'photo'}
                 onClick={() => set({ backgroundDim: d })}
               >
                 {d * 100}%

@@ -32,7 +32,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Tahoma', 'Verdana', 'sans-serif'],
+        sans: ['var(--cm-text-font)'],
         title: ['var(--cm-title-font)'],
       },
       fontSize: {

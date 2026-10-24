@@ -1,23 +1,41 @@
 import { useSyncExternalStore } from 'react'
+import { photoUrl } from './backgrounds'
 
 // "Definições do Jogo" (botão Opções Jogo): preferências de exibição guardadas no
 // localStorage. Não fazem parte do save: valem para qualquer jogo neste computador.
 
 export type Currency = 'EUR' | 'GBP' | 'USD' | 'BRL'
 export type WagePeriod = 'week' | 'month' | 'year'
-export type TitleFont = 'futurista' | 'classica' | 'moderna'
+export type TitleFont =
+  | 'futurista'
+  | 'classica'
+  | 'moderna'
+  | 'googleSans'
+  | 'roboto'
+  | 'robotoCondensed'
+  | 'lato'
+  | 'oswald'
+  | 'garamond'
+  | 'dmSerif'
+  | 'play'
+  | 'shadows'
+export type TextFont = 'tahoma' | 'googleSans' | 'roboto' | 'robotoCondensed' | 'lato' | 'play' | 'oswald'
 export type ScreenMode = 'window' | 'fullscreen'
-export type Background = 'default' | 'plain' | 'image'
+export type Background = 'default' | 'plain' | 'photo' | 'image'
 export type MatchSpeed = 'veryFast' | 'fast' | 'normal' | 'slow' | 'verySlow'
 
 export type Settings = {
   currency: Currency
   wages: WagePeriod
+  /** Letra dos títulos e da letra do resto do texto. */
   font: TitleFont
+  textFont: TextFont
   screen: ScreenMode
   /** Cor base da coluna esquerda (#rrggbb); os relevos saem dela. */
   sideColour: string
   background: Background
+  /** Foto de fundo que vem com o jogo (chave de `BACKGROUND_PHOTOS`). */
+  backgroundPhoto: string | null
   /** Imagem do fundo personalizado (data URL, já reduzida). */
   backgroundImage: string | null
   /** Quanto escurecer a imagem de fundo (0–0.8), para o texto continuar legível. */
@@ -30,9 +48,11 @@ export const DEFAULT_SETTINGS: Settings = {
   currency: 'EUR',
   wages: 'week',
   font: 'futurista',
+  textFont: 'tahoma',
   screen: 'window',
   sideColour: '#45526a',
   background: 'default',
+  backgroundPhoto: null,
   backgroundImage: null,
   backgroundDim: 0.5,
   matchSpeed: 'normal',
@@ -65,6 +85,26 @@ export const FONTS: { key: TitleFont; label: string; family: string }[] = [
   { key: 'futurista', label: 'Futurista', family: '"Trebuchet MS", Tahoma, sans-serif' },
   { key: 'classica', label: 'Clássica', family: 'Tahoma, Verdana, sans-serif' },
   { key: 'moderna', label: 'Moderna', family: '"Segoe UI", Arial, sans-serif' },
+  { key: 'googleSans', label: 'Google Sans', family: '"Google Sans", sans-serif' },
+  { key: 'roboto', label: 'Roboto', family: 'Roboto, sans-serif' },
+  { key: 'robotoCondensed', label: 'Roboto Condensed', family: '"Roboto Condensed", sans-serif' },
+  { key: 'lato', label: 'Lato', family: 'Lato, sans-serif' },
+  { key: 'oswald', label: 'Oswald', family: 'Oswald, sans-serif' },
+  { key: 'garamond', label: 'EB Garamond', family: '"EB Garamond", serif' },
+  { key: 'dmSerif', label: 'DM Serif Display', family: '"DM Serif Display", serif' },
+  { key: 'play', label: 'Play', family: 'Play, sans-serif' },
+  { key: 'shadows', label: 'Shadows Into Light', family: '"Shadows Into Light", cursive' },
+]
+
+/** Letra do texto (listas, tabelas, botões): só as que se leem bem em 13 px. */
+export const TEXT_FONTS: { key: TextFont; label: string; family: string }[] = [
+  { key: 'tahoma', label: 'Tahoma (CM)', family: 'Tahoma, Verdana, sans-serif' },
+  { key: 'googleSans', label: 'Google Sans', family: '"Google Sans", Tahoma, sans-serif' },
+  { key: 'roboto', label: 'Roboto', family: 'Roboto, Tahoma, sans-serif' },
+  { key: 'robotoCondensed', label: 'Roboto Condensed', family: '"Roboto Condensed", Tahoma, sans-serif' },
+  { key: 'lato', label: 'Lato', family: 'Lato, Tahoma, sans-serif' },
+  { key: 'play', label: 'Play', family: 'Play, Tahoma, sans-serif' },
+  { key: 'oswald', label: 'Oswald', family: 'Oswald, Tahoma, sans-serif' },
 ]
 
 /** Cores prontas da coluna esquerda (a 1ª é a do tema Coalizão). */
@@ -139,12 +179,15 @@ export function applySettings(s: Settings) {
   root.setProperty('--cm-sidedark', shade(base, -0.58))
   root.setProperty('--cm-side-mark', shade(base, 0.2))
   root.setProperty('--cm-title-font', (FONTS.find((f) => f.key === s.font) ?? FONTS[0]).family)
+  root.setProperty('--cm-text-font', (TEXT_FONTS.find((f) => f.key === s.textFont) ?? TEXT_FONTS[0]).family)
 
-  const bg = s.background === 'image' && !s.backgroundImage ? 'default' : s.background
-  document.documentElement.dataset.bg = bg
-  if (bg === 'image') {
+  // A foto do jogo ou a imagem do utilizador; sem nenhuma, o fundo padrão
+  const url = s.background === 'photo' ? photoUrl(s.backgroundPhoto) : s.background === 'image' ? s.backgroundImage : undefined
+  const bg = (s.background === 'photo' || s.background === 'image') && !url ? 'default' : s.background
+  document.documentElement.dataset.bg = bg === 'photo' ? 'image' : bg
+  if (url) {
     const dim = `rgba(0,0,0,${s.backgroundDim})`
-    root.setProperty('--cm-bg-image', `linear-gradient(${dim}, ${dim}), url("${s.backgroundImage}")`)
+    root.setProperty('--cm-bg-image', `linear-gradient(${dim}, ${dim}), url("${url}")`)
   } else {
     root.removeProperty('--cm-bg-image')
   }

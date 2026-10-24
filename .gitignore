@@ -10,3 +10,6 @@ target/
 # Python
 __pycache__/
 *.pyc
+
+# Fotos e fontes originais (as usadas estão em game/src/assets, já convertidas)
+assets-originais/
