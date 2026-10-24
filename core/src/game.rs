@@ -21,6 +21,7 @@ mod board_meeting;
 mod competitions;
 mod deals;
 mod finances;
+mod league_meeting;
 mod market;
 mod numbers;
 mod regen;
@@ -67,7 +68,14 @@ pub use staff_reports::ReportStaff;
 /// 16: satisfação dos adeptos (`board.fans`), marco 3.11.
 /// 17: pedidos à direção (`board_requests`, `board.grace_until`, `board.youth_level`) e obras
 /// no estádio (`stadium_works`).
-pub const SAVE_VERSION: i32 = 17;
+/// 18: motivos de queixa à Liga (`league_issues`).
+pub const SAVE_VERSION: i32 = 18;
+
+/// Reunião com a Federação (save 18).
+const LEAGUE_SCHEMA: &str = "
+CREATE TABLE league_issues (fixture_id INTEGER PRIMARY KEY, date TEXT NOT NULL, competition_id INTEGER NOT NULL,
+                            sent_off INTEGER, yellows INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0);
+";
 
 /// Reunião com a direção (save 17).
 const MEETING_SCHEMA: &str = "
@@ -452,6 +460,7 @@ impl Game {
             tx.execute_batch(SCOUT_TASKS_SCHEMA)?;
             tx.execute_batch(FANS_SCHEMA)?;
             tx.execute_batch(MEETING_SCHEMA)?;
+            tx.execute_batch(LEAGUE_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -660,6 +669,11 @@ impl Game {
             world.conn.execute_batch(MEETING_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 17", [])?;
             version = 17;
+        }
+        if version == 17 {
+            world.conn.execute_batch(LEAGUE_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 18", [])?;
+            version = 18;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -1029,7 +1043,16 @@ impl Game {
                 next_id += 1;
                 let (h, a) = live.score();
                 let (ours, theirs) = if m.home_id == self.club_id { (h, a) } else { (a, h) };
+                // Expulsões e cartões: motivo para uma queixa à Liga
+                let side = &live.sides()[if m.home_id == self.club_id { 0 } else { 1 }];
+                let grievance = league_meeting::Grievance {
+                    fixture: m.id,
+                    sent_off: side.sent_off.first().copied(),
+                    yellows: side.yellows.len(),
+                    competition: m.competition_id,
+                };
                 self.board_result(ours as i32, theirs as i32, &mut fresh, &mut next_id)?;
+                self.note_grievance(&grievance)?;
             }
         }
         // Rondas e fases que acabaram hoje passam à seguinte; as competições que acabaram têm campeão
@@ -2480,7 +2503,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

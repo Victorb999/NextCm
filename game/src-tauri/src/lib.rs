@@ -81,6 +81,8 @@ session_command!(board_view() -> BoardView);
 session_command!(board_confidence() -> BoardConfidence);
 session_command!(board_requests() -> Vec<BoardRequest>);
 session_command!(board_request(key: String) -> String);
+session_command!(league_requests() -> Vec<BoardRequest>);
+session_command!(league_request(key: String) -> String);
 session_command!(squad_numbers() -> SquadNumbers);
 session_command!(auto_squad_numbers(numbers: Vec<NumberAssign>) -> Vec<NumberAssign>);
 session_command!(set_squad_numbers(numbers: Vec<NumberAssign>) -> SquadNumbers);
@@ -206,6 +208,8 @@ pub fn run() {
             board_confidence,
             board_requests,
             board_request,
+            league_requests,
+            league_request,
             squad_numbers,
             auto_squad_numbers,
             set_squad_numbers,

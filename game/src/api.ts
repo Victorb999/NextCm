@@ -102,6 +102,9 @@ export const api = {
   boardRequests: () => call<BoardRequest[]>('board_requests'),
   /** Um pedido à direção; devolve a resposta. */
   boardRequest: (key: string) => call<string>('board_request', { key }),
+  leagueRequests: () => call<BoardRequest[]>('league_requests'),
+  /** Uma questão à Liga; devolve a resposta. */
+  leagueRequest: (key: string) => call<string>('league_request', { key }),
   /** Aba Transferência do perfil de um jogador (jogo em curso). */
   transferView: (id: number) => call<TransferView>('transfer_view', { id }),
   makeOffer: (id: number, fee: number) => call<TransferView>('make_offer', { id, fee }),

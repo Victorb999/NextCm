@@ -85,6 +85,11 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "board_view" => out(serde_json::to_value(session.board_view().map_err(e)?)),
         "board_confidence" => out(serde_json::to_value(session.board_confidence().map_err(e)?)),
         "board_requests" => out(serde_json::to_value(session.board_requests().map_err(e)?)),
+        "league_requests" => out(serde_json::to_value(session.league_requests().map_err(e)?)),
+        "league_request" => {
+            let key = args["key"].as_str().ok_or("falta key")?.to_string();
+            out(serde_json::to_value(session.league_request(key).map_err(e)?))
+        }
         "board_request" => {
             let key = args["key"].as_str().ok_or("falta key")?.to_string();
             out(serde_json::to_value(session.board_request(key).map_err(e)?))

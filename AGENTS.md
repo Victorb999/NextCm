@@ -31,6 +31,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/staff_reports.rs` | Relatórios do médico e do preparador físico sobre um jogador do plantel |
 | `core/src/game/board.rs` | Direção: expectativa, confiança, avisos e despedimento, orçamentos, Confiança da Direcção e adeptos |
 | `core/src/game/board_meeting.rs` | Reunião com a Direcção: estádio, camadas jovens, fundos, mais tempo |
+| `core/src/game/league_meeting.rs` | Reunião com a Federação: queixas sobre a arbitragem, adiamento de jogos |
 | `core/src/tactics.rs` | Formações, escolha automática, `Selection` do treinador, `tactics_from_selection` |
 | `core/src/squad.rs` | Condição, moral, lesões e castigos entre jogos |
 | `core/src/personality.rs` | Personalidade: as contas dos atributos ocultos (Versatilidade, Adaptabilidade, Desportivismo, Temperamento, Ambição, Lealdade) |

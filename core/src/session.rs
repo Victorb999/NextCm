@@ -251,6 +251,14 @@ impl Session {
         self.game_mut()?.board_request(&key)
     }
 
+    pub fn league_requests(&self) -> Result<Vec<BoardRequest>> {
+        self.game()?.league_requests()
+    }
+
+    pub fn league_request(&mut self, key: String) -> Result<String> {
+        self.game_mut()?.league_request(&key)
+    }
+
     /// Aba Transferência do perfil de um jogador.
     pub fn transfer_view(&self, id: i32) -> Result<TransferView> {
         self.game()?.transfer_view(id)

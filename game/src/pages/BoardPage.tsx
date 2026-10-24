@@ -8,23 +8,40 @@ import { useEscBack, useNav } from '../nav'
 
 // "Confiança da Direcção" (menu do treinador): o que a direção pensa do treinador, das finanças,
 // dos adeptos e dos jogadores valiosos, em parágrafos como no CM. "Pedido à Direcção" abre a
-// Reunião com a Direcção (as regras e as respostas vêm do core). O pedido à liga chega no
-// passo seguinte do 3.11.
+// Reunião com a Direcção e "Pedido à Liga" a Reunião com a Federação (as regras e as
+// respostas vêm do core).
 
-function Meeting({ onClose }: { onClose: (answer: string | null) => void }) {
+type Kind = 'board' | 'league'
+const MEETINGS: Record<Kind, { title: string; prompt: string; list: () => Promise<BoardRequest[]>; ask: (key: string) => Promise<string> }> = {
+  board: {
+    title: 'Reunião com a Direcção',
+    prompt: 'Especificar os detalhes das exigências à direcção:',
+    list: api.boardRequests,
+    ask: api.boardRequest,
+  },
+  league: {
+    title: 'Reunião com a Federação',
+    prompt: 'Especifique as questões que deseja discutir com a Liga',
+    list: api.leagueRequests,
+    ask: api.leagueRequest,
+  },
+}
+
+function Meeting({ kind, onClose }: { kind: Kind; onClose: (answer: string | null) => void }) {
+  const meeting = MEETINGS[kind]
   const game = useGame()
   const [requests, setRequests] = useState<BoardRequest[]>([])
   const [chosen, setChosen] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.boardRequests().then(setRequests, (e) => setError(String(e)))
-  }, [])
+    meeting.list().then(setRequests, (e) => setError(String(e)))
+  }, [meeting])
 
   const confirm = async () => {
     if (!chosen) return
     try {
-      const answer = await api.boardRequest(chosen)
+      const answer = await meeting.ask(chosen)
       const info = await api.gameInfo()
       if (info) game.update(info)
       onClose(answer)
@@ -37,9 +54,9 @@ function Meeting({ onClose }: { onClose: (answer: string | null) => void }) {
   return (
     <div className="flex h-full flex-col">
       <TitleBand title={game.info?.managerName ?? ''} fg="#000000" bg="#ffffff" />
-      <div className="py-2 text-center font-title text-[30px] font-bold text-cm-yellow">Reunião com a Direcção</div>
+      <div className="py-2 text-center font-title text-[30px] font-bold text-cm-yellow">{meeting.title}</div>
       <div className="mx-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-cm-panel/80 px-6 py-4">
-        <div className="pb-3 font-title text-[20px] text-white">Especificar os detalhes das exigências à direcção:</div>
+        <div className="pb-3 font-title text-[20px] text-white">{meeting.prompt}</div>
         {requests.map((r) => (
           <button
             key={r.key}
@@ -73,7 +90,7 @@ export default function BoardPage() {
   const nav = useNav()
   useEscBack()
   const [view, setView] = useState<BoardConfidence | null>(null)
-  const [meeting, setMeeting] = useState(false)
+  const [meeting, setMeeting] = useState<Kind | null>(null)
   const [answer, setAnswer] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -85,8 +102,9 @@ export default function BoardPage() {
   if (meeting) {
     return (
       <Meeting
+        kind={meeting}
         onClose={(a) => {
-          setMeeting(false)
+          setMeeting(null)
           if (a) {
             setAnswer(a)
             void load()
@@ -103,10 +121,10 @@ export default function BoardPage() {
       <TitleBand title={view?.club.name ?? ''} fg={fg} bg={bg} />
       <div className="py-2 text-center font-title text-[30px] font-bold text-cm-yellow">Confiança da Direcção</div>
       <div className="flex shrink-0 gap-1 px-3">
-        <button className="cm-purple h-6 w-40" onClick={() => setMeeting(true)}>
+        <button className="cm-purple h-6 w-40" onClick={() => setMeeting('board')}>
           Pedido à Direcção
         </button>
-        <button className="cm-purple h-6 w-40" disabled title="Chega no próximo passo">
+        <button className="cm-purple h-6 w-40" onClick={() => setMeeting('league')}>
           Pedido à Liga
         </button>
       </div>
