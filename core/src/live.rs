@@ -16,14 +16,13 @@ use rand_core::RngCore;
 use serde::Serialize;
 use ts_rs::TS;
 
-use crate::engine::{
-    SlotRating, TeamStrength, condition_factor, expected_goals, expected_goals_neutral, fit_factor, morale_factor, sector, uniform,
-};
+use crate::engine::{SlotRating, TeamStrength, condition_factor, expected_goals, expected_goals_neutral, morale_factor, sector, uniform};
 use crate::league::Fixture;
 use crate::person::ClubRef;
+use crate::personality;
 use crate::squad::Side;
 use crate::tactics::{Availability, ClubTactics, Instructions, Selection, SquadState, Tackling, TacticPlayer, fit_for_role};
-use crate::{Error, Result, World};
+use crate::{Error, Result, World, date};
 
 /// Substituições por jogo (regra actual do Brasileirão).
 pub const MAX_SUBS: i32 = 5;
@@ -67,9 +66,15 @@ struct Profile {
     /// Jogos Importantes + Pressão: como reage nos jogos decisivos.
     nerve: f64,
     determination: f64,
+    versatility: f64,
+    /// Peso nos vermelhos directos (Temperamento).
+    hothead: f64,
+    /// Adaptação de um estrangeiro acabado de chegar ao clube (1 = adaptado).
+    settle: f64,
 }
 
-fn load_profile(world: &World, id: i32) -> Result<Profile> {
+/// Atributos de um jogador para um jogo no dia `date`.
+fn load_profile(world: &World, id: i32, date: &str) -> Result<Profile> {
     let mut stmt = world.conn.prepare_cached(
         "SELECT COALESCE(NULLIF(p.common_name, ''), NULLIF(p.second_name, ''), p.display_name),
                 pl.pos_goalkeeper, pl.pos_sweeper, pl.pos_defender, pl.pos_defensive_midfielder,
@@ -77,15 +82,27 @@ fn load_profile(world: &World, id: i32) -> Result<Profile> {
                 pl.pos_right_side, pl.pos_left_side, pl.pos_central, pl.pos_free_role,
                 pl.finishing, pl.long_shots, pl.heading, pl.passing, pl.vision, pl.stamina,
                 pl.injury_proneness, pl.aggression, pl.dirtiness, pl.tackling, pl.jumping,
-                pl.consistency, pl.important_matches, p.pressure, p.determination
-         FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
+                pl.consistency, pl.important_matches, p.pressure, p.determination,
+                pl.versatility, p.sportsmanship, p.temperament, p.adaptability, p.club_joined,
+                -- Estrangeiro que chegou ao clube durante o jogo (o banco traz datas de entrada fictícias)
+                p.nation_id <> c.nation_id AND COALESCE(p.second_nation_id, 0) <> c.nation_id
+                  AND EXISTS (SELECT 1 FROM transfers t WHERE t.date = p.club_joined AND t.person_id = p.id AND t.to_club = p.club_id)
+         FROM people p JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id WHERE p.id = ?",
     )?;
+    let today = date::parse(date).unwrap_or(0);
     Ok(stmt.query_row([id], |r| {
         let mut pos = [None; 12];
         for (i, slot) in pos.iter_mut().enumerate() {
             *slot = r.get(1 + i)?;
         }
         let v = |i: usize| r.get::<_, Option<i32>>(i).map(|v| v.unwrap_or(10).clamp(1, 20) as f64);
+        let settle = match (r.get::<_, Option<bool>>(33)?.unwrap_or(false), r.get::<_, Option<String>>(32)?) {
+            (true, Some(joined)) => {
+                let days = today - date::parse(&joined).unwrap_or(today);
+                personality::adaptation_factor(days, v(31)?)
+            }
+            _ => 1.0,
+        };
         Ok(Profile {
             name: r.get(0)?,
             pos,
@@ -96,13 +113,16 @@ fn load_profile(world: &World, id: i32) -> Result<Profile> {
             vision: v(17)?,
             stamina: v(18)?,
             injury_proneness: v(19)?,
-            temper: v(20)? + v(21)?,
+            temper: (v(20)? + v(21)?) * personality::sportsmanship_factor(v(29)?),
             tackling: v(22)?,
             jumping: v(23)?,
             // Vazios no patch (o CM gera-os ao começar): contam como 10
             consistency: v(24)?,
             nerve: (v(25)? + v(26)?) / 2.0,
             determination: v(27)?,
+            versatility: v(28)?,
+            hothead: personality::temperament_red_factor(v(30)?),
+            settle,
         })
     })?)
 }
@@ -149,7 +169,7 @@ pub struct PlayerStats {
 
 impl MatchPlayer {
     fn value(&self) -> f64 {
-        value(&self.info, self.fit, self.condition, self.morale) * self.form
+        value(&self.info, &self.prof, self.fit, self.condition, self.morale) * self.form
     }
 }
 
@@ -204,9 +224,14 @@ fn determination_factor(determination: f64) -> f64 {
     1.0 + 0.04 * (determination.clamp(1.0, 20.0) - 10.5) / 9.5
 }
 
-/// Quanto um jogador rende numa função com uma nota e uma condição.
-fn value(p: &TacticPlayer, fit: i32, condition: f64, morale: i32) -> f64 {
-    p.current_ability.unwrap_or(1) as f64 * fit_factor(fit) * condition_factor(condition) * morale_factor(morale)
+/// Quanto um jogador rende numa função com uma nota e uma condição (a Versatilidade conta
+/// fora da posição, a adaptação nos estrangeiros acabados de chegar).
+fn value(p: &TacticPlayer, prof: &Profile, fit: i32, condition: f64, morale: i32) -> f64 {
+    p.current_ability.unwrap_or(1) as f64
+        * personality::versatility_fit(fit, prof.versatility)
+        * condition_factor(condition)
+        * morale_factor(morale)
+        * prof.settle
 }
 
 /// Estatísticas de uma equipa no jogo.
@@ -250,7 +275,7 @@ struct Team {
 }
 
 impl Team {
-    fn new(world: &World, club: ClubRef, tactics: ClubTactics, ai: bool) -> Result<Team> {
+    fn new(world: &World, club: ClubRef, tactics: ClubTactics, ai: bool, date: &str) -> Result<Team> {
         let mut players = Vec::new();
         let state = |p: &TacticPlayer| (p.condition.unwrap_or(100) as f64, p.morale.unwrap_or(12));
         for (s, slot) in tactics.starters.iter().enumerate() {
@@ -258,7 +283,7 @@ impl Team {
                 let (condition, morale) = state(p);
                 players.push(MatchPlayer {
                     info: p.clone(),
-                    prof: load_profile(world, p.id)?,
+                    prof: load_profile(world, p.id, date)?,
                     slot: Some(s),
                     fit: p.fit.unwrap_or(10),
                     condition,
@@ -280,7 +305,7 @@ impl Team {
             let (condition, morale) = state(p);
             players.push(MatchPlayer {
                 info: p.clone(),
-                prof: load_profile(world, p.id)?,
+                prof: load_profile(world, p.id, date)?,
                 slot: None,
                 fit: 1,
                 condition,
@@ -364,7 +389,7 @@ impl Team {
             .into_iter()
             .map(|i| {
                 let p = &self.players[i];
-                (i, value(&p.info, fit_for_role(&p.prof.pos, role), p.condition, p.morale))
+                (i, value(&p.info, &p.prof, fit_for_role(&p.prof.pos, role), p.condition, p.morale))
             })
             .max_by(|a, b| a.1.total_cmp(&b.1))
     }
@@ -532,7 +557,10 @@ impl LiveMatch {
         rng: ChaCha8Rng,
     ) -> Result<LiveMatch> {
         let ai = |side| user != Some(side) || user_ai;
-        let teams = [Team::new(world, fixture.home.clone(), home, ai(0))?, Team::new(world, fixture.away.clone(), away, ai(1))?];
+        let teams = [
+            Team::new(world, fixture.home.clone(), home, ai(0), &fixture.date)?,
+            Team::new(world, fixture.away.clone(), away, ai(1), &fixture.date)?,
+        ];
         let mut m = LiveMatch {
             fixture,
             teams,
@@ -875,8 +903,10 @@ impl LiveMatch {
             Tackling::Soft => 0.6,
             Tackling::Hard => 1.4,
         };
-        // Jogadores mais agressivos que a média (~21) dão mais cartões
+        // Jogadores mais agressivos que a média (~21) e menos desportivos dão mais cartões; os
+        // de cabeça quente (Temperamento) mais vermelhos directos
         let temper = on.iter().map(|&i| t.players[i].prof.temper).sum::<f64>() / on.len() as f64 / 21.0;
+        let hothead = on.iter().map(|&i| t.players[i].prof.hothead).sum::<f64>() / on.len() as f64;
         if uniform(&mut self.rng) < FOULS_PER_90 * tackle.sqrt() / 90.0 {
             self.teams[side].stats.fouls += 1;
         }
@@ -909,8 +939,9 @@ impl LiveMatch {
                 self.push_lines("yellow", Some(side), Some(id), text, lines);
             }
         }
-        if uniform(&mut self.rng) < REDS_PER_90 * tackle * temper / 90.0
-            && let Some(i) = self.teams[side].pick(&mut self.rng, None, booking)
+        let red = |role: &str, p: &MatchPlayer| booking(role, p) * p.prof.hothead;
+        if uniform(&mut self.rng) < REDS_PER_90 * tackle * temper * hothead / 90.0
+            && let Some(i) = self.teams[side].pick(&mut self.rng, None, red)
         {
             self.teams[side].stats.fouls += 1;
             let name = self.name(side, i);

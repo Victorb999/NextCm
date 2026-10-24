@@ -14,6 +14,7 @@ mod league;
 mod live;
 mod nation;
 mod person;
+mod personality;
 pub mod regulation;
 mod search;
 mod session;

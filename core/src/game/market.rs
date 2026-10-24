@@ -17,6 +17,7 @@ use super::{Game, NewsItem, age_on, cm_date};
 use crate::engine::uniform;
 use crate::finance::{self, market_value, wage_demand};
 use crate::person::ClubRef;
+use crate::personality;
 use crate::regulation::{self, SeasonKind};
 use crate::{Result, date};
 
@@ -66,6 +67,8 @@ struct Listing {
     league_rep: i32,
     /// Chegou ao clube há menos de [`SETTLE_DAYS`] dias: não é vendido.
     recent: bool,
+    ambition: f64,
+    loyalty: f64,
 }
 
 impl Listing {
@@ -272,7 +275,7 @@ impl Game {
     fn market_index(&self) -> Result<Vec<Listing>> {
         let today = self.date.clone();
         let today_days = date::parse(&today).unwrap_or(0);
-        type Row = (i32, Option<i32>, i32, i32, [i32; 4], Option<String>, Option<i32>, i32, i64, Option<String>, i32, i32);
+        type Row = (i32, Option<i32>, i32, i32, [i32; 4], Option<String>, Option<i32>, i32, i64, Option<String>, [i32; 2], [i32; 2]);
         let rows: Vec<Row> = self
             .world
             .conn
@@ -283,7 +286,7 @@ impl Game {
                         MAX(COALESCE(pl.pos_defensive_midfielder, 1), COALESCE(pl.pos_midfielder, 1), COALESCE(pl.pos_attacking_midfielder, 1)),
                         COALESCE(pl.pos_attacker, 1),
                         p.birth_date, p.birth_year, COALESCE(pl.current_reputation, 0), COALESCE(p.wage, 0), p.contract_expires,
-                        COALESCE(c.reputation, 0), COALESCE(k.reputation, 5)
+                        COALESCE(c.reputation, 0), COALESCE(k.reputation, 5), COALESCE(p.ambition, 10), COALESCE(p.loyalty, 10)
                  FROM players pl JOIN people p ON p.id = pl.person_id
                  LEFT JOIN clubs c ON c.id = p.club_id LEFT JOIN competitions k ON k.id = c.division_id
                  WHERE p.is_player = 1 AND (p.club_id IS NOT NULL OR pl.current_ability >= 50)
@@ -302,8 +305,8 @@ impl Game {
                     r.get(10)?,
                     r.get(11)?,
                     r.get(12)?,
-                    r.get(13)?,
-                    r.get(14)?,
+                    [r.get(13)?, r.get(14)?],
+                    [r.get(15)?, r.get(16)?],
                 ))
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -316,7 +319,7 @@ impl Game {
             .collect::<rusqlite::Result<_>>()?;
         Ok(rows
             .into_iter()
-            .map(|(id, club, ca, pa, pos, birth, birth_year, rep, wage, expires, club_rep, league_rep)| Listing {
+            .map(|(id, club, ca, pa, pos, birth, birth_year, rep, wage, expires, [club_rep, league_rep], [ambition, loyalty])| Listing {
                 id,
                 club,
                 ca,
@@ -329,6 +332,8 @@ impl Game {
                 club_rep,
                 league_rep,
                 recent: recent.contains(&id),
+                ambition: ambition as f64,
+                loyalty: loyalty as f64,
             })
             .collect())
     }
@@ -559,8 +564,8 @@ impl Game {
             {
                 continue;
             }
-            // Vem de um clube muito maior? Não quer descer
-            if l.club.is_some() && l.club_rep > b.rep + 1500 {
+            // Vem de um clube muito maior? Não quer descer (o ambicioso ainda menos)
+            if l.club.is_some() && l.club_rep > b.rep + personality::step_down(l.ambition) {
                 continue;
             }
             // O clube que vende não fica abaixo do mínimo nem faz mais negócios do que o limite
@@ -570,8 +575,9 @@ impl Game {
                 continue;
             }
             let value = if l.club.is_some() { l.value() } else { 0 };
-            // Um titular do clube que vende (entre os 11 melhores) custa mais 40%
-            let fee = if l.club.is_some() { (value as f64 * if market.key.contains(&l.id) { 1.4 } else { 1.0 }) as i64 } else { 0 };
+            // Um titular do clube que vende (entre os 11 melhores) custa mais 40%; um leal até mais 20%
+            let key = if market.key.contains(&l.id) { 1.4 } else { 1.0 };
+            let fee = if l.club.is_some() { (value as f64 * key * personality::loyalty_fee(l.loyalty)) as i64 } else { 0 };
             let wage = wage_demand(value.max(l.ca as i64 * 20_000), l.wage, b.rep);
             if fee as f64 > b.budget || wage as f64 > b.wage_room {
                 continue;
@@ -945,9 +951,16 @@ mod tests {
         let squad_after: i64 =
             g.world.conn.query_row("SELECT COUNT(*) FROM people WHERE club_id = 7568 AND is_player = 1", [], |r| r.get(0)).unwrap();
         assert_eq!(squad_before, squad_after);
+        // Voltou ao clube dono (que pode voltar a emprestá-lo na mesma janela)
         if let Some((id, parent)) = back {
-            let club: Option<i32> = g.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [id], |r| r.get(0)).unwrap();
-            assert_eq!(club, Some(parent), "voltou ao clube dono");
+            let returned: i64 = g
+                .world
+                .conn
+                .query_row("SELECT COUNT(*) FROM transfers WHERE person_id = ? AND to_club = ? AND kind = 'return'", [id, parent], |r| {
+                    r.get(0)
+                })
+                .unwrap();
+            assert_eq!(returned, 1, "voltou ao clube dono");
         }
         // A aba Transferências de quem comprou mostra a entrada
         let (_, id, _, to, _, _) = first[0].clone();

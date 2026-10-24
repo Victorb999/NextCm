@@ -10,6 +10,7 @@ use serde::Serialize;
 use ts_rs::TS;
 
 use crate::engine::uniform;
+use crate::personality;
 use crate::tactics::{Availability, SquadState};
 use crate::{Result, World, date};
 
@@ -81,11 +82,13 @@ impl PlayerState {
     }
 }
 
-/// Clube e Forma Natural (1–20, do banco), que dá a recuperação diária.
+/// Clube, Forma Natural (1–20, do banco), que dá a recuperação diária, e Temperamento, que
+/// mexe na moral depois dos jogos.
 #[derive(Debug, Clone, Copy)]
 pub struct Traits {
     pub club_id: i32,
     pub natural_fitness: i32,
+    pub temperament: i32,
 }
 
 /// Para o perfil do jogador e a aba "Lesões & Castigos".
@@ -155,12 +158,13 @@ impl Squads {
     pub fn load_traits(world: &World, clubs: &[i32]) -> Result<HashMap<i32, Traits>> {
         let mut out = HashMap::new();
         let mut stmt = world.conn.prepare_cached(
-            "SELECT p.id, p.club_id, pl.natural_fitness FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ?",
+            "SELECT p.id, p.club_id, pl.natural_fitness, p.temperament FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ?",
         )?;
         for &club in clubs {
             let rows = stmt.query_map([club], |r| {
                 let nf = r.get::<_, Option<i32>>(2)?.unwrap_or(10).clamp(1, 20);
-                Ok((r.get::<_, i32>(0)?, Traits { club_id: r.get(1)?, natural_fitness: nf }))
+                let temperament = r.get::<_, Option<i32>>(3)?.unwrap_or(10).clamp(1, 20);
+                Ok((r.get::<_, i32>(0)?, Traits { club_id: r.get(1)?, natural_fitness: nf, temperament }))
             })?;
             for row in rows {
                 let (id, t) = row?;
@@ -236,6 +240,7 @@ impl Squads {
             squad.sort_unstable();
             let result = side.goals_for.cmp(&side.goals_against) as i32; // 1, 0, -1
             for &id in &squad {
+                let temperament = self.traits[&id].temperament;
                 let s = self.state_mut(id);
                 // Quem estava suspenso nesta competição cumpriu este jogo
                 if let Some(k) = s.cards.get_mut(&comp)
@@ -245,7 +250,7 @@ impl Squads {
                     k.suspended -= 1;
                 }
                 let delta = if played(id) { 2 * result } else { result };
-                s.morale = (s.morale + delta).clamp(1, 20);
+                s.morale = (s.morale + personality::morale_swing(delta, temperament)).clamp(1, 20);
             }
             for &(id, condition) in &side.played {
                 if self.traits.contains_key(&id) {
@@ -295,7 +300,7 @@ mod tests {
     use rand_core::SeedableRng;
 
     fn squads(n: i32, club: i32) -> Squads {
-        let traits = (0..n).map(|id| (id, Traits { club_id: club, natural_fitness: 12 })).collect();
+        let traits = (0..n).map(|id| (id, Traits { club_id: club, natural_fitness: 12, temperament: 11 })).collect();
         Squads { states: HashMap::new(), traits }
     }
 
@@ -317,6 +322,19 @@ mod tests {
             sq.new_day(&format!("2025-08-0{d}"));
         }
         assert_eq!(sq.state(0).condition, 100, "recupera numa semana");
+    }
+
+    #[test]
+    fn temperament_swings_morale() {
+        let mut sq = squads(20, 1);
+        sq.traits.get_mut(&0).unwrap().temperament = 4;
+        sq.traits.get_mut(&1).unwrap().temperament = 18;
+        let starters: Vec<i32> = (0..11).collect();
+        let mut rng = ChaCha8Rng::seed_from_u64(4);
+        sq.after_match([side(1, &starters, 0, 2), side(2, &[], 2, 0)], "2025-08-02", 65, &mut rng);
+        assert_eq!(sq.state(0).morale, START_MORALE - 3, "cabeça quente");
+        assert_eq!(sq.state(1).morale, START_MORALE - 1, "calmo");
+        assert_eq!(sq.state(2).morale, START_MORALE - 2);
     }
 
     #[test]

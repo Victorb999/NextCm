@@ -157,7 +157,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **3.6** Mais competições | Época no ano civil; Séries C e D, Copa do Brasil, estaduais, Libertadores e Sul-Americana; regulamentos num arquivo de dados por competição. As ligas europeias passam para um marco seguinte | Calendário brasileiro completo numa época |
 | ✅ **3.7** Mundo | Ligas de Inglaterra, Espanha, Itália, Alemanha, França, Portugal, Holanda, Argentina e Arábia Saudita (1ª e 2ª divisão), Liga dos Campeões e Liga Europa; épocas de agosto a maio ao lado do ano civil | Uma época europeia inteira com campeões, subidas e descidas e a final da Liga dos Campeões |
 | ✅ **3.8** Mercado | Transferências e empréstimos (IA e treinador) nas janelas reais, renovações negociadas, finanças completas, orçamentos e despedimento | Clubes compram e vendem entre si com números plausíveis; o treinador compra, vende, renova e vê as finanças |
-| **3.9** Personalidade | Os atributos ocultos que ainda não fazem nada (Ambição, Lealdade, Adaptabilidade, Versatilidade, Desportivismo, Temperamento) passam a contar no mercado, no motor e na moral | As médias do motor e do mercado continuam na CLI e cada atributo tem um efeito testado |
+| ✅ **3.9** Personalidade | Os atributos ocultos que ainda não fazem nada (Ambição, Lealdade, Adaptabilidade, Versatilidade, Desportivismo, Temperamento) passam a contar no mercado, no motor e na moral | As médias do motor e do mercado continuam na CLI e cada atributo tem um efeito testado |
 | **3.10** Olheiros e conhecimento | Atributos escondidos como no CM (o clube só vê o que conhece), observar jogadores, designar olheiros (clube, próximo adversário, jovens, país, região), listas Olheiro #1–#7, orçamento limitado para quem a direção não conhece, relatórios do médico e do preparador físico | Um jogador europeu desconhecido aparece com "-", é observado, o relatório chega e a direção passa a autorizar a proposta inteira |
 | **3.11** Direcção e Federação | A tela Confiança da Direcção com o texto do CM; Reunião com a Direcção (expandir o estádio, investir nas camadas jovens, mais fundos para transferências e salários, mais tempo); Reunião com a Federação (queixas sobre a arbitragem, pedir adiamento de jogo) | Um pedido à direção é aceite ou recusado pela confiança e pelas finanças, e o efeito aparece (orçamento, estádio, juniores) |
 | **3.12** Empregos e gestão do plantel | Informação de Empregos (procurar e aceitar clubes, despedimentos na IA), equipa de reservas, Disciplinar Jogador, elogiar e criticar jogadores na imprensa, conferências de imprensa antes e depois dos jogos (ou mandar o adjunto) | Despedido, o treinador encontra outro clube e continua o jogo; um castigo, um elogio ou uma resposta na conferência muda a moral pela personalidade |
@@ -563,15 +563,25 @@ Como no CM: no clube do treinador é o treinador que escolhe os números (`core/
 - **Início da época** da liga do treinador: a mensagem "Números do plantel" com o botão Definir Números.
 - **Dia de jogo**: com convocados sem número para o jogo de amanhã, o Continuar Jogo abre a tela dos números e o dia não avança (`GameInfo.needsNumbers`). Sem o app (CLI e testes) o Auto resolve sozinho.
 
-#### Marco 3.9 — Personalidade: atributos ocultos úteis (por detalhar)
+#### Marco 3.9 — Personalidade: atributos ocultos úteis
 
-Hoje já contam: Consistência (forma do dia), Jogos Importantes e Pressão (jogos grandes), Propensão a Lesões, Maldade e Agressividade (faltas e cartões), Profissionalismo e Determinação (evolução do CA). Falta dar uso a:
-- **Ambição**: recusa descer de nível e pede mais para ficar num clube pequeno; quer sair de um clube pequeno para ele (mercado do 3.8: `STEP_DOWN`, salário pedido, propostas recebidas).
-- **Lealdade**: desconto para renovar, resistência a ser vendido; o clube da IA pede mais por ele.
-- **Adaptabilidade**: tempo de adaptação a um país novo (rende menos nos primeiros meses).
-- **Versatilidade**: rendimento fora da posição natural.
-- **Desportivismo** e **Temperamento**: cartões, discussões e moral.
-Cada efeito com teste; as médias do motor (~2,6 golos, ~48% vitórias em casa) e do mercado continuam na CLI.
+Já contavam: Consistência (forma do dia), Jogos Importantes e Pressão (jogos grandes), Propensão a Lesões, Maldade e Agressividade (faltas e cartões), Profissionalismo e Determinação (evolução do CA). O 3.9 dá uso aos outros. As contas ficam em `core/src/personality.rs`, com o meio de cada escala na média do banco, para as médias do jogo não mudarem.
+
+**No motor** (`live.rs`):
+- **Versatilidade**: fora da posição (nota < 15), a perda de rendimento vai de 125% (Versatilidade 1) a 70% (20) da normal. Conta também na escolha de quem o adjunto mete em campo.
+- **Adaptabilidade**: um estrangeiro (sem a nacionalidade do país do clube) que chegou ao clube durante o jogo rende 6% menos no primeiro dia, e a perda some em linha reta em 30 dias (Adaptabilidade 20) a 180 (1). As datas de entrada que o banco traz são fictícias (quase todas 1/6/2025), por isso só contam as mudanças registadas na tabela `transfers`.
+- **Desportivismo**: o peso de cada jogador nas faltas para cartão vai de +25% (1) a −25% (20).
+- **Temperamento**: o peso nos vermelhos directos (agressões e protestos) vai de +50% (1) a −47% (20).
+
+**Na moral** (`squad.rs`), o **Temperamento** depois de cada jogo: quem tem 7 ou menos (cabeça quente) sobe e desce um ponto mais; quem tem 15 ou mais (calmo) sofre um ponto menos com as derrotas.
+
+**No mercado** (`deals.rs`, `market.rs`):
+- **Ambição**: a diferença de reputação acima da qual o jogador não aceita descer de clube passa de 1 500 fixos a 2 820 (Ambição 1) até 540 (20), no treinador e na IA. Quem seria dos indispensáveis no clube que o quer (peixe grande num lago pequeno) pede até 12% mais de salário. Com Ambição 15 ou mais, se o treinador recusar (ou deixar expirar) uma proposta de um clube maior, o jogador fica desiludido: perde 3 de moral, e a mensagem diz isso.
+- **Lealdade**: na renovação, o salário pedido vai de −10% (Lealdade 20) a +14% (1); o clube pede até 20% mais por um jogador leal (o treinador e a IA pagam isso); e um leal pede até 10% mais de salário para deixar o seu clube.
+
+Ficam para depois: a Lealdade e a Ambição nas renovações da IA e nos pedidos para sair; o Temperamento e o Desportivismo nas discussões no balneário, no Disciplinar Jogador e no elogio e na crítica na imprensa (3.12) e nas palestras (3.14).
+
+**Feito:** `core/src/personality.rs` (as contas e os testes de cada efeito), `live.rs` (Versatilidade, Adaptabilidade, Desportivismo e Temperamento nos lances), `squad.rs` (Temperamento na moral), `deals.rs` e `market.rs` (Ambição e Lealdade), teste `personality_in_the_market`. Não mexe no save. CLI (`sim -- 7568 epoca 1 4`): 2,55 golos por jogo, 49% vitórias em casa, 23% empates; por equipa e jogo 1,77 amarelos e 0,097 vermelhos (os cartões continuam nas médias do 3.4).
 
 #### Marco 3.10 — Olheiros e conhecimento (por detalhar)
 

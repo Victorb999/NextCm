@@ -15,6 +15,7 @@ use super::{Game, NewsItem, age_on, cm_date};
 use crate::engine::uniform;
 use crate::finance::{self, wage_demand};
 use crate::person::ClubRef;
+use crate::personality;
 use crate::regulation::SeasonKind;
 use crate::{Error, Result, date};
 
@@ -34,8 +35,6 @@ const RAISE_UP_TO: f64 = 1.3;
 const LISTED_BID: f64 = 0.35;
 const LOAN_BID: f64 = 0.3;
 const UNLISTED_BID: f64 = 0.12;
-/// Diferença de reputação acima da qual um jogador não aceita ir para um clube menor.
-const STEP_DOWN: i32 = 1500;
 /// Dias no clube antes de o clube o vender pelo preço normal (antes, +25%).
 const SETTLE_DAYS: i32 = 180;
 
@@ -220,6 +219,8 @@ struct Facts {
     value: i64,
     expires: Option<String>,
     joined: Option<String>,
+    ambition: f64,
+    loyalty: f64,
 }
 
 const OFFER_COLUMNS: &str = "id, kind, person_id, buyer, seller, fee, asked, status, answer_on";
@@ -282,7 +283,7 @@ impl Game {
     }
 
     fn facts(&self, id: i32) -> Result<Option<Facts>> {
-        type Row = (Option<i32>, i32, [i32; 4], Option<String>, Option<i32>, i64, Option<String>, Option<String>);
+        type Row = (Option<i32>, i32, [i32; 4], Option<String>, Option<i32>, i64, Option<String>, Option<String>, [i32; 2]);
         let row: Option<Row> = self
             .world
             .conn
@@ -292,7 +293,8 @@ impl Game {
                         MAX(COALESCE(pl.pos_sweeper, 1), COALESCE(pl.pos_defender, 1), COALESCE(pl.pos_wing_back, 1)),
                         MAX(COALESCE(pl.pos_defensive_midfielder, 1), COALESCE(pl.pos_midfielder, 1), COALESCE(pl.pos_attacking_midfielder, 1)),
                         COALESCE(pl.pos_attacker, 1),
-                        p.birth_date, p.birth_year, COALESCE(p.wage, 0), p.contract_expires, p.club_joined
+                        p.birth_date, p.birth_year, COALESCE(p.wage, 0), p.contract_expires, p.club_joined,
+                        COALESCE(p.ambition, 10), COALESCE(p.loyalty, 10)
                  FROM people p JOIN players pl ON pl.person_id = p.id
                  WHERE p.id = ? AND p.is_player = 1 AND p.id NOT IN (SELECT person_id FROM retired)",
             )?
@@ -306,10 +308,11 @@ impl Game {
                     r.get(8)?,
                     r.get(9)?,
                     r.get(10)?,
+                    [r.get(11)?, r.get(12)?],
                 ))
             })
             .optional()?;
-        let Some((club, ca, pos, birth, birth_year, wage, expires, joined)) = row else { return Ok(None) };
+        let Some((club, ca, pos, birth, birth_year, wage, expires, joined, [ambition, loyalty])) = row else { return Ok(None) };
         Ok(Some(Facts {
             club,
             ca,
@@ -319,6 +322,8 @@ impl Game {
             value: self.world.market_value_of(id, &self.date)?.unwrap_or(0),
             expires,
             joined,
+            ambition: ambition as f64,
+            loyalty: loyalty as f64,
         }))
     }
 
@@ -379,10 +384,10 @@ impl Game {
     }
 
     /// Quanto o clube pede por um jogador: o valor, +40% se for dos 11 melhores, +25% se
-    /// chegou há pouco, e um acerto de −5% a +15% fixo por jogador e época.
+    /// chegou há pouco, até +20% se for leal, e um acerto de −5% a +15% fixo por jogador e época.
     fn asking_price(&self, person: i32, f: &Facts, club: i32) -> Result<i64> {
         let (rank, _) = self.squad_rank(club, person, f.role)?;
-        let mut ask = f.value as f64 * if rank < 11 { 1.4 } else { 1.0 };
+        let mut ask = f.value as f64 * if rank < 11 { 1.4 } else { 1.0 } * personality::loyalty_fee(f.loyalty);
         if self.recent(f) {
             ask *= 1.25;
         }
@@ -412,12 +417,21 @@ impl Game {
     /// O que o jogador pede ao clube do treinador pela função `role`: o salário pedido do 3.8
     /// (acerto de −5% a +10% fixo por jogador e época), mais 12% por cada degrau abaixo da
     /// função que espera (−4% por degrau acima); o prémio em semanas de salário; os anos pela idade.
-    fn demand(&self, person: i32, f: &Facts, role: usize, free: bool) -> Result<Demand> {
+    /// A personalidade: o ambicioso que seria dos indispensáveis pede mais, o leal pede menos
+    /// para renovar e mais para deixar o clube onde está.
+    fn demand(&self, person: i32, f: &Facts, role: usize, renewal: bool, free: bool) -> Result<Demand> {
         let base = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.club_rep(self.club_id)?);
         let year: u64 = self.date[0..4].parse().unwrap_or(0);
         let mut ask = base as f64 * (0.95 + 0.15 * uniform(&mut self.deal_rng(person, 0xDE3A ^ year)));
-        let diff = SQUAD_ROLES[role].2 - SQUAD_ROLES[self.expected_role(person, f)?].2;
+        let expected = self.expected_role(person, f)?;
+        let diff = SQUAD_ROLES[role].2 - SQUAD_ROLES[expected].2;
         ask *= if diff > 0 { 1.0 + 0.12 * diff as f64 } else { 1.0 + 0.04 * diff as f64 };
+        ask *= personality::ambition_wage(f.ambition, expected == 0);
+        if renewal {
+            ask *= personality::loyalty_renewal(f.loyalty);
+        } else if !free {
+            ask *= personality::loyalty_move_wage(f.loyalty);
+        }
         let wage = round_wage(ask);
         let weeks = if free { FREE_BONUS_WEEKS } else { BONUS_WEEKS };
         let years = match f.age {
@@ -669,7 +683,13 @@ impl Game {
                 let (title, body) = self.complete_sale(&o, o.fee)?;
                 self.post_news(title, body, Some(id));
             }
-            (true, "pending", "reject") => self.set_status(id, "rejected", None)?,
+            (true, "pending", "reject") => {
+                self.set_status(id, "rejected", None)?;
+                if let Some(text) = self.letdown(&o)? {
+                    let name = self.person_name(o.person)?;
+                    self.post_news(format!("{name} desiludido"), text, Some(id));
+                }
+            }
             (true, "pending", "counter") if o.kind == "transfer" => {
                 let asked = fee.filter(|&f| f > o.fee).ok_or_else(|| Error::Invalid("Peça mais do que a proposta.".into()))?;
                 let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
@@ -682,6 +702,22 @@ impl Game {
         }
         self.unsaved = true;
         self.offer_view(id)
+    }
+
+    /// Um ambicioso a quem o clube recusa (ou deixa sem resposta) uma proposta de um clube
+    /// maior fica desiludido: perde moral. Devolve a frase para a mensagem.
+    fn letdown(&mut self, o: &Offer) -> Result<Option<String>> {
+        if o.kind != "transfer" || self.club_rep(o.buyer)? <= self.club_rep(self.club_id)? {
+            return Ok(None);
+        }
+        let Some(f) = self.facts(o.person)?.filter(|f| f.club == Some(self.club_id)) else { return Ok(None) };
+        if (f.ambition as i32) < personality::AMBITIOUS {
+            return Ok(None);
+        }
+        let s = self.squads.states.entry(o.person).or_default();
+        s.morale = (s.morale - personality::LETDOWN_MORALE).max(1);
+        let name = self.person_name(o.person)?;
+        Ok(Some(format!("{name} queria jogar no {} e ficou desiludido.", self.club(o.buyer).short_name)))
     }
 
     /// Venda (ou empréstimo) de um jogador do treinador ao clube que propôs; devolve o
@@ -755,7 +791,7 @@ impl Game {
         };
         let renewal = deal.is_none();
         let free = deal.as_ref().is_some_and(|o| o.seller.is_none());
-        let d = self.demand(person, &f, chosen, free)?;
+        let d = self.demand(person, &f, chosen, renewal, free)?;
         let ends = (1..=5).map(|y| self.contract_end(&f, renewal, y)).collect::<Result<Vec<_>>>()?;
         Ok(ContractTerms {
             person_id: person,
@@ -810,9 +846,9 @@ impl Game {
         }
         let fee = deal.as_ref().map_or(0, |o| o.fee);
         self.check_budget(fee + bonus)?;
-        // Não desce para um clube muito menor
+        // Não desce para um clube muito menor (quanto mais ambicioso, menos aceita descer)
         if let (Some(o), Some(club)) = (&deal, f.club)
-            && self.club_rep(club)? > self.club_rep(self.club_id)? + STEP_DOWN
+            && self.club_rep(club)? > self.club_rep(self.club_id)? + personality::step_down(f.ambition)
         {
             self.set_status(o.id, "collapsed", None)?;
             self.unsaved = true;
@@ -826,7 +862,7 @@ impl Game {
             });
         }
         let free = deal.as_ref().is_some_and(|o| o.seller.is_none());
-        let d = self.demand(person, &f, role_i, free)?;
+        let d = self.demand(person, &f, role_i, deal.is_none(), free)?;
         let wanted = d.wage as f64 * (1.0 + 0.04 * (years - d.years).abs() as f64);
         let weeks = 52.0 * years as f64;
         let enough = wage as f64 >= 0.9 * wanted && wage as f64 * weeks + bonus as f64 >= wanted * weeks + d.bonus as f64;
@@ -927,7 +963,10 @@ impl Game {
         for o in self.offers_where("seller = ?1 AND status = 'pending' AND answer_on < ?2", params![self.club_id, today])? {
             self.set_status(o.id, "withdrawn", None)?;
             let name = self.person_name(o.person)?;
-            let body = format!("O {} desistiu de {name}: a proposta ficou sem resposta.", self.club(o.buyer).short_name);
+            let mut body = format!("O {} desistiu de {name}: a proposta ficou sem resposta.", self.club(o.buyer).short_name);
+            if let Some(text) = self.letdown(&o)? {
+                body = format!("{body} {text}");
+            }
             self.offer_news(fresh, next_id, format!("Proposta por {name} expirou"), body, o.id);
         }
         for o in self.offers_where("buyer = ?1 AND status IN ('countered', 'agreed') AND answer_on < ?2", params![self.club_id, today])? {
@@ -1109,7 +1148,7 @@ impl Game {
                     if as_loan {
                         rep < my_rep && ca + 10 >= level
                     } else {
-                        rep + STEP_DOWN >= my_rep && ca >= level - 5 && ca <= level + 25 && fee as f64 <= budget
+                        rep + personality::step_down(f.ambition) >= my_rep && ca >= level - 5 && ca <= level + 25 && fee as f64 <= budget
                     }
                 })
                 .map(|b| b.0)
@@ -1303,6 +1342,73 @@ mod tests {
         assert_eq!(g.answer_offer(o.id, "accept", None).unwrap().status, "done");
         assert_eq!(g.facts(sell).unwrap().unwrap().club, Some(o.buyer.id));
         assert_eq!(g.cash_of(PALMEIRAS).unwrap(), cash + o.fee);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn personality_in_the_market() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-personalidade-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Personalidade".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: PALMEIRAS,
+        };
+        let mut g = Game::create(&path, &dir, &new, 5).unwrap();
+        let set = |g: &Game, id: i32, col: &str, v: i32| {
+            g.world.conn.execute(&format!("UPDATE people SET {col} = ? WHERE id = ?"), [v, id]).unwrap();
+        };
+        let mine = g
+            .world
+            .conn
+            .query_row(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC LIMIT 1 OFFSET 3",
+                [PALMEIRAS],
+                |r| r.get::<_, i32>(0),
+            )
+            .unwrap();
+
+        // Lealdade: o leal pede menos para renovar
+        set(&g, mine, "loyalty", 20);
+        let loyal = g.contract_terms(mine, None).unwrap().wage;
+        set(&g, mine, "loyalty", 1);
+        let mercenary = g.contract_terms(mine, None).unwrap().wage;
+        assert!(loyal < mercenary, "{loyal} {mercenary}");
+
+        // ... e o clube dele pede mais para o vender
+        let (theirs, _) = for_sale(&g)[0];
+        set(&g, theirs, "loyalty", 1);
+        let cheap = g.asking_price(theirs, &g.facts(theirs).unwrap().unwrap(), FLAMENGO).unwrap();
+        set(&g, theirs, "loyalty", 20);
+        let dear = g.asking_price(theirs, &g.facts(theirs).unwrap().unwrap(), FLAMENGO).unwrap();
+        assert!(dear > cheap, "{dear} {cheap}");
+
+        // Ambição: recusar a proposta de um clube maior deixa o ambicioso desiludido
+        let big: i32 = g.world.conn.query_row("SELECT id FROM clubs ORDER BY reputation DESC LIMIT 1", [], |r| r.get(0)).unwrap();
+        let offer = |g: &mut Game, id: i32| {
+            g.world
+                .conn
+                .execute(
+                    "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created) VALUES ('transfer', ?, ?, ?, 1000000, 'pending', ?, ?)",
+                    params![id, big, PALMEIRAS, g.date, g.date],
+                )
+                .unwrap();
+            g.world.conn.last_insert_rowid() as i32
+        };
+        for (ambition, letdown) in [(20, true), (8, false)] {
+            set(&g, mine, "ambition", ambition);
+            let before = g.squads.state(mine).morale;
+            let id = offer(&mut g, mine);
+            g.answer_offer(id, "reject", None).unwrap();
+            let after = g.squads.state(mine).morale;
+            assert_eq!(after < before, letdown, "Ambição {ambition}: {before} → {after}");
+            assert_eq!(g.news().iter().any(|n| n.offer_id == Some(id) && n.title.contains("desiludido")), letdown);
+        }
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
