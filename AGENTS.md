@@ -28,6 +28,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/unhappy.rs` | Insatisfação do plantel do treinador (motivos, moral) e pedidos para sair |
 | `core/src/game/scouting.rs` | Conhecimento dos jogadores (atributos tapados), Observar Jogador, relatórios dos olheiros, orçamento limitado |
 | `core/src/game/scout_tasks.rs` | Tarefas dos olheiros (Designar Olheiro) e as listas das abas Olheiro #1–#7 |
+| `core/src/game/discipline.rs` | Disciplinar Jogador, elogiar e criticar na imprensa (`player_log`) |
 | `core/src/game/staff_reports.rs` | Relatórios do médico e do preparador físico sobre um jogador do plantel |
 | `core/src/game/board.rs` | Direção: expectativa, confiança, avisos e despedimento, orçamentos, Confiança da Direcção e adeptos |
 | `core/src/game/board_meeting.rs` | Reunião com a Direcção: estádio, camadas jovens, fundos, mais tempo |

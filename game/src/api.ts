@@ -2,6 +2,7 @@ import { invoke, isTauri } from '@tauri-apps/api/core'
 import type { BoardConfidence } from './bindings/BoardConfidence'
 import type { BoardRequest } from './bindings/BoardRequest'
 import type { BoardView } from './bindings/BoardView'
+import type { DisciplineOptions } from './bindings/DisciplineOptions'
 import type { ClubFinances } from './bindings/ClubFinances'
 import type { ClubListItem } from './bindings/ClubListItem'
 import type { ClubProfile } from './bindings/ClubProfile'
@@ -103,6 +104,11 @@ export const api = {
   /** Um pedido à direção; devolve a resposta. */
   boardRequest: (key: string) => call<string>('board_request', { key }),
   leagueRequests: () => call<BoardRequest[]>('league_requests'),
+  disciplineOptions: (id: number) => call<DisciplineOptions>('discipline_options', { id }),
+  /** Castigo (índice em `actions`) e razão; devolve a reação do jogador. */
+  discipline: (id: number, action: number, reason: string) => call<string>('discipline', { id, action, reason }),
+  /** "praise" ou "criticise"; devolve a reação do jogador. */
+  pressComment: (id: number, kind: string) => call<string>('press_comment', { id, kind }),
   /** Uma questão à Liga; devolve a resposta. */
   leagueRequest: (key: string) => call<string>('league_request', { key }),
   /** Aba Transferência do perfil de um jogador (jogo em curso). */

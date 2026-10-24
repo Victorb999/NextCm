@@ -3,9 +3,10 @@ use std::sync::Mutex;
 
 use nextcm_core::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem,
-    CompetitionProfile, ContinentRef, ContractReply, ContractTerms, Fixture, GameInfo, Instructions, LiveView, MatchPreview,
-    NationListItem, NationOption, NationProfile, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, ReportStaff, SaveSummary,
-    ScoutList, SearchQuery, SearchResult, Selection, Session, SquadNumbers, StageView, StandingRow, TransferItem, TransferView, World,
+    CompetitionProfile, ContinentRef, ContractReply, ContractTerms, DisciplineOptions, Fixture, GameInfo, Instructions, LiveView,
+    MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, ReportStaff,
+    SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, Session, SquadNumbers, StageView, StandingRow, TransferItem,
+    TransferView, World,
 };
 use tauri::{Manager, State};
 
@@ -82,6 +83,9 @@ session_command!(board_confidence() -> BoardConfidence);
 session_command!(board_requests() -> Vec<BoardRequest>);
 session_command!(board_request(key: String) -> String);
 session_command!(league_requests() -> Vec<BoardRequest>);
+session_command!(discipline_options(id: i32) -> DisciplineOptions);
+session_command!(discipline(id: i32, action: usize, reason: String) -> String);
+session_command!(press_comment(id: i32, kind: String) -> String);
 session_command!(league_request(key: String) -> String);
 session_command!(squad_numbers() -> SquadNumbers);
 session_command!(auto_squad_numbers(numbers: Vec<NumberAssign>) -> Vec<NumberAssign>);
@@ -209,6 +213,9 @@ pub fn run() {
             board_requests,
             board_request,
             league_requests,
+            discipline_options,
+            discipline,
+            press_comment,
             league_request,
             squad_numbers,
             auto_squad_numbers,

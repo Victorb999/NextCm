@@ -636,6 +636,14 @@ Fica para o editor de jogos salvos (3.15): ver e mudar os motivos de cada jogado
 - **Pedido para sair**: ao fim de 28 dias com "titular", "clube maior" ou "contrato", quem tem Ambição 12+ ou Lealdade até 10 pede (mensagem com Pôr na Lista / Recusar, 7 dias para responder). Pôr na lista marca-o "a pedido"; recusar (ou não responder) dá "Frustrado por não o deixarem sair" e −3 de moral, e ele não volta a pedir enquanto durar.
 - Por fazer: os outros motivos dos prints (colegas, treinador, adjunto, treino, imprensa), os pedidos dos jogadores da IA e o desabafo na imprensa (3.12).
 
+#### Contratação como no CM (ajuste do mercado do treinador, por fazer)
+
+Pedido do utilizador ao testar: a contratação está "instantânea" demais.
+- **Propor Contrato no menu Acção** do perfil de um jogador sem clube (hoje só pela aba Transferência, e o perfil dele não mostra a opção) e de um jogador com **6 meses ou menos de contrato**: aí é um **pré-contrato** (Bosman), assinado já e com efeito quando o contrato atual acabar (o jogador chega livre nessa data; o clube dele não recebe nada).
+- **Negociação com resposta**: depois de o clube aceitar a proposta (ou para um livre), o treinador propõe o contrato e o jogador **responde no dia seguinte**: aceita, recusa, ou faz uma **contraproposta** (salário, prémio, anos) que o treinador pode aceitar ou voltar a negociar. Hoje a resposta do `negotiate` é imediata.
+- **Confirmar a contratação**: quando o jogador aceita, falta a confirmação final do treinador (mensagem com "Confirmar Contratação" / "Desistir"), que fecha o negócio (paga o valor e o prémio, o jogador muda de clube). Sem confirmar dentro do prazo, o negócio cai.
+- As renovações seguem a mesma regra (resposta no dia seguinte e confirmação).
+
 #### Marco 3.10 — Olheiros e conhecimento
 
 Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os números com o utilizador antes de programar.
@@ -716,7 +724,7 @@ As opções que não fazem sentido no momento aparecem a roxo, como no print.
 - **Queixas sobre a arbitragem**: até 7 dias depois de um jogo do treinador com uma expulsão ou 4+ amarelos, uma vez por jogo. Sorteio fixo pela seed: 25% a Liga dá razão e anula o castigo do expulso (se houve), 45% toma nota e nada muda, 30% multa o clube em 0,2% das receitas de uma época (despesa nova "Multas").
 - **Pedir adiamento do jogo**: um jogo do campeonato (não de eliminatória) nos próximos 7 dias, com 5+ lesionados ou 3+ jogos em 7 dias; de 60 em 60 dias. A Liga aceita 25% das vezes e passa o jogo para a primeira data entre 7 e 28 dias depois em que nenhum dos clubes joga a 2 dias, antes do fim da competição.
 
-#### Marco 3.12 — Empregos, gestão do plantel e imprensa (por detalhar)
+#### Marco 3.12 — Empregos, gestão do plantel e imprensa
 
 Referência: `docs/prints/gestao/`.
 
@@ -732,11 +740,29 @@ Referência: `docs/prints/gestao/`.
 - Um comentário por jogador a cada poucas semanas; a reação chega como notícia ("X respondeu bem às críticas do treinador").
 - Mais tarde: comentários sobre o próximo adversário e o treinador rival.
 
+**Feito (passo 1):** `core/src/game/discipline.rs`, `SAVE_VERSION` 19 (`player_log`), comandos `discipline_options`, `discipline` e `press_comment`, `game/src/components/DisciplineDialog.tsx`; no menu Acção de um jogador do plantel: Disciplinar Jogador, Elogiar na Imprensa, Criticar na Imprensa. Números escolhidos:
+- **Castigos**: Aviso Oficial, multa de 1 ou 2 semanas de salário (a multa entra nas receitas, "Multas a jogadores"); um castigo por jogador a cada 7 dias.
+- **Razões**: Sem Razões sempre; Expulsão em jogo anterior e Fraca Exibição (nota abaixo de 5,5) nos 14 dias depois do jogo, guardadas no fim de cada jogo do treinador; Comportamento Violento numa expulsão com Agressividade + Maldade 28+; Comportamento Pouco Profissional quando ele está insatisfeito.
+- **Reação**: sem razão, −4 de moral (−1 por semana de multa) e "Sente que foi tratado injustamente"; com razão, Profissionalismo 15+ aceita e ganha 1, Temperamento até 7 reage mal (−3, −1 por semana, e o mesmo motivo), os outros −1.
+- **Imprensa** (um comentário por jogador a cada 21 dias, a reação chega como mensagem): elogiar dá +2 (+4 a quem está em baixo ou joga pouco; nada a quem já está nas nuvens); criticar dá +1 a quem tem Determinação + Profissionalismo 30+, −4 e "Perdeu a confiança no treinador" a quem tem Temperamento ou Pressão até 7, −2 aos outros.
+
 **Conferências de imprensa** (como no FM): antes dos jogos importantes (clássicos, finais, luta pelo título ou contra a descida) e depois dos jogos, uma tela com as perguntas dos jornalistas, uma de cada vez, e 3 ou 4 respostas no tom do treinador (confiante, cauteloso, evasivo, provocador).
 - As perguntas saem da situação real: a forma recente, o próximo adversário e o treinador rival, um jogador em destaque ou em baixo, rumores de transferência, a arbitragem do último jogo, a pressão da direção.
 - As respostas mexem na moral dos jogadores citados (como o elogio e a crítica acima), na confiança da direção e, mais tarde, na satisfação dos adeptos (3.11) e na motivação do adversário.
 - **Mandar o adjunto**: o adjunto vai no lugar do treinador e responde de forma neutra (efeito perto de zero). Faltar sempre irrita um pouco a direção e a imprensa.
 - As frases da conferência viram notícia ("O treinador do X diz que…").
+
+#### Marco 3.13 — Polimento: o fluxo do CM pela gravação (por detalhar)
+
+Referência: a gravação do utilizador a jogar o CM 01/02 com a Juventus (`docs/24.10.2026_14.38.58_REC.mp4`, fora do git) e as folhas de quadros em `docs/prints/fluxo-cm/` (um quadro a cada 4 s). O que se vê e ainda falta (ou está diferente) no NextCM:
+- **Resultados do turno** ("Resultados da Tarde", "Jogo da Noite"): ao avançar no dia de jogo, uma tela por turno com os resultados dos outros jogos e as posições, antes do jogo do treinador.
+- **Tela do clube com abas** Plantel / Transferências / Próximo Jogo / Calendário / Finanças & Info, e em baixo os atalhos Tácticas, Treino, Último Jogo, a classificação (1º A) e Historial.
+- **Próximo Jogo** (`gravacao-01`, `gravacao-07`): data, estádio, regras do jogo (suplentes convocados e utilizados), último confronto, previsão do tempo, condições do terreno e as notícias de cada clube (impedidos, em dúvida, inelegíveis), com Data << >> para os jogos seguintes.
+- **Partida** (`gravacao-03` a `gravacao-06`): os marcadores de cada lado com o minuto (e o lesionado a verde), a barra "Últimos 5 min", árbitro, tempo e assistência, e os botões Dados / Classificações Jogadores / Últimos Resultados / Classificação Geral; nas Tácticas a meio do jogo, as instruções individuais de um jogador (passe, desarme, pressão, passar para, bolas paradas, acções livres, marcação).
+- **Instruções à Equipa** com os marcadores de penáltis, livres e cantos e o organizador escolhidos numa lista.
+- **Notícias depois do jogo**: a reação da direção ("Jogo contra X agrada à direcção"), suspensões e lesões, despedimentos de treinadores, renovações de outros clubes; o filtro por tipo (Todas, Mensagens, Competições, Lesões e Suspensões, e em baixo Contratos e Imprensa, Transferências, Empregos, Registos).
+- **Gravar Jogo**: escolher o nome do ficheiro numa lista, com Info.
+- "Processando, Por Favor Espere…" com o jogo de outras ligas a correr na barra de baixo ao avançar o dia.
 
 #### Marco 3.14 — Palestras (por detalhar)
 

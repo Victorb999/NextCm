@@ -1321,6 +1321,15 @@ impl LiveMatch {
         })
     }
 
+    /// Notas finais (1–10) de quem jogou num lado: (id, nota).
+    pub fn ratings(&self, side: usize) -> Vec<(i32, f64)> {
+        let t = &self.teams[side];
+        (0..t.players.len())
+            .filter(|&i| t.players[i].entered.is_some())
+            .map(|i| (t.players[i].info.id, self.final_rating(side, i)))
+            .collect()
+    }
+
     /// Marcadores de um lado: (nome, minuto).
     pub fn scorers(&self, side: usize) -> Vec<(String, u8)> {
         self.goals

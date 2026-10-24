@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { PersonProfile } from '../bindings/PersonProfile'
 import { DialogFrame, Overlay } from '../components/Dialog'
+import DisciplineDialog from '../components/DisciplineDialog'
 import ReportDialog from '../components/ReportDialog'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import TransferTab from '../components/TransferTab'
@@ -302,6 +303,7 @@ export default function PersonPage({ id }: { id: number }) {
   const [tab, setTab] = useState('profile')
   const [confirm, setConfirm] = useState(false)
   const [report, setReport] = useState<'medical' | 'fitness' | null>(null)
+  const [discipline, setDiscipline] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
   const reload = () => api.getPerson(id).then(setPerson, (e) => setError(String(e)))
@@ -339,10 +341,26 @@ export default function PersonPage({ id }: { id: number }) {
   const canScout = game.mode === 'game' && !!person?.player && !mine && !person.reportOn
   const actions = mine
     ? [
+        { key: 'discipline', label: 'Disciplinar Jogador' },
+        { key: 'praise', label: 'Elogiar na Imprensa' },
+        { key: 'criticise', label: 'Criticar na Imprensa' },
         { key: 'medical', label: 'Pedir Relatório Médico' },
         { key: 'fitness', label: 'Pedir Relatório Preparador Físico' },
       ]
     : [{ key: 'scout', label: 'Observar Jogador' }]
+  // As mensagens novas contam no "por ler"
+  const refreshInfo = () => void api.gameInfo().then((info) => info && game.update(info))
+  const comment = async (kind: 'praise' | 'criticise') => {
+    try {
+      setNotice(await api.pressComment(id, kind))
+      setError(null)
+      refreshInfo()
+      await reload()
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
   const scout = async () => {
     setConfirm(false)
     try {
@@ -364,7 +382,12 @@ export default function PersonPage({ id }: { id: number }) {
             align="right"
             options={actions}
             disabled={!mine && !canScout}
-            onChange={(k) => (k === 'scout' ? setConfirm(true) : setReport(k as 'medical' | 'fitness'))}
+            onChange={(k) => {
+              if (k === 'scout') setConfirm(true)
+              else if (k === 'discipline') setDiscipline(true)
+              else if (k === 'praise' || k === 'criticise') void comment(k)
+              else setReport(k as 'medical' | 'fitness')
+            }}
           />
         </div>
       )}
@@ -389,6 +412,19 @@ export default function PersonPage({ id }: { id: number }) {
         {person && tab === 'transfer' && <TransferTab personId={id} name={person.name} onChanged={() => void reload()} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+      {discipline && person && (
+        <DisciplineDialog
+          personId={id}
+          name={person.name}
+          onClose={() => setDiscipline(false)}
+          onDone={(text) => {
+            setDiscipline(false)
+            setNotice(text)
+            refreshInfo()
+            void reload()
+          }}
+        />
+      )}
       {report && person && (
         <ReportDialog
           kind={report}

@@ -8,13 +8,14 @@ use serde::Serialize;
 use ts_rs::TS;
 
 /// Categorias do livro de contas (a chave no save e o texto da tela de Finanças).
-pub const INCOME: [(&str, &str); 6] = [
+pub const INCOME: [(&str, &str); 7] = [
     ("gate", "Bilheteira"),
     ("tv", "Direitos de TV"),
     ("sponsors", "Patrocínios"),
     ("merchandising", "Merchandising"),
     ("prizes", "Prémios"),
     ("sales", "Venda de jogadores"),
+    ("player_fines", "Multas a jogadores"),
 ];
 pub const EXPENSES: [(&str, &str); 8] = [
     ("wages", "Salários dos jogadores"),

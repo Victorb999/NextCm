@@ -4,10 +4,10 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error,
-    Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, ReportStaff,
-    Result, SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, SquadNumbers, StageView, StandingRow, TransferItem, TransferView,
-    World, list_saves,
+    BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, ContractReply, ContractTerms,
+    DisciplineOptions, Error, Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView,
+    PersonProfile, ReportStaff, Result, SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, SquadNumbers, StageView, StandingRow,
+    TransferItem, TransferView, World, list_saves,
 };
 
 pub struct Session {
@@ -249,6 +249,18 @@ impl Session {
 
     pub fn board_request(&mut self, key: String) -> Result<String> {
         self.game_mut()?.board_request(&key)
+    }
+
+    pub fn discipline_options(&self, id: i32) -> Result<DisciplineOptions> {
+        self.game()?.discipline_options(id)
+    }
+
+    pub fn discipline(&mut self, id: i32, action: usize, reason: String) -> Result<String> {
+        self.game_mut()?.discipline(id, action, &reason)
+    }
+
+    pub fn press_comment(&mut self, id: i32, kind: String) -> Result<String> {
+        self.game_mut()?.press_comment(id, &kind)
     }
 
     pub fn league_requests(&self) -> Result<Vec<BoardRequest>> {

@@ -20,6 +20,7 @@ mod board;
 mod board_meeting;
 mod competitions;
 mod deals;
+mod discipline;
 mod finances;
 mod league_meeting;
 mod market;
@@ -42,6 +43,7 @@ pub use board::{BoardConfidence, BoardView};
 pub use board_meeting::BoardRequest;
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, TransferView};
+pub use discipline::DisciplineOptions;
 pub use market::TransferItem;
 pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
 pub use scout_tasks::{ScoutFind, ScoutList};
@@ -69,7 +71,14 @@ pub use staff_reports::ReportStaff;
 /// 17: pedidos à direção (`board_requests`, `board.grace_until`, `board.youth_level`) e obras
 /// no estádio (`stadium_works`).
 /// 18: motivos de queixa à Liga (`league_issues`).
-pub const SAVE_VERSION: i32 = 18;
+/// 19: o que aconteceu a cada jogador e o que o treinador lhe fez (`player_log`), marco 3.12.
+pub const SAVE_VERSION: i32 = 19;
+
+/// Gestão do plantel (save 19).
+const PLAYER_LOG_SCHEMA: &str = "
+CREATE TABLE player_log (person_id INTEGER NOT NULL, kind TEXT NOT NULL, date TEXT NOT NULL);
+CREATE INDEX player_log_person ON player_log (person_id);
+";
 
 /// Reunião com a Federação (save 18).
 const LEAGUE_SCHEMA: &str = "
@@ -461,6 +470,7 @@ impl Game {
             tx.execute_batch(FANS_SCHEMA)?;
             tx.execute_batch(MEETING_SCHEMA)?;
             tx.execute_batch(LEAGUE_SCHEMA)?;
+            tx.execute_batch(PLAYER_LOG_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -675,6 +685,11 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 18", [])?;
             version = 18;
         }
+        if version == 18 {
+            world.conn.execute_batch(PLAYER_LOG_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 19", [])?;
+            version = 19;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -777,7 +792,9 @@ impl Game {
         if game.fill_missing_attributes()? > 0 {
             game.unsaved = true;
         }
-        if new_board {
+        // Saves de antes da direção (ou que ficaram sem ela): cria-a
+        let has_board: i64 = game.world.conn.query_row("SELECT COUNT(*) FROM board", [], |r| r.get(0))?;
+        if new_board || has_board == 0 {
             game.board_setup()?;
             game.unsaved = true;
         }
@@ -1044,7 +1061,9 @@ impl Game {
                 let (h, a) = live.score();
                 let (ours, theirs) = if m.home_id == self.club_id { (h, a) } else { (a, h) };
                 // Expulsões e cartões: motivo para uma queixa à Liga
-                let side = &live.sides()[if m.home_id == self.club_id { 0 } else { 1 }];
+                let ours_side = if m.home_id == self.club_id { 0 } else { 1 };
+                let side = &live.sides()[ours_side];
+                self.log_match(&side.sent_off, &live.ratings(ours_side))?;
                 let grievance = league_meeting::Grievance {
                     fixture: m.id,
                     sent_off: side.sent_off.first().copied(),
@@ -2503,7 +2522,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

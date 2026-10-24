@@ -9,19 +9,22 @@ use super::{Game, NewsItem, age_on};
 use crate::{Result, date, personality};
 
 /// Motivos de insatisfação: chave gravada em `unhappy.reason` e o texto do CM.
-pub const REASONS: [(&str, &str); 5] = [
+pub const REASONS: [(&str, &str); 7] = [
     ("starter", "Sente que deve ser titular"),
     ("contract", "Quer negociar um novo contrato"),
     ("bigger", "Quer mudar para um clube maior"),
     ("blocked", "Frustrado por não o deixarem sair"),
     ("homesick", "Tem saudades de casa"),
+    ("unfair", "Sente que foi tratado injustamente"),
+    ("manager", "Perdeu a confiança no treinador"),
 ];
 
 /// Jogos seguidos sem jogar (podendo) para um dos 11 melhores se sentir titular a mais.
 const STARTER_MISSED: i32 = 4;
 /// Dias de contrato que faltam para um dos 15 melhores querer renovar.
 const CONTRACT_DAYS: i32 = 365;
-/// Dias que duram a desilusão de não ir para um clube maior e a de não o deixarem sair.
+/// Dias que duram a desilusão de não ir para um clube maior, a de não o deixarem sair, o
+/// castigo injusto e a perda de confiança no treinador.
 const GRUDGE_DAYS: i32 = 120;
 /// Adaptabilidade até à qual um estrangeiro acabado de chegar tem saudades de casa.
 const HOMESICK_ADAPTABILITY: i32 = 7;
@@ -144,7 +147,9 @@ impl Game {
         self.world.conn.execute("DELETE FROM unhappy WHERE person_id NOT IN (SELECT id FROM people WHERE club_id = ?)", [self.club_id])?;
         let today = date::parse(&self.date).unwrap_or(0);
         let grudge = date::add_days(&self.date, -GRUDGE_DAYS).unwrap_or_default();
-        self.world.conn.execute("DELETE FROM unhappy WHERE reason IN ('bigger', 'blocked') AND since < ?", [&grudge])?;
+        self.world
+            .conn
+            .execute("DELETE FROM unhappy WHERE reason IN ('bigger', 'blocked', 'unfair', 'manager') AND since < ?", [&grudge])?;
         let squad = self.squad_unhappy()?;
         for p in &squad {
             let missed = self.squads.state(p.id).missed;

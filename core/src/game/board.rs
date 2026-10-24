@@ -420,6 +420,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn missing_board_is_recreated_on_load() {
+        let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-sem-direcao-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Sem direção".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 1669,
+        };
+        let mut g = Game::create(&path, &dir, &new, 29).unwrap();
+        // Um save que ficou sem a linha da direção (aconteceu num jogo do Botafogo)
+        g.world.conn.execute("DELETE FROM board", []).unwrap();
+        g.save().unwrap();
+        let file = g.path().to_path_buf();
+        drop(g);
+        let g = Game::load(&file).unwrap();
+        assert_eq!(g.board_view().unwrap().confidence, START_CONFIDENCE);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn budgets_warnings_and_the_sack() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let dir = std::env::temp_dir().join(format!("nextcm-direcao-{}", std::process::id()));
