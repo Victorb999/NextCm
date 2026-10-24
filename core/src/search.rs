@@ -76,6 +76,19 @@ pub enum SearchSort {
     Age,
 }
 
+/// Situação no mercado (o "Vêr" da pesquisa do CM).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub enum MarketStatus {
+    /// Na lista de transferências do clube.
+    Transfer,
+    /// Na lista de empréstimos do clube.
+    Loan,
+    /// Jogador sem clube.
+    Free,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(default, rename_all = "camelCase")]
@@ -95,6 +108,8 @@ pub struct SearchQuery {
     pub min_age: Option<i32>,
     #[ts(optional)]
     pub max_age: Option<i32>,
+    #[ts(optional)]
+    pub status: Option<MarketStatus>,
     #[ts(optional)]
     pub sort: Option<SearchSort>,
     #[ts(optional)]
@@ -119,8 +134,9 @@ pub struct PersonSummary {
     pub job: Option<String>,
     /// Siglas do CM em português. Ex.: "MA/A DEC", "GR". Vazio para quem não é jogador.
     pub position: String,
-    pub current_ability: Option<i32>,
-    pub potential_ability: Option<i32>,
+    /// Valor de mercado (só jogadores). CA e PA não saem do core: são internos.
+    #[ts(type = "number | null")]
+    pub value: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -157,7 +173,13 @@ pub(crate) fn position_label(p: &[Option<i32>; 12]) -> String {
 }
 
 impl World {
+    /// Pesquisa no início do jogo (sem jogo aberto).
     pub fn search_people(&self, q: &SearchQuery) -> Result<SearchResult> {
+        self.search_people_on(q, &format!("{}-07-01", self.start_year))
+    }
+
+    /// Pesquisa com os valores de mercado do dia `today`.
+    pub fn search_people_on(&self, q: &SearchQuery, today: &str) -> Result<SearchResult> {
         let y = self.start_year;
         let mut wheres: Vec<String> = Vec::new();
         let mut args: Vec<Box<dyn ToSql>> = Vec::new();
@@ -183,6 +205,27 @@ impl World {
         }
         if let Some(side) = q.side {
             wheres.push(format!("p.positions & {} != 0", side.bit()));
+        }
+        // As listas e os reformados só existem no save
+        let has = |table: &str| -> Result<bool> {
+            Ok(self
+                .conn
+                .query_row("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", [table], |r| r.get::<_, i64>(0))?
+                > 0)
+        };
+        match q.status {
+            None => {}
+            Some(MarketStatus::Free) => {
+                wheres.push("p.is_player = 1 AND p.club_id IS NULL".into());
+                if has("retired")? {
+                    wheres.push("p.id NOT IN (SELECT person_id FROM retired)".into());
+                }
+            }
+            Some(status) if has("transfer_list")? => {
+                let column = if status == MarketStatus::Transfer { "transfer" } else { "loan" };
+                wheres.push(format!("p.id IN (SELECT person_id FROM transfer_list WHERE {column} = 1)"));
+            }
+            Some(_) => wheres.push("0".into()),
         }
         // Idade em 1º de julho do ano inicial: idade >= a  <=>  nasceu até (y-a)-07-01
         if let Some(min) = q.min_age {
@@ -224,26 +267,24 @@ impl World {
                               - (substr(p.birth_sort, 6, 5) > '07-01') END,
                     p.nation_id, n.name,
                     p.club_id, COALESCE(NULLIF(c.short_name, ''), c.name), j.name,
-                    COALESCE(pl.current_ability, np.current_ability),
-                    COALESCE(pl.potential_ability, np.potential_ability),
+                    p.is_player,
                     pl.pos_goalkeeper, pl.pos_sweeper, pl.pos_defender, pl.pos_defensive_midfielder,
                     pl.pos_midfielder, pl.pos_attacking_midfielder, pl.pos_attacker, pl.pos_wing_back,
                     pl.pos_right_side, pl.pos_left_side, pl.pos_central, pl.pos_free_role
              FROM page
              JOIN people p ON p.id = page.id
              LEFT JOIN players pl ON pl.person_id = p.id
-             LEFT JOIN non_players np ON np.person_id = p.id
              LEFT JOIN nations n ON n.id = p.nation_id
              LEFT JOIN clubs c ON c.id = p.club_id
              LEFT JOIN jobs j ON j.id = p.club_job
              ORDER BY {order}"
         );
         let mut stmt = self.conn.prepare_cached(&sql)?;
-        let items = stmt
+        let mut items = stmt
             .query_map(params_from_iter(args.iter()), |r| {
                 let mut pos = [None; 12];
                 for (i, slot) in pos.iter_mut().enumerate() {
-                    *slot = r.get(11 + i)?;
+                    *slot = r.get(10 + i)?;
                 }
                 Ok(PersonSummary {
                     id: r.get(0)?,
@@ -255,12 +296,17 @@ impl World {
                     club_id: r.get(6)?,
                     club: r.get(7)?,
                     job: r.get(8)?,
-                    current_ability: r.get(9)?,
-                    potential_ability: r.get(10)?,
                     position: position_label(&pos),
+                    // Preenchido abaixo
+                    value: r.get::<_, Option<i32>>(9)?.filter(|&v| v == 1).map(|_| 0),
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
+        for p in &mut items {
+            if p.value.is_some() {
+                p.value = self.market_value_of(p.id, today)?;
+            }
+        }
 
         Ok(SearchResult { total, items })
     }
@@ -327,9 +373,8 @@ mod tests {
             assert!(p.age.unwrap() <= 23);
             assert_eq!(p.nation.as_deref(), Some("Brazil"));
         }
-        // ordenado por habilidade
-        let cas: Vec<_> = r.items.iter().map(|p| p.current_ability.unwrap_or(0)).collect();
-        assert!(cas.windows(2).all(|w| w[0] >= w[1]));
+        // Os jogadores trazem o valor
+        assert!(r.items.iter().all(|p| p.value.is_some()));
     }
 }
 

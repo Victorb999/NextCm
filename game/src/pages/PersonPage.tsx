@@ -168,13 +168,11 @@ function Profile({ p }: { p: PersonProfile }) {
       <AttributeGrid items={items} />
       <div className="mt-2 px-1.5">
         <PurpleTable
-          head={['', 'Nº', 'CA', 'PA', 'Rep. Actual', 'Rep. Mundial', 'Salário', 'Contrato até']}
+          head={['', 'Nº', 'Rep. Actual', 'Rep. Mundial', 'Salário', 'Contrato até']}
           rows={[
             [
               p.club?.shortName ?? 'Sem clube',
               pl?.squadNumber ?? '-',
-              ability?.currentAbility ?? '-',
-              ability?.potentialAbility && ability.potentialAbility > 0 ? ability.potentialAbility : '-',
               ability?.currentReputation ?? '-',
               ability?.worldReputation ?? '-',
               wage(p.wage),

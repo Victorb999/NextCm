@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     BoardView, ClubFinances, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game, GameInfo, Instructions,
-    LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, Result, SaveSummary, Selection, SquadNumbers,
-    StageView, StandingRow, TransferItem, TransferView, World, list_saves,
+    LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, Result, SaveSummary, SearchQuery, SearchResult,
+    Selection, SquadNumbers, StageView, StandingRow, TransferItem, TransferView, World, list_saves,
 };
 
 pub struct Session {
@@ -37,6 +37,14 @@ impl Session {
 
     fn game_mut(&mut self) -> Result<&mut Game> {
         self.game.as_mut().ok_or_else(|| Error::Invalid("Nenhum jogo aberto.".into()))
+    }
+
+    /// Pesquisa Jogador & Staff, com os valores na data do jogo.
+    pub fn search_people(&self, q: &SearchQuery) -> Result<SearchResult> {
+        match &self.game {
+            Some(g) => g.world().search_people_on(q, g.date()),
+            None => self.world.search_people(q),
+        }
     }
 
     /// Perfil com o estado do jogador no jogo em curso (condição, moral, lesão...).

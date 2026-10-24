@@ -1,12 +1,14 @@
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import type { MarketStatus } from '../bindings/MarketStatus'
 import type { NationOption } from '../bindings/NationOption'
 import type { PersonKind } from '../bindings/PersonKind'
 import type { PersonSummary } from '../bindings/PersonSummary'
 import type { SearchResult } from '../bindings/SearchResult'
 import type { SearchSort } from '../bindings/SearchSort'
-import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
+import { money } from '../format'
 import { useNav } from '../nav'
 import FilterDialog from './FilterDialog'
 import { EMPTY_FILTERS, describe, toQuery, type Filters } from './searchFilters'
@@ -30,8 +32,14 @@ function useDebounced<T>(value: T, ms: number) {
   return debounced
 }
 
-// PA negativo no CM = faixa aleatória definida pelo jogo
-const ability = (v: number | null) => (v === null || v <= 0 ? '-' : v)
+// O "Vêr" da pesquisa: situação no mercado
+type Status = 'all' | MarketStatus
+const STATUSES: { key: Status; label: string }[] = [
+  { key: 'all', label: 'Todos' },
+  { key: 'transfer', label: 'Listados para transferência' },
+  { key: 'loan', label: 'Listados para empréstimo' },
+  { key: 'free', label: 'Sem contrato' },
+]
 
 function Row({
   p,
@@ -55,15 +63,16 @@ function Row({
       onDoubleClick={onOpen}
       data-row={index}
     >
-      <td className="truncate px-2 text-white">{p.listName}</td>
+      <td className="truncate px-2 text-white">
+        <Link onClick={onOpen}>{p.listName}</Link>
+      </td>
       <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-magenta'}`}>
         {p.clubId !== null && p.club ? <Link onClick={() => onOpenClub(p.clubId!)}>{p.club}</Link> : 'Sem clube'}
       </td>
       <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-yellow'}`}>{p.nation ?? '-'}</td>
       <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-orange'}`}>{p.position || p.job}</td>
       <td className="px-2 text-center tabular-nums">{p.age ?? '-'}</td>
-      <td className="bg-black/40 px-2 text-center tabular-nums">{ability(p.currentAbility)}</td>
-      <td className="bg-black/40 px-2 text-center tabular-nums">{ability(p.potentialAbility)}</td>
+      <td className="bg-black/40 px-2 text-right tabular-nums">{p.value === null ? '-' : money(p.value)}</td>
     </tr>
   )
 }
@@ -95,6 +104,7 @@ export default function SearchPage({ active }: { active: boolean }) {
   const [kind, setKind] = useState<PersonKind>('players')
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [sort, setSort] = useState<SearchSort>('ability')
+  const [status, setStatus] = useState<Status>('all')
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState(0)
   const [dialog, setDialog] = useState(false)
@@ -126,6 +136,7 @@ export default function SearchPage({ active }: { active: boolean }) {
   useEffect(() => {
     const query = {
       ...toQuery({ text: debouncedText, nationId, age, positionGroup, side }, kind),
+      status: status === 'all' || kind !== 'players' ? undefined : status,
       sort,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
@@ -139,7 +150,7 @@ export default function SearchPage({ active }: { active: boolean }) {
       },
       (e) => id === requestId.current && setError(String(e)),
     )
-  }, [debouncedText, nationId, age, positionGroup, side, kind, sort, page])
+  }, [debouncedText, nationId, age, positionGroup, side, kind, status, sort, page])
 
   const total = result?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -198,6 +209,17 @@ export default function SearchPage({ active }: { active: boolean }) {
         <button className="cm-purple flex h-6 w-40 items-center justify-center gap-1" onClick={() => setDialog(true)}>
           Filtros <ChevronDown size={14} />
         </button>
+        {kind === 'players' && (
+          <PurpleMenu
+            label="Vêr"
+            options={STATUSES}
+            value={status}
+            onChange={(s) => {
+              setStatus(s)
+              goPage(0)
+            }}
+          />
+        )}
         <label className="ml-2 flex items-center gap-1.5 text-white">
           Nome
           <input
@@ -221,7 +243,11 @@ export default function SearchPage({ active }: { active: boolean }) {
       </div>
 
       <div className="mx-1.5 mt-1 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/85">
-        <div className="shrink-0 px-2 pt-1 text-center text-cm-magenta">{describe(filters, nationName)}</div>
+        <div className="shrink-0 px-2 pt-1 text-center text-cm-magenta">
+          {[status !== 'all' && players ? STATUSES.find((s) => s.key === status)!.label : null, describe(filters, nationName)]
+            .filter((t) => t && t !== 'Todos')
+            .join(' · ') || 'Todos'}
+        </div>
         <div className="shrink-0 py-1 text-center font-title text-xl font-bold text-cm-yellow">
           {players ? 'Pesquisar Jogador' : 'Pesquisar Staff'}
         </div>
@@ -234,8 +260,7 @@ export default function SearchPage({ active }: { active: boolean }) {
               <col className="w-[15%]" />
               <col className="w-[13%]" />
               <col className="w-14" />
-              <col className="w-12" />
-              <col className="w-12" />
+              <col className="w-28" />
             </colgroup>
             <thead className="sticky top-0 z-10">
               <tr className="h-6">
@@ -244,8 +269,7 @@ export default function SearchPage({ active }: { active: boolean }) {
                 <Th label="Nação" current={sort} onSort={setSort} className="text-left" />
                 <Th label={players ? 'Posição' : 'Cargo'} current={sort} onSort={setSort} className="text-left" />
                 <Th label="Idade" sort="age" current={sort} onSort={setSort} />
-                <Th label="CA" sort="ability" current={sort} onSort={setSort} />
-                <Th label="PA" current={sort} onSort={setSort} />
+                <Th label="Valor" sort="ability" current={sort} onSort={setSort} />
               </tr>
             </thead>
             <tbody>

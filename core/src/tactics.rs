@@ -322,6 +322,9 @@ pub struct TacticPlayer {
     pub squad_number: Option<i32>,
     /// Posições do jogador, ex.: "D/MD C".
     pub position: String,
+    /// Interno: não vai para a tela.
+    #[serde(skip)]
+    #[ts(skip)]
     pub current_ability: Option<i32>,
     /// Nota (1–20) do jogador na função onde está; `None` fora do onze.
     pub fit: Option<i32>,

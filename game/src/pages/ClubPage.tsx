@@ -238,7 +238,7 @@ export default function ClubPage({ id }: { id: number }) {
     if (criterion === 'name') players.sort(name)
     if (criterion === 'number') players.sort((a, b) => byNullsLast(a.squadNumber, b.squadNumber) || name(a, b))
     if (criterion === 'age') players.sort((a, b) => byNullsLast(a.age, b.age) || name(a, b))
-    if (criterion === 'ability') players.sort((a, b) => (b.currentAbility ?? 0) - (a.currentAbility ?? 0) || name(a, b))
+    if (criterion === 'ability') players.sort((a, b) => a.abilityRank - b.abilityRank)
     const sel = tactics && selectionOf(tactics)
     return players.map((p) => {
       const spot = sel ? spotOf(sel, p.id) : undefined
@@ -248,7 +248,7 @@ export default function ClubPage({ id }: { id: number }) {
       return {
       id: p.id,
       spot,
-      number: criterion === 'age' ? (p.age ?? '') : criterion === 'ability' ? (p.currentAbility ?? '') : (p.squadNumber ?? ''),
+      number: criterion === 'age' ? (p.age ?? '') : (p.squadNumber ?? ''),
       // Num jogo em curso, os indisponíveis aparecem como no CM: "Les" / "Sus"
       badge: p.injured ? (
         <span className="bg-[#b8560c] px-0.5 font-bold text-white">Les</span>

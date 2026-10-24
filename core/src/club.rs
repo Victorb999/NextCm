@@ -30,7 +30,14 @@ pub struct SquadPlayer {
     /// Para ordenar por posição como o CM: GR, defesas, médios, avançados.
     pub position_order: i32,
     pub international: bool,
+    /// Lugar no plantel pela habilidade (1 = o melhor), para o critério "Habilidade" sem
+    /// mostrar o CA, que é interno.
+    pub ability_rank: i32,
+    #[serde(skip)]
+    #[ts(skip)]
     pub current_ability: Option<i32>,
+    #[serde(skip)]
+    #[ts(skip)]
     pub potential_ability: Option<i32>,
     /// Num jogo em curso: condição (0–100) e indisponibilidade.
     pub condition: Option<i32>,
@@ -48,6 +55,8 @@ pub struct StaffMember {
     pub job_id: Option<i32>,
     pub age: Option<i32>,
     pub nation: Option<String>,
+    #[serde(skip)]
+    #[ts(skip)]
     pub current_ability: Option<i32>,
 }
 
@@ -172,7 +181,7 @@ impl World {
              LEFT JOIN nations n ON n.id = p.nation_id
              WHERE {link} = ?"
         ))?;
-        let players = stmt
+        let mut players = stmt
             .query_map([id], |r| {
                 let mut pos = [None; 12];
                 for (i, slot) in pos.iter_mut().enumerate() {
@@ -187,6 +196,7 @@ impl World {
                     nation: r.get(5)?,
                     position_order: position_order(r.get(6)?),
                     international: r.get::<_, i32>(7)? > 0,
+                    ability_rank: 0,
                     current_ability: r.get(8)?,
                     potential_ability: r.get(9)?,
                     condition: None,
@@ -196,6 +206,11 @@ impl World {
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut order: Vec<usize> = (0..players.len()).collect();
+        order.sort_by_key(|&i| (std::cmp::Reverse(players[i].current_ability.unwrap_or(0)), players[i].id));
+        for (rank, i) in order.into_iter().enumerate() {
+            players[i].ability_rank = rank as i32 + 1;
+        }
 
         let job_link = if is_national { "p.national_team_job" } else { "p.club_job" };
         let mut stmt = self.conn.prepare_cached(&format!(

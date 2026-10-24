@@ -10,7 +10,9 @@ use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use ts_rs::TS;
 
-use super::market::{MIN_ROLE, contract_until, contract_years, loan_until, money_text, role_of, window_open};
+use super::market::{
+    MIN_ROLE, contract_until, contract_years, leaves_europe, leaving_europe, loan_until, money_text, role_of, window_open,
+};
 use super::{Game, NewsItem, age_on, cm_date};
 use crate::engine::uniform;
 use crate::finance::{self, wage_demand};
@@ -704,6 +706,18 @@ impl Game {
         self.offer_view(id)
     }
 
+    /// Jogador de um clube europeu que não aceita vir para o clube do treinador, fora da Europa.
+    fn stays_in_europe(&self, person: i32, f: &Facts, club: i32) -> Result<bool> {
+        let (from, _) = self.club_place(club)?;
+        let (to, nation) = self.club_place(self.club_id)?;
+        if !leaving_europe(from, to) {
+            return Ok(false);
+        }
+        let own: Option<i32> = self.world.conn.query_row("SELECT nation_id FROM people WHERE id = ?", [person], |r| r.get(0))?;
+        let (rank, _) = self.squad_rank(club, person, f.role)?;
+        Ok(!leaves_europe(f.age, rank < 11, own == Some(nation)))
+    }
+
     /// Um ambicioso a quem o clube recusa (ou deixa sem resposta) uma proposta de um clube
     /// maior fica desiludido: perde moral. Devolve a frase para a mensagem.
     fn letdown(&mut self, o: &Offer) -> Result<Option<String>> {
@@ -859,6 +873,21 @@ impl Game {
                 bonus: 0,
                 years,
                 text: format!("{name} não está interessado em mudar para um clube menor."),
+            });
+        }
+        // Um europeu raramente aceita sair da Europa
+        if let (Some(o), Some(club)) = (&deal, f.club)
+            && self.stays_in_europe(person, &f, club)?
+        {
+            self.set_status(o.id, "collapsed", None)?;
+            self.unsaved = true;
+            return Ok(ContractReply {
+                accepted: false,
+                over: true,
+                wage: 0,
+                bonus: 0,
+                years,
+                text: format!("{name} não quer deixar o futebol europeu."),
             });
         }
         let free = deal.as_ref().is_some_and(|o| o.seller.is_none());

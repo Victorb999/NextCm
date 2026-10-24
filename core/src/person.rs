@@ -28,7 +28,11 @@ pub struct ClubRef {
 #[serde(rename_all = "camelCase")]
 pub struct PlayerDetails {
     pub squad_number: Option<i32>,
+    #[serde(skip)]
+    #[ts(skip)]
     pub current_ability: Option<i32>,
+    #[serde(skip)]
+    #[ts(skip)]
     pub potential_ability: Option<i32>,
     pub home_reputation: Option<i32>,
     pub current_reputation: Option<i32>,
@@ -54,7 +58,11 @@ pub struct PlayerDetails {
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct StaffDetails {
+    #[serde(skip)]
+    #[ts(skip)]
     pub current_ability: Option<i32>,
+    #[serde(skip)]
+    #[ts(skip)]
     pub potential_ability: Option<i32>,
     pub current_reputation: Option<i32>,
     pub world_reputation: Option<i32>,

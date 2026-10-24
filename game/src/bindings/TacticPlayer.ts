@@ -4,7 +4,7 @@ export type TacticPlayer = { id: number, listName: string, squadNumber: number |
 /**
  * Posições do jogador, ex.: "D/MD C".
  */
-position: string, currentAbility: number | null, 
+position: string, 
 /**
  * Nota (1–20) do jogador na função onde está; `None` fora do onze.
  */

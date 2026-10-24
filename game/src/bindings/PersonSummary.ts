@@ -8,4 +8,8 @@ listName: string, age: number | null, nationId: number | null, nation: string | 
 /**
  * Siglas do CM em português. Ex.: "MA/A DEC", "GR". Vazio para quem não é jogador.
  */
-position: string, currentAbility: number | null, potentialAbility: number | null, };
+position: string, 
+/**
+ * Valor de mercado (só jogadores). CA e PA não saem do core: são internos.
+ */
+value: number | null, };

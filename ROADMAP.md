@@ -583,7 +583,7 @@ Ficam para depois: a Lealdade e a Ambição nas renovações da IA e nos pedidos
 
 **Feito:** `core/src/personality.rs` (as contas e os testes de cada efeito), `live.rs` (Versatilidade, Adaptabilidade, Desportivismo e Temperamento nos lances), `squad.rs` (Temperamento na moral), `deals.rs` e `market.rs` (Ambição e Lealdade), teste `personality_in_the_market`. Não mexe no save. CLI (`sim -- 7568 epoca 1 4`): 2,55 golos por jogo, 49% vitórias em casa, 23% empates; por equipa e jogo 1,77 amarelos e 0,097 vermelhos (os cartões continuam nas médias do 3.4).
 
-#### Ajustes da pesquisa e do mercado (depois do 3.9, próximo passo)
+#### Ajustes da pesquisa e do mercado (depois do 3.9)
 
 Pedidos do utilizador ao testar o 3.8 e o 3.9.
 
@@ -596,6 +596,11 @@ Pedidos do utilizador ao testar o 3.8 e o 3.9.
 **Mercado mais realista** (`core/src/game/market.rs`, `deals.rs`): um jogador de uma liga europeia (sobretudo das grandes) raramente aceita ir para o Brasil ou outra liga de fora da Europa. Hoje a recusa só olha para a reputação do clube (`personality::step_down`). Passa a contar também a reputação da liga e do continente: muito menos negócios Europa → Brasil, exceto veteranos e jogadores em fim de carreira ou sem espaço. Os do Brasil para a Europa continuam normais. Conferir na CLI que as compras de cada liga continuam plausíveis.
 
 **Notícias de transferências só do que interessa** (`transfer_news` em `market.rs`): hoje entram todas as do dia na liga do treinador e as de €10M ou mais do mundo inteiro. Passam a destacar só as principais para o contexto do treinador: o seu clube, os rivais e os candidatos diretos na liga, os jogadores que ele observou ou propôs, e as maiores do mundo (poucas, por valor). O resto fica nas abas Transferências dos clubes, sem mensagem.
+
+**Feito:**
+- **Pesquisa**: `World::search_people_on` (o valor na data do jogo, pela `Session`), `MarketStatus` e o menu "Vêr" (Todos, Listados para transferência, Listados para empréstimo, Sem contrato), a coluna Valor (ordena pela força, como antes) e o nome como link. CA e PA saem da `PersonSummary` e ficam fora do JSON (`#[serde(skip)]`) em `PlayerDetails`, `StaffDetails`, `SquadPlayer`, `StaffMember` e `TacticPlayer`; o critério "Habilidade" do plantel usa `SquadPlayer.abilityRank`. Os clubes da IA ainda não põem jogadores nas listas: os filtros de listados só mostram as do treinador.
+- **Mercado**: `leaving_europe` e `leaves_europe` em `market.rs`: de um clube europeu para as Américas, África ou Oceânia (a Ásia fica de fora: a Arábia Saudita paga), só saem veteranos (31+), quem volta ao seu país (27+) e quem já não é titular (29+). Vale para a IA e para o treinador ("não quer deixar o futebol europeu").
+- **Notícias**: `transfer_news` só com o clube do treinador, os rivais, os clubes da liga com reputação até 500 abaixo, os jogadores por quem ele fez propostas e as 3 maiores do dia no mundo (de €20M ou mais).
 
 #### Marco 3.10 — Olheiros e conhecimento (por detalhar)
 

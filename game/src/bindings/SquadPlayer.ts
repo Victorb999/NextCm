@@ -12,7 +12,12 @@ position: string,
 /**
  * Para ordenar por posição como o CM: GR, defesas, médios, avançados.
  */
-positionOrder: number, international: boolean, currentAbility: number | null, potentialAbility: number | null, 
+positionOrder: number, international: boolean, 
+/**
+ * Lugar no plantel pela habilidade (1 = o melhor), para o critério "Habilidade" sem
+ * mostrar o CA, que é interno.
+ */
+abilityRank: number, 
 /**
  * Num jogo em curso: condição (0–100) e indisponibilidade.
  */

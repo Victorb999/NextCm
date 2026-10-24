@@ -69,6 +69,9 @@ struct Listing {
     recent: bool,
     ambition: f64,
     loyalty: f64,
+    /// Continente do clube (−1 sem clube) e nação do jogador.
+    continent: i32,
+    nation: i32,
 }
 
 impl Listing {
@@ -263,6 +266,8 @@ struct Buyer {
     /// Titular mais fraco de cada papel e o nível do clube (média dos 11 melhores).
     weakest: [i32; ROLES],
     level: i32,
+    continent: i32,
+    nation: i32,
 }
 
 impl Game {
@@ -275,7 +280,7 @@ impl Game {
     fn market_index(&self) -> Result<Vec<Listing>> {
         let today = self.date.clone();
         let today_days = date::parse(&today).unwrap_or(0);
-        type Row = (i32, Option<i32>, i32, i32, [i32; 4], Option<String>, Option<i32>, i32, i64, Option<String>, [i32; 2], [i32; 2]);
+        type Row = (i32, Option<i32>, i32, i32, [i32; 4], Option<String>, Option<i32>, i32, i64, Option<String>, [i32; 2], [i32; 4]);
         let rows: Vec<Row> = self
             .world
             .conn
@@ -286,9 +291,11 @@ impl Game {
                         MAX(COALESCE(pl.pos_defensive_midfielder, 1), COALESCE(pl.pos_midfielder, 1), COALESCE(pl.pos_attacking_midfielder, 1)),
                         COALESCE(pl.pos_attacker, 1),
                         p.birth_date, p.birth_year, COALESCE(pl.current_reputation, 0), COALESCE(p.wage, 0), p.contract_expires,
-                        COALESCE(c.reputation, 0), COALESCE(k.reputation, 5), COALESCE(p.ambition, 10), COALESCE(p.loyalty, 10)
+                        COALESCE(c.reputation, 0), COALESCE(k.reputation, 5), COALESCE(p.ambition, 10), COALESCE(p.loyalty, 10),
+                        COALESCE(cn.continent_id, -1), COALESCE(p.nation_id, -1)
                  FROM players pl JOIN people p ON p.id = pl.person_id
                  LEFT JOIN clubs c ON c.id = p.club_id LEFT JOIN competitions k ON k.id = c.division_id
+                 LEFT JOIN nations cn ON cn.id = c.nation_id
                  WHERE p.is_player = 1 AND (p.club_id IS NOT NULL OR pl.current_ability >= 50)
                    AND p.id NOT IN (SELECT person_id FROM retired)
                  ORDER BY pl.person_id",
@@ -306,7 +313,7 @@ impl Game {
                     r.get(11)?,
                     r.get(12)?,
                     [r.get(13)?, r.get(14)?],
-                    [r.get(15)?, r.get(16)?],
+                    [r.get(15)?, r.get(16)?, r.get(17)?, r.get(18)?],
                 ))
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -319,22 +326,39 @@ impl Game {
             .collect::<rusqlite::Result<_>>()?;
         Ok(rows
             .into_iter()
-            .map(|(id, club, ca, pa, pos, birth, birth_year, rep, wage, expires, [club_rep, league_rep], [ambition, loyalty])| Listing {
-                id,
-                club,
-                ca,
-                pa,
-                role: role_of(pos[0], pos[1], pos[2], pos[3]),
-                age: age_on(birth.as_deref(), birth_year, &today),
-                rep,
-                wage,
-                years_left: expires.as_deref().and_then(date::parse).map_or(0.0, |e| (e - today_days) as f64 / 365.25),
-                club_rep,
-                league_rep,
-                recent: recent.contains(&id),
-                ambition: ambition as f64,
-                loyalty: loyalty as f64,
-            })
+            .map(
+                |(
+                    id,
+                    club,
+                    ca,
+                    pa,
+                    pos,
+                    birth,
+                    birth_year,
+                    rep,
+                    wage,
+                    expires,
+                    [club_rep, league_rep],
+                    [ambition, loyalty, continent, nation],
+                )| Listing {
+                    id,
+                    club,
+                    ca,
+                    pa,
+                    role: role_of(pos[0], pos[1], pos[2], pos[3]),
+                    age: age_on(birth.as_deref(), birth_year, &today),
+                    rep,
+                    wage,
+                    years_left: expires.as_deref().and_then(date::parse).map_or(0.0, |e| (e - today_days) as f64 / 365.25),
+                    club_rep,
+                    league_rep,
+                    recent: recent.contains(&id),
+                    ambition: ambition as f64,
+                    loyalty: loyalty as f64,
+                    continent,
+                    nation,
+                },
+            )
             .collect())
     }
 
@@ -449,6 +473,7 @@ impl Game {
         let bill: i64 = market.squad(club).map(|l| l.wage).sum();
         let base = self.club_base(club)?;
         let (squad, count, weakest, level) = market.shape(club);
+        let (continent, nation) = self.club_place(club)?;
         Ok(Buyer {
             rep,
             kind,
@@ -458,7 +483,17 @@ impl Game {
             count,
             weakest,
             level,
+            continent,
+            nation,
         })
+    }
+
+    /// Continente e nação de um clube (−1 se não houver).
+    pub(super) fn club_place(&self, club: i32) -> Result<(i32, i32)> {
+        Ok(self.world.conn.prepare_cached(
+            "SELECT COALESCE(n.continent_id, -1), COALESCE(c.nation_id, -1) FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id WHERE c.id = ?",
+        )?
+        .query_row([club], |r| Ok((r.get(0)?, r.get(1)?)))?)
     }
 
     /// Um clube da IA com dívidas grandes vende o jogador mais valioso a um clube que o possa
@@ -566,6 +601,13 @@ impl Game {
             }
             // Vem de um clube muito maior? Não quer descer (o ambicioso ainda menos)
             if l.club.is_some() && l.club_rep > b.rep + personality::step_down(l.ambition) {
+                continue;
+            }
+            // Da Europa para fora dela, quase só veteranos
+            if l.club.is_some()
+                && leaving_europe(l.continent, b.continent)
+                && !leaves_europe(l.age, market.key.contains(&l.id), l.nation == b.nation)
+            {
                 continue;
             }
             // O clube que vende não fica abaixo do mínimo nem faz mais negócios do que o limite
@@ -758,26 +800,41 @@ impl Game {
         })
     }
 
-    /// Uma notícia com as transferências do dia que interessam: as grandes (€10M ou mais) e as
-    /// dos clubes da liga do treinador.
+    /// Uma notícia com as transferências do dia que interessam ao treinador: as do seu clube,
+    /// dos rivais e dos clubes da liga do mesmo tamanho ou maiores, as de jogadores por quem
+    /// fez propostas e as maiores do mundo (até 3, de €20M ou mais). O resto fica só nas abas
+    /// Transferências dos clubes.
     fn transfer_news(&self, deals: &[TransferItem], fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
-        let division: Option<i32> =
-            self.world.conn.query_row("SELECT division_id FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0))?;
-        let ours: HashSet<i32> = match division {
+        let (division, my_rep, rivals): (Option<i32>, i32, [Option<i32>; 3]) = self.world.conn.query_row(
+            "SELECT division_id, COALESCE(reputation, 0), rival1_id, rival2_id, rival3_id FROM clubs WHERE id = ?",
+            [self.club_id],
+            |r| Ok((r.get(0)?, r.get(1)?, [r.get(2)?, r.get(3)?, r.get(4)?])),
+        )?;
+        let mut ours: HashSet<i32> = match division {
             Some(d) => self
                 .world
                 .conn
-                .prepare_cached("SELECT id FROM clubs WHERE division_id = ?")?
-                .query_map([d], |r| r.get(0))?
+                .prepare_cached("SELECT id FROM clubs WHERE division_id = ? AND COALESCE(reputation, 0) >= ?")?
+                .query_map(params![d, my_rep - CONTENDER_REP], |r| r.get(0))?
                 .collect::<rusqlite::Result<_>>()?,
             None => HashSet::new(),
         };
+        ours.extend(rivals.into_iter().flatten());
+        ours.insert(self.club_id);
+        let wanted: HashSet<i32> = self
+            .world
+            .conn
+            .prepare_cached("SELECT DISTINCT person_id FROM offers WHERE buyer = ?")?
+            .query_map([self.club_id], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut biggest: Vec<&TransferItem> = deals.iter().filter(|d| d.fee >= WORLD_NEWS_FEE).collect();
+        biggest.sort_by_key(|d| (std::cmp::Reverse(d.fee), d.person_id));
+        let biggest: HashSet<i32> = biggest.iter().take(3).map(|d| d.person_id).collect();
         let in_ours = |c: &Option<ClubRef>| c.as_ref().is_some_and(|c| ours.contains(&c.id));
         let mut lines: Vec<String> = Vec::new();
         for d in deals {
-            let big = d.fee >= 10_000_000;
             let local = (in_ours(&d.from) || in_ours(&d.to)) && d.kind != "release" && d.kind != "return";
-            if !(big || local) {
+            if !(local || biggest.contains(&d.person_id) || wanted.contains(&d.person_id)) {
                 continue;
             }
             let from = d.from.as_ref().map_or("sem clube".to_string(), |c| c.short_name.clone());
@@ -837,6 +894,26 @@ impl Game {
 }
 
 /// "€12,5M", "€850K", "€1.900" (os salários pequenos por inteiro)
+/// Clubes da liga do treinador que contam como concorrentes: reputação até isto abaixo da dele.
+const CONTENDER_REP: i32 = 500;
+/// Transferências do mundo que viram notícia (as 3 maiores do dia a partir disto).
+const WORLD_NEWS_FEE: i64 = 20_000_000;
+
+/// Continente da Europa em `continents`, e o da Ásia (a Arábia Saudita paga para os levar).
+const EUROPE: i32 = 2;
+const ASIA: i32 = 1;
+
+/// Um jogador de um clube europeu a ir para um clube das Américas, de África ou da Oceânia.
+pub(super) fn leaving_europe(from: i32, to: i32) -> bool {
+    from == EUROPE && to != EUROPE && to != ASIA
+}
+
+/// Aceita sair da Europa (para o Brasil, por exemplo)? Os veteranos (31+), os que voltam ao
+/// país deles (27+) e os que já não são titulares (29+); os outros recusam.
+pub(super) fn leaves_europe(age: i32, starter: bool, home: bool) -> bool {
+    age >= 31 || (home && age >= 27) || (!starter && age >= 29)
+}
+
 pub(super) fn money_text(v: i64) -> String {
     if v >= 1_000_000 {
         format!("€{:.1}M", v as f64 / 1e6).replace('.', ",")
@@ -858,6 +935,17 @@ pub(super) fn managed_ids() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn europeans_rarely_leave_europe() {
+        assert!(
+            leaving_europe(EUROPE, 5) && !leaving_europe(EUROPE, EUROPE) && !leaving_europe(EUROPE, ASIA) && !leaving_europe(5, EUROPE)
+        );
+        assert!(!leaves_europe(24, false, false), "jovem fica");
+        assert!(!leaves_europe(27, true, false), "titular no auge fica");
+        assert!(leaves_europe(27, true, true), "volta a casa");
+        assert!(leaves_europe(29, false, false) && leaves_europe(32, true, false));
+    }
 
     #[test]
     fn windows_by_season_kind() {

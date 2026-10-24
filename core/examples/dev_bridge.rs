@@ -20,7 +20,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
     match cmd {
         "search_people" => {
             let q: SearchQuery = serde_json::from_value(args["query"].clone()).map_err(|e| e.to_string())?;
-            out(serde_json::to_value(world.search_people(&q).map_err(e)?))
+            out(serde_json::to_value(session.search_people(&q).map_err(e)?))
         }
         "list_nations" => out(serde_json::to_value(world.list_nations().map_err(e)?)),
         "get_person" => out(serde_json::to_value(session.get_person(id()?).map_err(e)?)),

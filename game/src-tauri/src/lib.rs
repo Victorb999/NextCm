@@ -28,7 +28,7 @@ fn world_path() -> Option<PathBuf> {
 #[tauri::command]
 async fn search_people(state: State<'_, AppState>, query: SearchQuery) -> Result<SearchResult, String> {
     let session = state.session.lock().map_err(|e| e.to_string())?;
-    session.db().search_people(&query).map_err(|e| e.to_string())
+    session.search_people(&query).map_err(|e| e.to_string())
 }
 
 /// Gera um comando Tauri que só delega para um método de `World` (no banco do jogo aberto).
