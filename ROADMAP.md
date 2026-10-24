@@ -768,6 +768,46 @@ Referência: a gravação do utilizador a jogar o CM 01/02 com a Juventus (`docs
 - **Gravar Jogo**: escolher o nome do ficheiro numa lista, com Info.
 - "Processando, Por Favor Espere…" com o jogo de outras ligas a correr na barra de baixo ao avançar o dia.
 
+**Gravações 2 e 3** (`docs/24.10.2026_15.55.58_REC.mp4` e `16.00.50`, fora do git; quadros em `docs/prints/fluxo-cm/gravacao2-*` e `gravacao3-*`). O que falta no NextCM, por área:
+
+*Perfil do jogador e menu Acção* (`gravacao2-01`, `02`, `06`, `gravacao3-06`, `09`)
+- Menu Acção do jogador do plantel completo, pela ordem do CM: Promover ao Plantel Principal / Despromover para Reservas, **Definir Situação Transferência**, Propôr Novo Contrato, Disciplinar Jogador, **Dispensar**, **Definir Alcunha**, relatórios do staff, **Criar Nota Treinador**, **Comparar Jogadores** (escolher o 1º e o 2º e comparar). De outro clube: Adicionar/Retirar da Lista Preferencial, Abordar Para Comprar, **Propôr Empréstimo**, Observar Jogador.
+- **Estabeleça Estatuto de Transferência** (`gravacao2-01`): uma tela só com o valor, o Preço Exigido (− / + / Auto), a função no plantel (incluindo "Este jogador não é necessário no clube") e o estatuto (listado para transferência, disponível para empréstimo, "requisitou ser listado" a roxo).
+- **Dispensar** com confirmação e a indemnização do resto do contrato ("Juventus terá de o indemnizar em €6,5M").
+- Perfil: estatísticas da época por competição (Não Competitivos, Liga, Taça, Continentais, Internacionais, Jogos Oficiais) com Pres, Gol, Asts, HdJ, % Passes, Crt, Drb, Rem Bal, Cla M; a **Forma** (as últimas 5 notas, "7-7-7-7-7"); Historial com a Carreira do Jogador época a época e por clube.
+- Título do perfil com o clube e "(Reservas X)" para os das reservas.
+
+*Pesquisa* (`gravacao2-03`, `04`)
+- Diálogo **Filtros para Pesquisar Jogador** com as abas Geral e Atributos e os filtros do CM: Texto, Nacionalidade, Idade, Língua, Base, Valor, Estatuto (listado, a emprestar), Contrato (expirou, a expirar), Posição, Lado, Lesões, Interessados, Apenas, Incluir Plantel (principal, reserva).
+- Coluna **Inf** com as etiquetas (Pro = proposta, Les, Ped = pedido de transferência, Des, Emp, Lst, Amr) e "N jogadores encontrados (M filtrados)"; **Lista Preferencial** (aba própria, Apagar).
+- "Fundos: €2,9M" no canto da faixa da pesquisa.
+
+*Mercado* (`gravacao2-04`, `gravacao3-07`, `08`)
+- Proposta fora da janela: "Esta transferência não pode ser consumada até à data de 1 Julho" (fica para quando a janela abrir).
+- A negociação do contrato a partir da mensagem: botão **Negociar** na notícia "X diz não", e "Propôr contrato a X?" (Não / Sim) antes da tela; a tela Propôr Contrato com "espera um contrato de €650.000 p/m até Jun 2038" e "A sua direcção autoriza salários até…"; Atrás / Cancelar / Oferecer.
+- Tela **Transferências** do mundo (menu do treinador): por mês e por ano, com data, jogador, clube de origem, destino e valor, páginas.
+
+*Plantel e reservas* (`gravacao2-05`, `06`, `gravacao3-08`, `09`)
+- **Plantel com casas na equipa**: clicar na coluna da esquerda de cada jogador e escolher a casa na grelha GR, DE, DD, DC, MDC, MC, MAE, MAD, AC, SB1–SB9 (a escolha da equipa feita no plantel, sem ir às Tácticas); **Limpar Equipa**; etiquetas Amr (amarelos), Les, Sus, Emp, Lst, Ped.
+- Aviso antes do jogo ("Confirmar Por Favor"): sem capitão escolhido, o adjunto indica um; marcadores de bolas paradas fora do onze.
+- **Reservas** com plantel, tácticas e calendário próprios (Plantel / Reservas / Controlar Equipa Reservas no menu do treinador).
+
+*Dia de jogo* (`gravacao2-07` a `10`, `gravacao3-01` a `03`)
+- Jogo do treinador: o golo com o minuto por marcador (Lozhkin 8, 56), o cartão no meio do ecrã a amarelo, a barra **Últimos 5 min**, assistência e tempo, **Classificações Jogadores** (nota, golos, substituições com o minuto, cartões), **Relatório Jogo** (o relato completo por minuto) e **Últimos Resultados** (os outros jogos da competição, com marcadores e expulsões, paginados).
+- Depois do jogo: **Resultados da Noite** por competição (com as competições de outros países, uma a uma), as mensagens (o jogador suspenso, "X vence na Round of 16", recordes do clube: bilheteira, cartões), e os resultados de outras ligas na barra de baixo durante o "Processando".
+- Instruções à Equipa com marcadores de Livres (E/D), Cantos (E/D) e Organizador a escolher numa lista dos titulares, com uma 2ª opção ("ou D. Rodriguez").
+
+*Competições e mundo* (`gravacao3-04`, `05`)
+- Competições de seleções: **FIFA World Cup** e qualificações por continente (tabelas, resultados, calendário, datas, Rankings FIFA), Olympics, Africa Nations, Asian Cup, Gold Cup, European Championship, Copa América; o menu Competições com Campeonato Mundial, Internacionais, Internacionais-Clubes e os países.
+- Perfil de **seleção** (plantel convocado, próximo jogo, calendário, informação geral) e notícias de convocatórias ("X seleccionado para jogo Mali").
+- Pesquisa global **Championship Manager 2025/26** (País, Clube, Staff, Jogador; Procurar Por; páginas), aberta pelo botão Procurar.
+
+*Treinador* (`gravacao3-03`, `10`, `11`, `12`)
+- Menu do treinador completo: Plantel, Reservas, Controlar Equipa Reservas, Confiança da Direcção, **Rescindir com Clube**, Notícias, Pesquisa, **Comparar dois jogadores escolhidos**, **Estatísticas dos Treinadores** (reputação por país: Classe, Excelente, Muito Boa…), Informação de Empregos, Transferências, Historial, **Ir de Férias**, **Retirar-se**.
+- **Informação de Empregos** com o Vêr por país, e no clube sem treinador o botão **Concorrer ao Lugar** (3.12).
+- Perfil do treinador com o **Currículo** (compras, vendas, dispensas, títulos, qualificações) e paginação.
+- Menu do jogo (Opções): Gravar Jogo, Adicionar Treinador, Estatuto Treinador, Definições do Jogo, **Ligas Seleccionadas**, Quadro de Honra, Créditos, Reiniciar Jogo, Deixar Jogo; Gravar com "Ficheiro Existe — Substituir?" e a barra "Gravando Dados Jogo".
+
 #### Marco 3.14 — Palestras (por detalhar)
 
 Uma ideia do FM08 que o CM 01/02 não tem: o treinador fala aos jogadores, e cada um reage pela personalidade e pela situação do jogo.
