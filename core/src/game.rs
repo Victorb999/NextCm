@@ -26,6 +26,7 @@ mod regen;
 mod scout_tasks;
 mod scouting;
 mod season;
+mod staff_reports;
 mod unhappy;
 use crate::league::{self, Fixture, Match, StandingRow};
 use crate::live::{LiveMatch, LiveView, Occasion, TeamStats};
@@ -43,6 +44,7 @@ pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
 pub use scout_tasks::{ScoutFind, ScoutList};
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
+pub use staff_reports::ReportStaff;
 
 /// Versão do formato do save; saves de outra versão são recusados até haver migração.
 /// 2: tabela `fixtures` (marco 3.2). 3: estado dos jogadores e a escolha da equipa (3.3).

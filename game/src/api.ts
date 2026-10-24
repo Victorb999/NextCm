@@ -22,6 +22,7 @@ import type { NewsItem } from './bindings/NewsItem'
 import type { OfferView } from './bindings/OfferView'
 import type { PersonProfile } from './bindings/PersonProfile'
 import type { SaveSummary } from './bindings/SaveSummary'
+import type { ReportStaff } from './bindings/ReportStaff'
 import type { ScoutList } from './bindings/ScoutList'
 import type { SearchQuery } from './bindings/SearchQuery'
 import type { SearchResult } from './bindings/SearchResult'
@@ -112,6 +113,10 @@ export const api = {
   /** "Observar Jogador": devolve a frase com a data do relatório. */
   scoutPlayer: (id: number) => call<string>('scout_player', { id }),
   scoutList: (slot: number) => call<ScoutList>('scout_list', { slot }),
+  /** Quem pode fazer o relatório: "medical" ou "fitness". */
+  reportStaff: (kind: string) => call<ReportStaff[]>('report_staff', { kind }),
+  /** Pede os relatórios; devolve quantos chegaram às mensagens. */
+  staffReport: (id: number, kind: string, staff: number[]) => call<number>('staff_report', { id, kind, staff }),
   assignScout: (slot: number, kind: string, target: number | null) => call<ScoutList>('assign_scout', { slot, kind, target }),
   clearScout: (slot: number) => call<ScoutList>('clear_scout', { slot }),
   searchClubs: (text: string) => call<ClubListItem[]>('search_clubs', { text }),

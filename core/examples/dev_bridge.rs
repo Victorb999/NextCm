@@ -105,6 +105,15 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         }
         "offer_view" => out(serde_json::to_value(session.offer_view(id()?).map_err(e)?)),
         "scout_player" => out(serde_json::to_value(session.scout_player(id()?).map_err(e)?)),
+        "report_staff" => {
+            let kind = args["kind"].as_str().ok_or("falta kind")?.to_string();
+            out(serde_json::to_value(session.report_staff(kind).map_err(e)?))
+        }
+        "staff_report" => {
+            let kind = args["kind"].as_str().ok_or("falta kind")?.to_string();
+            let staff: Vec<i32> = serde_json::from_value(args["staff"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.staff_report(id()?, kind, staff).map_err(e)?))
+        }
         "scout_list" => {
             let slot = args["slot"].as_i64().ok_or("falta slot")? as i32;
             out(serde_json::to_value(session.scout_list(slot).map_err(e)?))

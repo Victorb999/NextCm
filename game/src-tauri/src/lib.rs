@@ -4,8 +4,8 @@ use std::sync::Mutex;
 use nextcm_core::{
     BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, ContractReply,
     ContractTerms, Fixture, GameInfo, Instructions, LiveView, MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem,
-    NumberAssign, OfferView, PersonProfile, SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, Session, SquadNumbers, StageView,
-    StandingRow, TransferItem, TransferView, World,
+    NumberAssign, OfferView, PersonProfile, ReportStaff, SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, Session,
+    SquadNumbers, StageView, StandingRow, TransferItem, TransferView, World,
 };
 use tauri::{Manager, State};
 
@@ -91,6 +91,8 @@ session_command!(offer_view(id: i32) -> OfferView);
 session_command!(answer_offer(id: i32, key: String, fee: Option<i64>) -> OfferView);
 session_command!(scout_player(id: i32) -> String);
 session_command!(scout_list(slot: i32) -> ScoutList);
+session_command!(report_staff(kind: String) -> Vec<ReportStaff>);
+session_command!(staff_report(id: i32, kind: String, staff: Vec<i32>) -> usize);
 session_command!(assign_scout(slot: i32, kind: String, target: Option<i32>) -> ScoutList);
 session_command!(clear_scout(slot: i32) -> ScoutList);
 session_command!(search_clubs(text: String) -> Vec<ClubListItem>);
@@ -211,6 +213,8 @@ pub fn run() {
             answer_offer,
             scout_player,
             scout_list,
+            report_staff,
+            staff_report,
             assign_scout,
             clear_scout,
             search_clubs,

@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game, GameInfo,
-    Instructions, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, Result, SaveSummary, ScoutList,
-    SearchQuery, SearchResult, Selection, SquadNumbers, StageView, StandingRow, TransferItem, TransferView, World, list_saves,
+    Instructions, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, ReportStaff, Result, SaveSummary,
+    ScoutList, SearchQuery, SearchResult, Selection, SquadNumbers, StageView, StandingRow, TransferItem, TransferView, World, list_saves,
 };
 
 pub struct Session {
@@ -276,6 +276,14 @@ impl Session {
     /// Resposta do treinador numa proposta.
     pub fn scout_player(&mut self, id: i32) -> Result<String> {
         self.game_mut()?.scout_player(id)
+    }
+
+    pub fn report_staff(&self, kind: String) -> Result<Vec<ReportStaff>> {
+        self.game()?.report_staff(&kind)
+    }
+
+    pub fn staff_report(&mut self, id: i32, kind: String, staff: Vec<i32>) -> Result<usize> {
+        self.game_mut()?.staff_report(id, &kind, &staff)
     }
 
     pub fn scout_list(&self, slot: i32) -> Result<ScoutList> {

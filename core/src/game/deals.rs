@@ -475,7 +475,7 @@ impl Game {
     }
 
     /// Uma mensagem fora do avanço do dia (respostas imediatas do treinador).
-    fn post_news(&mut self, title: String, body: String, offer: Option<i32>) {
+    pub(super) fn post_news(&mut self, title: String, body: String, offer: Option<i32>) {
         let id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
         let mut n = self.news_item(id, "message", title, body);
         n.offer_id = offer;

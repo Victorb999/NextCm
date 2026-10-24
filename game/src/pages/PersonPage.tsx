@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { PersonProfile } from '../bindings/PersonProfile'
 import { DialogFrame, Overlay } from '../components/Dialog'
+import ReportDialog from '../components/ReportDialog'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import TransferTab from '../components/TransferTab'
 import { cmDate, money, wage } from '../format'
@@ -300,6 +301,7 @@ export default function PersonPage({ id }: { id: number }) {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('profile')
   const [confirm, setConfirm] = useState(false)
+  const [report, setReport] = useState<'medical' | 'fitness' | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   const reload = () => api.getPerson(id).then(setPerson, (e) => setError(String(e)))
@@ -331,8 +333,16 @@ export default function PersonPage({ id }: { id: number }) {
     ''
   )
 
-  // Menu Acção: observar um jogador de outro clube (num jogo em curso)
-  const canScout = game.mode === 'game' && !!person?.player && person.club?.id !== game.info?.club.id && !person.reportOn
+  // Menu Acção (num jogo em curso): observar um jogador de outro clube; relatórios do staff
+  // sobre um do plantel
+  const mine = !!person && person.club?.id === game.info?.club.id
+  const canScout = game.mode === 'game' && !!person?.player && !mine && !person.reportOn
+  const actions = mine
+    ? [
+        { key: 'medical', label: 'Pedir Relatório Médico' },
+        { key: 'fitness', label: 'Pedir Relatório Preparador Físico' },
+      ]
+    : [{ key: 'scout', label: 'Observar Jogador' }]
   const scout = async () => {
     setConfirm(false)
     try {
@@ -352,9 +362,9 @@ export default function PersonPage({ id }: { id: number }) {
           <PurpleMenu
             label="Acção"
             align="right"
-            options={[{ key: 'scout', label: 'Observar Jogador' }]}
-            disabled={!canScout}
-            onChange={() => setConfirm(true)}
+            options={actions}
+            disabled={!mine && !canScout}
+            onChange={(k) => (k === 'scout' ? setConfirm(true) : setReport(k as 'medical' | 'fitness'))}
           />
         </div>
       )}
@@ -379,6 +389,20 @@ export default function PersonPage({ id }: { id: number }) {
         {person && tab === 'transfer' && <TransferTab personId={id} name={person.name} onChanged={() => void reload()} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+      {report && person && (
+        <ReportDialog
+          kind={report}
+          personId={id}
+          name={person.name}
+          onClose={() => setReport(null)}
+          onDone={(text) => {
+            setReport(null)
+            setNotice(text)
+            // As mensagens novas contam no "por ler"
+            void api.gameInfo().then((info) => info && game.update(info))
+          }}
+        />
+      )}
       {confirm && person && (
         <Overlay>
           <DialogFrame
