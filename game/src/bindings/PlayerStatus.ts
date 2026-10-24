@@ -11,4 +11,8 @@ moraleLabel: string, yellows: number, suspended: number, injury: string | null, 
 /**
  * Motivos de insatisfação, como o CM os escreve (só no plantel do treinador).
  */
-unhappy: Array<string>, };
+unhappy: Array<string>, 
+/**
+ * Na equipa de reservas.
+ */
+reserve: boolean, };

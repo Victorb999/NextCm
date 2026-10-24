@@ -329,7 +329,14 @@ export default function PersonPage({ id }: { id: number }) {
     <>
       {number}
       {person.name} (
-      {club ? <Link onClick={() => nav.go({ kind: 'club', id: club.id })}>{club.shortName}</Link> : 'Sem clube'})
+      {club ? (
+        <Link onClick={() => nav.go({ kind: 'club', id: club.id, reserves: person.status?.reserve })}>
+          {person.status?.reserve ? `Reservas ${club.shortName}` : club.shortName}
+        </Link>
+      ) : (
+        'Sem clube'
+      )}
+      )
     </>
   ) : (
     ''
@@ -341,6 +348,9 @@ export default function PersonPage({ id }: { id: number }) {
   const canScout = game.mode === 'game' && !!person?.player && !mine && !person.reportOn
   const actions = mine
     ? [
+        person?.status?.reserve
+          ? { key: 'promote', label: 'Promover ao Plantel Principal' }
+          : { key: 'demote', label: 'Despromover para Reservas' },
         { key: 'discipline', label: 'Disciplinar Jogador' },
         { key: 'praise', label: 'Elogiar na Imprensa' },
         { key: 'criticise', label: 'Criticar na Imprensa' },
@@ -355,6 +365,16 @@ export default function PersonPage({ id }: { id: number }) {
       setNotice(await api.pressComment(id, kind))
       setError(null)
       refreshInfo()
+      await reload()
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
+  const moveSquad = async (reserve: boolean) => {
+    try {
+      setNotice(await api.setReserve(id, reserve))
+      setError(null)
       await reload()
     } catch (e) {
       setError(String(e))
@@ -386,6 +406,7 @@ export default function PersonPage({ id }: { id: number }) {
               else if (k === 'scout') setConfirm(true)
               else if (k === 'discipline') setDiscipline(true)
               else if (k === 'praise' || k === 'criticise') void comment(k)
+              else if (k === 'promote' || k === 'demote') void moveSquad(k === 'demote')
               else setReport(k as 'medical' | 'fitness')
             }}
           />

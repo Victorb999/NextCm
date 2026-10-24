@@ -92,6 +92,10 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let reason = args["reason"].as_str().ok_or("falta reason")?.to_string();
             out(serde_json::to_value(session.discipline(id()?, action, reason).map_err(e)?))
         }
+        "set_reserve" => {
+            let reserve = args["reserve"].as_bool().ok_or("falta reserve")?;
+            out(serde_json::to_value(session.set_reserve(id()?, reserve).map_err(e)?))
+        }
         "press_comment" => {
             let kind = args["kind"].as_str().ok_or("falta kind")?.to_string();
             out(serde_json::to_value(session.press_comment(id()?, kind).map_err(e)?))

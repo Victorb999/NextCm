@@ -30,7 +30,7 @@ export default function Screens() {
       {current.kind === 'contract' && <ContractPage key={current.id} id={current.id} />}
       {current.kind === 'squadNumbers' && <SquadNumbersPage />}
       {current.kind === 'board' && <BoardPage />}
-      {current.kind === 'club' && <ClubPage key={current.id} id={current.id} />}
+      {current.kind === 'club' && <ClubPage key={`${current.id}-${current.reserves ?? false}`} id={current.id} reserves={current.reserves} />}
       {current.kind === 'tactics' && <TacticsPage key={current.id} id={current.id} />}
       {current.kind === 'clubHistory' && <ClubHistoryPage key={current.id} id={current.id} />}
       {current.kind === 'competitions' && <CompetitionsPage />}

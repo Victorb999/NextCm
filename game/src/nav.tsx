@@ -10,7 +10,7 @@ export type Screen =
   | { kind: 'contract'; id: number }
   | { kind: 'squadNumbers' }
   | { kind: 'board' }
-  | { kind: 'club'; id: number }
+  | { kind: 'club'; id: number; reserves?: boolean }
   | { kind: 'tactics'; id: number }
   | { kind: 'clubHistory'; id: number }
   | { kind: 'competitions' }

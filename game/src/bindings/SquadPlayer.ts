@@ -21,4 +21,8 @@ abilityRank: number,
 /**
  * Num jogo em curso: condição (0–100) e indisponibilidade.
  */
-condition: number | null, injured: boolean, suspended: boolean, };
+condition: number | null, injured: boolean, suspended: boolean, 
+/**
+ * Na equipa de reservas (só no clube do treinador, num jogo em curso).
+ */
+reserve: boolean, };

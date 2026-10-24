@@ -109,6 +109,8 @@ export const api = {
   discipline: (id: number, action: number, reason: string) => call<string>('discipline', { id, action, reason }),
   /** "praise" ou "criticise"; devolve a reação do jogador. */
   pressComment: (id: number, kind: string) => call<string>('press_comment', { id, kind }),
+  /** Despromover para as reservas (true) ou promover ao plantel principal. */
+  setReserve: (id: number, reserve: boolean) => call<string>('set_reserve', { id, reserve }),
   /** Uma questão à Liga; devolve a resposta. */
   leagueRequest: (key: string) => call<string>('league_request', { key }),
   /** Aba Transferência do perfil de um jogador (jogo em curso). */

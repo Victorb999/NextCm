@@ -72,6 +72,7 @@ impl Session {
                     p.condition = Some(st.condition);
                     p.injured = st.injury.is_some();
                     p.suspended = st.suspended > 0;
+                    p.reserve = st.reserve;
                 }
             }
         }
@@ -257,6 +258,10 @@ impl Session {
 
     pub fn discipline(&mut self, id: i32, action: usize, reason: String) -> Result<String> {
         self.game_mut()?.discipline(id, action, &reason)
+    }
+
+    pub fn set_reserve(&mut self, id: i32, reserve: bool) -> Result<String> {
+        self.game_mut()?.set_reserve(id, reserve)
     }
 
     pub fn press_comment(&mut self, id: i32, kind: String) -> Result<String> {

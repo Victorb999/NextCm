@@ -594,13 +594,18 @@ impl Game {
     /// Tira da escolha do treinador quem já não é do clube (saiu, reformou-se); as funções
     /// vazias o adjunto preenche no dia do jogo.
     pub(super) fn clean_selection(&mut self) -> Result<()> {
-        let Some(sel) = &mut self.selection else { return Ok(()) };
-        let squad: Vec<i32> = self
+        if self.selection.is_none() {
+            return Ok(());
+        }
+        let mut squad: Vec<i32> = self
             .world
             .conn
             .prepare("SELECT id FROM people WHERE club_id = ? AND is_player = 1")?
             .query_map([self.club_id], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
+        // Os das reservas também saem da escolha da equipa principal
+        squad.retain(|id| !self.squads.states.get(id).is_some_and(|s| s.reserve));
+        let Some(sel) = &mut self.selection else { return Ok(()) };
         for s in &mut sel.starters {
             if s.is_some_and(|id| !squad.contains(&id)) {
                 *s = None;

@@ -1196,7 +1196,13 @@ impl LiveMatch {
             .players
             .iter()
             .map(|p| {
-                let a = Availability { condition: p.condition.round() as i32, morale: p.morale, injured: p.injured, suspended: false };
+                let a = Availability {
+                    condition: p.condition.round() as i32,
+                    morale: p.morale,
+                    injured: p.injured,
+                    suspended: false,
+                    reserve: false,
+                };
                 (p.info.id, a)
             })
             .collect()

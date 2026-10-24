@@ -204,6 +204,8 @@ pub struct Availability {
     pub morale: i32,
     pub injured: bool,
     pub suspended: bool,
+    /// Na equipa de reservas: fora da escolha da equipa principal.
+    pub reserve: bool,
 }
 
 impl Availability {
@@ -387,7 +389,7 @@ impl ClubTactics {
     }
 }
 
-const NO_STATE: Availability = Availability { condition: 100, morale: 12, injured: false, suspended: false };
+const NO_STATE: Availability = Availability { condition: 100, morale: 12, injured: false, suspended: false, reserve: false };
 
 /// Abaixo disto o adjunto só põe o jogador se não houver outro. Um jogo tira no máximo
 /// ~31%, então um só jogo nunca tira ninguém do onze: só a sequência de jogos seguidos.
@@ -494,7 +496,9 @@ impl World {
                     in_game: state.is_some(),
                 })
             })?
-            .collect::<rusqlite::Result<_>>()?;
+            .collect::<rusqlite::Result<Vec<Candidate>>>()?;
+        // Os das reservas não entram na equipa principal
+        let pool = pool.into_iter().filter(|c| !c.state.reserve).collect();
         Ok(Squad { club_name, coach, pool })
     }
 

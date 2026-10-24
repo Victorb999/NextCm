@@ -21,11 +21,12 @@ const TABS = [
   { key: 'info', label: 'Finanças & Info' },
 ]
 
-type View = 'players' | 'staff'
+type View = 'players' | 'reserves' | 'staff'
 type Criterion = 'position' | 'name' | 'number' | 'age' | 'ability'
 
 const VIEWS: { key: View; label: string }[] = [
   { key: 'players', label: 'Jogadores' },
+  { key: 'reserves', label: 'Reservas' },
   { key: 'staff', label: 'Staff' },
 ]
 
@@ -162,14 +163,14 @@ function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
   )
 }
 
-export default function ClubPage({ id }: { id: number }) {
+export default function ClubPage({ id, reserves }: { id: number; reserves?: boolean }) {
   const nav = useNav()
   const game = useGame()
   const [club, setClub] = useState<ClubProfile | null>(null)
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('squad')
-  const [view, setView] = useState<View>('players')
+  const [view, setView] = useState<View>(reserves ? 'reserves' : 'players')
   const [criterion, setCriterion] = useState<Criterion>('position')
   const [selected, setSelected] = useState(0)
   const [tactics, setTactics] = useState<ClubTactics | null>(null)
@@ -232,7 +233,8 @@ export default function ClubPage({ id }: { id: number }) {
     if (view === 'staff') {
       return club.staff.map((s) => ({ id: s.id, number: '', badge: '', name: shortListName(s.listName), detail: s.job ?? '' }))
     }
-    const players = [...club.players]
+    // A equipa de reservas (só no clube do treinador) fica numa vista à parte
+    const players = club.players.filter((p) => p.reserve === (view === 'reserves'))
     const name = (a: { listName: string }, b: { listName: string }) => a.listName.localeCompare(b.listName)
     if (criterion === 'position') players.sort((a, b) => a.positionOrder - b.positionOrder || name(a, b))
     if (criterion === 'name') players.sort(name)
@@ -292,7 +294,7 @@ export default function ClubPage({ id }: { id: number }) {
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={club?.club.name ?? ''} fg={colours.fg} bg={colours.bg} />
+      <TitleBand title={club ? (view === 'reserves' ? `Reservas ${club.club.name}` : club.club.name) : ''} fg={colours.fg} bg={colours.bg} />
       <Tabs
         tabs={TABS.map((t) =>
           t.key === 'next' || t.key === 'fixtures' ? { ...t, disabled: fixtures.length === 0 } : t.key === 'transfers' ? { ...t, disabled: game.mode !== 'game' } : t,
@@ -305,7 +307,7 @@ export default function ClubPage({ id }: { id: number }) {
         <div className="flex shrink-0 items-center gap-1 px-1.5 pt-2">
           <PurpleMenu
             label="Vêr"
-            options={VIEWS}
+            options={mine ? VIEWS : VIEWS.filter((v) => v.key !== 'reserves')}
             value={view}
             onChange={(v) => {
               setView(v)

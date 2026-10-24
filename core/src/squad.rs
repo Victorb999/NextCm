@@ -41,11 +41,22 @@ pub struct PlayerState {
     pub apps: i32,
     /// Jogos seguidos do clube em que, disponível, não jogou (insatisfação).
     pub missed: i32,
+    /// Na equipa de reservas (só no clube do treinador).
+    pub reserve: bool,
 }
 
 impl Default for PlayerState {
     fn default() -> Self {
-        PlayerState { condition: 100, morale: START_MORALE, cards: BTreeMap::new(), injury: None, injury_until: None, apps: 0, missed: 0 }
+        PlayerState {
+            condition: 100,
+            morale: START_MORALE,
+            cards: BTreeMap::new(),
+            injury: None,
+            injury_until: None,
+            apps: 0,
+            missed: 0,
+            reserve: false,
+        }
     }
 }
 
@@ -57,6 +68,7 @@ impl PlayerState {
             morale: self.morale,
             injured: self.injury.is_some(),
             suspended: self.suspended_in(comp) > 0,
+            reserve: self.reserve,
         }
     }
 
@@ -108,6 +120,8 @@ pub struct PlayerStatus {
     pub injury_until: Option<String>,
     /// Motivos de insatisfação, como o CM os escreve (só no plantel do treinador).
     pub unhappy: Vec<String>,
+    /// Na equipa de reservas.
+    pub reserve: bool,
 }
 
 pub fn morale_label(m: i32) -> &'static str {
@@ -203,6 +217,7 @@ impl Squads {
                 injury: s.injury,
                 injury_until: s.injury_until,
                 unhappy: Vec::new(),
+                reserve: s.reserve,
             }
         })
     }

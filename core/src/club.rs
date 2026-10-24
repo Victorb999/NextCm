@@ -43,6 +43,8 @@ pub struct SquadPlayer {
     pub condition: Option<i32>,
     pub injured: bool,
     pub suspended: bool,
+    /// Na equipa de reservas (só no clube do treinador, num jogo em curso).
+    pub reserve: bool,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -202,6 +204,7 @@ impl World {
                     condition: None,
                     injured: false,
                     suspended: false,
+                    reserve: false,
                     position: position_label(&pos),
                 })
             })?

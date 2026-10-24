@@ -86,6 +86,7 @@ session_command!(league_requests() -> Vec<BoardRequest>);
 session_command!(discipline_options(id: i32) -> DisciplineOptions);
 session_command!(discipline(id: i32, action: usize, reason: String) -> String);
 session_command!(press_comment(id: i32, kind: String) -> String);
+session_command!(set_reserve(id: i32, reserve: bool) -> String);
 session_command!(league_request(key: String) -> String);
 session_command!(squad_numbers() -> SquadNumbers);
 session_command!(auto_squad_numbers(numbers: Vec<NumberAssign>) -> Vec<NumberAssign>);
@@ -216,6 +217,7 @@ pub fn run() {
             discipline_options,
             discipline,
             press_comment,
+            set_reserve,
             league_request,
             squad_numbers,
             auto_squad_numbers,
