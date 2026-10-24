@@ -105,6 +105,8 @@ pub struct TransferView {
     pub can_loan: bool,
     pub can_renew: bool,
     pub note: Option<String>,
+    /// Sem conhecimento do jogador, a direção limita a proposta: a frase do CM.
+    pub budget_note: Option<String>,
 }
 
 /// Funções no clube ("Definir Função No Clube" do CM): chave, texto e peso (0 = a mais
@@ -552,7 +554,8 @@ impl Game {
             asking: listing.and_then(|l| l.2),
             window_open: window,
             cash: self.cash_of(self.club_id)?,
-            budget: self.transfer_budget()?,
+            budget: if mine { self.transfer_budget()? } else { self.budget_for(person)?.0 },
+            budget_note: if mine { None } else { self.budget_for(person)?.1 },
             can_offer: f.club != Some(self.club_id) && !busy && (f.club.is_none() || window) && self.loan_of(person)?.is_none(),
             can_loan: f.club.is_some() && f.club != Some(self.club_id) && !busy && window && self.loan_of(person)?.is_none(),
             can_renew: mine && blocked.is_none() && !busy,
@@ -651,7 +654,12 @@ impl Game {
                 if fee <= 0 {
                     return Err(Error::Invalid("Indique o valor da proposta.".into()));
                 }
-                self.check_budget(fee)?;
+                let (limit, why) = self.budget_for(person)?;
+                if fee > limit {
+                    return Err(Error::Invalid(
+                        why.unwrap_or_else(|| format!("A sua direcção autoriza transferências até {}.", money_text(limit))),
+                    ));
+                }
                 let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
                 self.world.conn.execute(
                     "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created) VALUES ('transfer', ?, ?, ?, ?, 'pending', ?, ?)",

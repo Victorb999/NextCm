@@ -636,7 +636,7 @@ Fica para o editor de jogos salvos (3.15): ver e mudar os motivos de cada jogado
 - **Pedido para sair**: ao fim de 28 dias com "titular", "clube maior" ou "contrato", quem tem Ambição 12+ ou Lealdade até 10 pede (mensagem com Pôr na Lista / Recusar, 7 dias para responder). Pôr na lista marca-o "a pedido"; recusar (ou não responder) dá "Frustrado por não o deixarem sair" e −3 de moral, e ele não volta a pedir enquanto durar.
 - Por fazer: os outros motivos dos prints (colegas, treinador, adjunto, treino, imprensa), os pedidos dos jogadores da IA e o desabafo na imprensa (3.12).
 
-#### Marco 3.10 — Olheiros e conhecimento (por detalhar)
+#### Marco 3.10 — Olheiros e conhecimento
 
 Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os números com o utilizador antes de programar.
 
@@ -647,6 +647,11 @@ Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os núm
 
 **Orçamento para quem a direção não conhece** (`proposta-sem-conhecimento.png`)
 - "A sua direcção só autorizará transferências até €X porque ela não sabe nada sobre este jogador." Sem conhecimento, a proposta fica limitada a uma parte do orçamento de transferências do passo 4 do 3.8 (no print, ~40%); com conhecimento parcial, uma parte maior; depois de observado, o orçamento inteiro.
+
+**Feito (passo 1):** `core/src/game/scouting.rs`, `SAVE_VERSION` 14 (`knowledge`, `scouting`), comando `scout_player`, `PersonProfile.knowledge/reportOn`, `TransferView.budgetNote`. Números escolhidos:
+- **Conhecido**: o plantel, os emprestados pelo clube e os observados (durante 365 dias). **Parcial**: os de clubes da mesma nação do clube do treinador (sem clube: a nação dele), os famosos (reputação mundial ou actual 150+, de 0–200 no banco) e os do mesmo continente com reputação actual 100+; ~35% dos atributos tapados, fixos por jogador. **Desconhecido**: o resto, tudo "-". O core tapa o perfil (`Session::get_person`), os valores do banco também.
+- **Orçamento**: sem conhecimento a direção autoriza 40% do orçamento de transferências numa proposta, em parte 70% ("…porque ela não sabe nada / sabe pouco sobre este jogador").
+- **Observar Jogador** (menu Acção do perfil, com a pergunta do CM): vai o melhor olheiro do staff (Avaliar Jogadores + Avaliar Potencial); o relatório chega em 5 dias (mesma nação), 10 (mesmo continente) ou 18 (fora), de 70% a 130% disso pelo olheiro. O relatório: estrelas pelo nível que o olheiro vê contra a média dos 11 melhores do plantel (erro de ±2 a ±15 de CA pelo olheiro, fixo por jogador) e uma frase sobre o potencial.
 
 **Observar e designar olheiros**
 - Menu Acção do perfil → Observar Jogador: "Ter <jogador> a ser observado pelos seus olheiros?" Não / Sim (`observar-jogador.png`). O relatório chega em alguns dias (pela distância e pela qualidade do olheiro) e o jogador passa a conhecido.

@@ -111,6 +111,20 @@ pub struct PersonProfile {
     pub career: Vec<CareerEntry>,
     /// Condição, moral, lesão e castigos num jogo em curso (só jogadores de clubes vivos).
     pub status: Option<crate::squad::PlayerStatus>,
+    /// Num jogo em curso: o que o clube do treinador sabe dele (os atributos que não sabe vêm
+    /// a `null`) e a data do relatório do olheiro, se estiver a ser observado.
+    pub knowledge: Option<Knowledge>,
+    pub report_on: Option<String>,
+}
+
+/// O que o clube do treinador sabe de um jogador (marco 3.10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub enum Knowledge {
+    Unknown,
+    Partial,
+    Known,
 }
 
 const MENTAL: [&str; 8] =
@@ -234,6 +248,8 @@ impl World {
                         staff: None,
                         career: Vec::new(),
                         status: None,
+                        knowledge: None,
+                        report_on: None,
                     },
                     r.get::<_, Option<i32>>(10)?,
                 ))

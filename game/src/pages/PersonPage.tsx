@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { PersonProfile } from '../bindings/PersonProfile'
-import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
+import { DialogFrame, Overlay } from '../components/Dialog'
+import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import TransferTab from '../components/TransferTab'
 import { cmDate, money, wage } from '../format'
 import { useGame } from '../game'
@@ -181,6 +182,15 @@ function Profile({ p }: { p: PersonProfile }) {
           ]}
         />
       </div>
+      {p.knowledge && p.knowledge !== 'known' && (
+        <div className="mt-2 px-1.5 text-center text-cm-magenta">
+          {p.reportOn
+            ? `Os seus olheiros estão a observá-lo: o relatório chega a ${cmDate(p.reportOn)}.`
+            : p.knowledge === 'unknown'
+              ? 'O seu clube não conhece este jogador. Mande observá-lo (Acção → Observar Jogador).'
+              : 'O seu clube conhece este jogador só em parte. Mande observá-lo para ver tudo.'}
+        </div>
+      )}
       {!!p.status?.unhappy.length && (
         <div className="mt-2 px-1.5 text-center text-cm-orange">
           {p.status.unhappy.map((u) => (
@@ -289,6 +299,8 @@ export default function PersonPage({ id }: { id: number }) {
   const [person, setPerson] = useState<PersonProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('profile')
+  const [confirm, setConfirm] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const reload = () => api.getPerson(id).then(setPerson, (e) => setError(String(e)))
   useEffect(() => {
@@ -319,9 +331,33 @@ export default function PersonPage({ id }: { id: number }) {
     ''
   )
 
+  // Menu Acção: observar um jogador de outro clube (num jogo em curso)
+  const canScout = game.mode === 'game' && !!person?.player && person.club?.id !== game.info?.club.id && !person.reportOn
+  const scout = async () => {
+    setConfirm(false)
+    try {
+      setNotice(await api.scoutPlayer(id))
+      setError(null)
+      await reload()
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <TitleBand title={title} fg={colours.fg} bg={colours.bg} />
+      {game.mode === 'game' && person?.player && (
+        <div className="absolute right-3 top-2.5 z-20">
+          <PurpleMenu
+            label="Acção"
+            align="right"
+            options={[{ key: 'scout', label: 'Observar Jogador' }]}
+            disabled={!canScout}
+            onChange={() => setConfirm(true)}
+          />
+        </div>
+      )}
       <Tabs
         tabs={TABS.map((t) =>
           t.key === 'injuries'
@@ -335,6 +371,7 @@ export default function PersonPage({ id }: { id: number }) {
       />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/70">
         {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+        {notice && <div className="bg-[#0b3a10] px-2 py-1 text-center text-cm-yellow">{notice}</div>}
         {person && tab === 'profile' && <Profile p={person} />}
         {person && tab === 'contract' && <Contract p={person} />}
         {person && tab === 'injuries' && <Injuries p={person} />}
@@ -342,6 +379,20 @@ export default function PersonPage({ id }: { id: number }) {
         {person && tab === 'transfer' && <TransferTab personId={id} name={person.name} onChanged={() => void reload()} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+      {confirm && person && (
+        <Overlay>
+          <DialogFrame
+            title={game.info?.managerName ?? ''}
+            width={520}
+            cancelLabel="Não"
+            okLabel="Sim"
+            onCancel={() => setConfirm(false)}
+            onOk={() => void scout()}
+          >
+            <div className="py-6 text-center font-title text-[19px] text-white">Ter {person.name} a ser observado pelos seus olheiros?</div>
+          </DialogFrame>
+        </Overlay>
+      )}
     </div>
   )
 }

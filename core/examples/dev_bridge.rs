@@ -104,6 +104,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             out(serde_json::to_value(session.set_listing(id()?, transfer, loan, args["asking"].as_i64()).map_err(e)?))
         }
         "offer_view" => out(serde_json::to_value(session.offer_view(id()?).map_err(e)?)),
+        "scout_player" => out(serde_json::to_value(session.scout_player(id()?).map_err(e)?)),
         "answer_offer" => {
             let key = args["key"].as_str().ok_or("falta key")?.to_string();
             out(serde_json::to_value(session.answer_offer(id()?, key, args["fee"].as_i64()).map_err(e)?))

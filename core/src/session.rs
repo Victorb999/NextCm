@@ -55,6 +55,10 @@ impl Session {
         if let (Some(g), Some(player)) = (&self.game, &mut p.player) {
             player.value = g.world().market_value_of(id, g.date())?;
         }
+        // Os atributos que o clube do treinador não conhece
+        if let Some(g) = &self.game {
+            g.mask_profile(&mut p)?;
+        }
         Ok(p)
     }
 
@@ -270,6 +274,10 @@ impl Session {
     }
 
     /// Resposta do treinador numa proposta.
+    pub fn scout_player(&mut self, id: i32) -> Result<String> {
+        self.game_mut()?.scout_player(id)
+    }
+
     pub fn answer_offer(&mut self, id: i32, key: String, fee: Option<i64>) -> Result<OfferView> {
         self.game_mut()?.answer_offer(id, &key, fee)
     }

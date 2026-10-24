@@ -37,7 +37,7 @@ pub use league::{
 };
 pub use live::{LivePlayer, LiveTeam, LiveView, MAX_SUBS, MatchEvent, ScoreLine, TeamStats};
 pub use nation::{NationListItem, NationProfile};
-pub use person::{Attributes, CareerEntry, ClubRef, PersonProfile, PlayerDetails, StaffDetails};
+pub use person::{Attributes, CareerEntry, ClubRef, Knowledge, PersonProfile, PlayerDetails, StaffDetails};
 pub use search::{MarketStatus, PersonKind, PersonSummary, Position, SearchQuery, SearchResult, SearchSort, Side};
 pub use session::Session;
 pub use squad::PlayerStatus;

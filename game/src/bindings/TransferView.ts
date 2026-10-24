@@ -25,4 +25,8 @@ windowOpen: boolean,
 /**
  * Saldo do clube do treinador e o que a direção autoriza em transferências.
  */
-cash: number, budget: number, offer: OfferView | null, canOffer: boolean, canLoan: boolean, canRenew: boolean, note: string | null, };
+cash: number, budget: number, offer: OfferView | null, canOffer: boolean, canLoan: boolean, canRenew: boolean, note: string | null, 
+/**
+ * Sem conhecimento do jogador, a direção limita a proposta: a frase do CM.
+ */
+budgetNote: string | null, };

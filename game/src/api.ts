@@ -107,6 +107,8 @@ export const api = {
   offerView: (id: number) => call<OfferView>('offer_view', { id }),
   /** Responder a uma proposta: accept, reject, counter (com fee), pay, withdraw. */
   answerOffer: (id: number, key: string, fee: number | null) => call<OfferView>('answer_offer', { id, key, fee }),
+  /** "Observar Jogador": devolve a frase com a data do relatório. */
+  scoutPlayer: (id: number) => call<string>('scout_player', { id }),
   /** Entradas e saídas de um clube nos últimos 12 meses. */
   clubTransfers: (id: number) => call<TransferItem[]>('club_transfers', { id }),
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),

@@ -201,7 +201,7 @@ export default function TransferTab({ personId, name, onChanged }: { personId: n
           note={
             view.mine
               ? 'Os clubes interessados oferecem perto do preço pedido.'
-              : `A sua direcção autoriza transferências até ${money(view.budget) || '€0'}. O clube responde amanhã.`
+              : (view.budgetNote ?? `A sua direcção autoriza transferências até ${money(view.budget) || '€0'}.`) + ' O clube responde amanhã.'
           }
           error={error}
           onCancel={() => setDialog(null)}
