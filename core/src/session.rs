@@ -4,10 +4,10 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    BoardConfidence, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game,
-    GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, ReportStaff, Result,
-    SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, SquadNumbers, StageView, StandingRow, TransferItem, TransferView, World,
-    list_saves,
+    BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error,
+    Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, ReportStaff,
+    Result, SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, SquadNumbers, StageView, StandingRow, TransferItem, TransferView,
+    World, list_saves,
 };
 
 pub struct Session {
@@ -241,6 +241,14 @@ impl Session {
 
     pub fn board_confidence(&self) -> Result<BoardConfidence> {
         self.game()?.board_confidence()
+    }
+
+    pub fn board_requests(&self) -> Result<Vec<BoardRequest>> {
+        self.game()?.board_requests()
+    }
+
+    pub fn board_request(&mut self, key: String) -> Result<String> {
+        self.game_mut()?.board_request(&key)
     }
 
     /// Aba Transferência do perfil de um jogador.

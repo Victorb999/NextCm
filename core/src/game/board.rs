@@ -267,10 +267,13 @@ impl Game {
     }
 
     /// Mexe na confiança, com os avisos e o despedimento.
-    fn change_confidence(&mut self, delta: i32, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+    pub(super) fn change_confidence(&mut self, delta: i32, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         if delta == 0 || self.sacked() {
             return Ok(());
         }
+        // Com "mais tempo" dado pela direção, as quedas contam metade
+        let grace: Option<String> = self.world.conn.query_row("SELECT grace_until FROM board WHERE id = 1", [], |r| r.get(0))?;
+        let delta = if delta < 0 && grace.is_some_and(|g| g.as_str() > self.date.as_str()) { (delta / 2).min(-1) } else { delta };
         let (old, warning): (i32, i32) =
             self.world.conn.query_row("SELECT confidence, warning FROM board WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?)))?;
         let new = (old + delta).clamp(0, 100);

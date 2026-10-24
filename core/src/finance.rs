@@ -16,12 +16,13 @@ pub const INCOME: [(&str, &str); 6] = [
     ("prizes", "Prémios"),
     ("sales", "Venda de jogadores"),
 ];
-pub const EXPENSES: [(&str, &str); 6] = [
+pub const EXPENSES: [(&str, &str); 7] = [
     ("wages", "Salários dos jogadores"),
     ("staff", "Salários do staff"),
     ("purchases", "Compra de jogadores"),
     ("bonuses", "Prémios de assinatura"),
     ("stadium", "Estádio"),
+    ("youth", "Camadas jovens"),
     ("interest", "Juros"),
 ];
 

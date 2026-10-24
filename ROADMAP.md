@@ -698,6 +698,14 @@ Referência: `docs/prints/direcao/`. Parte da direção do passo 4 do 3.8 (`core
 - **Mais tempo para reconstruir o plantel**: baixa o objetivo da época ou abranda a queda da confiança durante um tempo.
 A resposta chega como mensagem: aceite, recusada ou "aceite em parte". Pedir demasiado, ou com a confiança baixa, gasta confiança.
 
+**Feito (passo 2):** `core/src/game/board_meeting.rs`, `SAVE_VERSION` 17 (`board_requests`, `stadium_works`, `board.grace_until`, `board.youth_level`), comandos `board_requests` e `board_request`, a Reunião em `BoardPage.tsx` ("Pedido à Direcção"). Números escolhidos:
+- **Expandir o Estádio** (de ano a ano): +15% da lotação (2 000 a 10 000 lugares) a €2 500 por lugar, pago já (despesa "Estádio"); precisa de confiança 55+ e de 120% do custo em caixa; a obra acaba em 300 dias (mensagem "Estádio ampliado").
+- **Investir nas camadas jovens** (de ano a ano, até 3 vezes): 3% das receitas de uma época (despesa nova "Camadas jovens"), confiança 50+; cada investimento dá +6 ao potencial dos juniores do clube.
+- **Mais fundos para transferências** (de 90 em 90 dias): +25% do orçamento (mínimo €250K) com confiança 60+, +10% ("em parte") com 50+, nunca acima do saldo livre.
+- **Mais fundos para salários e prémios** (90 dias): folha e salário máximo +10% (60+) ou +5% (50+), com saldo positivo.
+- **Mais tempo para reconstruir o plantel** (só com confiança abaixo de 50, uma vez por ano): durante 120 dias as quedas de confiança contam metade, e o objetivo baixa 3 lugares.
+- Uma recusa com a confiança abaixo de 40 tira 3 de confiança. A resposta aparece na tela e chega como mensagem.
+
 **Reunião com a Federação** (`reuniao-com-a-federacao.png`): "Especifique as questões que deseja discutir com a Liga":
 - **Queixas sobre a arbitragem**: depois de um jogo com expulsões ou penáltis contra; pode render um aviso de multa ou nada.
 - **Pedir adiamento do jogo**: com muitos lesionados ou jogos seguidos; a liga aceita raramente (o calendário de `core/src/game/competitions.rs` muda a data).

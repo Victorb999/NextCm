@@ -1,5 +1,6 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import type { BoardConfidence } from './bindings/BoardConfidence'
+import type { BoardRequest } from './bindings/BoardRequest'
 import type { BoardView } from './bindings/BoardView'
 import type { ClubFinances } from './bindings/ClubFinances'
 import type { ClubListItem } from './bindings/ClubListItem'
@@ -98,6 +99,9 @@ export const api = {
   /** A direção do clube do treinador: expectativa, confiança e orçamentos. */
   boardView: () => call<BoardView>('board_view'),
   boardConfidence: () => call<BoardConfidence>('board_confidence'),
+  boardRequests: () => call<BoardRequest[]>('board_requests'),
+  /** Um pedido à direção; devolve a resposta. */
+  boardRequest: (key: string) => call<string>('board_request', { key }),
   /** Aba Transferência do perfil de um jogador (jogo em curso). */
   transferView: (id: number) => call<TransferView>('transfer_view', { id }),
   makeOffer: (id: number, fee: number) => call<TransferView>('make_offer', { id, fee }),

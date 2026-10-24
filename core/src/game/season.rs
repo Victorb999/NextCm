@@ -737,11 +737,17 @@ impl Game {
             self.world.conn.prepare(&sql)?.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
         let mut factory = self.player_factory()?;
         let mut ours = Vec::new();
+        // O investimento da direção nas camadas jovens (Reunião com a Direcção)
+        let invested: i32 =
+            self.world.conn.query_row("SELECT youth_level FROM board WHERE id = 1", [], |r| r.get(0)).optional()?.unwrap_or(0);
         for (club, nation, reputation) in clubs {
             // O potencial dos juniores vem da reputação do clube, que não muda no save. Medido no
             // patch: PA médio dos 11 melhores ≈ 84 + 0,0114 × reputação (Série A ≈ 147, B ≈ 129,
             // C ≈ 115). Tirado do próprio plantel haveria uma espiral (cada geração puxava a seguinte)
-            let level = 84.0 + 0.0114 * reputation.unwrap_or(3000) as f64;
+            let mut level = 84.0 + 0.0114 * reputation.unwrap_or(3000) as f64;
+            if club == self.club_id {
+                level += super::board_meeting::YOUTH_PA * invested.min(super::board_meeting::YOUTH_MAX) as f64;
+            }
             // Um júnior por ano e, a um em cada três clubes, um segundo
             for _ in 0..1 + rng.next_u32().is_multiple_of(3) as u32 {
                 let position = regen::random_position(&mut rng);

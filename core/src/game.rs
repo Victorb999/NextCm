@@ -17,6 +17,7 @@ use ts_rs::TS;
 use crate::engine;
 
 mod board;
+mod board_meeting;
 mod competitions;
 mod deals;
 mod finances;
@@ -37,6 +38,7 @@ use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
 use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
 use crate::{Error, Result, World, date};
 pub use board::{BoardConfidence, BoardView};
+pub use board_meeting::BoardRequest;
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, TransferView};
 pub use market::TransferItem;
@@ -63,7 +65,17 @@ pub use staff_reports::ReportStaff;
 /// 14: conhecimento dos jogadores observados (`knowledge`) e olheiros em missão (`scouting`).
 /// 15: tarefas dos olheiros (`scout_tasks`) e os jogadores que encontraram (`scout_finds`).
 /// 16: satisfação dos adeptos (`board.fans`), marco 3.11.
-pub const SAVE_VERSION: i32 = 16;
+/// 17: pedidos à direção (`board_requests`, `board.grace_until`, `board.youth_level`) e obras
+/// no estádio (`stadium_works`).
+pub const SAVE_VERSION: i32 = 17;
+
+/// Reunião com a direção (save 17).
+const MEETING_SCHEMA: &str = "
+ALTER TABLE board ADD COLUMN grace_until TEXT;
+ALTER TABLE board ADD COLUMN youth_level INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE board_requests (kind TEXT PRIMARY KEY, last TEXT NOT NULL);
+CREATE TABLE stadium_works (stadium_id INTEGER NOT NULL, seats INTEGER NOT NULL, done_on TEXT NOT NULL);
+";
 
 /// Adeptos (save 16).
 const FANS_SCHEMA: &str = "ALTER TABLE board ADD COLUMN fans INTEGER NOT NULL DEFAULT 60;";
@@ -439,6 +451,7 @@ impl Game {
             tx.execute_batch(SCOUTING_SCHEMA)?;
             tx.execute_batch(SCOUT_TASKS_SCHEMA)?;
             tx.execute_batch(FANS_SCHEMA)?;
+            tx.execute_batch(MEETING_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -642,6 +655,11 @@ impl Game {
             world.conn.execute_batch(FANS_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 16", [])?;
             version = 16;
+        }
+        if version == 16 {
+            world.conn.execute_batch(MEETING_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 17", [])?;
+            version = 17;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -927,6 +945,7 @@ impl Game {
         self.market_day(&mut fresh, &mut next_id)?;
         self.offers_day(&mut fresh, &mut next_id)?;
         self.board_day(&mut fresh, &mut next_id)?;
+        self.stadium_works_day(&mut fresh, &mut next_id)?;
         self.unhappy_day(&mut fresh, &mut next_id)?;
         self.scouting_day(&mut fresh, &mut next_id)?;
         self.scout_tasks_day()?;
@@ -2461,7 +2480,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn
