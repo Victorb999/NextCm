@@ -21,6 +21,7 @@ export type TitleFont =
   | 'shadows'
 export type TextFont = 'tahoma' | 'googleSans' | 'roboto' | 'robotoCondensed' | 'lato' | 'play' | 'oswald'
 export type ScreenMode = 'window' | 'fullscreen'
+export type Resolution = '1280x720' | '1366x768' | '1600x900' | '1920x1080'
 export type Background = 'default' | 'plain' | 'photo' | 'image'
 export type MatchSpeed = 'veryFast' | 'fast' | 'normal' | 'slow' | 'verySlow'
 
@@ -31,6 +32,8 @@ export type Settings = {
   font: TitleFont
   textFont: TextFont
   screen: ScreenMode
+  /** Tamanho da janela (só em modo janela): sempre 16:9, para o layout não perder a proporção. */
+  resolution: Resolution
   /** Cor base da coluna esquerda (#rrggbb); os relevos saem dela. */
   sideColour: string
   background: Background
@@ -50,6 +53,7 @@ export const DEFAULT_SETTINGS: Settings = {
   font: 'futurista',
   textFont: 'tahoma',
   screen: 'window',
+  resolution: '1280x720',
   sideColour: '#45526a',
   background: 'default',
   backgroundPhoto: null,
@@ -65,6 +69,14 @@ export const MATCH_SPEEDS: { key: MatchSpeed; label: string; ms: number }[] = [
   { key: 'normal', label: 'Média', ms: 550 },
   { key: 'slow', label: 'Lenta', ms: 1100 },
   { key: 'verySlow', label: 'Muito Lenta', ms: 1900 },
+]
+
+/** Tamanhos da janela, todos em 16:9 (a proporção do layout). */
+export const RESOLUTIONS: { key: Resolution; label: string; width: number; height: number }[] = [
+  { key: '1280x720', label: '1280 x 720', width: 1280, height: 720 },
+  { key: '1366x768', label: '1366 x 768', width: 1366, height: 768 },
+  { key: '1600x900', label: '1600 x 900', width: 1600, height: 900 },
+  { key: '1920x1080', label: '1920 x 1080', width: 1920, height: 1080 },
 ]
 
 /** Moedas como no CM; o banco está em euros. Câmbio aproximado do início da época 25/26. */
@@ -121,7 +133,10 @@ const KEY = 'nextcm.settings'
 function load(): Settings {
   try {
     const raw = localStorage.getItem(KEY)
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS
+    const s: Settings = raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS
+    // Uma resolução que já não existe (ex.: a antiga "Livre") volta à de origem
+    if (!RESOLUTIONS.some((r) => r.key === s.resolution)) s.resolution = DEFAULT_SETTINGS.resolution
+    return s
   } catch {
     return DEFAULT_SETTINGS
   }
@@ -207,6 +222,25 @@ export async function applyScreenMode(mode: ScreenMode) {
     if (!full && document.fullscreenElement) await document.exitFullscreen()
   } catch {
     // O navegador pode recusar sem um clique do utilizador; não é grave
+  }
+}
+
+/** Tamanho da janela do Tauri: fixo, sem redimensionar, ao centro. No navegador não faz nada. */
+export async function applyResolution(resolution: Resolution, mode: ScreenMode) {
+  if (mode === 'fullscreen') return
+  try {
+    const { isTauri } = await import('@tauri-apps/api/core')
+    if (!isTauri()) return
+    const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window')
+    const win = getCurrentWindow()
+    const r = RESOLUTIONS.find((o) => o.key === resolution) ?? RESOLUTIONS[0]
+    if (await win.isMaximized()) await win.unmaximize()
+    await win.setResizable(true)
+    await win.setSize(new LogicalSize(r.width, r.height))
+    await win.setResizable(false)
+    await win.center()
+  } catch {
+    // Sem permissão ou janela indisponível; fica como está
   }
 }
 

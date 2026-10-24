@@ -6,9 +6,11 @@ import {
   DEFAULT_SETTINGS,
   FONTS,
   MATCH_SPEEDS,
+  RESOLUTIONS,
   SIDE_PRESETS,
   TEXT_FONTS,
   WAGES,
+  applyResolution,
   applyScreenMode,
   getSettings,
   loadBackgroundImage,
@@ -76,12 +78,15 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
   const set = (patch: Partial<Settings>) => setS((old) => ({ ...old, ...patch }))
 
   const ok = () => {
-    const screenChanged = s.screen !== getSettings().screen
+    const old = getSettings()
+    const screenChanged = s.screen !== old.screen
+    const sizeChanged = screenChanged || s.resolution !== old.resolution
     if (!saveSettings(s)) {
       setError('Não foi possível gravar (imagem grande demais?). Escolha outra imagem.')
       return
     }
-    if (screenChanged) void applyScreenMode(s.screen)
+    // Primeiro sai/entra do ecrã completo, depois o tamanho da janela
+    if (sizeChanged) void (screenChanged ? applyScreenMode(s.screen) : Promise.resolve()).then(() => applyResolution(s.resolution, s.screen))
     onClose()
   }
 
@@ -158,6 +163,14 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
             <Option selected={s.screen === 'window'} onClick={() => set({ screen: 'window' })}>
               Em Janela
             </Option>
+          </Row>
+          <Row label="Resolução" disabled={s.screen === 'fullscreen'}>
+            <Cycle
+              options={RESOLUTIONS}
+              value={s.resolution}
+              onChange={(resolution) => set({ resolution })}
+              disabled={s.screen === 'fullscreen'}
+            />
           </Row>
           <Row label="Coluna Lateral">
             {SIDE_PRESETS.map((p) => (
