@@ -602,6 +602,33 @@ Pedidos do utilizador ao testar o 3.8 e o 3.9.
 - **Mercado**: `leaving_europe` e `leaves_europe` em `market.rs`: de um clube europeu para as Américas, África ou Oceânia (a Ásia fica de fora: a Arábia Saudita paga), só saem veteranos (31+), quem volta ao seu país (27+) e quem já não é titular (29+). Vale para a IA e para o treinador ("não quer deixar o futebol europeu").
 - **Notícias**: `transfer_news` só com o clube do treinador, os rivais, os clubes da liga com reputação até 500 abaixo, os jogadores por quem ele fez propostas e as 3 maiores do dia no mundo (de €20M ou mais).
 
+#### Listas da IA, insatisfação e pedidos para sair (depois dos ajustes, por detalhar)
+
+Referência: `docs/prints/insatisfacao/` (o editor de jogos salvos do CM 01/02: abas Unhappiness, Club Unhappiness e Contract). Usa a personalidade do 3.9 (Ambição, Lealdade, Temperamento, Profissionalismo) e enche os filtros "Listados" da pesquisa.
+
+**Listas de transferências e de empréstimos da IA**
+- Os clubes da IA põem jogadores nas listas (`transfer_list`, com o preço pedido), em vez de só venderem direto: os que estão a mais no papel, os veteranos caros, os que pediram para sair, e os jovens fora dos 18 melhores na lista de empréstimos. As listas são revistas no início de cada janela e saem quando o jogador é vendido ou volta a ser preciso.
+- Distinguir "listado pelo clube" de "listado a pedido" (`editor-contrato.png`: Transfer Listed By Club / Transfer Listed By Request / Listed For Loan). Quem é listado pelo clube sem ter pedido perde moral; quem pediu fica contente.
+- A IA compra primeiro entre os listados (preço mais baixo), o que deixa o mercado mais parecido com o CM.
+
+**Insatisfação** (`editor-insatisfacao.png`, `editor-insatisfacao-clube.png`)
+- Cada jogador tem uma lista de motivos de insatisfação, que entram e saem pelo que acontece. Os principais, em português do CM:
+  - Quer mudar para um clube maior; Sente que deve ser titular; Quer jogar na equipa principal; Acha que merece um papel mais importante; Acha que tem de sair para progredir na carreira; Quer um novo desafio.
+  - Quer negociar um novo contrato; Acha que merece ganhar mais; Frustrado por não o deixarem sair; Acha que o treinador está a impedir a saída.
+  - Descontente com o treinador; Perdeu a confiança no treinador; Sente que não tem o apoio do treinador; Não gosta do adjunto.
+  - Infeliz com o tratamento a um colega; Não gosta de um colega; Infeliz com a venda de um colega; Desiludido por o clube vender um dos jovens mais promissores.
+  - Difícil adaptação ao estilo de vida; Tem saudades de casa (estrangeiros, pela Adaptabilidade).
+  - Infeliz por ser substituído; Quer jogar noutra posição; Infeliz com o treino; Sente que foi tratado injustamente; Desabafou publicamente; Problemas pessoais; Preocupado com o futuro no clube.
+  - Sobre o clube: acha que o clube o avalia mal; acha que o clube devia estar no topo da tabela; há demasiada concorrência no lugar; preocupado com rumores de um substituto; infeliz por o clube ter contratado outro para a posição dele; acha que a equipa precisa de mais plantel; desânimo com a falta de harmonia ou de disciplina; acha que os árbitros o perseguem.
+- **Gatilhos** (com números a fechar): jogos seguidos sem jogar (o editor guarda "Played In a Row" / "Missed In a Row"), a função no plantel do contrato do 3.8 (indispensável que não joga), contrato a acabar sem proposta, recusa de uma proposta de um clube maior (já existe a desilusão do 3.9), venda de um colega ou de um jovem, contratação de outro para a posição, resultados contra a expectativa da direção. A personalidade pesa: Ambição para os motivos de carreira, Lealdade para aguentar, Temperamento e Profissionalismo para desabafar em público, Adaptabilidade para as saudades.
+- **Efeitos**: moral mais baixa enquanto houver motivos; o motivo aparece no perfil do jogador (uma linha como no CM: "Está insatisfeito por não ser titular") e numa mensagem quando nasce. Resolver o motivo (jogar, renovar, deixar sair) tira-o.
+
+**Pedir para sair**
+- Com motivos fortes e durante algum tempo, o jogador pede para ser posto na lista de transferências (mensagem com os botões Aceitar / Recusar). Aceitar põe-no na lista "a pedido"; recusar acrescenta "Frustrado por não o deixarem sair", mais moral perdida e, com Temperamento baixo, desabafo na imprensa (que liga ao 3.12).
+- Os da IA também pedem: o clube dele lista-o, e isso alimenta as listas acima.
+
+Fica para o editor de jogos salvos (3.15): ver e mudar os motivos de cada jogador, como no editor do CM.
+
 #### Marco 3.10 — Olheiros e conhecimento (por detalhar)
 
 Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os números com o utilizador antes de programar.
