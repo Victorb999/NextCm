@@ -157,12 +157,13 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **3.6** Mais competições | Época no ano civil; Séries C e D, Copa do Brasil, estaduais, Libertadores e Sul-Americana; regulamentos num arquivo de dados por competição. As ligas europeias passam para um marco seguinte | Calendário brasileiro completo numa época |
 | ✅ **3.7** Mundo | Ligas de Inglaterra, Espanha, Itália, Alemanha, França, Portugal, Holanda, Argentina e Arábia Saudita (1ª e 2ª divisão), Liga dos Campeões e Liga Europa; épocas de agosto a maio ao lado do ano civil | Uma época europeia inteira com campeões, subidas e descidas e a final da Liga dos Campeões |
 | ✅ **3.8** Mercado | Transferências e empréstimos (IA e treinador) nas janelas reais, renovações negociadas, finanças completas, orçamentos e despedimento | Clubes compram e vendem entre si com números plausíveis; o treinador compra, vende, renova e vê as finanças |
-| **3.9** Olheiros e conhecimento | Atributos escondidos como no CM (o clube só vê o que conhece), observar jogadores, designar olheiros (clube, próximo adversário, jovens, país, região), listas Olheiro #1–#7, orçamento limitado para quem a direção não conhece, relatórios do médico e do preparador físico | Um jogador europeu desconhecido aparece com "-", é observado, o relatório chega e a direção passa a autorizar a proposta inteira |
-| **3.10** Personalidade | Os atributos ocultos que ainda não fazem nada (Ambição, Lealdade, Adaptabilidade, Versatilidade, Desportivismo, Temperamento) passam a contar no mercado, no motor e na moral | As médias do motor e do mercado continuam na CLI e cada atributo tem um efeito testado |
-| **3.11** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
-| **3.12** Palestras | Discurso aos jogadores como no FM08: antes do jogo, ao intervalo, no fim e a quem entra; a reação de cada um pela personalidade e pela situação do jogo muda a moral e a motivação na partida | Uma palestra boa ou má muda a moral e o rendimento de forma visível, sem tirar o motor das médias na CLI |
-| **3.13** Direcção e Federação | A tela Confiança da Direcção com o texto do CM; Reunião com a Direcção (expandir o estádio, investir nas camadas jovens, mais fundos para transferências e salários, mais tempo); Reunião com a Federação (queixas sobre a arbitragem, pedir adiamento de jogo) | Um pedido à direção é aceite ou recusado pela confiança e pelas finanças, e o efeito aparece (orçamento, estádio, juniores) |
-| **3.14** Polimento | Notícias completas, ofertas de emprego, férias, Auto Gravação, os ajustes pelos prints do 3.8 (menu Acção, proposta em tela inteira, Prémios e Cláusulas do contrato) | — |
+| **3.9** Personalidade | Os atributos ocultos que ainda não fazem nada (Ambição, Lealdade, Adaptabilidade, Versatilidade, Desportivismo, Temperamento) passam a contar no mercado, no motor e na moral | As médias do motor e do mercado continuam na CLI e cada atributo tem um efeito testado |
+| **3.10** Olheiros e conhecimento | Atributos escondidos como no CM (o clube só vê o que conhece), observar jogadores, designar olheiros (clube, próximo adversário, jovens, país, região), listas Olheiro #1–#7, orçamento limitado para quem a direção não conhece, relatórios do médico e do preparador físico | Um jogador europeu desconhecido aparece com "-", é observado, o relatório chega e a direção passa a autorizar a proposta inteira |
+| **3.11** Direcção e Federação | A tela Confiança da Direcção com o texto do CM; Reunião com a Direcção (expandir o estádio, investir nas camadas jovens, mais fundos para transferências e salários, mais tempo); Reunião com a Federação (queixas sobre a arbitragem, pedir adiamento de jogo) | Um pedido à direção é aceite ou recusado pela confiança e pelas finanças, e o efeito aparece (orçamento, estádio, juniores) |
+| **3.12** Empregos e gestão do plantel | Informação de Empregos (procurar e aceitar clubes, despedimentos na IA), equipa de reservas, Disciplinar Jogador, elogiar e criticar jogadores na imprensa, conferências de imprensa antes e depois dos jogos (ou mandar o adjunto) | Despedido, o treinador encontra outro clube e continua o jogo; um castigo, um elogio ou uma resposta na conferência muda a moral pela personalidade |
+| **3.13** Polimento | Notícias completas, férias, Auto Gravação, os ajustes pelos prints do 3.8 (menu Acção, proposta em tela inteira, Prémios e Cláusulas do contrato) | — |
+| **3.14** Palestras | Discurso aos jogadores como no FM08: antes do jogo, ao intervalo, no fim e a quem entra; a reação de cada um pela personalidade e pela situação do jogo muda a moral e a motivação na partida | Uma palestra boa ou má muda a moral e o rendimento de forma visível, sem tirar o motor das médias na CLI |
+| **3.15** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
 
 #### Marco 3.1 — Novo jogo e tempo (detalhe)
 
@@ -496,7 +497,7 @@ Decisões (com o utilizador): o mercado é da **IA e do treinador**; transferên
 
 **Direção**
 - Orçamento de transferências e teto salarial no início de cada janela, pela situação financeira e pela expectativa da época (a da mensagem de boas-vindas).
-- Confiança da direção pelos resultados contra a expectativa e pelas finanças; avisos nas mensagens; com a confiança no fundo, o treinador é despedido. Até haver ofertas de emprego (3.14), o despedimento acaba o jogo com uma mensagem.
+- Confiança da direção pelos resultados contra a expectativa e pelas finanças; avisos nas mensagens; com a confiança no fundo, o treinador é despedido. Até haver ofertas de emprego (3.12), o despedimento acaba o jogo com uma mensagem.
 
 **Telas**
 - Clube → Finanças & Info: saldo, receitas e despesas da época por categoria, folha salarial, orçamentos.
@@ -543,7 +544,7 @@ Números (`sim -- 7568 carreira 1 3`): por época ~170–400 transferências (~�
 
 **Feito (passo 4):** `core/src/game/board.rs`, `SAVE_VERSION` 11 com a tabela `board` (uma linha: objetivo, confiança, orçamentos, avisos, despedido).
 - **Expectativa**: a da mensagem de boas-vindas, agora com uma posição alvo na liga (lutar pelo título 3º, primeira metade, meio da tabela total−5, evitar a despromoção total−4). Renova-se em cada época nova da liga do treinador ("Objectivos da época").
-- **Confiança** (0–100, começa em 60): vitória +1, derrota −2; no dia 1 de cada mês a posição na liga contra a alvo (−6 a +4, a partir da 4ª jornada) e as finanças (saldo negativo −2, dívida acima de 10% das receitas −4 e orçamento a zero); no fim da época subir +20, título +20, objetivo cumprido +12, falhar por mais de 3 lugares −15, descer −35 ("Balanço da época"). Abaixo de 35 a direção avisa, abaixo de 15 dá um ultimato, a 0 despede: o jogo acaba (diálogo "Despedido"; Continuar Jogo deixa de avançar) até haver ofertas de emprego (3.14). Na CLI, o Palmeiras fica entre 73 e 100.
+- **Confiança** (0–100, começa em 60): vitória +1, derrota −2; no dia 1 de cada mês a posição na liga contra a alvo (−6 a +4, a partir da 4ª jornada) e as finanças (saldo negativo −2, dívida acima de 10% das receitas −4 e orçamento a zero); no fim da época subir +20, título +20, objetivo cumprido +12, falhar por mais de 3 lugares −15, descer −35 ("Balanço da época"). Abaixo de 35 a direção avisa, abaixo de 15 dá um ultimato, a 0 despede: o jogo acaba (diálogo "Despedido"; Continuar Jogo deixa de avançar) até haver ofertas de emprego (3.12). Na CLI, o Palmeiras fica entre 73 e 100.
 - **Orçamentos** (a 1/1 e a 1/7, com a mensagem "Orçamentos da Direcção"): transferências = metade de (saldo + 20% das receitas de uma época), nada com dívida grande; as compras (valor + prémio de assinatura) gastam-no e as vendas devolvem metade. Folha salarial até 90% das receitas (nunca abaixo da atual) e salário máximo por jogador (o maior do plantel +25%, ou 10% da folha permitida). Substituem o saldo nas propostas e nos contratos: "A sua direcção autoriza transferências até…" / "salários até…", como nos prints.
 - **Clubes da IA com dívidas**: abaixo de −25% das receitas, num dia de mercado vendem o jogador mais valioso (até 31 anos) a 80% do valor a um clube com orçamento; abaixo de −60% no fim da época vão à falência: descem no lugar do melhor colocado dos que desciam (ou, sem descida, só reestruturam) e as dívidas ficam a zero. Na CLI, 3 épocas sem nenhuma (os saldos ficam estáveis).
 - **Telas**: Finanças & Info com Confiança da Direcção, Objectivo, Orçamento de transferências e Limite salarial; o orçamento na aba Transferência, na proposta e no contrato.
@@ -562,7 +563,17 @@ Como no CM: no clube do treinador é o treinador que escolhe os números (`core/
 - **Início da época** da liga do treinador: a mensagem "Números do plantel" com o botão Definir Números.
 - **Dia de jogo**: com convocados sem número para o jogo de amanhã, o Continuar Jogo abre a tela dos números e o dia não avança (`GameInfo.needsNumbers`). Sem o app (CLI e testes) o Auto resolve sozinho.
 
-#### Marco 3.9 — Olheiros e conhecimento (por detalhar)
+#### Marco 3.9 — Personalidade: atributos ocultos úteis (por detalhar)
+
+Hoje já contam: Consistência (forma do dia), Jogos Importantes e Pressão (jogos grandes), Propensão a Lesões, Maldade e Agressividade (faltas e cartões), Profissionalismo e Determinação (evolução do CA). Falta dar uso a:
+- **Ambição**: recusa descer de nível e pede mais para ficar num clube pequeno; quer sair de um clube pequeno para ele (mercado do 3.8: `STEP_DOWN`, salário pedido, propostas recebidas).
+- **Lealdade**: desconto para renovar, resistência a ser vendido; o clube da IA pede mais por ele.
+- **Adaptabilidade**: tempo de adaptação a um país novo (rende menos nos primeiros meses).
+- **Versatilidade**: rendimento fora da posição natural.
+- **Desportivismo** e **Temperamento**: cartões, discussões e moral.
+Cada efeito com teste; as médias do motor (~2,6 golos, ~48% vitórias em casa) e do mercado continuam na CLI.
+
+#### Marco 3.10 — Olheiros e conhecimento (por detalhar)
 
 Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os números com o utilizador antes de programar.
 
@@ -584,42 +595,7 @@ Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os núm
 - Pedir Relatório Médico: escolher o fisioterapeuta (`relatorio-medico-escolher.png`); a notícia diz o estado físico pela Fisioterapia de quem escreve e pela lesão, propensão e condição reais (`relatorio-medico-noticia.png`).
 - Pedir Relatório Preparador Físico: escolher um ou mais preparadores, "Escolher Todos" (`relatorio-preparador-escolher.png`); cada um manda a sua notícia, com a opinião sobre o papel no plantel e os pontos fortes, mais certa quanto melhor for o preparador (`relatorio-preparador-noticia.png`).
 
-#### Marco 3.10 — Personalidade: atributos ocultos úteis (por detalhar)
-
-Hoje já contam: Consistência (forma do dia), Jogos Importantes e Pressão (jogos grandes), Propensão a Lesões, Maldade e Agressividade (faltas e cartões), Profissionalismo e Determinação (evolução do CA). Falta dar uso a:
-- **Ambição**: recusa descer de nível e pede mais para ficar num clube pequeno; quer sair de um clube pequeno para ele (mercado do 3.8: `STEP_DOWN`, salário pedido, propostas recebidas).
-- **Lealdade**: desconto para renovar, resistência a ser vendido; o clube da IA pede mais por ele.
-- **Adaptabilidade**: tempo de adaptação a um país novo (rende menos nos primeiros meses).
-- **Versatilidade**: rendimento fora da posição natural.
-- **Desportivismo** e **Temperamento**: cartões, discussões e moral.
-Cada efeito com teste; as médias do motor (~2,6 golos, ~48% vitórias em casa) e do mercado continuam na CLI.
-
-#### Marco 3.11 — Editor de jogos salvos (por detalhar)
-
-Um modo no menu inicial que abre um save fechado de `saves/` (nunca o que está aberto como jogo) e edita jogadores e staff (atributos visíveis e ocultos, CA/PA, reputações, posições, nascimento, nacionalidade, clube, contrato, salário) e clubes (saldo, reputação, estádio, cores), no visual do CM. A validação (1–20, CA ≤ 200, PA ≥ CA, datas) e a gravação ficam no core; saves de outra versão são recusados como no Carregar Jogo.
-
-#### Marco 3.12 — Palestras (por detalhar)
-
-Uma ideia do FM08 que o CM 01/02 não tem: o treinador fala aos jogadores, e cada um reage pela personalidade e pela situação do jogo.
-
-**Momentos**
-- **Antes do jogo**, no dia de jogo, depois de escolher a equipa (ou deixar o adjunto falar).
-- **Ao intervalo**, com o resultado e as estatísticas da primeira parte à vista.
-- **No fim do jogo**: muda só a moral para os dias seguintes.
-- **A quem entra**: uma palavra ao suplente na substituição.
-- À equipa toda ou a um jogador de cada vez (o capitão, quem está mal, quem marcou).
-
-**O que se diz**: um tom (calmo, assertivo, agressivo, motivador) e uma frase pela situação, por exemplo "Espero uma vitória", "Não há pressão, divirtam-se", "Estou desiludido", "Continuem assim", "Mostrem o que valem", "Estou orgulhoso", "Não estou contente". O adjunto sugere uma, como no FM.
-
-**Como reagem**
-- A situação: favorito ou não (força das equipas e reputação), casa ou fora, importância do jogo (final, clássico, luta pelo título ou contra a descida), resultado e exibição no intervalo, sequência de resultados.
-- A personalidade de cada jogador: Determinação, Pressão, Jogos Importantes, Temperamento, Profissionalismo, Influência e a moral atual. Por exemplo, um jogador com pouca Pressão fica nervoso com "Espero uma vitória" numa final; um com Temperamento baixo reage mal à agressividade; a crítica a quem jogou bem desmotiva.
-- A reação aparece por jogador ("motivado", "focado", "nervoso", "complacente", "sem interesse", "irritado") e mexe em duas coisas: a **moral** (a de `core/src/squad.rs`, que dura) e uma **motivação só desta partida** no motor (`core/src/live.rs`), pequena.
-- Tudo determinístico com a seed. A palestra média tem efeito perto de zero: os ~2,6 golos e os ~48% de vitórias em casa têm de continuar na CLI (que não dá palestras ou deixa o adjunto falar).
-
-**Telas** (Palestras): no dia de jogo, antes do pontapé de saída e ao intervalo, um painel "Palestra" no visual do CM (lista dos jogadores com a reação ao lado, tom e frase em menus amarelos, botão para a equipa toda ou por jogador); no fim do jogo, antes dos resultados da jornada; na substituição, a frase ao suplente.
-
-#### Marco 3.13 — Direcção e Federação (por detalhar)
+#### Marco 3.11 — Direcção e Federação (por detalhar)
 
 Referência: `docs/prints/direcao/`. Parte da direção do passo 4 do 3.8 (`core/src/game/board.rs`: confiança, objetivo, orçamentos).
 
@@ -640,6 +616,55 @@ A resposta chega como mensagem: aceite, recusada ou "aceite em parte". Pedir dem
 - **Queixas sobre a arbitragem**: depois de um jogo com expulsões ou penáltis contra; pode render um aviso de multa ou nada.
 - **Pedir adiamento do jogo**: com muitos lesionados ou jogos seguidos; a liga aceita raramente (o calendário de `core/src/game/competitions.rs` muda a data).
 As opções que não fazem sentido no momento aparecem a roxo, como no print.
+
+#### Marco 3.12 — Empregos, gestão do plantel e imprensa (por detalhar)
+
+Referência: `docs/prints/gestao/`.
+
+**Informação de Empregos** (`informacao-de-empregos.png`): pelo menu do treinador, por país (Vêr), a lista dos clubes com o treinador (ou "Sem Treinador", a roxo), o clube, o país, a reputação do clube (letra) e a situação do treinador (Disponível, Muito Inseguro, Inseguro, Seguro...). Para isso os clubes da IA passam a ter treinadores com confiança da direção (a mesma conta do passo 4 do 3.8, pelos resultados contra a expectativa) e despedimentos. O treinador candidata-se, o clube responde pela reputação dele, e com o despedimento o jogo deixa de acabar: o treinador fica sem clube, procura e recebe ofertas (substitui o "o jogo acabou" do 3.8).
+
+**Equipa de reservas** (`equipa-de-reservas.png`): "Reservas <clube>" com o mesmo plantel e as casas da equipa; no menu Acção do jogador, Despromover para Reservas / Promover à Equipa Principal (`accao-disciplinar-menu.png`). Os das reservas não entram na escolha da equipa principal, jogam os jogos das reservas quando houver liga de reservas, e a despromoção mexe na moral (mais em quem se acha titular).
+
+**Disciplinar Jogador** (`disciplinar-jogador.png`): "Especifique os detalhes da acção disciplinar", com a acção (− / +: Aviso Oficial, multas de uma ou mais semanas de salário) e a razão: Sem Razões, Comportamento Pouco Profissional, Expulsão em jogo anterior, Comportamento Violento, Fraca Exibição. As razões só ficam disponíveis quando aconteceram (a roxo as outras). A reação depende da justiça do castigo e da personalidade (Profissionalismo, Temperamento, Determinação): castigar sem razão revolta; um castigo justo pode até motivar. A multa entra nas receitas do clube.
+
+**Elogiar e criticar na imprensa** (como no FM08): pelo menu Acção, comentar um jogador do plantel em público. Regras a afinar:
+- **Elogiar**: sobe a moral, mais em quem está em baixo ou joga pouco; em quem já está nas nuvens pode dar excesso de confiança; repetir o elogio vale cada vez menos.
+- **Criticar**: quem tem Determinação e Profissionalismo altos reage com brio e rende mais nos jogos seguintes; quem tem Temperamento baixo ou Pressão baixa perde moral e pode pedir para sair.
+- Um comentário por jogador a cada poucas semanas; a reação chega como notícia ("X respondeu bem às críticas do treinador").
+- Mais tarde: comentários sobre o próximo adversário e o treinador rival.
+
+**Conferências de imprensa** (como no FM): antes dos jogos importantes (clássicos, finais, luta pelo título ou contra a descida) e depois dos jogos, uma tela com as perguntas dos jornalistas, uma de cada vez, e 3 ou 4 respostas no tom do treinador (confiante, cauteloso, evasivo, provocador).
+- As perguntas saem da situação real: a forma recente, o próximo adversário e o treinador rival, um jogador em destaque ou em baixo, rumores de transferência, a arbitragem do último jogo, a pressão da direção.
+- As respostas mexem na moral dos jogadores citados (como o elogio e a crítica acima), na confiança da direção e, mais tarde, na satisfação dos adeptos (3.11) e na motivação do adversário.
+- **Mandar o adjunto**: o adjunto vai no lugar do treinador e responde de forma neutra (efeito perto de zero). Faltar sempre irrita um pouco a direção e a imprensa.
+- As frases da conferência viram notícia ("O treinador do X diz que…").
+
+#### Marco 3.14 — Palestras (por detalhar)
+
+Uma ideia do FM08 que o CM 01/02 não tem: o treinador fala aos jogadores, e cada um reage pela personalidade e pela situação do jogo.
+
+**Momentos**
+- **Antes do jogo**, no dia de jogo, depois de escolher a equipa (ou deixar o adjunto falar).
+- **Ao intervalo**, com o resultado e as estatísticas da primeira parte à vista.
+- **No fim do jogo**: muda só a moral para os dias seguintes.
+- **A quem entra**: uma palavra ao suplente na substituição.
+- À equipa toda ou a um jogador de cada vez (o capitão, quem está mal, quem marcou).
+
+**O que se diz**: um tom (calmo, assertivo, agressivo, motivador) e uma frase pela situação, por exemplo "Espero uma vitória", "Não há pressão, divirtam-se", "Estou desiludido", "Continuem assim", "Mostrem o que valem", "Estou orgulhoso", "Não estou contente". O adjunto sugere uma, como no FM.
+
+**Como reagem**
+- A situação: favorito ou não (força das equipas e reputação), casa ou fora, importância do jogo (final, clássico, luta pelo título ou contra a descida), resultado e exibição no intervalo, sequência de resultados.
+- A personalidade de cada jogador: Determinação, Pressão, Jogos Importantes, Temperamento, Profissionalismo, Influência e a moral atual. Por exemplo, um jogador com pouca Pressão fica nervoso com "Espero uma vitória" numa final; um com Temperamento baixo reage mal à agressividade; a crítica a quem jogou bem desmotiva.
+- A reação aparece por jogador ("motivado", "focado", "nervoso", "complacente", "sem interesse", "irritado") e mexe em duas coisas: a **moral** (a de `core/src/squad.rs`, que dura) e uma **motivação só desta partida** no motor (`core/src/live.rs`), pequena.
+- Tudo determinístico com a seed. A palestra média tem efeito perto de zero: os ~2,6 golos e os ~48% de vitórias em casa têm de continuar na CLI (que não dá palestras ou deixa o adjunto falar).
+
+**Telas** (Palestras): no dia de jogo, antes do pontapé de saída e ao intervalo, um painel "Palestra" no visual do CM (lista dos jogadores com a reação ao lado, tom e frase em menus amarelos, botão para a equipa toda ou por jogador); no fim do jogo, antes dos resultados da jornada; na substituição, a frase ao suplente.
+
+#### Marco 3.15 — Editor de jogos salvos (por detalhar)
+
+Fica para o fim, com o jogo já pronto.
+
+Um modo no menu inicial que abre um save fechado de `saves/` (nunca o que está aberto como jogo) e edita jogadores e staff (atributos visíveis e ocultos, CA/PA, reputações, posições, nascimento, nacionalidade, clube, contrato, salário) e clubes (saldo, reputação, estádio, cores), no visual do CM. A validação (1–20, CA ≤ 200, PA ≥ CA, datas) e a gravação ficam no core; saves de outra versão são recusados como no Carregar Jogo.
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)
