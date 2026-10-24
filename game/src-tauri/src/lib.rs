@@ -2,10 +2,10 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::{
-    BoardView, ClubFinances, ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, ContractReply, ContractTerms,
-    Fixture, GameInfo, Instructions, LiveView, MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, NumberAssign,
-    OfferView, PersonProfile, SaveSummary, SearchQuery, SearchResult, Selection, Session, SquadNumbers, StageView, StandingRow,
-    TransferItem, TransferView, World,
+    BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, ContractReply,
+    ContractTerms, Fixture, GameInfo, Instructions, LiveView, MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem,
+    NumberAssign, OfferView, PersonProfile, SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, Session, SquadNumbers, StageView,
+    StandingRow, TransferItem, TransferView, World,
 };
 use tauri::{Manager, State};
 
@@ -90,6 +90,10 @@ session_command!(set_listing(id: i32, transfer: bool, loan: bool, asking: Option
 session_command!(offer_view(id: i32) -> OfferView);
 session_command!(answer_offer(id: i32, key: String, fee: Option<i64>) -> OfferView);
 session_command!(scout_player(id: i32) -> String);
+session_command!(scout_list(slot: i32) -> ScoutList);
+session_command!(assign_scout(slot: i32, kind: String, target: Option<i32>) -> ScoutList);
+session_command!(clear_scout(slot: i32) -> ScoutList);
+session_command!(search_clubs(text: String) -> Vec<ClubListItem>);
 session_command!(club_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(live_match() -> LiveView);
 session_command!(live_step(minute: i32) -> LiveView);
@@ -206,6 +210,10 @@ pub fn run() {
             offer_view,
             answer_offer,
             scout_player,
+            scout_list,
+            assign_scout,
+            clear_scout,
+            search_clubs,
             club_fixtures,
             preview_tactics,
             set_tactics,

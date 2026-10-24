@@ -1,6 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import type { BoardView } from './bindings/BoardView'
 import type { ClubFinances } from './bindings/ClubFinances'
+import type { ClubListItem } from './bindings/ClubListItem'
 import type { ClubProfile } from './bindings/ClubProfile'
 import type { ClubTactics } from './bindings/ClubTactics'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
@@ -21,6 +22,7 @@ import type { NewsItem } from './bindings/NewsItem'
 import type { OfferView } from './bindings/OfferView'
 import type { PersonProfile } from './bindings/PersonProfile'
 import type { SaveSummary } from './bindings/SaveSummary'
+import type { ScoutList } from './bindings/ScoutList'
 import type { SearchQuery } from './bindings/SearchQuery'
 import type { SearchResult } from './bindings/SearchResult'
 import type { Selection } from './bindings/Selection'
@@ -109,6 +111,10 @@ export const api = {
   answerOffer: (id: number, key: string, fee: number | null) => call<OfferView>('answer_offer', { id, key, fee }),
   /** "Observar Jogador": devolve a frase com a data do relatório. */
   scoutPlayer: (id: number) => call<string>('scout_player', { id }),
+  scoutList: (slot: number) => call<ScoutList>('scout_list', { slot }),
+  assignScout: (slot: number, kind: string, target: number | null) => call<ScoutList>('assign_scout', { slot, kind, target }),
+  clearScout: (slot: number) => call<ScoutList>('clear_scout', { slot }),
+  searchClubs: (text: string) => call<ClubListItem[]>('search_clubs', { text }),
   /** Entradas e saídas de um clube nos últimos 12 meses. */
   clubTransfers: (id: number) => call<TransferItem[]>('club_transfers', { id }),
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),

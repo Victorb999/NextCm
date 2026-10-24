@@ -659,6 +659,12 @@ Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os núm
 - Abas Olheiro #1–#7 (`pesquisa-olheiro-resultados.png`): Rec (estrelas da recomendação, pela avaliação do olheiro, com erro sorteado pela seed: Avaliar Jogadores e Avaliar Potencial), Inf (Les / Des), Nome, Clube, Base, Posição, Valor; "N jogadores encontrados"; Carregar, Gravar, Gravar Como, Apagar, Anular, Limpar; "Fundos" no canto da faixa.
 - Aba Transferência do perfil (`aba-transferencia-futuro.png`): Disponibilidade, Valor, Línguas, Propostas, Interessados, Futuro e Possíveis Despesas.
 
+**Feito (passo 2):** `core/src/game/scout_tasks.rs`, `SAVE_VERSION` 15 (`scout_tasks`, `scout_finds`), comandos `scout_list`, `assign_scout`, `clear_scout` e `search_clubs`, `game/src/components/ScoutPanel.tsx`. Números escolhidos:
+- Cada olheiro do staff (o melhor primeiro) tem uma aba, Olheiro #1 a #7 (#1 e #2 em cima, #3 a #7 em baixo, como no CM); sem olheiro, a aba diz que não há.
+- **Designar Olheiro**: Clube (escolhido pelo nome), Próximo Adversário (a lista recomeça quando o adversário muda), Jogadores Jovens (até 21 anos no continente do clube, com potencial perto do nível do plantel), País e Região (só os de nível: CA até 25 abaixo da média dos 11 melhores, ou jovens com potencial para o plantel). Uma tarefa nova apaga a lista; Apagar tira a tarefa.
+- Por dia cada olheiro observa 2 (Avaliar Jogadores 1) a 6 (20) jogadores do alvo, numa ordem fixa pela seed; o próximo adversário, 6. Os observados ficam conhecidos um ano e entram na lista com as estrelas do relatório (+1 nos jovens com muito potencial); até 300 por lista.
+- Por fazer: Carregar/Gravar listas, filtros dentro da lista, a coluna Inf com Des (desconhecido) e a aba Transferência com Disponibilidade, Línguas e Interessados.
+
 **Relatórios do staff** (no próprio jogador, menu Acção: `accao-jogador-proprio.png`)
 - Pedir Relatório Médico: escolher o fisioterapeuta (`relatorio-medico-escolher.png`); a notícia diz o estado físico pela Fisioterapia de quem escreve e pela lesão, propensão e condição reais (`relatorio-medico-noticia.png`).
 - Pedir Relatório Preparador Físico: escolher um ou mais preparadores, "Escolher Todos" (`relatorio-preparador-escolher.png`); cada um manda a sua notícia, com a opinião sobre o papel no plantel e os pontos fortes, mais certa quanto melhor for o preparador (`relatorio-preparador-noticia.png`).

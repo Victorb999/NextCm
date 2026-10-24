@@ -23,6 +23,7 @@ mod finances;
 mod market;
 mod numbers;
 mod regen;
+mod scout_tasks;
 mod scouting;
 mod season;
 mod unhappy;
@@ -39,6 +40,7 @@ pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, TransferView};
 pub use market::TransferItem;
 pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
+pub use scout_tasks::{ScoutFind, ScoutList};
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
 
@@ -57,7 +59,15 @@ pub(crate) use season::age_on;
 /// 13: insatisfação (`unhappy`), jogos seguidos sem jogar (`player_state.missed`) e
 /// listados a pedido (`transfer_list.requested`).
 /// 14: conhecimento dos jogadores observados (`knowledge`) e olheiros em missão (`scouting`).
-pub const SAVE_VERSION: i32 = 14;
+/// 15: tarefas dos olheiros (`scout_tasks`) e os jogadores que encontraram (`scout_finds`).
+pub const SAVE_VERSION: i32 = 15;
+
+/// Tarefas dos olheiros (save 15).
+const SCOUT_TASKS_SCHEMA: &str = "
+CREATE TABLE scout_tasks (slot INTEGER PRIMARY KEY, scout_id INTEGER NOT NULL, kind TEXT NOT NULL, target INTEGER, started TEXT NOT NULL);
+CREATE TABLE scout_finds (slot INTEGER NOT NULL, person_id INTEGER NOT NULL, found TEXT NOT NULL, stars INTEGER NOT NULL,
+                          PRIMARY KEY (slot, person_id));
+";
 
 /// Olheiros (save 14).
 const SCOUTING_SCHEMA: &str = "
@@ -421,6 +431,7 @@ impl Game {
             tx.execute_batch(NUMBERS_SCHEMA)?;
             tx.execute_batch(UNHAPPY_SCHEMA)?;
             tx.execute_batch(SCOUTING_SCHEMA)?;
+            tx.execute_batch(SCOUT_TASKS_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -614,6 +625,11 @@ impl Game {
             world.conn.execute_batch(SCOUTING_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 14", [])?;
             version = 14;
+        }
+        if version == 14 {
+            world.conn.execute_batch(SCOUT_TASKS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 15", [])?;
+            version = 15;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -901,6 +917,7 @@ impl Game {
         self.board_day(&mut fresh, &mut next_id)?;
         self.unhappy_day(&mut fresh, &mut next_id)?;
         self.scouting_day(&mut fresh, &mut next_id)?;
+        self.scout_tasks_day()?;
 
         let today: Vec<usize> =
             (0..self.matches.len()).filter(|&i| self.matches[i].date == self.date && self.matches[i].result.is_none()).collect();
@@ -2432,7 +2449,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

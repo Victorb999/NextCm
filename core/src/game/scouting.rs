@@ -15,7 +15,7 @@ use crate::person::{Knowledge, PersonProfile};
 use crate::{Error, Result, date};
 
 /// Dias que dura o conhecimento de um jogador observado.
-const KNOWN_DAYS: i32 = 365;
+pub(super) const KNOWN_DAYS: i32 = 365;
 /// Reputação (mundial ou actual) a partir da qual um jogador é conhecido em parte em qualquer
 /// lado, e a reputação actual que chega no mesmo continente (escala do banco: 0–200).
 const FAMOUS_WORLD: i32 = 150;
@@ -28,7 +28,7 @@ const PARTIAL_BUDGET: f64 = 0.7;
 /// Dias até ao relatório: mesma nação, mesmo continente, outro continente (olheiro médio).
 const REPORT_DAYS: [f64; 3] = [5.0, 10.0, 18.0];
 /// Job dos olheiros em `jobs`.
-const SCOUT_JOB: i32 = 9;
+pub(super) const SCOUT_JOB: i32 = 9;
 
 /// Onde está um jogador em relação ao clube do treinador.
 struct Place {
@@ -208,34 +208,27 @@ impl Game {
         Ok(())
     }
 
-    /// O relatório: estrelas pelo nível que o olheiro acha que ele tem no plantel (com o erro
-    /// do olheiro, fixo por jogador) e uma frase sobre o potencial.
-    fn scout_report(&self, person: i32, scout: Option<i32>) -> Result<(String, String)> {
-        let (judgement, potential, scout_name): (i32, i32, String) = match scout {
-            Some(s) => self.world.conn.query_row(
-                "SELECT COALESCE(np.judgement, 10), COALESCE(np.judging_potential, 10), p.display_name
-                 FROM people p LEFT JOIN non_players np ON np.person_id = p.id WHERE p.id = ?",
-                [s],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )?,
-            None => (10, 10, "O seu olheiro".into()),
-        };
-        let (ca, pa, birth, birth_year, club): (i32, i32, Option<String>, Option<i32>, Option<String>) = self.world.conn.query_row(
-            "SELECT COALESCE(pl.current_ability, 1), COALESCE(pl.potential_ability, 0), p.birth_date, p.birth_year,
-                    COALESCE(NULLIF(c.short_name, ''), c.name)
-             FROM people p JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id WHERE p.id = ?",
-            [person],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
-        )?;
-        let age = age_on(birth.as_deref(), birth_year, &self.date);
-        // O nível do plantel: a média dos 11 melhores
-        let level: f64 = self.world.conn.query_row(
+    /// O nível do plantel do treinador: a média dos 11 melhores (CA).
+    pub(super) fn squad_level(&self) -> Result<f64> {
+        Ok(self.world.conn.query_row(
             "SELECT COALESCE(AVG(ca), 1) FROM (SELECT pl.current_ability AS ca FROM people p JOIN players pl ON pl.person_id = p.id
              WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC LIMIT 11)",
             [self.club_id],
             |r| r.get(0),
+        )?)
+    }
+
+    /// O que um olheiro vê num jogador: estrelas (1–5) pelo nível contra `level`, a idade e
+    /// quanto ainda pode crescer. O erro vai de ±15 de CA (Avaliar Jogadores 1) a ±2 (20), e o
+    /// mesmo no potencial, fixo por jogador.
+    pub(super) fn judge(&self, person: i32, judgement: i32, potential: i32, level: f64) -> Result<(usize, i32, f64)> {
+        let (ca, pa, birth, birth_year): (i32, i32, Option<String>, Option<i32>) = self.world.conn.query_row(
+            "SELECT COALESCE(pl.current_ability, 1), COALESCE(pl.potential_ability, 0), p.birth_date, p.birth_year
+             FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
+            [person],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )?;
-        // O erro do olheiro: até ±15 de CA (Avaliar Jogadores 1) a ±2 (20), e o mesmo no potencial
+        let age = age_on(birth.as_deref(), birth_year, &self.date);
         let mut rng = ChaCha8Rng::seed_from_u64(hash(self.seed, person, "relatorio"));
         let mut miss = |skill: i32| {
             let spread = 2.0 + 13.0 * (20 - skill.clamp(1, 20)) as f64 / 19.0;
@@ -251,6 +244,27 @@ impl Game {
             d if d >= -20.0 => 2,
             _ => 1,
         };
+        Ok((stars, age, room))
+    }
+
+    /// O relatório: estrelas pelo nível que o olheiro acha que ele tem no plantel e uma frase
+    /// sobre o potencial.
+    fn scout_report(&self, person: i32, scout: Option<i32>) -> Result<(String, String)> {
+        let (judgement, potential, scout_name): (i32, i32, String) = match scout {
+            Some(s) => self.world.conn.query_row(
+                "SELECT COALESCE(np.judgement, 10), COALESCE(np.judging_potential, 10), p.display_name
+                 FROM people p LEFT JOIN non_players np ON np.person_id = p.id WHERE p.id = ?",
+                [s],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )?,
+            None => (10, 10, "O seu olheiro".into()),
+        };
+        let club: Option<String> = self.world.conn.query_row(
+            "SELECT COALESCE(NULLIF(c.short_name, ''), c.name) FROM people p LEFT JOIN clubs c ON c.id = p.club_id WHERE p.id = ?",
+            [person],
+            |r| r.get(0),
+        )?;
+        let (stars, age, room) = self.judge(person, judgement, potential, self.squad_level()?)?;
         let verdict = match stars {
             5 => "Seria um dos melhores do plantel.",
             4 => "Seria titular na equipa.",

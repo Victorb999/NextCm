@@ -7,8 +7,10 @@ import type { PersonKind } from '../bindings/PersonKind'
 import type { PersonSummary } from '../bindings/PersonSummary'
 import type { SearchResult } from '../bindings/SearchResult'
 import type { SearchSort } from '../bindings/SearchSort'
+import ScoutPanel from '../components/ScoutPanel'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import { money } from '../format'
+import { useGame } from '../game'
 import { useNav } from '../nav'
 import FilterDialog from './FilterDialog'
 import { EMPTY_FILTERS, describe, toQuery, type Filters } from './searchFilters'
@@ -19,9 +21,11 @@ const TABS = [
   { key: 'shortlist', label: 'Lista Preferencial', disabled: true },
   { key: 'players', label: 'Pesquisar Jogador' },
   { key: 'staff', label: 'Pesquisa Staff' },
-  { key: 'scout1', label: 'Olheiro #1', disabled: true },
-  { key: 'scout2', label: 'Olheiro #2', disabled: true },
+  { key: 'scout1', label: 'Olheiro #1' },
+  { key: 'scout2', label: 'Olheiro #2' },
 ]
+// As abas dos outros olheiros ficam em baixo, como no CM
+const MORE_SCOUTS = [3, 4, 5, 6, 7].map((n) => ({ key: `scout${n}`, label: `Olheiro #${n}` }))
 
 function useDebounced<T>(value: T, ms: number) {
   const [debounced, setDebounced] = useState(value)
@@ -101,7 +105,20 @@ function PageButton({ label, onClick, disabled }: { label: string; onClick: () =
 
 export default function SearchPage({ active }: { active: boolean }) {
   const nav = useNav()
+  const game = useGame()
   const [kind, setKind] = useState<PersonKind>('players')
+  // Aba de olheiro aberta (1–7), só num jogo em curso
+  const [scout, setScout] = useState<number | null>(null)
+  const scouting = game.mode === 'game'
+  const pickTab = (k: string) => {
+    if (k.startsWith('scout')) {
+      setScout(Number(k.slice(5)))
+      return
+    }
+    setScout(null)
+    setKind(k as PersonKind)
+    goPage(0)
+  }
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [sort, setSort] = useState<SearchSort>('ability')
   const [status, setStatus] = useState<Status>('all')
@@ -161,7 +178,7 @@ export default function SearchPage({ active }: { active: boolean }) {
 
   // Teclado: setas movem a seleção, PageUp/PageDown trocam de página, digitar busca por nome, Esc limpa
   useEffect(() => {
-    if (dialog || !active) return
+    if (dialog || !active || scout !== null) return
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey) return // Alt+setas = navegação entre telas
       const inField = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLSelectElement
@@ -197,13 +214,13 @@ export default function SearchPage({ active }: { active: boolean }) {
     <div className="relative flex h-full flex-col">
       <TitleBand title="Pesquisa Jogador & Staff" fg="#0d5a22" bg="#f5f500" />
       <Tabs
-        tabs={TABS}
-        active={kind}
-        onChange={(k) => {
-          setKind(k as PersonKind)
-          goPage(0)
-        }}
+        tabs={TABS.map((t) => (t.key.startsWith('scout') ? { ...t, disabled: !scouting } : t))}
+        active={scout !== null ? `scout${scout}` : kind}
+        onChange={pickTab}
       />
+      {scout !== null && <ScoutPanel key={scout} slot={scout} nations={nations} />}
+      {scout === null && (
+        <>
 
       <div className="flex shrink-0 items-center gap-1 px-1.5 pt-2">
         <button className="cm-purple flex h-6 w-40 items-center justify-center gap-1" onClick={() => setDialog(true)}>
@@ -292,6 +309,13 @@ export default function SearchPage({ active }: { active: boolean }) {
         </div>
       </div>
 
+        </>
+      )}
+      {scouting && (
+        <div className="mt-1">
+          <Tabs tabs={MORE_SCOUTS} active={scout !== null ? `scout${scout}` : ''} onChange={pickTab} />
+        </div>
+      )}
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
 
       {dialog && (

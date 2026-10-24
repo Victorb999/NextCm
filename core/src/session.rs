@@ -4,9 +4,9 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    BoardView, ClubFinances, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game, GameInfo, Instructions,
-    LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, Result, SaveSummary, SearchQuery, SearchResult,
-    Selection, SquadNumbers, StageView, StandingRow, TransferItem, TransferView, World, list_saves,
+    BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game, GameInfo,
+    Instructions, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, Result, SaveSummary, ScoutList,
+    SearchQuery, SearchResult, Selection, SquadNumbers, StageView, StandingRow, TransferItem, TransferView, World, list_saves,
 };
 
 pub struct Session {
@@ -276,6 +276,23 @@ impl Session {
     /// Resposta do treinador numa proposta.
     pub fn scout_player(&mut self, id: i32) -> Result<String> {
         self.game_mut()?.scout_player(id)
+    }
+
+    pub fn scout_list(&self, slot: i32) -> Result<ScoutList> {
+        self.game()?.scout_list(slot)
+    }
+
+    pub fn assign_scout(&mut self, slot: i32, kind: String, target: Option<i32>) -> Result<ScoutList> {
+        self.game_mut()?.assign_scout(slot, &kind, target)
+    }
+
+    pub fn clear_scout(&mut self, slot: i32) -> Result<ScoutList> {
+        self.game_mut()?.clear_scout(slot)
+    }
+
+    /// Clubes pelo nome (para escolher o clube de um olheiro).
+    pub fn search_clubs(&self, text: String) -> Result<Vec<ClubListItem>> {
+        self.db().search_clubs(&text)
     }
 
     pub fn answer_offer(&mut self, id: i32, key: String, fee: Option<i64>) -> Result<OfferView> {

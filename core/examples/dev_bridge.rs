@@ -105,6 +105,24 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         }
         "offer_view" => out(serde_json::to_value(session.offer_view(id()?).map_err(e)?)),
         "scout_player" => out(serde_json::to_value(session.scout_player(id()?).map_err(e)?)),
+        "scout_list" => {
+            let slot = args["slot"].as_i64().ok_or("falta slot")? as i32;
+            out(serde_json::to_value(session.scout_list(slot).map_err(e)?))
+        }
+        "assign_scout" => {
+            let slot = args["slot"].as_i64().ok_or("falta slot")? as i32;
+            let kind = args["kind"].as_str().ok_or("falta kind")?.to_string();
+            let target = args["target"].as_i64().map(|v| v as i32);
+            out(serde_json::to_value(session.assign_scout(slot, kind, target).map_err(e)?))
+        }
+        "clear_scout" => {
+            let slot = args["slot"].as_i64().ok_or("falta slot")? as i32;
+            out(serde_json::to_value(session.clear_scout(slot).map_err(e)?))
+        }
+        "search_clubs" => {
+            let text = args["text"].as_str().unwrap_or("").to_string();
+            out(serde_json::to_value(session.search_clubs(text).map_err(e)?))
+        }
         "answer_offer" => {
             let key = args["key"].as_str().ok_or("falta key")?.to_string();
             out(serde_json::to_value(session.answer_offer(id()?, key, args["fee"].as_i64()).map_err(e)?))

@@ -102,6 +102,28 @@ impl World {
         Ok(rows)
     }
 
+    /// Clubes (não seleções) cujo nome contém `text`, os mais reputados primeiro (até 30).
+    pub fn search_clubs(&self, text: &str) -> Result<Vec<ClubListItem>> {
+        let text = text.trim();
+        if text.chars().count() < 2 {
+            return Ok(Vec::new());
+        }
+        let like = format!("%{text}%");
+        let ids: Vec<i32> = self
+            .conn
+            .prepare_cached(
+                "SELECT id FROM clubs WHERE COALESCE(is_national_team, 0) = 0 AND (name LIKE ?1 OR short_name LIKE ?1)
+                 ORDER BY reputation DESC, name LIMIT 30",
+            )?
+            .query_map([&like], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut out = Vec::with_capacity(ids.len());
+        for id in ids {
+            out.extend(self.club_list("c.id = ?", id)?);
+        }
+        Ok(out)
+    }
+
     /// Clubes de uma consulta `SELECT c.id ... ORDER BY ...` com nação, divisão e reputação.
     pub(crate) fn club_list(&self, sql_where: &str, id: i32) -> Result<Vec<ClubListItem>> {
         let mut stmt = self.conn.prepare_cached(&format!(
