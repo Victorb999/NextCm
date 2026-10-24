@@ -161,7 +161,8 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | **3.10** Personalidade | Os atributos ocultos que ainda não fazem nada (Ambição, Lealdade, Adaptabilidade, Versatilidade, Desportivismo, Temperamento) passam a contar no mercado, no motor e na moral | As médias do motor e do mercado continuam na CLI e cada atributo tem um efeito testado |
 | **3.11** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
 | **3.12** Palestras | Discurso aos jogadores como no FM08: antes do jogo, ao intervalo, no fim e a quem entra; a reação de cada um pela personalidade e pela situação do jogo muda a moral e a motivação na partida | Uma palestra boa ou má muda a moral e o rendimento de forma visível, sem tirar o motor das médias na CLI |
-| **3.13** Polimento | Notícias completas, ofertas de emprego, férias, Auto Gravação, os ajustes pelos prints do 3.8 (menu Acção, proposta em tela inteira, Prémios e Cláusulas do contrato) | — |
+| **3.13** Direcção e Federação | A tela Confiança da Direcção com o texto do CM; Reunião com a Direcção (expandir o estádio, investir nas camadas jovens, mais fundos para transferências e salários, mais tempo); Reunião com a Federação (queixas sobre a arbitragem, pedir adiamento de jogo) | Um pedido à direção é aceite ou recusado pela confiança e pelas finanças, e o efeito aparece (orçamento, estádio, juniores) |
+| **3.14** Polimento | Notícias completas, ofertas de emprego, férias, Auto Gravação, os ajustes pelos prints do 3.8 (menu Acção, proposta em tela inteira, Prémios e Cláusulas do contrato) | — |
 
 #### Marco 3.1 — Novo jogo e tempo (detalhe)
 
@@ -495,7 +496,7 @@ Decisões (com o utilizador): o mercado é da **IA e do treinador**; transferên
 
 **Direção**
 - Orçamento de transferências e teto salarial no início de cada janela, pela situação financeira e pela expectativa da época (a da mensagem de boas-vindas).
-- Confiança da direção pelos resultados contra a expectativa e pelas finanças; avisos nas mensagens; com a confiança no fundo, o treinador é despedido. Até haver ofertas de emprego (3.13), o despedimento acaba o jogo com uma mensagem.
+- Confiança da direção pelos resultados contra a expectativa e pelas finanças; avisos nas mensagens; com a confiança no fundo, o treinador é despedido. Até haver ofertas de emprego (3.14), o despedimento acaba o jogo com uma mensagem.
 
 **Telas**
 - Clube → Finanças & Info: saldo, receitas e despesas da época por categoria, folha salarial, orçamentos.
@@ -542,7 +543,7 @@ Números (`sim -- 7568 carreira 1 3`): por época ~170–400 transferências (~�
 
 **Feito (passo 4):** `core/src/game/board.rs`, `SAVE_VERSION` 11 com a tabela `board` (uma linha: objetivo, confiança, orçamentos, avisos, despedido).
 - **Expectativa**: a da mensagem de boas-vindas, agora com uma posição alvo na liga (lutar pelo título 3º, primeira metade, meio da tabela total−5, evitar a despromoção total−4). Renova-se em cada época nova da liga do treinador ("Objectivos da época").
-- **Confiança** (0–100, começa em 60): vitória +1, derrota −2; no dia 1 de cada mês a posição na liga contra a alvo (−6 a +4, a partir da 4ª jornada) e as finanças (saldo negativo −2, dívida acima de 10% das receitas −4 e orçamento a zero); no fim da época subir +20, título +20, objetivo cumprido +12, falhar por mais de 3 lugares −15, descer −35 ("Balanço da época"). Abaixo de 35 a direção avisa, abaixo de 15 dá um ultimato, a 0 despede: o jogo acaba (diálogo "Despedido"; Continuar Jogo deixa de avançar) até haver ofertas de emprego (3.13). Na CLI, o Palmeiras fica entre 73 e 100.
+- **Confiança** (0–100, começa em 60): vitória +1, derrota −2; no dia 1 de cada mês a posição na liga contra a alvo (−6 a +4, a partir da 4ª jornada) e as finanças (saldo negativo −2, dívida acima de 10% das receitas −4 e orçamento a zero); no fim da época subir +20, título +20, objetivo cumprido +12, falhar por mais de 3 lugares −15, descer −35 ("Balanço da época"). Abaixo de 35 a direção avisa, abaixo de 15 dá um ultimato, a 0 despede: o jogo acaba (diálogo "Despedido"; Continuar Jogo deixa de avançar) até haver ofertas de emprego (3.14). Na CLI, o Palmeiras fica entre 73 e 100.
 - **Orçamentos** (a 1/1 e a 1/7, com a mensagem "Orçamentos da Direcção"): transferências = metade de (saldo + 20% das receitas de uma época), nada com dívida grande; as compras (valor + prémio de assinatura) gastam-no e as vendas devolvem metade. Folha salarial até 90% das receitas (nunca abaixo da atual) e salário máximo por jogador (o maior do plantel +25%, ou 10% da folha permitida). Substituem o saldo nas propostas e nos contratos: "A sua direcção autoriza transferências até…" / "salários até…", como nos prints.
 - **Clubes da IA com dívidas**: abaixo de −25% das receitas, num dia de mercado vendem o jogador mais valioso (até 31 anos) a 80% do valor a um clube com orçamento; abaixo de −60% no fim da época vão à falência: descem no lugar do melhor colocado dos que desciam (ou, sem descida, só reestruturam) e as dívidas ficam a zero. Na CLI, 3 épocas sem nenhuma (os saldos ficam estáveis).
 - **Telas**: Finanças & Info com Confiança da Direcção, Objectivo, Orçamento de transferências e Limite salarial; o orçamento na aba Transferência, na proposta e no contrato.
@@ -616,7 +617,29 @@ Uma ideia do FM08 que o CM 01/02 não tem: o treinador fala aos jogadores, e cad
 - A reação aparece por jogador ("motivado", "focado", "nervoso", "complacente", "sem interesse", "irritado") e mexe em duas coisas: a **moral** (a de `core/src/squad.rs`, que dura) e uma **motivação só desta partida** no motor (`core/src/live.rs`), pequena.
 - Tudo determinístico com a seed. A palestra média tem efeito perto de zero: os ~2,6 golos e os ~48% de vitórias em casa têm de continuar na CLI (que não dá palestras ou deixa o adjunto falar).
 
-**Telas**: no dia de jogo, antes do pontapé de saída e ao intervalo, um painel "Palestra" no visual do CM (lista dos jogadores com a reação ao lado, tom e frase em menus amarelos, botão para a equipa toda ou por jogador); no fim do jogo, antes dos resultados da jornada; na substituição, a frase ao suplente.
+**Telas** (Palestras): no dia de jogo, antes do pontapé de saída e ao intervalo, um painel "Palestra" no visual do CM (lista dos jogadores com a reação ao lado, tom e frase em menus amarelos, botão para a equipa toda ou por jogador); no fim do jogo, antes dos resultados da jornada; na substituição, a frase ao suplente.
+
+#### Marco 3.13 — Direcção e Federação (por detalhar)
+
+Referência: `docs/prints/direcao/`. Parte da direção do passo 4 do 3.8 (`core/src/game/board.rs`: confiança, objetivo, orçamentos).
+
+**Confiança da Direcção** (`confianca-da-direccao.png`): uma tela própria (menu do treinador), com a faixa do clube, o título amarelo "Confiança da Direcção", os botões "Pedido à Direcção" e "Pedido à Liga", e o texto do CM em parágrafos:
+- o desempenho do treinador ("está deliciada com o seu desempenho como treinador", "satisfeita", "preocupada"...), pela confiança;
+- a situação financeira ("extremamente segura", "segura", "apertada", "preocupante"), pelo saldo contra as receitas;
+- a relação com os adeptos (precisa de uma medida da satisfação dos adeptos: resultados, assistências, venda de ídolos);
+- os jogadores que a direção considera valiosos (os de mais valor ou reputação do plantel; vendê-los pesa na confiança).
+
+**Reunião com a Direcção** (`reuniao-com-a-direccao.png`): "Especificar os detalhes das exigências à direcção", com as opções indisponíveis a roxo (pela confiança, pelas finanças ou porque já foi pedido há pouco):
+- **Expandir o Estádio**: obra com custo e prazo, mais lotação no fim (a assistência e a bilheteira do 3.8 já dependem da lotação).
+- **Investir nas camadas jovens**: custo agora, juniores melhores nas entradas seguintes (`core/src/game/regen.rs`).
+- **Disponibilizar mais fundos para transferências** e **para salários e prémios**: sobe o orçamento ou o limite salarial (`board.rs`) se as finanças deixarem.
+- **Mais tempo para reconstruir o plantel**: baixa o objetivo da época ou abranda a queda da confiança durante um tempo.
+A resposta chega como mensagem: aceite, recusada ou "aceite em parte". Pedir demasiado, ou com a confiança baixa, gasta confiança.
+
+**Reunião com a Federação** (`reuniao-com-a-federacao.png`): "Especifique as questões que deseja discutir com a Liga":
+- **Queixas sobre a arbitragem**: depois de um jogo com expulsões ou penáltis contra; pode render um aviso de multa ou nada.
+- **Pedir adiamento do jogo**: com muitos lesionados ou jogos seguidos; a liga aceita raramente (o calendário de `core/src/game/competitions.rs` muda a data).
+As opções que não fazem sentido no momento aparecem a roxo, como no print.
 ---
 
 ## 📋 4. Próxima Sprint (Fase 2)
