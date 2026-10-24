@@ -89,6 +89,7 @@ session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: 
 session_command!(set_listing(id: i32, transfer: bool, loan: bool, asking: Option<i64>) -> TransferView);
 session_command!(offer_view(id: i32) -> OfferView);
 session_command!(answer_offer(id: i32, key: String, fee: Option<i64>) -> OfferView);
+session_command!(scout_player(id: i32) -> String);
 session_command!(club_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(live_match() -> LiveView);
 session_command!(live_step(minute: i32) -> LiveView);
@@ -204,6 +205,7 @@ pub fn run() {
             set_listing,
             offer_view,
             answer_offer,
+            scout_player,
             club_fixtures,
             preview_tactics,
             set_tactics,
