@@ -16,6 +16,7 @@ import type { NationListItem } from './bindings/NationListItem'
 import type { NationOption } from './bindings/NationOption'
 import type { NationProfile } from './bindings/NationProfile'
 import type { NewGame } from './bindings/NewGame'
+import type { NumberAssign } from './bindings/NumberAssign'
 import type { NewsItem } from './bindings/NewsItem'
 import type { OfferView } from './bindings/OfferView'
 import type { PersonProfile } from './bindings/PersonProfile'
@@ -23,6 +24,7 @@ import type { SaveSummary } from './bindings/SaveSummary'
 import type { SearchQuery } from './bindings/SearchQuery'
 import type { SearchResult } from './bindings/SearchResult'
 import type { Selection } from './bindings/Selection'
+import type { SquadNumbers } from './bindings/SquadNumbers'
 import type { StageView } from './bindings/StageView'
 import type { StandingRow } from './bindings/StandingRow'
 import type { TransferItem } from './bindings/TransferItem'
@@ -84,6 +86,11 @@ export const api = {
   competitionStages: (id: number) => call<StageView[]>('competition_stages', { id }),
   /** Finanças de um clube no jogo em curso (saldo, folha, contas da época). */
   clubFinances: (id: number) => call<ClubFinances>('club_finances', { id }),
+  /** A tela "Números Plantel" do clube do treinador. */
+  squadNumbers: () => call<SquadNumbers>('squad_numbers'),
+  /** O botão Auto: números para quem não tem (sem gravar). */
+  autoSquadNumbers: (numbers: NumberAssign[]) => call<NumberAssign[]>('auto_squad_numbers', { numbers }),
+  setSquadNumbers: (numbers: NumberAssign[]) => call<SquadNumbers>('set_squad_numbers', { numbers }),
   /** A direção do clube do treinador: expectativa, confiança e orçamentos. */
   boardView: () => call<BoardView>('board_view'),
   /** Aba Transferência do perfil de um jogador (jogo em curso). */

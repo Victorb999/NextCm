@@ -477,6 +477,7 @@ impl Game {
             .execute("INSERT OR REPLACE INTO loans (person_id, parent_id, until) VALUES (?, ?, ?)", params![person, parent, until])?;
         self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![to, self.date, person])?;
         self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [person])?;
+        self.number_after_move(person, Some(to))?;
         self.log_transfer(person, Some(parent), Some(to), 0, "loan")?;
         Ok(until)
     }

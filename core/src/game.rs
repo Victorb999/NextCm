@@ -10,7 +10,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use rand_chacha::ChaCha8Rng;
-use rand_core::SeedableRng;
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -22,6 +21,7 @@ mod competitions;
 mod deals;
 mod finances;
 mod market;
+mod numbers;
 mod regen;
 mod season;
 use crate::league::{self, Fixture, Match, StandingRow};
@@ -36,6 +36,7 @@ pub use board::BoardView;
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, TransferView};
 pub use market::TransferItem;
+pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
 
@@ -50,7 +51,14 @@ pub(crate) use season::age_on;
 /// 10: propostas (`offers`), lista de transferências, negociações, funções no clube e
 /// `news.offer_id` (3.8).
 /// 11: direção do clube do treinador (`board`), marco 3.8.
-pub const SAVE_VERSION: i32 = 11;
+/// 12: número preferido de cada jogador (`players.preferred_number`) e `news.link`.
+pub const SAVE_VERSION: i32 = 12;
+
+/// Números escolhidos pelo treinador (save 12).
+const NUMBERS_SCHEMA: &str = "
+ALTER TABLE players ADD COLUMN preferred_number INTEGER;
+ALTER TABLE news ADD COLUMN link TEXT;
+";
 
 /// A direção do clube do treinador (save 11): uma linha só.
 const BOARD_SCHEMA: &str = "
@@ -236,6 +244,8 @@ pub struct NewsItem {
     pub read: bool,
     /// Proposta ligada à mensagem (botões para responder), marco 3.8.
     pub offer_id: Option<i32>,
+    /// Tela que a mensagem abre ("squadNumbers").
+    pub link: Option<String>,
 }
 
 /// O que a coluna esquerda e o menu do treinador precisam.
@@ -255,6 +265,8 @@ pub struct GameInfo {
     pub live: bool,
     /// A direção despediu o treinador: o jogo acabou.
     pub sacked: bool,
+    /// Há convocados sem número para o jogo de amanhã: o Continuar Jogo abre os números.
+    pub needs_numbers: bool,
 }
 
 /// Uma linha da lista "Carregar Jogo".
@@ -388,6 +400,7 @@ impl Game {
             tx.execute_batch(SCHEMA)?;
             tx.execute_batch(DEALS_SCHEMA)?;
             tx.execute_batch(BOARD_SCHEMA)?;
+            tx.execute_batch(NUMBERS_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -456,6 +469,7 @@ impl Game {
             game.schedule_season(SeasonKind::Calendar, year, &mut fresh, &mut next_id)?;
             game.schedule_season(SeasonKind::European, year, &mut fresh, &mut next_id)?;
             game.complete_squads()?;
+            numbers::fix_squad_numbers(&game.world, &[game.club_id], game.seed, None)?;
             game.refresh_live()?;
             for kind in [SeasonKind::Calendar, SeasonKind::European] {
                 if let Some(n) = game.season_news(next_id, kind) {
@@ -566,6 +580,11 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 11", [])?;
             version = 11;
         }
+        if version == 11 {
+            world.conn.execute_batch(NUMBERS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 12", [])?;
+            version = 12;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -573,7 +592,7 @@ impl Game {
         }
         let news = world
             .conn
-            .prepare("SELECT id, date, kind, title, body, read, offer_id FROM news ORDER BY date DESC, id DESC")?
+            .prepare("SELECT id, date, kind, title, body, read, offer_id, link FROM news ORDER BY date DESC, id DESC")?
             .query_map([], |r| {
                 Ok(NewsItem {
                     id: r.get(0)?,
@@ -583,6 +602,7 @@ impl Game {
                     body: r.get(4)?,
                     read: r.get::<_, i32>(5)? != 0,
                     offer_id: r.get(6)?,
+                    link: r.get(7)?,
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -698,9 +718,10 @@ impl Game {
         tx.execute("UPDATE game SET date = ?, seed = ?", params![self.date, self.seed])?;
         tx.execute("DELETE FROM news", [])?;
         {
-            let mut stmt = tx.prepare("INSERT INTO news (id, date, kind, title, body, read, offer_id) VALUES (?, ?, ?, ?, ?, ?, ?)")?;
+            let mut stmt =
+                tx.prepare("INSERT INTO news (id, date, kind, title, body, read, offer_id, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
             for n in &self.news {
-                stmt.execute(params![n.id, n.date, n.kind, n.title, n.body, n.read as i32, n.offer_id])?;
+                stmt.execute(params![n.id, n.date, n.kind, n.title, n.body, n.read as i32, n.offer_id, n.link])?;
             }
         }
         tx.execute("DELETE FROM fixtures", [])?;
@@ -809,6 +830,17 @@ impl Game {
         }
         if self.sacked() {
             return Err(Error::Invalid("Foi despedido: o jogo acabou.".into()));
+        }
+        // Convocados sem número: no app o treinador escolhe; sem ele (CLI, testes) vai o Auto
+        let unnumbered = self.unnumbered_for_next_match()?;
+        if !unnumbered.is_empty() {
+            if self.watch {
+                return Err(Error::Invalid("Há convocados sem número de camisola: defina os números do plantel.".into()));
+            }
+            let current: Vec<NumberAssign> =
+                self.squad_numbers()?.players.iter().map(|p| NumberAssign { id: p.id, number: p.number }).collect();
+            let auto = self.auto_squad_numbers(&current)?;
+            self.set_squad_numbers(&auto)?;
         }
         self.date = date::add_days(&self.date, 1).ok_or_else(|| Error::Invalid("data do jogo inválida".into()))?;
         self.unsaved = true;
@@ -1025,7 +1057,7 @@ impl Game {
     }
 
     fn news_item(&self, id: i32, kind: &str, title: String, body: String) -> NewsItem {
-        NewsItem { id, date: self.date.clone(), kind: kind.into(), title, body, read: false, offer_id: None }
+        NewsItem { id, date: self.date.clone(), kind: kind.into(), title, body, read: false, offer_id: None, link: None }
     }
 
     /// Lesões e suspensões dos jogadores do treinador.
@@ -1283,6 +1315,7 @@ impl Game {
             body: format!("{}, {}.\n\n{what}{pens}{scorers}{standing}", self.competition_name(m.competition_id), self.match_label(m)),
             read: false,
             offer_id: None,
+            link: None,
         }
     }
 
@@ -1325,6 +1358,7 @@ impl Game {
             body,
             read: false,
             offer_id: None,
+            link: None,
         }))
     }
 
@@ -1371,6 +1405,7 @@ impl Game {
             body,
             read: false,
             offer_id: None,
+            link: None,
         })
     }
 
@@ -1398,6 +1433,7 @@ impl Game {
             unsaved: self.unsaved,
             live: self.live.is_some(),
             sacked: self.sacked(),
+            needs_numbers: self.live.is_none() && !self.unnumbered_for_next_match()?.is_empty(),
         })
     }
 
@@ -1682,48 +1718,6 @@ fn migrate_v3(world: &World, club_id: i32) -> Result<()> {
     Ok(())
 }
 
-/// Números de camisola únicos em cada clube vivo. O banco do patch repete números (o
-/// Palmeiras tem dois 4 e dois 6) e deixa muitos jogadores sem número: quem tem mais CA
-/// fica com o número, e os outros (e quem não tinha) recebem um número livre sorteado
-/// com a seed do jogo (guarda-redes preferem 1, 12, 22, 23...).
-fn fix_squad_numbers(world: &World, clubs: &[i32], seed: i64) -> Result<()> {
-    // Corre dentro da transação aberta do save (centenas de UPDATEs soltos fariam um fsync cada)
-    let tx = &world.conn;
-    let mut stmt = tx.prepare(
-        "SELECT pl.person_id, pl.squad_number, pl.pos_goalkeeper FROM players pl JOIN people p ON p.id = pl.person_id
-         WHERE p.club_id = ? ORDER BY pl.current_ability DESC, pl.person_id",
-    )?;
-    for &club in clubs {
-        let rows: Vec<(i32, Option<i32>, Option<i32>)> =
-            stmt.query_map([club], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
-        let mut used = std::collections::HashSet::new();
-        let mut missing = Vec::new();
-        for (id, n, gk) in rows {
-            match n.filter(|n| (1..=99).contains(n)) {
-                Some(n) if used.insert(n) => {}
-                _ => missing.push((id, crate::tactics::is_goalkeeper(gk))),
-            }
-        }
-        let mut rng = ChaCha8Rng::seed_from_u64((seed as u64) ^ (club as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15));
-        for (id, gk) in missing {
-            let preferred: Vec<i32> = if gk { vec![1, 12, 22, 23, 13, 31, 33] } else { Vec::new() };
-            let free = match preferred.into_iter().find(|n| !used.contains(n)) {
-                Some(n) => n,
-                None => {
-                    // Um número livre ao acaso entre 2 e 40 (senão até 99)
-                    let pool: Vec<i32> = (2..=40).filter(|n| !used.contains(n)).collect();
-                    let pool = if pool.is_empty() { (41..=99).filter(|n| !used.contains(n)).collect() } else { pool };
-                    let Some(&n) = pool.get((rand_core::RngCore::next_u64(&mut rng) % pool.len().max(1) as u64) as usize) else { continue };
-                    n
-                }
-            };
-            used.insert(free);
-            tx.execute("UPDATE players SET squad_number = ? WHERE person_id = ?", params![free, id])?;
-        }
-    }
-    Ok(())
-}
-
 /// Época de uma data: o ano civil, como no futebol brasileiro (desde o 3.6).
 pub(crate) fn season_of(date: &str) -> i32 {
     date.get(0..4).and_then(|y| y.parse().ok()).unwrap_or(0)
@@ -1791,6 +1785,7 @@ fn welcome_news(world: &World, club: &ClubRef, manager: &str, date: &str) -> Res
         ),
         read: false,
         offer_id: None,
+        link: None,
     })
 }
 
@@ -2402,7 +2397,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

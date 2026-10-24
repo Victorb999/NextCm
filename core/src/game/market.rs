@@ -660,6 +660,7 @@ impl Game {
             .conn
             .execute("INSERT OR REPLACE INTO loans (person_id, parent_id, until) VALUES (?, ?, ?)", params![player.id, club, until])?;
         self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![to, self.date, player.id])?;
+        self.number_after_move(player.id, Some(to))?;
         self.log_transfer(player.id, Some(club), Some(to), 0, "loan")?;
         *done.entry(-club).or_default() += 1;
         Ok(Some(self.transfer_item(player.id, Some(club), Some(to), 0, "loan")?))
@@ -676,6 +677,7 @@ impl Game {
         for &(id, parent) in &due {
             let from: Option<i32> = self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [id], |r| r.get(0))?;
             self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![parent, self.date, id])?;
+            self.number_after_move(id, Some(parent))?;
             self.world.conn.execute("DELETE FROM loans WHERE person_id = ?", [id])?;
             self.log_transfer(id, from, Some(parent), 0, "return")?;
         }
@@ -692,6 +694,7 @@ impl Game {
         let mut out = Vec::new();
         for id in out_ids {
             self.world.conn.execute("UPDATE people SET club_id = NULL, club_job = NULL, contract_expires = NULL WHERE id = ?", [id])?;
+            self.number_after_move(id, None)?;
             self.log_transfer(id, Some(club), None, 0, "release")?;
             out.push(self.transfer_item(id, Some(club), None, 0, "release")?);
         }
@@ -717,6 +720,7 @@ impl Game {
             params![to, super::regen::PLAYER_JOB, self.date, until, wage, id],
         )?;
         self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [id])?;
+        self.number_after_move(id, to)?;
         if fee > 0 {
             if let Some(t) = to {
                 self.book(t, "purchases", fee)?;

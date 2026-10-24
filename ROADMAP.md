@@ -552,6 +552,15 @@ Números (`sim -- 7568 carreira 1 3`): por época ~170–400 transferências (~�
 - `proposta-de-transferencia.png`: a proposta é uma tela inteira, não um diálogo: faixa com as cores do clube do treinador, título amarelo "Proposta de transferência <clube> por <jogador>", o texto "<jogador>, <clube>, está avaliado em €X. A sua direcção autoriza transferências até €Y." (o orçamento do passo 4), linhas Valor Transferência (− valor ▾ + =), Prestações Mensais, Percentagem da Próxima Venda, Valor após 10 jogos no campeonato, Valor após 10 internacionalizações, Tornar proposta pública; botões Troca / Remover; Valor Total; Atrás / Oferecer em baixo.
 - `aba-transferencia.png`: a aba Transferência do perfil mostra Disponibilidade, Valor, segunda nacionalidade, Línguas, Propostas, **Interessados** (clubes) e **Futuro** (o que o jogador pensa do clube), com a tabela de jogos da época em baixo.
 
+#### Números de camisola (depois do 3.8)
+
+Como no CM: no clube do treinador é o treinador que escolhe os números (`core/src/game/numbers.rs`, `SAVE_VERSION` 12 com `players.preferred_number` e `news.link`).
+- **Tela "Números Plantel <clube>"** (`game/src/pages/SquadNumbersPage.tsx`, pelo print do CM): "Por Favor Escolha", Vêr (sem número / todos), Critério (posição, nome, número), Auto e Anular; a grelha de 1 a 99 (livres claros, ocupados apagados, o do escolhido amarelo) e a lista do plantel; escolher um jogador e clicar num número livre (passa ao seguinte sem número); Atrás / Enviar. Abre-se pelo menu do treinador, pelo botão Números do plantel e pela mensagem do início da época.
+- **Quem chega** ao clube do treinador (compra, livre, empréstimo, regresso de empréstimo, juniores) fica sem número; os números repetidos ficam para o de mais CA e o outro fica sem. Os clubes da IA continuam a numerar sozinhos.
+- **Preferências** (o Auto e os clubes da IA): primeiro o número que o jogador tinha (o 7 do CR7 vem com ele), depois os clássicos da posição (GR 1, 12, 22…; central 4, 3, 5; lateral direito 2, esquerdo 6, 3; trinco 5, 8; médio 8, 10; criativo 10; extremos 7 e 11; ponta de lança 9, 19), com os melhores pelo CA a escolher primeiro; senão um livre ao acaso pela seed.
+- **Início da época** da liga do treinador: a mensagem "Números do plantel" com o botão Definir Números.
+- **Dia de jogo**: com convocados sem número para o jogo de amanhã, o Continuar Jogo abre a tela dos números e o dia não avança (`GameInfo.needsNumbers`). Sem o app (CLI e testes) o Auto resolve sozinho.
+
 #### Marco 3.9 — Olheiros e conhecimento (por detalhar)
 
 Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os números com o utilizador antes de programar.

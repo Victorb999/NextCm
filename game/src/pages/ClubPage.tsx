@@ -323,6 +323,11 @@ export default function ClubPage({ id }: { id: number }) {
             }}
           />
           <div className="flex-1" />
+          {mine && (
+            <button className="cm-purple h-6 w-40" onClick={() => nav.go({ kind: 'squadNumbers' })}>
+              Números
+            </button>
+          )}
           <PurpleMenu label="Filtrar" options={[]} disabled />
         </div>
       )}

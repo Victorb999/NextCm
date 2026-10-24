@@ -12,7 +12,7 @@ use rand_core::{RngCore, SeedableRng};
 use rusqlite::{OptionalExtension, params};
 
 use super::regen::{self, PLAYER_JOB};
-use super::{Game, NewsItem, club_refs, competition_names, fix_squad_numbers, league_club_ids};
+use super::{Game, NewsItem, club_refs, competition_names, league_club_ids};
 use crate::engine::{expected_goals, poisson, uniform};
 use crate::league::{self, SERIE_A, SERIE_C, StandingRow};
 use crate::person::ClubRef;
@@ -630,6 +630,7 @@ impl Game {
         }
         if self.kind_of(self.club_id)? == kind {
             self.board_new_season(fresh, next_id)?;
+            self.numbers_news(fresh, next_id)?;
         }
         Ok(())
     }
@@ -640,7 +641,7 @@ impl Game {
         let mut live: Vec<i32> = self.season_matches().flat_map(|m| [m.home_id, m.away_id]).chain([self.club_id]).collect();
         live.sort_unstable();
         live.dedup();
-        fix_squad_numbers(&self.world, &live, self.seed)?;
+        super::numbers::fix_squad_numbers(&self.world, &live, self.seed, Some(self.club_id))?;
         let mut all: Vec<i32> = self.matches.iter().flat_map(|m| [m.home_id, m.away_id]).chain(live.iter().copied()).collect();
         all.sort_unstable();
         all.dedup();

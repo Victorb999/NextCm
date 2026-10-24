@@ -295,11 +295,6 @@ pub(crate) fn cm_order_permutation(formation: i32) -> Vec<usize> {
     idx
 }
 
-/// É guarda-redes natural (nota 15+ na posição).
-pub(crate) fn is_goalkeeper(rating: Option<i32>) -> bool {
-    rating.unwrap_or(0) >= 15
-}
-
 /// Funções da escolha: as posições livres do treinador (se as mexeu) ou as da formação.
 fn layout_for(sel: &Selection) -> Vec<Slot> {
     if sel.positions.len() == 11 {

@@ -87,6 +87,13 @@ export default function NewsPage() {
             <>
               <div className="pb-3 font-title text-[22px] font-bold text-cm-yellow">{current.title}</div>
               <div className="whitespace-pre-line font-title text-[19px] leading-snug text-white">{current.body}</div>
+              {current.link === 'squadNumbers' && (
+                <div className="mt-4 border-t border-cm-line pt-3">
+                  <button className="cm-purple h-7 w-48" onClick={() => nav.go({ kind: 'squadNumbers' })}>
+                    Definir Números
+                  </button>
+                </div>
+              )}
               {offer && (
                 <div className="mt-4 border-t border-cm-line pt-3">
                   <OfferButtons

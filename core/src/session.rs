@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     BoardView, ClubFinances, ClubProfile, ClubTactics, ContractReply, ContractTerms, Error, Fixture, Game, GameInfo, Instructions,
-    LiveView, MatchPreview, NewGame, NewsItem, OfferView, PersonProfile, Result, SaveSummary, Selection, StageView, StandingRow,
-    TransferItem, TransferView, World, list_saves,
+    LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView, PersonProfile, Result, SaveSummary, Selection, SquadNumbers,
+    StageView, StandingRow, TransferItem, TransferView, World, list_saves,
 };
 
 pub struct Session {
@@ -204,6 +204,21 @@ impl Session {
     /// Finanças de um clube no jogo em curso.
     pub fn club_finances(&self, id: i32) -> Result<ClubFinances> {
         self.game()?.club_finances(id)
+    }
+
+    /// A tela "Números Plantel" do clube do treinador.
+    pub fn squad_numbers(&self) -> Result<SquadNumbers> {
+        self.game()?.squad_numbers()
+    }
+
+    /// O botão Auto: números para quem não tem.
+    pub fn auto_squad_numbers(&self, numbers: Vec<NumberAssign>) -> Result<Vec<NumberAssign>> {
+        self.game()?.auto_squad_numbers(&numbers)
+    }
+
+    /// Grava os números escolhidos pelo treinador.
+    pub fn set_squad_numbers(&mut self, numbers: Vec<NumberAssign>) -> Result<SquadNumbers> {
+        self.game_mut()?.set_squad_numbers(&numbers)
     }
 
     /// A direção do clube do treinador: expectativa, confiança e orçamentos.

@@ -16,4 +16,8 @@ live: boolean,
 /**
  * A direção despediu o treinador: o jogo acabou.
  */
-sacked: boolean, };
+sacked: boolean, 
+/**
+ * Há convocados sem número para o jogo de amanhã: o Continuar Jogo abre os números.
+ */
+needsNumbers: boolean, };

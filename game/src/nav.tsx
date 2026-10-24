@@ -8,6 +8,7 @@ export type Screen =
   | { kind: 'news' }
   | { kind: 'person'; id: number }
   | { kind: 'contract'; id: number }
+  | { kind: 'squadNumbers' }
   | { kind: 'club'; id: number }
   | { kind: 'tactics'; id: number }
   | { kind: 'clubHistory'; id: number }

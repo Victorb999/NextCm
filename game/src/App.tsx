@@ -18,6 +18,7 @@ import ClubHistoryPage from './pages/ClubHistoryPage'
 import ClubPage from './pages/ClubPage'
 import CompetitionPage from './pages/CompetitionPage'
 import ContractPage from './pages/ContractPage'
+import SquadNumbersPage from './pages/SquadNumbersPage'
 import CompetitionsPage from './pages/CompetitionsPage'
 import LoadGamePage from './pages/LoadGamePage'
 import NationPage from './pages/NationPage'
@@ -114,6 +115,11 @@ function SideBar({
     try {
       // Com um jogo do treinador por acabar (ex.: a página recarregou), volta a ele
       let next = info
+      // Convocados sem número para o jogo de amanhã: primeiro os números, como no CM
+      if (next?.needsNumbers) {
+        nav.go({ kind: 'squadNumbers' })
+        return
+      }
       if (!next?.live) {
         next = await api.continueGame()
         game.update(next)
@@ -141,6 +147,7 @@ function SideBar({
     const club = info.club
     return [
       { label: `Plantel ${club.shortName}`, onSelect: () => nav.go({ kind: 'club', id: club.id }) },
+      { label: 'Números Plantel', onSelect: () => nav.go({ kind: 'squadNumbers' }) },
       { label: 'Tácticas', onSelect: () => nav.go({ kind: 'tactics', id: club.id }) },
       { label: 'Historial', onSelect: () => nav.go({ kind: 'clubHistory', id: club.id }) },
       'separator',
@@ -264,6 +271,7 @@ function Screens() {
       {current.kind === 'news' && <NewsPage />}
       {current.kind === 'person' && <PersonPage key={current.id} id={current.id} />}
       {current.kind === 'contract' && <ContractPage key={current.id} id={current.id} />}
+      {current.kind === 'squadNumbers' && <SquadNumbersPage />}
       {current.kind === 'club' && <ClubPage key={current.id} id={current.id} />}
       {current.kind === 'tactics' && <TacticsPage key={current.id} id={current.id} />}
       {current.kind === 'clubHistory' && <ClubHistoryPage key={current.id} id={current.id} />}

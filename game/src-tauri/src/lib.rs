@@ -3,8 +3,9 @@ use std::sync::Mutex;
 
 use nextcm_core::{
     BoardView, ClubFinances, ClubProfile, ClubTactics, CompetitionListItem, CompetitionProfile, ContinentRef, ContractReply, ContractTerms,
-    Fixture, GameInfo, Instructions, LiveView, MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, OfferView,
-    PersonProfile, SaveSummary, SearchQuery, SearchResult, Selection, Session, StageView, StandingRow, TransferItem, TransferView, World,
+    Fixture, GameInfo, Instructions, LiveView, MatchPreview, NationListItem, NationOption, NationProfile, NewGame, NewsItem, NumberAssign,
+    OfferView, PersonProfile, SaveSummary, SearchQuery, SearchResult, Selection, Session, SquadNumbers, StageView, StandingRow,
+    TransferItem, TransferView, World,
 };
 use tauri::{Manager, State};
 
@@ -77,6 +78,9 @@ session_command!(competition_stages(id: i32) -> Vec<StageView>);
 session_command!(club_finances(id: i32) -> ClubFinances);
 session_command!(club_transfers(id: i32) -> Vec<TransferItem>);
 session_command!(board_view() -> BoardView);
+session_command!(squad_numbers() -> SquadNumbers);
+session_command!(auto_squad_numbers(numbers: Vec<NumberAssign>) -> Vec<NumberAssign>);
+session_command!(set_squad_numbers(numbers: Vec<NumberAssign>) -> SquadNumbers);
 session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, fee: i64) -> TransferView);
 session_command!(ask_loan(id: i32) -> TransferView);
@@ -189,6 +193,9 @@ pub fn run() {
             club_finances,
             club_transfers,
             board_view,
+            squad_numbers,
+            auto_squad_numbers,
+            set_squad_numbers,
             transfer_view,
             make_offer,
             ask_loan,

@@ -9,7 +9,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::thread;
 
-use nextcm_core::{Instructions, NewGame, SearchQuery, Selection, Session, World};
+use nextcm_core::{Instructions, NewGame, NumberAssign, SearchQuery, Selection, Session, World};
 use serde_json::Value;
 
 fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String> {
@@ -73,6 +73,15 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "list_fixtures" => out(serde_json::to_value(session.list_fixtures(id()?).map_err(e)?)),
         "competition_stages" => out(serde_json::to_value(session.competition_stages(id()?).map_err(e)?)),
         "club_finances" => out(serde_json::to_value(session.club_finances(id()?).map_err(e)?)),
+        "squad_numbers" => out(serde_json::to_value(session.squad_numbers().map_err(e)?)),
+        "auto_squad_numbers" | "set_squad_numbers" => {
+            let numbers: Vec<NumberAssign> = serde_json::from_value(args["numbers"].clone()).map_err(|e| e.to_string())?;
+            if cmd == "auto_squad_numbers" {
+                out(serde_json::to_value(session.auto_squad_numbers(numbers).map_err(e)?))
+            } else {
+                out(serde_json::to_value(session.set_squad_numbers(numbers).map_err(e)?))
+            }
+        }
         "board_view" => out(serde_json::to_value(session.board_view().map_err(e)?)),
         "transfer_view" => out(serde_json::to_value(session.transfer_view(id()?).map_err(e)?)),
         "make_offer" => {
