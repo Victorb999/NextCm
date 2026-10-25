@@ -696,6 +696,43 @@ Pedidos do utilizador a jogar com o Manchester United. Referência: `docs/prints
 
 **Fica para depois:** a "Troca" (jogador incluído no negócio) e o valor depois de 10 internacionalizações no diálogo da proposta; as mesmas condições nas propostas da IA entre clubes da IA.
 
+#### Correções e ajustes do teste de 25/10 (por fazer)
+
+Pedidos do utilizador a jogar com o Manchester United. Referência: `docs/prints/correcoes-25-10/`.
+
+**Bug**
+- **Propor Contrato falha com salário mensal** (`propor-contrato-erro.webp`): "invalid args `wage` for command `negotiate`: invalid type: floating point `8999.99999999998`, expected i64". O front converte o salário mostrado (por mês, nas Definições) para semanal e manda um número com casas decimais. Arredondar para inteiro antes de enviar (e rever os outros campos de dinheiro que passam pelo período dos salários).
+
+**Perfil do jogador: as acções no menu Acção, como no CM**
+- Os botões da aba Transferência (Oferecer Contrato, Lista de Transferências, Lista de Empréstimos, Preço Pedido, Fazer Proposta, Pedir Empréstimo, Exercer Opção de Compra; `aba-transferencia-botoes.png`) passam para o menu Acção de cima (`menu-accao-cm.png`: Retirar Da Lista Preferencial, Abordar Para Comprar, Propôr Empréstimo, Observar Jogador, Definir Alcunha, Criar Nota Treinador, Comparar Jogadores).
+- A aba Transferência fica só com a informação, como no CM (`aba-transferencia-cm.png`): Disponibilidade, Valor, Línguas Fluentes, Propostas, Interessados, Futuro (o que o jogador pensa do seu lugar no plantel), e a proposta em curso com os botões dela.
+
+**Proposta de transferência mais perto do CM** (`proposta-nextcm.png` contra `proposta-cm-valores.png` e `proposta-cm-condicoes.png`)
+- O valor por jogos com o número de jogos a escolher (20, 30, 40, 50… "Valor após 40 jogos no campeonato"), em vez de sempre 10, e o **valor após X internacionalizações**.
+- Valores escolhidos numa lista amarela (€0, €100K, €500K, €1M, €5M, €15M…) além do − / +, e o botão "=" (repõe o valor pedido / o orçamento).
+- Prestações também de 6 meses; "Tornar proposta pública" (Sim/Não).
+- **Troca**: juntar um jogador do plantel à proposta ("Adicionar Jogador à Proposta"); o clube pode recusar logo: "Aston Villa não tem interesse num negócio que envolva troca de jogadores." (`troca-sem-interesse.png`).
+- Valores acima do orçamento a vermelho, como no CM.
+
+**Plantel**
+- **Jovens da formação e jogadores de reputação baixa começam na equipa de reservas** (equipa B) ao criar o jogo e quando chegam juniores novos, em vez de no plantel principal.
+- **Números antes da época**: antes de a época começar, uma notícia pede para escolher os números dos jogadores (o botão abre a tela Números), não só quando há jogadores sem número.
+
+**Escolha da equipa: o adjunto só escolhe quando o treinador pede**
+- Desligar o "Adjunto escolhe a equipa" automático: depois de "Limpar Equipa" (`plantel-limpar-equipa.webp`) ou sem ninguém escolhido, o adjunto não preenche a equipa sozinho.
+- No dia do jogo, sem onze escolhido, o aviso do CM (`escolha-equipa-aviso.png`): "Não escolheu nenhum jogador de campo. Tem de escolher onze jogadores de campo, e pode convocar até vinte jogadores." (Ok volta às Tácticas.)
+- Com a equipa incompleta ou estranha, a confirmação do CM (`confirmar-bolas-paradas.png`): batedores que não estão no onze ("X, Y e Z foram escolhidos como marcadores de bolas paradas, mas não fazem parte do onze inicial."), suplentes a menos ("Apenas escolheu sete substitutos entre nove possíveis."), e "Avançar para o jogo?" Não / Sim.
+- O adjunto continua a poder escolher quando o treinador pede (Editar → Adjunto escolhe a equipa) e cobre os lesionados e castigados como hoje.
+
+**Empregos**
+- **"Concorrer ao Lugar" na tela do clube** (`concorrer-ao-lugar-cm.png`): um clube com o lugar de treinador vago mostra o botão amarelo no canto da faixa (como o "Acção" do perfil); hoje só se concorre pela Informação de Empregos.
+
+**Propostas recebidas: negociar as condições**
+- O "Pedir Mais" (`pedir-mais.png`) só deixa pedir mais dinheiro. Deve abrir o mesmo diálogo da proposta (valor, prestações, percentagem da próxima venda, valor por jogos): pedir uma percentagem, menos prestações (ou tudo à cabeça) ou um bónus, e o clube que compra responde em rondas como o treinador faz com os outros (aceita, contraproposta, desiste).
+
+**Empréstimos do patch no início do jogo**
+- **Jogadores emprestados aparecem no clube dono**: Onana (Man Utd, emprestado) está no plantel do United (`onana-emprestado.webp`); Garnacho é do Chelsea mas está emprestado ao Aston Villa no CM, e no NextCM começa no Chelsea (`garnacho-emprestado.webp`). O extrator (`scripts/extract.py`) só lê o clube com contrato; o `career_history` do banco não tem empréstimos destes. Descobrir onde o patch CLZ guarda os empréstimos em curso (outro campo do `staff.dat`, um ficheiro à parte do patch ou o editor), extraí-los e começar o jogo com eles na tabela `loans` (clube onde joga, clube dono, até ao fim da época).
+
 #### Marco 3.10 — Olheiros e conhecimento
 
 Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os números com o utilizador antes de programar.
