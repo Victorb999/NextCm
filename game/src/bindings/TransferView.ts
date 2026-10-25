@@ -13,7 +13,11 @@ mine: boolean,
 /**
  * Sem clube.
  */
-free: boolean, value: number, wage: number, contractExpires: string | null, 
+free: boolean, 
+/**
+ * O clube onde joga.
+ */
+club: ClubRef | null, value: number, wage: number, contractExpires: string | null, 
 /**
  * Emprestado: o clube dono e até quando.
  */
@@ -25,7 +29,11 @@ windowOpen: boolean,
 /**
  * Saldo do clube do treinador e o que a direção autoriza em transferências.
  */
-cash: number, budget: number, offer: OfferView | null, canOffer: boolean, canLoan: boolean, canRenew: boolean, note: string | null, 
+cash: number, budget: number, offer: OfferView | null, canOffer: boolean, canLoan: boolean, canRenew: boolean, 
+/**
+ * Emprestado ao treinador com opção de compra: o valor (0 = sem) e se dá para a exercer hoje.
+ */
+optionFee: number, canOption: boolean, note: string | null, 
 /**
  * Sem conhecimento do jogador, a direção limita a proposta: a frase do CM.
  */

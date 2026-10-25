@@ -181,7 +181,144 @@ pub enum Tackling {
     Hard,
 }
 
-/// Instruções à Equipa. Os batedores de bolas paradas e o organizador chegam no 3.4.
+/// Batedores de bolas paradas e organizador ("Instruções à Equipa" do CM); `None` = o
+/// adjunto escolhe no jogo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct Takers {
+    pub penalty: Option<i32>,
+    pub free_kick: Option<i32>,
+    pub corner: Option<i32>,
+    pub playmaker: Option<i32>,
+}
+
+/// "Passar para" das instruções individuais.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub enum PassTo {
+    #[default]
+    Mixed,
+    Left,
+    Centre,
+    Right,
+}
+
+/// Posição nas bolas paradas (a atacar ou a defender).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub enum SetPiece {
+    #[default]
+    Normal,
+    Back,
+    Forward,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub enum Marking {
+    #[default]
+    Zonal,
+    None,
+    ManToMan,
+}
+
+/// Instruções individuais de um jogador (o diálogo do CM ao clicar num jogador nas
+/// Tácticas). `None` em passe, desarme e pressão = o que a equipa faz.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PlayerOrders {
+    pub passing: Option<Passing>,
+    pub tackling: Option<Tackling>,
+    pub pressing: Option<bool>,
+    pub pass_to: PassTo,
+    pub set_attack: SetPiece,
+    pub set_defence: SetPiece,
+    pub free_role: bool,
+    pub forward_runs: bool,
+    pub run_with_ball: bool,
+    pub hold_ball: bool,
+    pub long_shots: bool,
+    pub through_balls: bool,
+    pub crosses: bool,
+    pub marking: Marking,
+}
+
+impl PlayerOrders {
+    /// Quanto o jogador remata mais (ou menos) pelas instruções.
+    pub fn shot_weight(&self) -> f64 {
+        let mut w = 1.0;
+        for (on, f) in
+            [(self.forward_runs, 1.2), (self.run_with_ball, 1.1), (self.long_shots, 1.2), (self.free_role, 1.1), (self.hold_ball, 0.85)]
+        {
+            if on {
+                w *= f;
+            }
+        }
+        w * match self.set_attack {
+            SetPiece::Forward => 1.1,
+            SetPiece::Back => 0.8,
+            SetPiece::Normal => 1.0,
+        }
+    }
+
+    /// Quanto o jogador faz mais (ou menos) passes para golo.
+    pub fn assist_weight(&self) -> f64 {
+        let mut w = match self.passing {
+            Some(Passing::Short) => 0.95,
+            Some(Passing::Direct) => 1.1,
+            Some(Passing::Long) => 1.1,
+            _ => 1.0,
+        };
+        for (on, f) in [(self.through_balls, 1.15), (self.crosses, 1.1), (self.hold_ball, 1.1), (self.free_role, 1.1)] {
+            if on {
+                w *= f;
+            }
+        }
+        w
+    }
+
+    /// Cartões: o desarme do jogador contra o da equipa, e a marcação homem a homem.
+    pub fn booking_weight(&self, team: Tackling) -> f64 {
+        let factor = |t: Tackling| match t {
+            Tackling::Normal => 1.0,
+            Tackling::Soft => 0.6,
+            Tackling::Hard => 1.4,
+        };
+        let marking = if self.marking == Marking::ManToMan { 1.2 } else { 1.0 };
+        self.tackling.map_or(1.0, |t| factor(t) / factor(team)) * marking
+    }
+
+    /// Cansaço a mais num jogo inteiro (pressão e correr com e sem bola).
+    pub fn extra_drain(&self, team_pressing: bool) -> f64 {
+        let pressing = match (self.pressing, team_pressing) {
+            (Some(true), false) => 3.0,
+            (Some(false), true) => -3.0,
+            _ => 0.0,
+        };
+        pressing + if self.forward_runs { 1.0 } else { 0.0 } + if self.run_with_ball { 1.0 } else { 0.0 }
+    }
+}
+
+/// As instruções individuais de um jogador da escolha.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerOrder {
+    pub person_id: i32,
+    pub orders: PlayerOrders,
+}
+
+/// O que se diz das ordens de um jogador (com as da equipa por omissão).
+pub fn orders_of(orders: &[PlayerOrder], person: i32) -> PlayerOrders {
+    orders.iter().find(|o| o.person_id == person).map(|o| o.orders).unwrap_or_default()
+}
+
+/// Instruções à Equipa. Os batedores de bolas paradas e o organizador ficam em [`Takers`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -239,6 +376,11 @@ pub struct Selection {
     /// com `starters`; vazio ou `None` = sem seta.
     #[serde(default)]
     pub runs: Vec<Option<[i32; 2]>>,
+    #[serde(default)]
+    pub takers: Takers,
+    /// Instruções individuais (só os jogadores com alguma diferente da equipa).
+    #[serde(default)]
+    pub orders: Vec<PlayerOrder>,
 }
 
 /// Suplentes no banco (o patch CLZ usa 9, como o CM 01/02 com a Coalizão).
@@ -372,6 +514,8 @@ pub struct ClubTactics {
     pub auto: bool,
     /// O treinador mexeu nas posições (o CM mostra "*" no nome da táctica).
     pub custom: bool,
+    pub takers: Takers,
+    pub orders: Vec<PlayerOrder>,
 }
 
 impl ClubTactics {
@@ -385,7 +529,18 @@ impl ClubTactics {
             auto: self.auto,
             positions: if self.custom { self.starters.iter().map(|s| [s.x, s.y]).collect() } else { Vec::new() },
             runs: self.starters.iter().map(|s| s.run).collect(),
+            takers: self.takers,
+            orders: self.orders.clone(),
         }
+    }
+
+    /// Batedores e instruções individuais de uma escolha (as tácticas do adjunto mantêm-nos).
+    pub fn with_orders(mut self, sel: Option<&Selection>) -> ClubTactics {
+        if let Some(sel) = sel {
+            self.takers = sel.takers;
+            self.orders = sel.orders.clone();
+        }
+        self
     }
 }
 
@@ -561,6 +716,8 @@ impl World {
             editable: false,
             auto: true,
             custom: false,
+            takers: Takers::default(),
+            orders: Vec::new(),
         })
     }
 
@@ -626,6 +783,8 @@ impl World {
             editable: false,
             auto: sel.auto,
             custom: sel.positions.len() == 11,
+            takers: sel.takers,
+            orders: sel.orders.iter().filter(|o| o.orders != PlayerOrders::default() && seen.contains(&o.person_id)).copied().collect(),
         })
     }
 
@@ -690,6 +849,16 @@ impl World {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_orders_change_nothing() {
+        let o = PlayerOrders::default();
+        assert_eq!((o.shot_weight(), o.assist_weight(), o.booking_weight(Tackling::Hard), o.extra_drain(true)), (1.0, 1.0, 1.0, 0.0));
+        let hard = PlayerOrders { tackling: Some(Tackling::Hard), marking: Marking::ManToMan, ..o };
+        assert!(hard.booking_weight(Tackling::Normal) > 1.5);
+        let runner = PlayerOrders { forward_runs: true, long_shots: true, pressing: Some(true), ..o };
+        assert!(runner.shot_weight() > 1.3 && runner.extra_drain(false) == 4.0);
+    }
 
     #[test]
     fn formations_roles_follow_the_pitch() {

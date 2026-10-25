@@ -16,6 +16,21 @@ const TABS = [
   { key: 'injury', label: 'Lesões e Suspensões' },
 ]
 
+// Os assuntos das abas de baixo (os "kind" das notícias no core)
+const TOPICS: Record<string, string[]> = {
+  press: ['contract', 'press'],
+  transfer: ['transfer', 'deal'],
+  jobs: ['jobs'],
+}
+const NOT_MESSAGES = ['competition', 'injury', 'transfer']
+
+/** A notícia aparece na aba? */
+function inTab(n: NewsItem, tab: string) {
+  if (tab === 'all') return true
+  if (tab === 'message') return !NOT_MESSAGES.includes(n.kind)
+  return TOPICS[tab]?.includes(n.kind) ?? n.kind === tab
+}
+
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
@@ -40,7 +55,7 @@ export default function NewsPage() {
     api.listNews().then(setNews, () => {})
   }, [game.info?.date, game.info?.unreadNews])
 
-  const shown = useMemo(() => news.filter((n) => tab === 'all' || n.kind === tab), [news, tab])
+  const shown = useMemo(() => news.filter((n) => inTab(n, tab)), [news, tab])
   const current = shown.find((n) => n.id === selected) ?? shown[0]
 
   // Abrir uma notícia marca-a como lida
@@ -84,6 +99,7 @@ export default function NewsPage() {
             >
               <span className="w-24 shrink-0 bg-[#202020] px-1 text-white">{newsDate(n.date)}</span>
               <span className={`truncate ${n.read ? 'text-white' : 'font-bold text-cm-yellow'}`}>{n.title}</span>
+              {n.awaiting && <span className="ml-auto shrink-0 pr-1 text-[13px] font-bold text-cm-magenta">Responder</span>}
             </div>
           ))}
         </div>
@@ -110,9 +126,17 @@ export default function NewsPage() {
                 <div className="mt-4 border-t border-cm-line pt-3">
                   <OfferButtons
                     offer={offer}
-                    onChange={setOffer}
+                    onChange={(o) => {
+                      setOffer(o)
+                      api.listNews().then(setNews, () => {})
+                    }}
                     onNegotiate={() => nav.go({ kind: 'contract', id: offer.personId })}
                   />
+                  {offer.kind !== 'job' && (
+                    <button className="cm-purple mt-1 h-7 min-w-36" onClick={() => nav.go({ kind: 'person', id: offer.personId })}>
+                      Ver {offer.name}
+                    </button>
+                  )}
                 </div>
               )}
             </>
@@ -122,15 +146,13 @@ export default function NewsPage() {
       <div className="mt-1.5">
         <Tabs
           tabs={[
-            { key: 'press', label: 'Contratos e Imprensa', disabled: true },
+            { key: 'press', label: 'Contratos e Imprensa' },
             { key: 'transfer', label: 'Transferências' },
-            { key: 'jobs', label: 'Empregos', disabled: true },
+            { key: 'jobs', label: 'Empregos' },
             { key: 'records', label: 'Registos', disabled: true },
           ]}
-          active={tab === 'transfer' ? 'transfer' : ''}
-          onChange={(k) => {
-            if (k === 'transfer') setTab('transfer')
-          }}
+          active={tab in TOPICS ? tab : ''}
+          onChange={setTab}
         />
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

@@ -9,6 +9,7 @@ use nextcm_core::{
     SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, Session, SquadNumbers, StageView, StandingRow, TransferItem,
     TransferView, World,
 };
+use nextcm_core::{DealTerms, LoanTerms};
 use tauri::{Manager, State};
 
 /// Mundo base e jogo aberto. `rusqlite::Connection` não é `Sync`, daí o Mutex.
@@ -97,8 +98,9 @@ session_command!(squad_numbers() -> SquadNumbers);
 session_command!(auto_squad_numbers(numbers: Vec<NumberAssign>) -> Vec<NumberAssign>);
 session_command!(set_squad_numbers(numbers: Vec<NumberAssign>) -> SquadNumbers);
 session_command!(transfer_view(id: i32) -> TransferView);
-session_command!(make_offer(id: i32, fee: i64) -> TransferView);
-session_command!(ask_loan(id: i32) -> TransferView);
+session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
+session_command!(ask_loan(id: i32, terms: LoanTerms) -> TransferView);
+session_command!(exercise_option(id: i32) -> TransferView);
 session_command!(contract_terms(id: i32, role: Option<String>) -> ContractTerms);
 session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: i32) -> ContractReply);
 session_command!(set_listing(id: i32, transfer: bool, loan: bool, asking: Option<i64>) -> TransferView);
@@ -234,6 +236,7 @@ pub fn run() {
             transfer_view,
             make_offer,
             ask_loan,
+            exercise_option,
             contract_terms,
             negotiate,
             set_listing,

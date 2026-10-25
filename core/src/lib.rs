@@ -33,6 +33,7 @@ pub use game::{
     OfferView, ReportStaff, RoleOption, SaveSummary, ScoutFind, ScoutList, SquadNumbers, StageView, TieView, TransferItem, TransferView,
     delete_save, list_saves,
 };
+pub use game::{DealTerms, LoanTerms};
 pub use league::{
     CHAMPIONS_LEAGUE, COPA_DO_BRASIL, EUROPA_LEAGUE, Fixture, LIBERTADORES, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, SERIE_D,
     SUL_AMERICANA, StandingRow,
@@ -43,7 +44,10 @@ pub use person::{Attributes, CareerEntry, ClubRef, Knowledge, PersonProfile, Pla
 pub use search::{MarketStatus, PersonKind, PersonSummary, Position, SearchQuery, SearchResult, SearchSort, Side};
 pub use session::Session;
 pub use squad::PlayerStatus;
-pub use tactics::{ClubTactics, FORMATIONS, Instructions, Mentality, Passing, Selection, Tackling, TacticPlayer, TacticSlot};
+pub use tactics::{
+    ClubTactics, FORMATIONS, Instructions, Marking, Mentality, PassTo, Passing, PlayerOrder, PlayerOrders, Selection, SetPiece, Tackling,
+    TacticPlayer, TacticSlot, Takers,
+};
 pub use world::{NationOption, World};
 
 #[derive(Debug)]

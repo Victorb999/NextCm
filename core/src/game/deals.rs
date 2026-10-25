@@ -1,7 +1,8 @@
 //! Mercado do treinador (marco 3.8, passo 3): propostas por jogadores de outros clubes,
 //! empréstimos pedidos, propostas dos clubes da IA pelos jogadores do plantel, negociação
 //! do contrato (contratações e renovações) e lista de transferências. Os outros clubes
-//! respondem no dia seguinte, com uma mensagem que traz os botões (`news.offer_id`).
+//! respondem em 1 a 4 dias, com uma mensagem que traz os botões (`news.offer_id`); as
+//! condições e as rondas da negociação estão em `negotiation.rs`.
 //! Regras e números no detalhe do 3.8 no ROADMAP.
 
 use rand_chacha::ChaCha8Rng;
@@ -13,6 +14,7 @@ use ts_rs::TS;
 use super::market::{
     MIN_ROLE, contract_until, contract_years, leaves_europe, leaving_europe, loan_until, money_text, role_of, window_open,
 };
+use super::negotiation::{DealTerms, LoanReply, LoanTerms, REPLY_DAYS, SellerReply, loan_reply, seller_reply};
 use super::{Game, NewsItem, age_on, cm_date};
 use crate::engine::uniform;
 use crate::finance::{self, wage_demand};
@@ -23,13 +25,11 @@ use crate::{Error, Result, date};
 
 /// Dias que uma proposta recebida espera pela resposta do treinador.
 const INCOMING_DAYS: i32 = 7;
-/// Dias para fechar o contrato depois de o clube aceitar (ou para pagar o que ele pede).
-const AGREED_DAYS: i32 = 14;
+/// Dias para fechar o contrato depois de o clube aceitar (ou para responder à contraproposta).
+pub(super) const AGREED_DAYS: i32 = 14;
 /// Propostas recusadas antes de o jogador romper as negociações, e dias até voltar a falar.
 pub(super) const TRIES: i32 = 3;
 pub(super) const COOLDOWN_DAYS: i32 = 30;
-/// O clube que vende faz uma contraproposta se a oferta chegar a esta parte do que pede.
-const COUNTER_FROM: f64 = 0.6;
 /// Um clube que compra paga até mais 30% do que ofereceu quando o treinador pede mais.
 const RAISE_UP_TO: f64 = 1.3;
 /// Probabilidades, num dia de mercado: proposta por cada jogador da lista de transferências,
@@ -69,6 +69,11 @@ pub struct OfferView {
     /// A situação em palavras.
     pub text: String,
     pub actions: Vec<OfferAction>,
+    /// As condições (a última proposta ou a contraproposta do clube).
+    pub deal: DealTerms,
+    pub loan: LoanTerms,
+    /// Propostas anteriores pelo jogador nesta negociação.
+    pub rounds: i32,
 }
 
 /// Aba Transferência do perfil de um jogador.
@@ -81,6 +86,8 @@ pub struct TransferView {
     pub mine: bool,
     /// Sem clube.
     pub free: bool,
+    /// O clube onde joga.
+    pub club: Option<ClubRef>,
     #[ts(type = "number")]
     pub value: i64,
     #[ts(type = "number")]
@@ -104,6 +111,10 @@ pub struct TransferView {
     pub can_offer: bool,
     pub can_loan: bool,
     pub can_renew: bool,
+    /// Emprestado ao treinador com opção de compra: o valor (0 = sem) e se dá para a exercer hoje.
+    #[ts(type = "number")]
+    pub option_fee: i64,
+    pub can_option: bool,
     pub note: Option<String>,
     /// Sem conhecimento do jogador, a direção limita a proposta: a frase do CM.
     pub budget_note: Option<String>,
@@ -215,6 +226,14 @@ pub(super) struct Offer {
     pub(super) asked: Option<i64>,
     pub(super) status: String,
     pub(super) answer_on: Option<String>,
+    pub(super) months: i32,
+    pub(super) sell_on: i32,
+    pub(super) apps_bonus: i64,
+    pub(super) rounds: i32,
+    pub(super) loan_months: i32,
+    pub(super) wage_share: i32,
+    pub(super) monthly_fee: i64,
+    pub(super) option_fee: i64,
 }
 
 /// Com quem é um contrato: renovação, transferência acordada com o clube, livre (com ou sem
@@ -240,7 +259,7 @@ pub(super) struct Facts {
     pub(super) loyalty: f64,
 }
 
-const OFFER_COLUMNS: &str = "id, kind, person_id, buyer, seller, fee, asked, status, answer_on";
+const OFFER_COLUMNS: &str = "id, kind, person_id, buyer, seller, fee, asked, status, answer_on, months, sell_on, apps_bonus, rounds, loan_months, wage_share, monthly_fee, option_fee";
 
 fn offer_row(r: &rusqlite::Row) -> rusqlite::Result<Offer> {
     Ok(Offer {
@@ -253,6 +272,14 @@ fn offer_row(r: &rusqlite::Row) -> rusqlite::Result<Offer> {
         asked: r.get(6)?,
         status: r.get(7)?,
         answer_on: r.get(8)?,
+        months: r.get(9)?,
+        sell_on: r.get(10)?,
+        apps_bonus: r.get(11)?,
+        rounds: r.get(12)?,
+        loan_months: r.get(13)?,
+        wage_share: r.get(14)?,
+        monthly_fee: r.get(15)?,
+        option_fee: r.get(16)?,
     })
 }
 
@@ -345,7 +372,7 @@ impl Game {
     }
 
     /// Clube dono de um emprestado e até quando.
-    fn loan_of(&self, person: i32) -> Result<Option<(i32, String)>> {
+    pub(super) fn loan_of(&self, person: i32) -> Result<Option<(i32, String)>> {
         Ok(self
             .world
             .conn
@@ -391,7 +418,7 @@ impl Game {
     }
 
     /// Sorteio fixo por jogador e por motivo (a mesma pergunta dá a mesma resposta).
-    fn deal_rng(&self, person: i32, salt: u64) -> ChaCha8Rng {
+    pub(super) fn deal_rng(&self, person: i32, salt: u64) -> ChaCha8Rng {
         ChaCha8Rng::seed_from_u64((self.seed as u64) ^ (person as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ salt)
     }
 
@@ -489,14 +516,31 @@ impl Game {
 
     /// Uma mensagem fora do avanço do dia (respostas imediatas do treinador).
     pub(super) fn post_news(&mut self, title: String, body: String, offer: Option<i32>) {
+        let kind = offer.map_or("message", |o| self.offer_topic(o));
+        self.post_news_as(kind, title, body);
+        self.news[0].offer_id = offer;
+    }
+
+    /// Uma mensagem de um assunto ("press", "jobs"...) fora do avanço do dia.
+    pub(super) fn post_news_as(&mut self, kind: &str, title: String, body: String) {
         let id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
-        let mut n = self.news_item(id, "message", title, body);
-        n.offer_id = offer;
+        let n = self.news_item(id, kind, title, body);
         self.news.insert(0, n);
     }
 
+    /// O assunto da mensagem de uma proposta: negócios, contratos ou empregos.
+    fn offer_topic(&self, offer: i32) -> &'static str {
+        let kind: Option<String> =
+            self.world.conn.query_row("SELECT kind FROM offers WHERE id = ?", [offer], |r| r.get(0)).optional().ok().flatten();
+        match kind.as_deref() {
+            Some("contract") => "contract",
+            Some("job") => "jobs",
+            _ => "deal",
+        }
+    }
+
     pub(super) fn offer_news(&self, fresh: &mut Vec<NewsItem>, next_id: &mut i32, title: String, body: String, offer: i32) {
-        let mut n = self.news_item(*next_id, "message", title, body);
+        let mut n = self.news_item(*next_id, self.offer_topic(offer), title, body);
         n.offer_id = Some(offer);
         fresh.push(n);
         *next_id += 1;
@@ -511,11 +555,12 @@ impl Game {
     }
 
     /// Empresta um jogador até ao fim da época do clube que o recebe.
-    fn execute_loan(&mut self, person: i32, parent: i32, to: i32) -> Result<String> {
-        let until = loan_until(self.kind_of(to)?, &self.date);
+    fn execute_loan(&mut self, person: i32, parent: i32, to: i32, terms: &LoanTerms) -> Result<String> {
+        let season_end = loan_until(self.kind_of(to)?, &self.date);
         self.world
             .conn
-            .execute("INSERT OR REPLACE INTO loans (person_id, parent_id, until) VALUES (?, ?, ?)", params![person, parent, until])?;
+            .execute("INSERT OR REPLACE INTO loans (person_id, parent_id, until) VALUES (?, ?, ?)", params![person, parent, season_end])?;
+        let until = self.loan_terms_start(person, parent, to, terms, &season_end)?;
         self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![to, self.date, person])?;
         self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [person])?;
         self.number_after_move(person, Some(to))?;
@@ -545,9 +590,15 @@ impl Game {
         let window = self.window_open_for(self.club_id)?;
         let blocked = self.blocked_until(person)?;
         let busy = offer.is_some();
+        let bored = if mine { None } else { self.past_rounds(person, "transfer")?.1 };
+        let option = self.option_of(person)?;
         let mut note = None;
         if let Some(b) = &blocked {
             note = Some(format!("Não quer falar de contrato até {}.", cm_date(b)));
+        } else if let (Some(b), Some(club)) = (&bored, f.club) {
+            note = Some(format!("O {} não quer voltar a negociar até {}.", self.club(club).short_name, cm_date(b)));
+        } else if let Some((parent, fee)) = option {
+            note = Some(format!("Emprestado com opção de compra: {} ao {}.", money_text(fee), self.club(parent).short_name));
         } else if !mine && f.club.is_some() && !window {
             note = Some("A janela de transferências está fechada: as propostas esperam pela próxima.".into());
         } else if loan.is_some() && !mine && f.club != Some(self.club_id) {
@@ -557,6 +608,7 @@ impl Game {
             person_id: person,
             mine,
             free: f.club.is_none(),
+            club: f.club.map(|c| self.club(c)),
             value: f.value,
             wage: f.wage,
             contract_expires: f.expires.clone(),
@@ -569,9 +621,15 @@ impl Game {
             cash: self.cash_of(self.club_id)?,
             budget: if mine { self.transfer_budget()? } else { self.budget_for(person)?.0 },
             budget_note: if mine { None } else { self.budget_for(person)?.1 },
-            can_offer: f.club != Some(self.club_id) && !busy && (f.club.is_none() || window) && self.loan_of(person)?.is_none(),
+            can_offer: f.club != Some(self.club_id)
+                && !busy
+                && bored.is_none()
+                && (f.club.is_none() || window)
+                && self.loan_of(person)?.is_none(),
             can_loan: f.club.is_some() && f.club != Some(self.club_id) && !busy && window && self.loan_of(person)?.is_none(),
             can_renew: mine && blocked.is_none() && !busy,
+            option_fee: option.map_or(0, |o| o.1),
+            can_option: option.is_some() && !busy && window,
             offer,
             note,
         })
@@ -585,7 +643,9 @@ impl Game {
         let buyer = self.club(o.buyer);
         let seller = o.seller.map(|c| self.club(c));
         let seller_name = seller.as_ref().map_or(String::new(), |c| c.short_name.clone());
-        let fee = money_text(o.fee);
+        let deal = o.deal_terms();
+        let loan_terms = o.loan_terms();
+        let terms = deal.text();
         let loan = o.kind == "loan";
         let until = o.answer_on.as_deref().map(cm_date).unwrap_or_default();
         let (text, actions) = match (incoming, o.status.as_str()) {
@@ -623,35 +683,41 @@ impl Game {
                 "done" => (format!("{name} está na lista de transferências, a pedido dele."), Vec::new()),
                 _ => (format!("Recusou o pedido de {name} para sair."), Vec::new()),
             },
-            (false, "pending") if loan => {
-                (format!("Pediu {name} emprestado ao {seller_name}; a resposta chega amanhã."), vec![action("withdraw", "Retirar")])
-            }
+            (false, "pending") if loan => (
+                format!("Pediu {name} emprestado ao {seller_name} ({}); a resposta chega a {until}.", loan_terms.text()),
+                vec![action("withdraw", "Retirar")],
+            ),
             (false, "pending") => (
-                format!("Ofereceu {fee} ao {seller_name} por {name}; a resposta chega amanhã."),
+                format!("Ofereceu {terms} ao {seller_name} por {name}; a resposta chega a {until}."),
                 vec![action("withdraw", "Retirar Proposta")],
             ),
+            (false, "countered") if loan => (
+                format!("O {seller_name} empresta {name} {}. Responda até {until}.", loan_terms.text()),
+                vec![action("accept", "Aceitar Condições"), action("offer", "Novo Pedido"), action("withdraw", "Desistir")],
+            ),
             (false, "countered") => (
-                format!("O {seller_name} pede {fee} por {name}. Tem até {until} para decidir."),
-                vec![action("pay", &format!("Pagar {fee}")), action("withdraw", "Desistir")],
+                format!("O {seller_name} pede {terms} por {name}. Responda até {until}."),
+                vec![action("accept", "Aceitar Condições"), action("offer", "Nova Proposta"), action("withdraw", "Desistir")],
             ),
             (false, "agreed") if o.seller.is_none() => (
                 format!("{name} está livre: negoceie o contrato até {until}."),
                 vec![action("negotiate", "Negociar Contrato"), action("withdraw", "Desistir")],
             ),
             (false, "agreed") => (
-                format!("O {seller_name} aceitou {fee} por {name}. Falta o contrato com o jogador (até {until})."),
+                format!("O {seller_name} aceitou {terms} por {name}. Falta o contrato com o jogador (até {until})."),
                 vec![action("negotiate", "Negociar Contrato"), action("withdraw", "Desistir")],
             ),
+            (false, "bored") => (format!("O {seller_name} não quer voltar a negociar {name} até {until}."), Vec::new()),
             (true, "pending") if loan => (
-                format!("O {} quer {name} emprestado até ao fim da época. Responda até {until}.", buyer.short_name),
+                format!("O {} quer {name} emprestado {}. Responda até {until}.", buyer.short_name, loan_terms.text()),
                 vec![action("accept", "Aceitar"), action("reject", "Recusar")],
             ),
             (true, "pending") => (
-                format!("O {} oferece {fee} por {name}. Responda até {until}.", buyer.short_name),
+                format!("O {} oferece {terms} por {name}. Responda até {until}.", buyer.short_name),
                 vec![action("accept", "Aceitar"), action("counter", "Pedir Mais"), action("reject", "Recusar")],
             ),
             (true, "raised") => (
-                format!("Pediu {} ao {} por {name}; a resposta chega amanhã.", money_text(o.asked.unwrap_or(0)), buyer.short_name),
+                format!("Pediu {} ao {} por {name}; a resposta chega a {until}.", money_text(o.asked.unwrap_or(0)), buyer.short_name),
                 Vec::new(),
             ),
             (_, "done") => ("Negócio concluído.".into(), Vec::new()),
@@ -659,14 +725,36 @@ impl Game {
             (_, "withdrawn") => ("Proposta retirada.".into(), Vec::new()),
             _ => ("Negócio desfeito.".into(), Vec::new()),
         };
-        Ok(OfferView { id, kind: o.kind, incoming, person_id: o.person, name, buyer, seller, fee: o.fee, status: o.status, text, actions })
+        Ok(OfferView {
+            id,
+            kind: o.kind,
+            incoming,
+            person_id: o.person,
+            name,
+            buyer,
+            seller,
+            fee: o.fee,
+            status: o.status,
+            text,
+            actions,
+            deal,
+            loan: loan_terms,
+            rounds: o.rounds,
+        })
     }
 
     // ---------------------------------------------------------------- o treinador compra
 
+    /// A proposta do treinador por um jogador que espera a decisão dele (contraproposta do
+    /// clube): a nova proposta substitui-a e conta como mais uma ronda.
+    fn countered(&self, person: i32, kind: &str) -> Result<Option<Offer>> {
+        Ok(self.open_offer(person)?.filter(|o| o.buyer == self.club_id && o.kind == kind && o.status == "countered"))
+    }
+
     /// Proposta de transferência por um jogador de outro clube (ou por um livre, que passa
-    /// logo à negociação do contrato). O clube responde no dia seguinte.
-    pub fn make_offer(&mut self, person: i32, fee: i64) -> Result<TransferView> {
+    /// logo à negociação do contrato), com as condições do diálogo do CM. O clube responde
+    /// em 1 a 4 dias.
+    pub fn make_offer(&mut self, person: i32, terms: &DealTerms) -> Result<TransferView> {
         let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só se fazem propostas por jogadores.".into()))?;
         if f.club == Some(self.club_id) {
             return Err(Error::Invalid("Já é do seu plantel.".into()));
@@ -674,7 +762,8 @@ impl Game {
         if let Some((parent, _)) = self.loan_of(person)? {
             return Err(Error::Invalid(format!("Está emprestado pelo {}: não pode ser vendido agora.", self.club(parent).short_name)));
         }
-        if self.open_offer(person)?.is_some() {
+        let countered = self.countered(person, "transfer")?;
+        if countered.is_none() && self.open_offer(person)?.is_some() {
             return Err(Error::Invalid("Já há uma proposta em curso por este jogador.".into()));
         }
         let created = self.date.clone();
@@ -690,28 +779,50 @@ impl Game {
                 if !self.window_open_for(self.club_id)? {
                     return Err(Error::Invalid("A janela de transferências está fechada.".into()));
                 }
-                if fee <= 0 {
-                    return Err(Error::Invalid("Indique o valor da proposta.".into()));
-                }
+                terms.check()?;
                 let (limit, why) = self.budget_for(person)?;
-                if fee > limit {
+                if terms.budget_cost() > limit {
                     return Err(Error::Invalid(
                         why.unwrap_or_else(|| format!("A sua direcção autoriza transferências até {}.", money_text(limit))),
                     ));
                 }
-                let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
-                self.world.conn.execute(
-                    "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created) VALUES ('transfer', ?, ?, ?, ?, 'pending', ?, ?)",
-                    params![person, self.club_id, seller, finance::round_money(fee as f64), tomorrow, created],
-                )?;
+                let (rounds, bored) = self.past_rounds(person, "transfer")?;
+                if let Some(b) = bored {
+                    return Err(Error::Invalid(format!(
+                        "O {} não quer voltar a negociar até {}.",
+                        self.club(seller).short_name,
+                        cm_date(&b)
+                    )));
+                }
+                let terms = DealTerms { fee: finance::round_money(terms.fee as f64), ..*terms };
+                let reply = self.reply_on(person, REPLY_DAYS);
+                let id = match countered {
+                    Some(c) => {
+                        self.world.conn.execute(
+                            "UPDATE offers SET status = 'pending', rounds = rounds + 1, answer_on = ? WHERE id = ?",
+                            params![reply, c.id],
+                        )?;
+                        c.id
+                    }
+                    None => {
+                        self.world.conn.execute(
+                            "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created, rounds)
+                             VALUES ('transfer', ?, ?, ?, ?, 'pending', ?, ?, ?)",
+                            params![person, self.club_id, seller, terms.fee, reply, created, rounds],
+                        )?;
+                        self.world.conn.last_insert_rowid() as i32
+                    }
+                };
+                self.set_terms(id, &terms, &LoanTerms::default())?;
             }
         }
         self.unsaved = true;
         self.transfer_view(person)
     }
 
-    /// Pedido de empréstimo de um jogador de outro clube até ao fim da época.
-    pub fn ask_loan(&mut self, person: i32) -> Result<TransferView> {
+    /// Pedido de empréstimo de um jogador de outro clube, com as condições (duração, parte do
+    /// salário, taxa mensal, opção de compra).
+    pub fn ask_loan(&mut self, person: i32, terms: &LoanTerms) -> Result<TransferView> {
         let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só se pedem jogadores emprestados.".into()))?;
         let Some(seller) = f.club.filter(|&c| c != self.club_id) else {
             return Err(Error::Invalid("Só se pedem emprestados jogadores de outros clubes.".into()));
@@ -719,19 +830,36 @@ impl Game {
         if !self.window_open_for(self.club_id)? {
             return Err(Error::Invalid("A janela de transferências está fechada.".into()));
         }
-        if self.loan_of(person)?.is_some() || self.open_offer(person)?.is_some() {
+        terms.check()?;
+        let countered = self.countered(person, "loan")?;
+        if self.loan_of(person)?.is_some() || (countered.is_none() && self.open_offer(person)?.is_some()) {
             return Err(Error::Invalid("Este jogador não pode ser pedido agora.".into()));
         }
-        let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
-        self.world.conn.execute(
-            "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created) VALUES ('loan', ?, ?, ?, 0, 'pending', ?, ?)",
-            params![person, self.club_id, seller, tomorrow, self.date],
-        )?;
+        let reply = self.reply_on(person, REPLY_DAYS);
+        let id = match countered {
+            Some(c) => {
+                self.world.conn.execute(
+                    "UPDATE offers SET status = 'pending', rounds = rounds + 1, answer_on = ? WHERE id = ?",
+                    params![reply, c.id],
+                )?;
+                c.id
+            }
+            None => {
+                let rounds = self.past_rounds(person, "loan")?.0;
+                self.world.conn.execute(
+                    "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created, rounds)
+                     VALUES ('loan', ?, ?, ?, 0, 'pending', ?, ?, ?)",
+                    params![person, self.club_id, seller, reply, self.date, rounds],
+                )?;
+                self.world.conn.last_insert_rowid() as i32
+            }
+        };
+        self.set_terms(id, &DealTerms::default(), terms)?;
         self.unsaved = true;
         self.transfer_view(person)
     }
 
-    /// Resposta do treinador numa proposta: "accept", "reject", "counter" (com `fee`), "pay", "withdraw".
+    /// Resposta do treinador numa proposta: "accept", "reject", "counter" (com `fee`), "withdraw".
     pub fn answer_offer(&mut self, id: i32, key: &str, fee: Option<i64>) -> Result<OfferView> {
         let o = self.offer(id)?;
         if o.kind == "request" {
@@ -748,8 +876,27 @@ impl Game {
         let incoming = o.buyer != self.club_id;
         match (incoming, o.status.as_str(), key) {
             (false, "pending" | "countered" | "agreed", "withdraw") => self.set_status(id, "withdrawn", None)?,
-            (false, "countered", "pay") => {
-                self.check_budget(o.fee)?;
+            (false, "countered", "accept" | "pay") if o.kind == "loan" => {
+                let seller = o.seller.ok_or_else(|| Error::Invalid("Proposta sem clube.".into()))?;
+                if !self.window_open_for(self.club_id)? {
+                    return Err(Error::Invalid("A janela de transferências está fechada.".into()));
+                }
+                if self.facts(o.person)?.is_none_or(|f| f.club != Some(seller)) {
+                    self.set_status(id, "collapsed", None)?;
+                    return Err(Error::Invalid("O jogador já não é deste clube.".into()));
+                }
+                let until = self.execute_loan(o.person, seller, self.club_id, &o.loan_terms())?;
+                self.set_status(id, "done", None)?;
+                let name = self.person_name(o.person)?;
+                self.post_news(
+                    format!("{name} emprestado ao clube"),
+                    format!("{name} chega emprestado pelo {} até {}.", self.club(seller).short_name, cm_date(&until)),
+                    Some(id),
+                );
+                self.squad_changed()?;
+            }
+            (false, "countered", "accept" | "pay") => {
+                self.check_budget(o.deal_terms().budget_cost())?;
                 let until = date::add_days(&self.date, AGREED_DAYS).unwrap_or_default();
                 self.set_status(id, "agreed", Some(&until))?;
             }
@@ -770,10 +917,10 @@ impl Game {
             }
             (true, "pending", "counter") if o.kind == "transfer" => {
                 let asked = fee.filter(|&f| f > o.fee).ok_or_else(|| Error::Invalid("Peça mais do que a proposta.".into()))?;
-                let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
+                let reply = self.reply_on(o.person, (1, 3));
                 self.world.conn.execute(
                     "UPDATE offers SET status = 'raised', asked = ?, answer_on = ? WHERE id = ?",
-                    params![finance::round_money(asked as f64), tomorrow, id],
+                    params![finance::round_money(asked as f64), reply, id],
                 )?;
             }
             _ => return Err(Error::Invalid("Esta proposta já não aceita essa resposta.".into())),
@@ -840,18 +987,21 @@ impl Game {
         let name = self.person_name(o.person)?;
         let buyer = self.club(o.buyer).short_name;
         let news = if o.kind == "loan" {
-            let until = self.execute_loan(o.person, self.club_id, o.buyer)?;
-            (format!("{name} emprestado"), format!("{name} vai jogar emprestado no {buyer} até {}.", cm_date(&until)))
+            let t = o.loan_terms();
+            let until = self.execute_loan(o.person, self.club_id, o.buyer, &t)?;
+            (format!("{name} emprestado"), format!("{name} vai jogar emprestado no {buyer} até {} ({}).", cm_date(&until), t.text()))
         } else {
             let wage = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.club_rep(o.buyer)?);
             let years = contract_years(f.age, &mut self.deal_rng(o.person, 0x5A1E));
             let kind = self.kind_of(o.buyer)?;
             // Um dos valiosos: a direção e os adeptos não gostam (antes de ele sair)
             let idol = self.idol_sold(o.person)?;
+            let terms = DealTerms { fee, ..o.deal_terms() };
             self.execute_move(o.person, Some(self.club_id), Some(o.buyer), fee, wage, years, "transfer", kind)?;
+            self.settle_terms(o.person, o.buyer, self.club_id, &terms)?;
             self.world.conn.execute("UPDATE offers SET fee = ? WHERE id = ?", params![fee, o.id])?;
-            self.sale_to_budget(fee)?;
-            let mut body = format!("{name} foi vendido ao {buyer} por {}.", money_text(fee));
+            self.sale_to_budget(terms.budget_cost() - terms.apps_bonus)?;
+            let mut body = format!("{name} foi vendido ao {buyer} por {}.", terms.text());
             if let Some(idol) = idol {
                 body = format!("{body}\n\n{idol}");
             }
@@ -1024,6 +1174,7 @@ impl Game {
         }
         self.contract_replies(fresh, next_id)?;
         self.precontracts_due(fresh, next_id)?;
+        self.option_reminders(fresh, next_id)?;
         for o in self.offers_where("buyer = ?1 AND status IN ('countered', 'agreed') AND answer_on < ?2", params![self.club_id, today])? {
             self.set_status(o.id, "collapsed", None)?;
             let name = self.person_name(o.person)?;
@@ -1048,7 +1199,8 @@ impl Game {
         Ok(())
     }
 
-    /// O clube que vende responde a uma proposta do treinador.
+    /// O clube que vende responde a uma proposta do treinador: aceita, faz uma contraproposta
+    /// com as condições dele, recusa, ou farta-se depois de várias rondas.
     fn seller_answers(&mut self, o: &Offer, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let name = self.person_name(o.person)?;
         let seller = o.seller.unwrap_or(0);
@@ -1062,19 +1214,41 @@ impl Game {
         };
         let (rank, count) = self.squad_rank(seller, o.person, f.role)?;
         let on_loan = self.loan_of(o.person)?.is_some();
+        let deadline = date::add_days(&self.date, AGREED_DAYS).unwrap_or_default();
+        let asking = self.asking_price(o.person, &f, seller)?;
         if o.kind == "loan" {
-            // Empresta quem não é dos 18 melhores e é jovem ou está mesmo fora das contas
-            let yes = !on_loan && !self.recent(&f) && rank >= 18 && (f.age <= 23 || rank >= 22) && self.window_open_for(self.club_id)?;
-            if yes {
-                let until = self.execute_loan(o.person, seller, self.club_id)?;
-                self.set_status(o.id, "done", None)?;
-                let body = format!("O {seller_name} aceitou emprestar {name} até {}. Já está no seu plantel.", cm_date(&until));
-                self.offer_news(fresh, next_id, format!("{name} emprestado ao clube"), body, o.id);
-                self.squad_changed()?;
+            let t = o.loan_terms();
+            let reply = if on_loan || self.recent(&f) || !self.window_open_for(self.club_id)? {
+                LoanReply::Reject
             } else {
-                self.set_status(o.id, "rejected", None)?;
-                let body = format!("O {seller_name} não quer emprestar {name}: conta com ele.");
-                self.offer_news(fresh, next_id, format!("Empréstimo de {name} recusado"), body, o.id);
+                loan_reply(&t, rank, f.age, f.value, asking, o.rounds)
+            };
+            match reply {
+                LoanReply::Accept => {
+                    let until = self.execute_loan(o.person, seller, self.club_id, &t)?;
+                    self.set_status(o.id, "done", None)?;
+                    let body =
+                        format!("O {seller_name} aceitou emprestar {name} até {} ({}). Já está no seu plantel.", cm_date(&until), t.text());
+                    self.offer_news(fresh, next_id, format!("{name} emprestado ao clube"), body, o.id);
+                    self.squad_changed()?;
+                }
+                LoanReply::Counter(c) => {
+                    self.set_terms(o.id, &o.deal_terms(), &c)?;
+                    let until = date::add_days(&self.date, super::negotiation::COUNTER_DAYS).unwrap_or_default();
+                    self.set_status(o.id, "countered", Some(&until))?;
+                    let body =
+                        format!("O {seller_name} está disposto a emprestar {name}, mas só {}. Responda até {}.", c.text(), cm_date(&until));
+                    self.offer_news(fresh, next_id, format!("Condições para o empréstimo de {name}"), body, o.id);
+                }
+                LoanReply::Reject => {
+                    self.set_status(o.id, "rejected", None)?;
+                    let body = if rank < 14 {
+                        format!("O {seller_name} não quer emprestar {name}: é importante para a equipa.")
+                    } else {
+                        format!("O {seller_name} recusou o pedido de empréstimo de {name}.")
+                    };
+                    self.offer_news(fresh, next_id, format!("Empréstimo de {name} recusado"), body, o.id);
+                }
             }
             return Ok(());
         }
@@ -1084,23 +1258,42 @@ impl Game {
             self.offer_news(fresh, next_id, format!("Proposta por {name} recusada"), body, o.id);
             return Ok(());
         }
-        let asking = self.asking_price(o.person, &f, seller)?;
-        let fee = money_text(o.fee);
-        let deadline = date::add_days(&self.date, AGREED_DAYS).unwrap_or_default();
-        if o.fee >= asking {
-            self.set_status(o.id, "agreed", Some(&deadline))?;
-            let body = format!("O {seller_name} aceitou a sua proposta de {fee} por {name}. Negoceie agora o contrato com o jogador.");
-            self.offer_news(fresh, next_id, format!("Proposta por {name} aceite"), body, o.id);
-        } else if o.fee as f64 >= COUNTER_FROM * asking as f64 {
-            self.world
-                .conn
-                .execute("UPDATE offers SET status = 'countered', fee = ?, answer_on = ? WHERE id = ?", params![asking, deadline, o.id])?;
-            let body = format!("O {seller_name} recusou {fee} por {name}, mas aceita vendê-lo por {}.", money_text(asking));
-            self.offer_news(fresh, next_id, format!("Contraproposta por {name}"), body, o.id);
-        } else {
-            self.set_status(o.id, "rejected", None)?;
-            let body = format!("O {seller_name} recusou a sua proposta de {fee} por {name}: está longe do que pede.");
-            self.offer_news(fresh, next_id, format!("Proposta por {name} recusada"), body, o.id);
+        let t = o.deal_terms();
+        let mut rng = self.deal_rng(o.person, 0xC0DE ^ o.rounds as u64);
+        match seller_reply(&t, asking, f.value, f.age, o.rounds, &mut rng) {
+            SellerReply::Accept => {
+                self.set_status(o.id, "agreed", Some(&deadline))?;
+                let body = format!(
+                    "O {seller_name} aceitou a sua proposta por {name}: {}. Negoceie agora o contrato com o jogador até {}.",
+                    t.text(),
+                    cm_date(&deadline)
+                );
+                self.offer_news(fresh, next_id, format!("Proposta por {name} aceite"), body, o.id);
+            }
+            SellerReply::Counter(c) => {
+                self.set_terms(o.id, &c, &o.loan_terms())?;
+                let until = date::add_days(&self.date, super::negotiation::COUNTER_DAYS).unwrap_or_default();
+                self.set_status(o.id, "countered", Some(&until))?;
+                let mut body = format!("O {seller_name} recusou a sua proposta por {name}, mas responde que aceitaria {}.", c.text());
+                if c.sell_on > t.sell_on {
+                    body.push_str(" Quer ficar com uma parte de uma futura venda.");
+                }
+                body.push_str(&format!(" Pode aceitar as condições ou fazer uma nova proposta até {}.", cm_date(&until)));
+                self.offer_news(fresh, next_id, format!("Contraproposta por {name}"), body, o.id);
+            }
+            SellerReply::Reject => {
+                self.set_status(o.id, "rejected", None)?;
+                let body = format!("O {seller_name} recusou a sua proposta por {name} ({}): está longe do que o clube pretende.", t.text());
+                self.offer_news(fresh, next_id, format!("Proposta por {name} recusada"), body, o.id);
+            }
+            SellerReply::Bored => {
+                let until = self.bored(o.id)?;
+                let body = format!(
+                    "O {seller_name} rejeitou mais uma proposta por {name} e está farto das negociações: não quer ouvir falar de propostas por ele até {}.",
+                    cm_date(&until)
+                );
+                self.offer_news(fresh, next_id, format!("{seller_name} rompe negociações por {name}"), body, o.id);
+            }
         }
         Ok(())
     }
@@ -1218,19 +1411,38 @@ impl Game {
                 params![if as_loan { "loan" } else { "transfer" }, id, buyer, self.club_id, fee, until, self.date],
             )?;
             let offer = self.world.conn.last_insert_rowid() as i32;
+            // Condições variadas: prestações (pagando um pouco mais), valor por jogos; no
+            // empréstimo, parte do salário e às vezes uma taxa ou uma opção de compra
+            let (deal, loan) = if as_loan {
+                let share = [50, 75, 100][(rng.next_u32() % 3) as usize];
+                let monthly = if uniform(&mut rng) < 0.2 { finance::round_money(f.value as f64 * 0.005) } else { 0 };
+                let option = if uniform(&mut rng) < 0.3 { finance::round_money(f.value as f64 * 1.2) } else { 0 };
+                (DealTerms::default(), LoanTerms { months: 0, wage_share: share, monthly_fee: monthly, option_fee: option })
+            } else {
+                let mut d = DealTerms { fee, ..Default::default() };
+                if uniform(&mut rng) < 0.25 {
+                    d.months = [12, 24][(rng.next_u32() % 2) as usize];
+                    d.fee = finance::round_money(fee as f64 * 1.05);
+                }
+                if uniform(&mut rng) < 0.2 {
+                    d.apps_bonus = finance::round_money(fee as f64 * 0.1);
+                }
+                (d, LoanTerms::default())
+            };
+            self.set_terms(offer, &deal, &loan)?;
             let name = self.person_name(id)?;
             let buyer_name = self.club(buyer).short_name;
             let (title, body) = if as_loan {
                 (
                     format!("Pedido de empréstimo de {name}"),
-                    format!("O {buyer_name} quer {name} emprestado até ao fim da época. Responda até {}.", cm_date(&until)),
+                    format!("O {buyer_name} quer {name} emprestado {}. Responda até {}.", loan.text(), cm_date(&until)),
                 )
             } else {
                 (
                     format!("Proposta por {name}"),
                     format!(
                         "O {buyer_name} oferece {} por {name} (valor {}). Responda até {}.",
-                        money_text(fee),
+                        deal.text(),
                         money_text(f.value),
                         cm_date(&until)
                     ),
@@ -1260,7 +1472,7 @@ impl Game {
             cm_date(cutoff),
             names.join(", ")
         );
-        fresh.push(self.news_item(*next_id, "message", "Contratos a acabar".into(), body));
+        fresh.push(self.news_item(*next_id, "contract", "Contratos a acabar".into(), body));
         *next_id += 1;
         Ok(())
     }
@@ -1316,11 +1528,16 @@ mod tests {
         let (buy, ask) = targets[0];
         let (haggle, ask2) = targets[1];
         let (lowball, ask3) = targets[2];
-        g.make_offer(buy, ask).unwrap();
-        g.make_offer(haggle, (ask2 as f64 * 0.7) as i64 + 10_000).unwrap();
-        g.make_offer(lowball, ask3 / 10).unwrap();
-        assert!(g.make_offer(buy, ask).is_err(), "uma proposta de cada vez");
-        g.advance_day().unwrap();
+        let cash_only = |fee: i64| DealTerms { fee, ..Default::default() };
+        g.make_offer(buy, &cash_only(ask)).unwrap();
+        g.make_offer(haggle, &cash_only((ask2 as f64 * 0.7) as i64 + 10_000)).unwrap();
+        g.make_offer(lowball, &cash_only(ask3 / 10)).unwrap();
+        assert!(g.make_offer(buy, &cash_only(ask)).is_err(), "uma proposta de cada vez");
+        assert!(g.make_offer(lowball, &DealTerms { months: 7, ..cash_only(ask3) }).is_err(), "prestações de 12, 24 ou 36 meses");
+        // Os clubes respondem em 1 a 4 dias
+        for _ in 0..4 {
+            g.advance_day().unwrap();
+        }
         let status = |g: &Game, id: i32| g.transfer_view(id).unwrap().offer.map(|o| o.status);
         assert_eq!(status(&g, buy).as_deref(), Some("agreed"));
         assert_eq!(status(&g, haggle).as_deref(), Some("countered"));
@@ -1354,10 +1571,12 @@ mod tests {
         assert_eq!(g.facts(buy).unwrap().unwrap().club, Some(PALMEIRAS));
         assert_eq!(g.cash_of(PALMEIRAS).unwrap(), cash - ask - t.bonus);
 
-        // A contraproposta do clube: paga o que pedem e passa ao contrato
+        // A contraproposta do clube vale o que ele pede; aceitar as condições passa ao contrato
         let offer = g.transfer_view(haggle).unwrap().offer.unwrap();
-        assert_eq!(offer.fee, ask2);
-        assert!(g.answer_offer(offer.id, "pay", None).unwrap().status == "agreed");
+        let value = g.facts(haggle).unwrap().unwrap().value;
+        assert!(offer.deal.worth(value) >= ask2 as f64 * 0.99, "{:?} {ask2}", offer.deal);
+        assert!(offer.actions.iter().any(|a| a.key == "offer"), "pode fazer uma nova proposta");
+        assert!(g.answer_offer(offer.id, "accept", None).unwrap().status == "agreed");
 
         // Renovação: três recusas e ele não volta a falar durante 30 dias
         let mine = g.world.conn.query_row(
@@ -1413,7 +1632,9 @@ mod tests {
         let cash = g.cash_of(PALMEIRAS).unwrap();
         assert_eq!(g.answer_offer(o.id, "accept", None).unwrap().status, "done");
         assert_eq!(g.facts(sell).unwrap().unwrap().club, Some(o.buyer.id));
-        assert_eq!(g.cash_of(PALMEIRAS).unwrap(), cash + o.fee);
+        // Com prestações, hoje só entra a primeira
+        let now = if o.deal.months > 0 { o.fee - o.fee / o.deal.months as i64 * (o.deal.months as i64 - 1) } else { o.fee };
+        assert_eq!(g.cash_of(PALMEIRAS).unwrap(), cash + now);
 
         // Pré-contrato: um jogador de outro clube com 3 meses de contrato chega livre quando acaba
         let (pre, _) = for_sale(&g)[3];

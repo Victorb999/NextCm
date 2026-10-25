@@ -832,6 +832,7 @@ impl Game {
         season_kind: SeasonKind,
     ) -> Result<()> {
         let until = contract_until(season_kind, &self.date, years);
+        self.clauses_on_move(id, from, fee)?;
         self.world.conn.execute(
             "UPDATE people SET club_id = ?, club_job = ?, club_joined = ?, contract_expires = ?, wage = ? WHERE id = ?",
             params![to, super::regen::PLAYER_JOB, self.date, until, wage, id],

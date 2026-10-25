@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ClubTactics } from './bindings/ClubTactics'
+import type { PlayerOrders } from './bindings/PlayerOrders'
 import type { Selection } from './bindings/Selection'
 import type { TacticPlayer } from './bindings/TacticPlayer'
 import { selectionOf } from './selection'
@@ -14,6 +15,32 @@ export const TACTICS_MENU = [
   { key: 'instructions', label: 'Instruções à Equipa' },
   ...FORMATIONS.map((label, i) => ({ key: String(i), label: `Pré-definida: ${label}` })).slice(1),
 ]
+
+/** Instruções individuais iguais às da equipa. */
+export const NO_ORDERS: PlayerOrders = {
+  passing: null,
+  tackling: null,
+  pressing: null,
+  passTo: 'mixed',
+  setAttack: 'normal',
+  setDefence: 'normal',
+  freeRole: false,
+  forwardRuns: false,
+  runWithBall: false,
+  holdBall: false,
+  longShots: false,
+  throughBalls: false,
+  crosses: false,
+  marking: 'zonal',
+}
+
+/** As instruções individuais de um jogador da escolha. */
+export const ordersOf = (t: ClubTactics, id: number) => t.orders.find((o) => o.personId === id)?.orders ?? NO_ORDERS
+
+/** A escolha com as instruções individuais de um jogador mudadas. */
+export function withOrders(sel: Selection, id: number, orders: PlayerOrders): Selection {
+  return { ...sel, orders: [...sel.orders.filter((o) => o.personId !== id), { personId: id, orders }] }
+}
 
 /** "Sobrenome, Nome" -> "Sobrenome" (como os nomes no campo do CM). */
 export const surname = (listName: string) => listName.split(', ')[0]

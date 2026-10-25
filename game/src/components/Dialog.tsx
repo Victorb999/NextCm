@@ -50,10 +50,10 @@ export function DialogFrame({
   )
 }
 
-export function DialogRow({ label, children }: { label: string; children: ReactNode }) {
+export function DialogRow({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
     <div className="flex min-h-[30px] items-center gap-3">
-      <span className="w-52 shrink-0 font-title text-[19px] leading-none text-white">{label}</span>
+      <span className={`${wide ? 'w-72' : 'w-52'} shrink-0 font-title text-[19px] leading-none text-white`}>{label}</span>
       <div className="flex flex-1 flex-wrap items-center gap-2">{children}</div>
     </div>
   )

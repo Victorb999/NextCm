@@ -11,6 +11,7 @@ use crate::{
 };
 
 use crate::NewsLink;
+use crate::{DealTerms, LoanTerms};
 
 pub struct Session {
     world_path: PathBuf,
@@ -292,20 +293,25 @@ impl Session {
     }
 
     /// Proposta de transferência por um jogador de outro clube (ou por um livre).
-    pub fn make_offer(&mut self, id: i32, fee: i64) -> Result<TransferView> {
+    pub fn make_offer(&mut self, id: i32, terms: DealTerms) -> Result<TransferView> {
         // Quem recebe uma proposta, um pedido ou um olheiro entra na Lista Preferencial
         let g = self.game_mut()?;
-        let r = g.make_offer(id, fee)?;
+        let r = g.make_offer(id, &terms)?;
         g.set_shortlist(id, true)?;
         Ok(r)
     }
 
     /// Pedido de empréstimo de um jogador de outro clube.
-    pub fn ask_loan(&mut self, id: i32) -> Result<TransferView> {
+    pub fn ask_loan(&mut self, id: i32, terms: LoanTerms) -> Result<TransferView> {
         let g = self.game_mut()?;
-        let r = g.ask_loan(id)?;
+        let r = g.ask_loan(id, &terms)?;
         g.set_shortlist(id, true)?;
         Ok(r)
+    }
+
+    /// Exercer a opção de compra de um emprestado.
+    pub fn exercise_option(&mut self, id: i32) -> Result<TransferView> {
+        self.game_mut()?.exercise_option(id)
     }
 
     /// Funções no clube e o que o jogador pede pela função escolhida.
@@ -397,7 +403,15 @@ impl Session {
     }
 
     pub fn list_news(&self) -> Result<Vec<NewsItem>> {
-        Ok(self.game()?.news().to_vec())
+        let game = self.game()?;
+        let mut news = game.news().to_vec();
+        // As mensagens cuja proposta ainda espera uma resposta do treinador
+        for n in &mut news {
+            if let Some(o) = n.offer_id {
+                n.awaiting = game.offer_view(o).is_ok_and(|v| v.actions.iter().any(|a| a.key != "withdraw"));
+            }
+        }
+        Ok(news)
     }
 
     pub fn read_news(&mut self, id: i32) -> Result<GameInfo> {

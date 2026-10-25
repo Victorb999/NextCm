@@ -1,19 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
+import type { DealTerms } from '../bindings/DealTerms'
+import type { LoanTerms } from '../bindings/LoanTerms'
 import type { OfferView } from '../bindings/OfferView'
 import type { TransferView } from '../bindings/TransferView'
 import { cmDate, money, wage } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
-import { FeeDialog } from './DealDialogs'
+import { FeeDialog, LoanDialog, TransferOfferDialog } from './DealDialogs'
 import { Link } from './Screen'
 
 // Aba Transferência do perfil do jogador (jogo em curso): valor e contrato, a proposta em
 // curso e os botões do CM: Fazer Proposta / Pedir Empréstimo nos outros clubes, Oferecer
 // Contrato e as listas de transferências e de empréstimos no plantel do treinador.
 
-/** Botões de uma proposta (mensagens e perfil); "counter" e "negotiate" abrem diálogos. */
+const NO_TERMS: DealTerms = { fee: 0, months: 0, sellOn: 0, appsBonus: 0 }
+const LOAN_TERMS: LoanTerms = { months: 0, wageShare: 100, monthlyFee: 0, optionFee: 0 }
+
+/** A frase da direção sobre o orçamento, como no CM. */
+function budgetText(view: TransferView) {
+  return view.budgetNote ?? `A sua direcção autoriza transferências até ${money(view.budget) || '€0'}.`
+}
+
+/** Botões de uma proposta (mensagens e perfil); "counter", "offer" e "negotiate" abrem diálogos. */
 export function OfferButtons({
   offer,
   onChange,
@@ -26,16 +36,36 @@ export function OfferButtons({
   const game = useGame()
   const [error, setError] = useState<string | null>(null)
   const [counter, setCounter] = useState(false)
+  // "Nova Proposta" / "Novo Pedido": a aba do jogador dá o valor e o orçamento
+  const [again, setAgain] = useState<TransferView | null>(null)
+  const done = async (o: OfferView) => {
+    onChange(o)
+    setError(null)
+    setCounter(false)
+    setAgain(null)
+    const info = await api.gameInfo()
+    if (info) game.update(info)
+  }
   const answer = async (key: string, fee: number | null = null) => {
     try {
-      onChange(await api.answerOffer(offer.id, key, fee))
-      setError(null)
-      setCounter(false)
-      const info = await api.gameInfo()
-      if (info) game.update(info)
+      await done(await api.answerOffer(offer.id, key, fee))
     } catch (e) {
       setError(String(e))
     }
+  }
+  const resend = async (f: () => Promise<TransferView>) => {
+    try {
+      const v = await f()
+      await done(v.offer ?? (await api.offerView(offer.id)))
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+  const click = (key: string) => {
+    if (key === 'counter') setCounter(true)
+    else if (key === 'negotiate') onNegotiate()
+    else if (key === 'offer') api.transferView(offer.personId).then(setAgain, (e) => setError(String(e)))
+    else void answer(key)
   }
   return (
     <div>
@@ -46,7 +76,7 @@ export function OfferButtons({
             <button
               key={a.key}
               className="cm-purple h-7 min-w-36"
-              onClick={() => (a.key === 'counter' ? setCounter(true) : a.key === 'negotiate' ? onNegotiate() : void answer(a.key))}
+              onClick={() => click(a.key)}
             >
               {a.label}
             </button>
@@ -62,10 +92,33 @@ export function OfferButtons({
           valueLabel="Oferecem"
           feeLabel="Pedir"
           initial={Math.round(offer.fee * 1.25)}
-          note={`O ${offer.buyer.shortName} oferece ${money(offer.fee)}. A resposta chega amanhã.`}
+          note={`O ${offer.buyer.shortName} oferece ${money(offer.fee)}. A resposta chega dentro de alguns dias.`}
           error={error}
           onCancel={() => setCounter(false)}
           onOk={(fee) => void answer('counter', fee)}
+        />
+      )}
+      {again && offer.kind === 'loan' && (
+        <LoanDialog
+          name={offer.name}
+          club={offer.seller?.shortName ?? ''}
+          wage={wage(again.wage, true)}
+          initial={offer.loan}
+          error={error}
+          onCancel={() => setAgain(null)}
+          onOk={(t) => void resend(() => api.askLoan(offer.personId, t))}
+        />
+      )}
+      {again && offer.kind !== 'loan' && (
+        <TransferOfferDialog
+          name={offer.name}
+          club={offer.seller?.shortName ?? ''}
+          value={again.value}
+          budgetText={budgetText(again)}
+          initial={offer.deal}
+          error={error}
+          onCancel={() => setAgain(null)}
+          onOk={(t) => void resend(() => api.makeOffer(offer.personId, t))}
         />
       )}
     </div>
@@ -77,7 +130,7 @@ export default function TransferTab({ personId, name, onChanged }: { personId: n
   const nav = useNav()
   const [view, setView] = useState<TransferView | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<'offer' | null>(null)
+  const [dialog, setDialog] = useState<'offer' | 'loan' | 'price' | null>(null)
   const date = game.info?.date
 
   const load = useCallback(() => api.transferView(personId).then(setView, (e) => setError(String(e))), [personId])
@@ -103,6 +156,7 @@ export default function TransferTab({ personId, name, onChanged }: { personId: n
     ['Salário', wage(view.wage, true)],
     ['Contrato até', view.free ? 'Sem contrato' : cmDate(view.contractExpires)],
   ]
+  if (view.optionFee) rows.push(['Opção de compra', money(view.optionFee)])
   if (view.loanFrom) {
     rows.push([
       'Emprestado por',
@@ -121,7 +175,7 @@ export default function TransferTab({ personId, name, onChanged }: { personId: n
   const setList = (transfer: boolean, loan: boolean, asking: number | null) => run(() => api.setListing(personId, transfer, loan, asking))
   const signFree = async () => {
     try {
-      await api.makeOffer(personId, 0)
+      await api.makeOffer(personId, NO_TERMS)
       nav.go({ kind: 'contract', id: personId })
     } catch (e) {
       setError(String(e))
@@ -161,8 +215,13 @@ export default function TransferTab({ personId, name, onChanged }: { personId: n
               {view.free ? 'Oferecer Contrato' : 'Fazer Proposta'}
             </button>
             {!view.free && (
-              <button className="cm-purple h-8 w-48" disabled={!view.canLoan} onClick={() => void run(() => api.askLoan(personId))}>
+              <button className="cm-purple h-8 w-48" disabled={!view.canLoan} onClick={() => setDialog('loan')}>
                 Pedir Empréstimo
+              </button>
+            )}
+            {view.optionFee > 0 && (
+              <button className="cm-purple h-8 w-56" disabled={!view.canOption} onClick={() => void run(() => api.exerciseOption(personId))}>
+                Exercer Opção de Compra
               </button>
             )}
           </>
@@ -184,28 +243,47 @@ export default function TransferTab({ personId, name, onChanged }: { personId: n
             >
               Lista de Empréstimos
             </button>
-            <button className="cm-purple h-8 w-48" disabled={!view.transferListed} onClick={() => setDialog('offer')}>
+            <button className="cm-purple h-8 w-48" disabled={!view.transferListed} onClick={() => setDialog('price')}>
               Preço Pedido
             </button>
           </>
         )}
       </div>
       {error && !dialog && <div className="mt-2 text-center text-[15px] font-bold text-[#ff5050]">{error}</div>}
-      {dialog === 'offer' && (
+      {dialog === 'price' && (
         <FeeDialog
-          title={view.mine ? 'Preço Pedido' : 'Fazer Proposta'}
-          feeLabel={view.mine ? 'Preço' : 'Proposta'}
+          title="Preço Pedido"
+          feeLabel="Preço"
           name={name}
           value={view.value}
-          initial={view.mine ? (view.asking ?? view.value) : view.value}
-          note={
-            view.mine
-              ? 'Os clubes interessados oferecem perto do preço pedido.'
-              : (view.budgetNote ?? `A sua direcção autoriza transferências até ${money(view.budget) || '€0'}.`) + ' O clube responde amanhã.'
-          }
+          initial={view.asking ?? view.value}
+          note="Os clubes interessados oferecem perto do preço pedido."
           error={error}
           onCancel={() => setDialog(null)}
-          onOk={(fee) => void run(() => (view.mine ? api.setListing(personId, true, view.loanListed, fee) : api.makeOffer(personId, fee)))}
+          onOk={(fee) => void run(() => api.setListing(personId, true, view.loanListed, fee))}
+        />
+      )}
+      {dialog === 'offer' && (
+        <TransferOfferDialog
+          name={name}
+          club={view.club?.shortName ?? ''}
+          value={view.value}
+          budgetText={budgetText(view)}
+          initial={{ ...NO_TERMS, fee: Math.min(view.value, view.budget) || view.value }}
+          error={error}
+          onCancel={() => setDialog(null)}
+          onOk={(t) => void run(() => api.makeOffer(personId, t))}
+        />
+      )}
+      {dialog === 'loan' && (
+        <LoanDialog
+          name={name}
+          club={view.club?.shortName ?? ''}
+          wage={wage(view.wage, true)}
+          initial={LOAN_TERMS}
+          error={error}
+          onCancel={() => setDialog(null)}
+          onOk={(t) => void run(() => api.askLoan(personId, t))}
         />
       )}
     </div>

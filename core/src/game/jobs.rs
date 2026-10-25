@@ -274,10 +274,10 @@ impl Game {
         self.board_setup()?;
         self.refresh_live()?;
         let name = self.club(club).name;
-        self.post_news(
+        self.post_news_as(
+            "jobs",
             format!("Novo treinador do {name}"),
             format!("É o novo treinador do {name}. A Direcção espera ver resultados."),
-            None,
         );
         self.unsaved = true;
         Ok(())
@@ -344,7 +344,7 @@ impl Game {
                 self.push_news(
                     fresh,
                     next_id,
-                    "message",
+                    "jobs",
                     format!("{coach_name} no {name}"),
                     format!("{coach_name} é o novo treinador do {name}."),
                 );
@@ -393,7 +393,7 @@ impl Game {
                 self.push_news(
                     fresh,
                     next_id,
-                    "message",
+                    "jobs",
                     format!("Treinador {coach_name} despedido"),
                     format!("O {name} despediu o treinador {coach_name}."),
                 );

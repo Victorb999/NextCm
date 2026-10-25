@@ -88,7 +88,7 @@ impl Game {
                 money_text(board.wage_budget)
             )));
         }
-        let fee = if let Party::Transfer(o) = party { o.fee } else { 0 };
+        let fee = if let Party::Transfer(o) = party { o.deal_terms().budget_cost() } else { 0 };
         self.check_budget(fee + bonus)
     }
 
@@ -345,7 +345,7 @@ impl Game {
         let t = self.talk(o.person)?.ok_or_else(|| Error::Invalid("Não há contrato para fechar.".into()))?;
         let (f, name, party) = self.contract_party(o.person)?;
         self.check_contract(&party, f.wage, t.wage, t.bonus)?;
-        let fee = if let Party::Transfer(d) = &party { d.fee } else { 0 };
+        let fee = if let Party::Transfer(d) = &party { d.deal_terms().budget_cost() } else { 0 };
         let kind = self.kind_of(self.club_id)?;
         let from_expiry = matches!(party, Party::Renewal | Party::Precontract);
         let until = self.contract_end(&f, from_expiry, t.years)?;
@@ -380,10 +380,15 @@ impl Game {
                 }
                 let move_kind = if deal.seller.is_some() { "transfer" } else { "free" };
                 self.execute_move(o.person, deal.seller, Some(self.club_id), deal.fee, t.wage, t.years, move_kind, kind)?;
+                if let Some(seller) = deal.seller {
+                    self.settle_terms(o.person, self.club_id, seller, &deal.deal_terms())?;
+                }
+                // Um emprestado comprado (opção de compra) deixa de ser emprestado
+                self.world.conn.execute("DELETE FROM loans WHERE person_id = ?", [o.person])?;
                 self.set_status(deal.id, "done", None)?;
                 self.set_status(o.id, "done", None)?;
                 let how = match deal.seller {
-                    Some(s) => format!("do {} por {}", self.club(s).short_name, money_text(deal.fee)),
+                    Some(s) => format!("do {} por {}", self.club(s).short_name, deal.deal_terms().text()),
                     None => "a custo zero".into(),
                 };
                 self.post_news(

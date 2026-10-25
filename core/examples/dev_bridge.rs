@@ -9,6 +9,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::thread;
 
+use nextcm_core::{DealTerms, LoanTerms};
 use nextcm_core::{Instructions, NewGame, NumberAssign, SearchQuery, Selection, Session, World};
 use serde_json::Value;
 
@@ -120,10 +121,14 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         }
         "transfer_view" => out(serde_json::to_value(session.transfer_view(id()?).map_err(e)?)),
         "make_offer" => {
-            let fee = args["fee"].as_i64().ok_or("falta fee")?;
-            out(serde_json::to_value(session.make_offer(id()?, fee).map_err(e)?))
+            let terms: DealTerms = serde_json::from_value(args["terms"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.make_offer(id()?, terms).map_err(e)?))
         }
-        "ask_loan" => out(serde_json::to_value(session.ask_loan(id()?).map_err(e)?)),
+        "ask_loan" => {
+            let terms: LoanTerms = serde_json::from_value(args["terms"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.ask_loan(id()?, terms).map_err(e)?))
+        }
+        "exercise_option" => out(serde_json::to_value(session.exercise_option(id()?).map_err(e)?)),
         "contract_terms" => {
             let role = args["role"].as_str().map(str::to_string);
             out(serde_json::to_value(session.contract_terms(id()?, role).map_err(e)?))

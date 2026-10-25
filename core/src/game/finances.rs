@@ -124,6 +124,12 @@ impl Game {
                 )?
                 .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<_>>()?;
+            // Emprestados: o clube dono paga a parte do salário combinada
+            let mut bills = bills;
+            for (club, parent, part) in self.loan_wage_shifts()? {
+                *bills.entry(club).or_default() -= part;
+                *bills.entry(parent).or_default() += part;
+            }
             for &club in &clubs {
                 let bill = bills.get(&club).copied().unwrap_or(0);
                 self.book(club, "wages", bill)?;

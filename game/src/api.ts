@@ -2,7 +2,9 @@ import { invoke, isTauri } from '@tauri-apps/api/core'
 import type { BoardConfidence } from './bindings/BoardConfidence'
 import type { BoardRequest } from './bindings/BoardRequest'
 import type { BoardView } from './bindings/BoardView'
+import type { DealTerms } from './bindings/DealTerms'
 import type { DisciplineOptions } from './bindings/DisciplineOptions'
+import type { LoanTerms } from './bindings/LoanTerms'
 import type { JobsView } from './bindings/JobsView'
 import type { NewsLink } from './bindings/NewsLink'
 import type { ClubFinances } from './bindings/ClubFinances'
@@ -124,8 +126,10 @@ export const api = {
   leagueRequest: (key: string) => call<string>('league_request', { key }),
   /** Aba Transferência do perfil de um jogador (jogo em curso). */
   transferView: (id: number) => call<TransferView>('transfer_view', { id }),
-  makeOffer: (id: number, fee: number) => call<TransferView>('make_offer', { id, fee }),
-  askLoan: (id: number) => call<TransferView>('ask_loan', { id }),
+  makeOffer: (id: number, terms: DealTerms) => call<TransferView>('make_offer', { id, terms }),
+  askLoan: (id: number, terms: LoanTerms) => call<TransferView>('ask_loan', { id, terms }),
+  /** Exercer a opção de compra de um emprestado. */
+  exerciseOption: (id: number) => call<TransferView>('exercise_option', { id }),
   /** Funções no clube e o que o jogador pede pela função escolhida (sem ela, pela que espera). */
   contractTerms: (id: number, role: string | null) => call<ContractTerms>('contract_terms', { id, role }),
   /** Proposta de contrato: renovação ou contratação depois de o clube aceitar. */

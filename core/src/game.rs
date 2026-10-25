@@ -26,6 +26,7 @@ mod finances;
 mod jobs;
 mod league_meeting;
 mod market;
+mod negotiation;
 mod news_links;
 mod numbers;
 mod regen;
@@ -42,7 +43,7 @@ use crate::person::ClubRef;
 use crate::regulation::{self, SeasonKind};
 use crate::search::fold;
 use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
-use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, Selection, Tackling};
+use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, PlayerOrder, Selection, Tackling, Takers};
 use crate::{Error, Result, World, date};
 pub use board::{BoardConfidence, BoardView};
 pub use board_meeting::BoardRequest;
@@ -51,6 +52,7 @@ pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption
 pub use discipline::DisciplineOptions;
 pub use jobs::{JobNation, JobRow, JobsView};
 pub use market::TransferItem;
+pub use negotiation::{DealTerms, LoanTerms};
 pub use news_links::NewsLink;
 pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
 pub use scout_tasks::{ScoutFind, ScoutList};
@@ -84,7 +86,34 @@ pub use staff_reports::ReportStaff;
 /// 22: empregos: confiança dos clubes da IA (`ai_boards`), lugares vagos (`vacancies`) e a
 /// reputação do treinador (`manager_info`).
 /// 23: Lista Preferencial (`shortlist`).
-pub const SAVE_VERSION: i32 = 23;
+/// 24: condições das propostas (`offers.months`... `option_fee`), empréstimos com parte do
+/// salário e opção de compra (`loans`), pagamentos a prazo (`payments`), cláusulas (`sell_on`,
+/// `apps_bonus`), batedores e organizador (`selection`) e instruções individuais (`player_orders`).
+pub const SAVE_VERSION: i32 = 24;
+
+/// Condições dos negócios e instruções individuais (save 24).
+const TERMS_SCHEMA: &str = "
+ALTER TABLE offers ADD COLUMN months INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE offers ADD COLUMN sell_on INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE offers ADD COLUMN apps_bonus INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE offers ADD COLUMN rounds INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE offers ADD COLUMN loan_months INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE offers ADD COLUMN wage_share INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE offers ADD COLUMN monthly_fee INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE offers ADD COLUMN option_fee INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE loans ADD COLUMN wage_share INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE loans ADD COLUMN option_fee INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE payments (id INTEGER PRIMARY KEY, person_id INTEGER NOT NULL, payer INTEGER NOT NULL, payee INTEGER NOT NULL,
+                       amount INTEGER NOT NULL, due TEXT NOT NULL);
+CREATE TABLE sell_on (person_id INTEGER PRIMARY KEY, payer INTEGER NOT NULL, payee INTEGER NOT NULL, pct INTEGER NOT NULL);
+CREATE TABLE apps_bonus (person_id INTEGER PRIMARY KEY, payer INTEGER NOT NULL, payee INTEGER NOT NULL, amount INTEGER NOT NULL,
+                         apps_at INTEGER NOT NULL, needed INTEGER NOT NULL);
+ALTER TABLE selection ADD COLUMN penalty_taker INTEGER;
+ALTER TABLE selection ADD COLUMN free_kick_taker INTEGER;
+ALTER TABLE selection ADD COLUMN corner_taker INTEGER;
+ALTER TABLE selection ADD COLUMN playmaker INTEGER;
+CREATE TABLE player_orders (club_id INTEGER NOT NULL, person_id INTEGER NOT NULL, orders TEXT NOT NULL, PRIMARY KEY (club_id, person_id));
+";
 
 /// Lista Preferencial (save 23).
 const SHORTLIST_SCHEMA: &str = "CREATE TABLE shortlist (person_id INTEGER PRIMARY KEY, added TEXT NOT NULL);";
@@ -332,7 +361,9 @@ pub struct NewGame {
 pub struct NewsItem {
     pub id: i32,
     pub date: String,
-    /// "message" (mensagens), "competition", "injury"
+    /// "message" (mensagens), "competition", "injury", "transfer" (transferências do dia) e as
+    /// mensagens por assunto: "deal" (negócios), "contract" e "press" (Contratos e Imprensa),
+    /// "jobs" (Empregos).
     pub kind: String,
     pub title: String,
     pub body: String,
@@ -341,6 +372,8 @@ pub struct NewsItem {
     pub offer_id: Option<i32>,
     /// Tela que a mensagem abre ("squadNumbers").
     pub link: Option<String>,
+    /// A proposta ligada espera uma resposta do treinador (calculado ao listar).
+    pub awaiting: bool,
 }
 
 /// O que a coluna esquerda e o menu do treinador precisam.
@@ -507,6 +540,7 @@ impl Game {
             tx.execute_batch(RESERVES_SCHEMA)?;
             tx.execute_batch(JOBS_SCHEMA)?;
             tx.execute_batch(SHORTLIST_SCHEMA)?;
+            tx.execute_batch(TERMS_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -746,6 +780,11 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 23", [])?;
             version = 23;
         }
+        if version == 23 {
+            world.conn.execute_batch(TERMS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 24", [])?;
+            version = 24;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -764,6 +803,7 @@ impl Game {
                     read: r.get::<_, i32>(5)? != 0,
                     offer_id: r.get(6)?,
                     link: r.get(7)?,
+                    awaiting: false,
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -975,6 +1015,19 @@ impl Game {
                     i.tight_marking
                 ],
             )?;
+            let k = &sel.takers;
+            tx.execute(
+                "UPDATE selection SET penalty_taker = ?, free_kick_taker = ?, corner_taker = ?, playmaker = ? WHERE club_id = ?",
+                params![k.penalty, k.free_kick, k.corner, k.playmaker, self.club_id],
+            )?;
+            tx.execute("DELETE FROM player_orders", [])?;
+            for o in &sel.orders {
+                let json = serde_json::to_string(&o.orders).unwrap_or_default();
+                tx.execute(
+                    "INSERT OR REPLACE INTO player_orders (club_id, person_id, orders) VALUES (?, ?, ?)",
+                    params![self.club_id, o.person_id, json],
+                )?;
+            }
             let mut stmt =
                 tx.prepare("INSERT INTO selection_players (club_id, slot, person_id, x, y, run_x, run_y) VALUES (?, ?, ?, ?, ?, ?, ?)")?;
             for (slot, pid) in sel.starters.iter().enumerate() {
@@ -1042,6 +1095,10 @@ impl Game {
         self.calendar_events(&mut fresh, &mut next_id)?;
         // Salários à segunda-feira, receitas mensais no dia 1; o mercado nas janelas
         self.daily_finances()?;
+        for (title, body) in self.payments_day()? {
+            fresh.push(self.news_item(next_id, "message", title, body));
+            next_id += 1;
+        }
         self.market_day(&mut fresh, &mut next_id)?;
         if !unemployed {
             self.offers_day(&mut fresh, &mut next_id)?;
@@ -1202,7 +1259,7 @@ impl Game {
             }
             other => {
                 let instructions = other.as_ref().map(|s| s.instructions).unwrap_or_default();
-                Ok((self.world.auto_tactics(club, Some(&state), instructions)?, None))
+                Ok((self.world.auto_tactics(club, Some(&state), instructions)?.with_orders(other.as_ref()), None))
             }
         }
     }
@@ -1212,7 +1269,10 @@ impl Game {
         let state = self.squads.squad_state(club, self.next_competition(club));
         let mut t = match (&self.selection, club == self.club_id) {
             (Some(sel), true) if !sel.auto => self.world.tactics_from_selection(club, sel, Some(&state))?,
-            (sel, true) => self.world.auto_tactics(club, Some(&state), sel.as_ref().map(|s| s.instructions).unwrap_or_default())?,
+            (sel, true) => self
+                .world
+                .auto_tactics(club, Some(&state), sel.as_ref().map(|s| s.instructions).unwrap_or_default())?
+                .with_orders(sel.as_ref()),
             _ => self.world.auto_tactics(club, Some(&state), Instructions::default())?,
         };
         t.editable = club == self.club_id;
@@ -1223,7 +1283,7 @@ impl Game {
     pub fn preview_selection(&self, sel: &Selection) -> Result<ClubTactics> {
         let state = self.squads.squad_state(self.club_id, self.next_competition(self.club_id));
         let mut t = if sel.auto {
-            self.world.auto_tactics(self.club_id, Some(&state), sel.instructions)?
+            self.world.auto_tactics(self.club_id, Some(&state), sel.instructions)?.with_orders(Some(sel))
         } else {
             self.world.tactics_from_selection(self.club_id, sel, Some(&state))?
         };
@@ -1258,7 +1318,7 @@ impl Game {
     }
 
     fn news_item(&self, id: i32, kind: &str, title: String, body: String) -> NewsItem {
-        NewsItem { id, date: self.date.clone(), kind: kind.into(), title, body, read: false, offer_id: None, link: None }
+        NewsItem { id, date: self.date.clone(), kind: kind.into(), title, body, read: false, offer_id: None, link: None, awaiting: false }
     }
 
     /// Lesões e suspensões dos jogadores do treinador.
@@ -1517,6 +1577,7 @@ impl Game {
             read: false,
             offer_id: None,
             link: None,
+            awaiting: false,
         }
     }
 
@@ -1560,6 +1621,7 @@ impl Game {
             read: false,
             offer_id: None,
             link: None,
+            awaiting: false,
         }))
     }
 
@@ -1607,6 +1669,7 @@ impl Game {
             read: false,
             offer_id: None,
             link: None,
+            awaiting: false,
         })
     }
 
@@ -1894,7 +1957,19 @@ fn load_selection(world: &World, club_id: i32) -> Result<Option<Selection>> {
         }
     }
     let positions = if custom == 11 { positions } else { Vec::new() };
-    Ok(Some(Selection { formation, starters, bench, instructions, auto, positions, runs }))
+    let takers = world.conn.query_row(
+        "SELECT penalty_taker, free_kick_taker, corner_taker, playmaker FROM selection WHERE club_id = ?",
+        [club_id],
+        |r| Ok(Takers { penalty: r.get(0)?, free_kick: r.get(1)?, corner: r.get(2)?, playmaker: r.get(3)? }),
+    )?;
+    let orders = world
+        .conn
+        .prepare("SELECT person_id, orders FROM player_orders WHERE club_id = ? ORDER BY person_id")?
+        .query_map([club_id], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, String>(1)?)))?
+        .filter_map(|r| r.ok())
+        .filter_map(|(person_id, json)| serde_json::from_str(&json).ok().map(|orders| PlayerOrder { person_id, orders }))
+        .collect();
+    Ok(Some(Selection { formation, starters, bench, instructions, auto, positions, runs, takers, orders }))
 }
 
 /// Save do formato 3 → 4: colunas x/y e os titulares reordenados para a ordem do CM
@@ -1987,6 +2062,7 @@ fn welcome_news(world: &World, club: &ClubRef, manager: &str, date: &str) -> Res
         read: false,
         offer_id: None,
         link: None,
+        awaiting: false,
     })
 }
 
@@ -2206,7 +2282,12 @@ mod tests {
         sel.starters = pool.iter().map(|&id| Some(id)).collect();
         sel.bench.retain(|id| !pool.contains(id));
         sel.instructions.mentality = Mentality::Attacking;
+        // Batedores e instruções individuais também ficam gravados
+        sel.takers = Takers { penalty: Some(pool[10]), free_kick: None, corner: Some(pool[9]), playmaker: Some(pool[8]) };
+        let orders = crate::tactics::PlayerOrders { long_shots: true, tackling: Some(Tackling::Hard), ..Default::default() };
+        sel.orders = vec![PlayerOrder { person_id: pool[10], orders }];
         let weak = g.set_selection(sel.clone()).unwrap();
+        assert_eq!(weak.orders, sel.orders);
         assert!(!weak.auto);
         let (a, w) = (TeamStrength::from_tactics(&auto), TeamStrength::from_tactics(&weak));
         assert!(w.attack + w.midfield + w.defence < 0.9 * (a.attack + a.midfield + a.defence), "{w:?} vs {a:?}");
@@ -2598,7 +2679,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

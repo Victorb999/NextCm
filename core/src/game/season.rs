@@ -624,6 +624,9 @@ impl Game {
         if kind == SeasonKind::Calendar {
             self.world.start_year = season; // as idades nas telas contam a partir daqui
         }
+        if kind == SeasonKind::Calendar {
+            self.carry_apps_bonus()?;
+        }
         for st in self.squads.states.values_mut() {
             if kind == SeasonKind::Calendar {
                 st.apps = 0;

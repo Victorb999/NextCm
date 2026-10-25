@@ -15,6 +15,8 @@ export function Row({
   bind,
   onToggle,
   onOpen,
+  onOrders,
+  ordered,
 }: {
   p: TacticPlayer
   kind: 'starter' | 'bench' | 'reserve'
@@ -24,6 +26,10 @@ export function Row({
   onToggle?: () => void
   /** Duplo clique (abre o perfil). */
   onOpen?: () => void
+  /** Botão direito: instruções individuais. */
+  onOrders?: () => void
+  /** Tem instruções individuais diferentes das da equipa. */
+  ordered?: boolean
 }) {
   const text = kind === 'bench' ? 'text-[#8a5ad8]' : kind === 'reserve' ? 'text-[#8a8a8a]' : 'text-white'
   const toggle =
@@ -33,7 +39,18 @@ export function Row({
       onToggle()
     })
   return (
-    <div {...bind} onDoubleClick={onOpen} className="flex h-[19px] cursor-grab items-center gap-2 px-1 text-[13.5px]">
+    <div
+      {...bind}
+      onDoubleClick={onOpen}
+      onContextMenu={
+        onOrders &&
+        ((e) => {
+          e.preventDefault()
+          onOrders()
+        })
+      }
+      className="flex h-[19px] cursor-grab items-center gap-2 px-1 text-[13.5px]"
+    >
       {/* Número e casa: clicar põe/tira da equipa */}
       <span
         onMouseDown={(e) => onToggle && e.stopPropagation()}
@@ -54,6 +71,11 @@ export function Row({
         {place}
       </span>
       <span className={`flex-1 truncate ${text}`}>{fullName(p.listName)}</span>
+      {ordered && (
+        <span className="shrink-0 text-[11px] font-bold text-cm-magenta" title="Instruções individuais">
+          I
+        </span>
+      )}
       {(p.injured || p.suspended) && (
         <span className="shrink-0 bg-[#9c0000] px-1 text-[11px] font-bold text-white">{p.injured ? 'Les' : 'Sus'}</span>
       )}

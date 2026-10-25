@@ -5,9 +5,10 @@ import type { ClubTactics } from '../bindings/ClubTactics'
 import type { Selection } from '../bindings/Selection'
 import type { TacticPlayer } from '../bindings/TacticPlayer'
 import InstructionsDialog from '../components/InstructionsDialog'
+import PlayerOrdersDialog from '../components/PlayerOrdersDialog'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import { Pitch, Row } from '../components/TacticsBoard'
-import { TACTICS_MENU, moveOnPitch, shortRole, surname, useRunArrow } from '../tactics'
+import { TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 import { BENCH, selectionOf, swap, useDragSwap, type Spot } from '../selection'
@@ -24,6 +25,8 @@ export default function TacticsPage({ id }: { id: number }) {
   const [club, setClub] = useState<ClubProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [instructions, setInstructions] = useState(false)
+  // Jogador com o diálogo das instruções individuais aberto
+  const [ordersFor, setOrdersFor] = useState<TacticPlayer | null>(null)
   // A escolha ao abrir a tela, para o Cancelar
   const original = useRef<Selection | null>(null)
   const changed = useRef(false)
@@ -161,6 +164,8 @@ export default function TacticsPage({ id }: { id: number }) {
                     bind={drag.bind(spot, label(s.player, s.role))}
                     onToggle={toggler(s.player)}
                     onOpen={() => nav.go({ kind: 'person', id: s.player!.id })}
+                    onOrders={editable ? () => setOrdersFor(s.player!) : undefined}
+                    ordered={t.orders.some((o) => o.personId === s.player!.id)}
                   />
                 ) : (
                   <div key={`s${i}`} {...drag.bind(spot, s.role)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
@@ -226,7 +231,8 @@ export default function TacticsPage({ id }: { id: number }) {
             </div>
             {editable && (
               <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
-                Arraste para trocar ou para um lugar vazio · botão direito e arrastar faz a seta (atacar/recuar) · clique no número para pôr/tirar
+                Arraste para trocar ou para um lugar vazio · botão direito e arrastar faz a seta (atacar/recuar) · clique no número para pôr/tirar ·
+                botão direito num jogador da lista: instruções individuais
               </div>
             )}
           </div>
@@ -237,10 +243,23 @@ export default function TacticsPage({ id }: { id: number }) {
       {instructions && t && (
         <InstructionsDialog
           initial={t.instructions}
+          takers={t.takers}
+          players={t.starters.flatMap((s) => (s.player ? [{ id: s.player.id, name: fullName(s.player.listName) }] : []))}
           onCancel={() => setInstructions(false)}
-          onOk={(i) => {
+          onOk={(i, takers) => {
             setInstructions(false)
-            void apply({ ...selectionOf(t), instructions: i })
+            void apply({ ...selectionOf(t), instructions: i, takers })
+          }}
+        />
+      )}
+      {ordersFor && t && (
+        <PlayerOrdersDialog
+          title={`${ordersFor.squadNumber ?? ''} ${fullName(ordersFor.listName)}`}
+          initial={ordersOf(t, ordersFor.id)}
+          onCancel={() => setOrdersFor(null)}
+          onOk={(o) => {
+            setOrdersFor(null)
+            void apply(withOrders(selectionOf(t), ordersFor.id, o))
           }}
         />
       )}

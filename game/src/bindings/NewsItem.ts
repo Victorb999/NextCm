@@ -2,7 +2,9 @@
 
 export type NewsItem = { id: number, date: string, 
 /**
- * "message" (mensagens), "competition", "injury"
+ * "message" (mensagens), "competition", "injury", "transfer" (transferências do dia) e as
+ * mensagens por assunto: "deal" (negócios), "contract" e "press" (Contratos e Imprensa),
+ * "jobs" (Empregos).
  */
 kind: string, title: string, body: string, read: boolean, 
 /**
@@ -12,4 +14,8 @@ offerId: number | null,
 /**
  * Tela que a mensagem abre ("squadNumbers").
  */
-link: string | null, };
+link: string | null, 
+/**
+ * A proposta ligada espera uma resposta do treinador (calculado ao listar).
+ */
+awaiting: boolean, };

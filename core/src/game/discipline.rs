@@ -161,7 +161,7 @@ impl Game {
             .execute("INSERT INTO player_log (person_id, kind, date) VALUES (?, 'discipline', ?)", params![person, self.date])?;
         let fined = if fine > 0 { format!(" A multa de {} entra nas contas do clube.", money_text(fine)) } else { String::new() };
         let body = format!("{label} a {name} ({}).{fined}\n\n{reaction}", REASONS.iter().find(|r| r.0 == reason).map_or("", |r| r.1));
-        self.post_news(format!("{name} castigado"), body, None);
+        self.post_news_as("press", format!("{name} castigado"), body);
         self.unsaved = true;
         Ok(reaction)
     }
@@ -196,7 +196,7 @@ impl Game {
         };
         self.change_morale(person, delta);
         self.world.conn.execute("INSERT INTO player_log (person_id, kind, date) VALUES (?, ?, ?)", params![person, kind, self.date])?;
-        self.post_news(title, reaction.clone(), None);
+        self.post_news_as("press", title, reaction.clone());
         self.unsaved = true;
         Ok(reaction)
     }

@@ -4,6 +4,6 @@ import type { Passing } from "./Passing";
 import type { Tackling } from "./Tackling";
 
 /**
- * Instruções à Equipa. Os batedores de bolas paradas e o organizador chegam no 3.4.
+ * Instruções à Equipa. Os batedores de bolas paradas e o organizador ficam em [`Takers`].
  */
 export type Instructions = { mentality: Mentality, passing: Passing, tackling: Tackling, pressing: boolean, offsideTrap: boolean, counterAttack: boolean, tightMarking: boolean, };

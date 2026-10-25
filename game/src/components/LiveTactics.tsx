@@ -3,11 +3,13 @@ import { api } from '../api'
 import type { ClubTactics } from '../bindings/ClubTactics'
 import type { LiveView } from '../bindings/LiveView'
 import type { Selection } from '../bindings/Selection'
+import type { TacticPlayer } from '../bindings/TacticPlayer'
 import { selectionOf, swap, useDragSwap, type Spot } from '../selection'
 import InstructionsDialog from './InstructionsDialog'
+import PlayerOrdersDialog from './PlayerOrdersDialog'
 import { BottomBar, PurpleMenu, Tabs, TitleBand } from './Screen'
 import { Pitch, Row } from './TacticsBoard'
-import { TACTICS_MENU, moveOnPitch, shortRole, surname, useRunArrow } from '../tactics'
+import { TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
 
 /**
  * "Tácticas <clube>" a meio do jogo: a mesma tela de Tácticas (arrastar na lista ou no
@@ -29,6 +31,7 @@ export default function LiveTactics({
   const [t, setT] = useState<ClubTactics | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [instructions, setInstructions] = useState(false)
+  const [ordersFor, setOrdersFor] = useState<TacticPlayer | null>(null)
   const [busy, setBusy] = useState(false)
   // Como estava ao abrir: quem estava em campo (para contar as substituições) e a escolha
   const [original, setOriginal] = useState<{ on: number[]; sel: Selection } | null>(null)
@@ -151,7 +154,15 @@ export default function LiveTactics({
               {t.starters.map((s, i) => {
                 const spot: Spot = { kind: 'starter', index: i }
                 return s.player ? (
-                  <Row key={`s${i}`} p={s.player} kind="starter" place={shortRole(s.role)} bind={drag.bind(spot, label(s))} />
+                  <Row
+                    key={`s${i}`}
+                    p={s.player}
+                    kind="starter"
+                    place={shortRole(s.role)}
+                    bind={drag.bind(spot, label(s))}
+                    onOrders={editable ? () => setOrdersFor(s.player!) : undefined}
+                    ordered={t.orders.some((o) => o.personId === s.player!.id)}
+                  />
                 ) : (
                   <div key={`s${i}`} {...drag.bind(spot, s.role)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
                     <span className="w-7 shrink-0" />
@@ -218,10 +229,23 @@ export default function LiveTactics({
       {instructions && t && (
         <InstructionsDialog
           initial={t.instructions}
+          takers={t.takers}
+          players={t.starters.flatMap((s) => (s.player ? [{ id: s.player.id, name: fullName(s.player.listName) }] : []))}
           onCancel={() => setInstructions(false)}
-          onOk={(i) => {
+          onOk={(i, takers) => {
             setInstructions(false)
-            void preview({ ...selectionOf(t), instructions: i })
+            void preview({ ...selectionOf(t), instructions: i, takers })
+          }}
+        />
+      )}
+      {ordersFor && t && (
+        <PlayerOrdersDialog
+          title={`${ordersFor.squadNumber ?? ''} ${fullName(ordersFor.listName)}`}
+          initial={ordersOf(t, ordersFor.id)}
+          onCancel={() => setOrdersFor(null)}
+          onOk={(o) => {
+            setOrdersFor(null)
+            void preview(withOrders(selectionOf(t), ordersFor.id, o))
           }}
         />
       )}

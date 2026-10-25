@@ -192,7 +192,7 @@ impl Game {
                 let why: Vec<&str> = new.iter().map(|k| reason_text(k)).collect();
                 fresh.push(self.news_item(
                     *next_id,
-                    "message",
+                    "press",
                     format!("{name} insatisfeito"),
                     format!("{name} está insatisfeito: {}.", why.join("; ").to_lowercase()),
                 ));
@@ -244,7 +244,7 @@ impl Game {
             let name = self.person_name(p.id)?;
             let mut n = self.news_item(
                 *next_id,
-                "message",
+                "deal",
                 format!("{name} pede para sair"),
                 format!(
                     "{name} pede para ser posto na lista de transferências ({}). Responda até {}.",

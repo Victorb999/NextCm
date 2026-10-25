@@ -648,7 +648,7 @@ Pedido do utilizador ao testar: a contratação está "instantânea" demais.
 - **Outras propostas** (pedido do utilizador): um livre ou um jogador em fim de contrato pode ter a proposta de outro clube gerido de reputação parecida (±2000), com probabilidade de 0% (CA 90) a 60% (CA 138+) e um salário de 95% a 125% do que pede; aí demora 2 a 5 dias a responder ("tem outras propostas e vai pensar"). Escolhe pelo contrato todo, com cada 1000 de reputação a valer 8% (mais para os ambiciosos); se escolher o outro clube, um livre assina já por ele e um jogador em fim de contrato deixa de falar connosco até ao fim do contrato ("X escolhe o Y").
 
 
-#### Correções e ajustes do teste de 24/10 (em curso, antes de seguir o 3.12)
+#### Correções e ajustes do teste de 24/10 (feito)
 
 Pedidos do utilizador a jogar com o Manchester United. Referência: `docs/prints/correcoes/`.
 
@@ -685,7 +685,16 @@ Pedidos do utilizador a jogar com o Manchester United. Referência: `docs/prints
 - Propor Contrato só aparece quando o core diz que dá (`PersonProfile.canContract`).
 - Orçamento: clubes de reputação 8000+ têm sempre pelo menos 30% das receitas de uma época para transferências, 6000+ 15%.
 
-**Falta:** fluxo de transferências mais lento, negociação de transferências e empréstimos mais rica, notícias interativas e as instruções das tácticas.
+**Feito (2.ª leva):**
+- **Respostas com tempo**: os clubes respondem às propostas e aos pedidos de empréstimo em 1 a 4 dias (o "Pedir Mais" em 1 a 3), fixos por jogador e dia; a mensagem e a aba Transferência dizem o dia da resposta.
+- **Proposta de transferência como no CM** (`negotiation.rs`, `SAVE_VERSION` 24): valor, prestações mensais (12, 24 ou 36 meses), percentagem da próxima venda (até 50%) e um valor depois de 10 jogos. Para quem vende, cada ano de prestações tira 6% ao valor, a percentagem vale metade dessa parte do valor do jogador e o valor por jogos 70%. No orçamento da direção conta só o que se paga nos primeiros 12 meses (e o valor por jogos). As prestações ficam em `payments` e pagam-se mês a mês; a percentagem (`sell_on`) paga-se quando o jogador volta a ser vendido; o valor por jogos (`apps_bonus`) quando chega aos 10 jogos (passa de época para época).
+- **Negociação em rondas**: o clube aceita se a proposta valer o que pede (3,5% menos a cada ronda, até 10%), faz uma contraproposta com as condições dele se não estiver longe (por um jovem, metade das vezes pede 10–20% da próxima venda) e à terceira proposta falhada farta-se e não negoceia durante 30 dias. Na contraproposta: Aceitar Condições, Nova Proposta (o diálogo volta com as condições do clube) ou Desistir.
+- **Empréstimos com condições**: duração (fim da época, 6 meses ou 1 ano), parte do salário paga (0–100%; o clube dono paga o resto à segunda-feira), taxa mensal e opção de compra. Os 14 melhores do plantel não saem; os de fora dos 18 melhores (jovens, ou fora dos 22) saem com metade do salário pago; os outros só com o salário todo e 1% do valor por mês; a opção tem de chegar a 90% do que o clube pede. "Exercer Opção de Compra" na aba Transferência abre o negócio pelo valor da opção (falta o contrato com o jogador) e há uma mensagem um mês antes do fim do empréstimo.
+- **Propostas da IA mais variadas**: às vezes em prestações (pagando 5% mais) ou com valor por jogos; os pedidos de empréstimo com parte do salário, taxa mensal ou opção de compra.
+- **Notícias por assunto**: as abas Contratos e Imprensa, Transferências e Empregos funcionam (`news.kind` "deal", "contract", "press", "jobs"); as mensagens à espera de resposta mostram "Responder" na lista; as das propostas têm o botão para ver o jogador.
+- **Tácticas**: no diálogo Instruções à Equipa, os batedores de penáltis, livres e cantos e o organizador (ou "Adjunto escolhe"); botão direito num titular da lista abre as instruções individuais do CM (passe, desarme, pressão, passar para, bolas paradas, acção livre, movimentos, correr com bola, segurar bola, remates de longe, passes de costas, cruzamentos, marcação), também a meio do jogo. No motor: mudam quem remata e quem assiste, os cartões (desarme e marcação H-H) e o cansaço (pressão e movimentos); o organizador assiste mais. Parte dos golos passa a ser de penálti ou livre directo (marcados pelo batedor) e parte das assistências de canto (do marcador de cantos), sem gastar o RNG da partida: o resultado e as médias não mudam. "Passar para" e as bolas paradas a defender ficam guardados mas ainda não mexem no motor.
+
+**Fica para depois:** a "Troca" (jogador incluído no negócio) e o valor depois de 10 internacionalizações no diálogo da proposta; as mesmas condições nas propostas da IA entre clubes da IA.
 
 #### Marco 3.10 — Olheiros e conhecimento
 

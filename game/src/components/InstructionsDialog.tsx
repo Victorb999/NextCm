@@ -4,6 +4,7 @@ import type { Instructions } from '../bindings/Instructions'
 import type { Mentality } from '../bindings/Mentality'
 import type { Passing } from '../bindings/Passing'
 import type { Tackling } from '../bindings/Tackling'
+import type { Takers } from '../bindings/Takers'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
 
 const MENTALITY: [Mentality, string][] = [
@@ -34,14 +35,20 @@ function Option({ selected, onClick, children }: { selected: boolean; onClick: (
 /** "Instruções à Equipa", o diálogo verde da tela de Tácticas do CM. */
 export default function InstructionsDialog({
   initial,
+  takers: initialTakers,
+  players,
   onCancel,
   onOk,
 }: {
   initial: Instructions
+  takers: Takers
+  /** Os titulares, para escolher os batedores e o organizador. */
+  players: { id: number; name: string }[]
   onCancel: () => void
-  onOk: (i: Instructions) => void
+  onOk: (i: Instructions, takers: Takers) => void
 }) {
   const [i, setI] = useState(initial)
+  const [k, setK] = useState(initialTakers)
   const set = (patch: Partial<Instructions>) => setI((old) => ({ ...old, ...patch }))
 
   useEffect(() => {
@@ -50,7 +57,7 @@ export default function InstructionsDialog({
         e.stopImmediatePropagation()
         onCancel()
       }
-      if (e.key === 'Enter') onOk(i)
+      if (e.key === 'Enter') onOk(i, k)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -69,7 +76,7 @@ export default function InstructionsDialog({
 
   return (
     <Overlay>
-      <DialogFrame title="Instruções à Equipa" width={620} onCancel={onCancel} onOk={() => onOk(i)}>
+      <DialogFrame title="Instruções à Equipa" width={620} onCancel={onCancel} onOk={() => onOk(i, k)}>
         <div className="space-y-1 py-1">
           <DialogRow label="Mentalidade">
             {MENTALITY.map(([k, label]) => (
@@ -96,6 +103,29 @@ export default function InstructionsDialog({
           {yesNo('Defesa em Linha', 'offsideTrap')}
           {yesNo('Contra-Ataque', 'counterAttack')}
           {yesNo('Defesa Intensa', 'tightMarking')}
+          {(
+            [
+              ['penalty', 'Penáltis'],
+              ['freeKick', 'Livres'],
+              ['corner', 'Cantos'],
+              ['playmaker', 'Organizador'],
+            ] as [keyof Takers, string][]
+          ).map(([key, label]) => (
+            <DialogRow key={key} label={label}>
+              <select
+                value={k[key] ?? ''}
+                onChange={(e) => setK((old) => ({ ...old, [key]: e.target.value ? Number(e.target.value) : null }))}
+                className="cm-field min-w-56"
+              >
+                <option value="">Adjunto escolhe</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </DialogRow>
+          ))}
           <div className="pt-1 text-[12px] text-[#bfe6c4]">Durante um jogo, as instruções mudam-se no botão Equipa da tela da partida.</div>
         </div>
       </DialogFrame>

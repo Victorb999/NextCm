@@ -21,7 +21,9 @@ use crate::league::Fixture;
 use crate::person::ClubRef;
 use crate::personality;
 use crate::squad::Side;
-use crate::tactics::{Availability, ClubTactics, Instructions, Selection, SquadState, Tackling, TacticPlayer, fit_for_role};
+use crate::tactics::{
+    Availability, ClubTactics, Instructions, PlayerOrders, Selection, SquadState, Tackling, TacticPlayer, fit_for_role, orders_of,
+};
 use crate::{Error, Result, World, date};
 
 /// Substituições por jogo (regra actual do Brasileirão).
@@ -375,6 +377,23 @@ impl Team {
             x -= w;
         }
         cands.last().map(|c| c.0)
+    }
+
+    /// As instruções individuais de um jogador do jogo.
+    fn orders(&self, i: usize) -> PlayerOrders {
+        orders_of(&self.tactics.orders, self.players[i].info.id)
+    }
+
+    /// Quem bate (penáltis, livres, cantos): o escolhido nas Tácticas, se estiver em campo;
+    /// senão o adjunto escolhe o melhor jogador de campo para isso.
+    fn taker(&self, chosen: Option<i32>, attr: impl Fn(&Profile) -> f64) -> Option<usize> {
+        let on = self.on_pitch();
+        if let Some(i) = on.iter().copied().find(|&i| Some(self.players[i].info.id) == chosen) {
+            return Some(i);
+        }
+        on.into_iter()
+            .filter(|&i| self.players[i].slot.is_some_and(|s| sector(self.role(s)) != 0))
+            .max_by(|&a, &b| attr(&self.players[a].prof).total_cmp(&attr(&self.players[b].prof)).then(b.cmp(&a)))
     }
 
     /// Suplentes por usar.
@@ -743,6 +762,9 @@ impl LiveMatch {
             return;
         }
         let p_goal = (xg / shots90).min(0.6);
+        // Instruções individuais e o organizador (que remata menos e passa mais)
+        let orders = self.teams[side].tactics.orders.clone();
+        let playmaker = self.teams[side].tactics.takers.playmaker;
         let Some(shooter) = self.teams[side].pick(&mut self.rng, None, |role, p| {
             let w = match role.split(' ').next().unwrap_or("") {
                 "A" => 3.2,
@@ -753,7 +775,10 @@ impl LiveMatch {
                 "L" => 0.25,
                 _ => 0.0,
             };
+            let maker = if playmaker == Some(p.info.id) { 0.9 } else { 1.0 };
             w * (4.0 + p.prof.finishing + 0.5 * p.prof.long_shots + 0.3 * p.prof.heading)
+                * orders_of(&orders, p.info.id).shot_weight()
+                * maker
         }) else {
             return;
         };
@@ -777,6 +802,26 @@ impl LiveMatch {
             }
         };
         if roll < p_goal {
+            // Alguns golos são de bola parada (sem gastar o RNG da partida): o penálti e o
+            // livre directo são do batedor; o canto dá a assistência ao marcador de cantos
+            let club_id = self.teams[side].club.id;
+            let takers = self.teams[side].tactics.takers;
+            let set_piece = match variant(14, m, club_id) {
+                0 => self.teams[side].taker(takers.penalty, |p| p.finishing + p.nerve).map(|t| (t, true)),
+                1 => self.teams[side].taker(takers.free_kick, |p| p.long_shots + p.finishing).map(|t| (t, false)),
+                _ => None,
+            };
+            let (shooter, name, id, action) = match set_piece {
+                Some((t, penalty)) => {
+                    let t_name = self.name(side, t);
+                    let players = &mut self.teams[side].players;
+                    players[shooter].stats.shots -= 1;
+                    players[t].stats.shots += 1;
+                    let action = if penalty { format!("{t_name} bate o penálti") } else { format!("{t_name} bate o livre directo") };
+                    (t, t_name, players[t].info.id, action)
+                }
+                None => (shooter, name, id, action),
+            };
             self.score[side] += 1;
             self.goals.push((side, m, id));
             let t = &mut self.teams[side];
@@ -796,10 +841,17 @@ impl LiveMatch {
                         "L" => 0.5,
                         _ => 0.1,
                     };
-                    w * (4.0 + p.prof.passing + p.prof.vision)
+                    let maker = if playmaker == Some(p.info.id) { 1.5 } else { 1.0 };
+                    w * (4.0 + p.prof.passing + p.prof.vision) * orders_of(&orders, p.info.id).assist_weight() * maker
                 })
             } else {
                 None
+            };
+            let corner = assist.is_some() && set_piece.is_none() && variant(6, m, club_id + 1) == 0;
+            let assist = match (set_piece, corner) {
+                (Some(_), _) => None,
+                (None, true) => self.teams[side].taker(takers.corner, |p| p.passing + p.vision).filter(|&c| c != shooter).or(assist),
+                _ => assist,
             };
             if let Some(a) = assist {
                 self.teams[side].players[a].assists += 1;
@@ -822,8 +874,21 @@ impl LiveMatch {
                 _ => format!("GOLO do {club}! {name} atira para o fundo da baliza! ({score})"),
             };
             let mut text = outcome.clone();
-            let buildup = match assist {
-                Some(a) => {
+            let buildup = match (set_piece, assist) {
+                (Some((_, true)), _) => {
+                    text += " De penálti.";
+                    format!("Penálti para o {club}!")
+                }
+                (Some(_), _) => {
+                    text += " De livre directo.";
+                    format!("Livre perigoso para o {club} à entrada da área")
+                }
+                (None, Some(a)) if corner => {
+                    let p = self.name(side, a);
+                    text += &format!(" Canto de {p}.");
+                    format!("{p} bate o canto para a área")
+                }
+                (None, Some(a)) => {
                     let p = self.name(side, a);
                     text += &format!(" Assistência de {p}.");
                     match variant(4, m, id + 2) {
@@ -833,7 +898,7 @@ impl LiveMatch {
                         _ => format!("{p} lançou {name} em velocidade"),
                     }
                 }
-                None => match variant(3, m, id + 2) {
+                (None, None) => match variant(3, m, id + 2) {
                     0 => format!("{name} aproveitou a sobra"),
                     1 => format!("{name} ganhou a bola no meio-campo e avançou"),
                     _ => format!("{name} fugiu à marcação"),
@@ -910,7 +975,11 @@ impl LiveMatch {
         if uniform(&mut self.rng) < FOULS_PER_90 * tackle.sqrt() / 90.0 {
             self.teams[side].stats.fouls += 1;
         }
-        let booking = |role: &str, p: &MatchPlayer| p.prof.temper * if sector(role) == 0 { 0.3 } else { 1.0 };
+        let orders = self.teams[side].tactics.orders.clone();
+        let team_tackling = self.teams[side].tactics.instructions.tackling;
+        let booking = |role: &str, p: &MatchPlayer| {
+            p.prof.temper * if sector(role) == 0 { 0.3 } else { 1.0 } * orders_of(&orders, p.info.id).booking_weight(team_tackling)
+        };
         if uniform(&mut self.rng) < YELLOWS_PER_90 * tackle * temper / 90.0
             && let Some(i) = self.teams[side].pick(&mut self.rng, None, booking)
         {
@@ -1019,10 +1088,12 @@ impl LiveMatch {
 
     /// Cansaço: 20% (Resistência 20) a 28% (1) num jogo inteiro, mais 3% com Pressão.
     fn tire(&mut self, side: usize) {
-        let pressing = if self.teams[side].tactics.instructions.pressing { 3.0 } else { 0.0 };
+        let team_pressing = self.teams[side].tactics.instructions.pressing;
+        let pressing = if team_pressing { 3.0 } else { 0.0 };
         for i in self.teams[side].on_pitch() {
+            let extra = self.teams[side].orders(i).extra_drain(team_pressing);
             let p = &mut self.teams[side].players[i];
-            let drain = 28.0 - (p.prof.stamina - 1.0) * 8.0 / 19.0 + pressing;
+            let drain = 28.0 - (p.prof.stamina - 1.0) * 8.0 / 19.0 + pressing + extra;
             p.condition = (p.condition - drain / 90.0).max(0.0);
         }
     }
@@ -1187,6 +1258,8 @@ impl LiveMatch {
             auto: false,
             positions: if t.tactics.custom { t.tactics.starters.iter().map(|s| [s.x, s.y]).collect() } else { Vec::new() },
             runs: t.tactics.starters.iter().map(|s| s.run).collect(),
+            takers: t.tactics.takers,
+            orders: t.tactics.orders.clone(),
         }
     }
 

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import type { DealTerms } from '../bindings/DealTerms'
+import type { LoanTerms } from '../bindings/LoanTerms'
 import { currency, money, moneyStep } from '../format'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
 
@@ -93,6 +95,148 @@ export function FeeDialog({
           <MoneyField value={fee} onChange={setFee} />
         </DialogRow>
         {note && <div className="pt-2 text-[15px] text-white">{note}</div>}
+        {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
+      </DialogFrame>
+    </Overlay>
+  )
+}
+
+/** − valor + a percorrer uma lista de opções (prestações, percentagens, durações). */
+function Choice<T>({ value, options, onChange }: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
+  const i = Math.max(
+    0,
+    options.findIndex((o) => o[0] === value),
+  )
+  return (
+    <div className="flex items-center gap-1">
+      <button className="cm-purple h-7 w-8" disabled={i === 0} onClick={() => onChange(options[i - 1][0])}>
+        −
+      </button>
+      <span className="w-36 text-center text-[17px] text-cm-yellow">{options[i][1]}</span>
+      <button className="cm-purple h-7 w-8" disabled={i === options.length - 1} onClick={() => onChange(options[i + 1][0])}>
+        +
+      </button>
+    </div>
+  )
+}
+
+const INSTALMENTS: [number, string][] = [
+  [0, '-'],
+  [12, '12 meses'],
+  [24, '24 meses'],
+  [36, '36 meses'],
+]
+const SELL_ON: [number, string][] = Array.from({ length: 11 }, (_, i) => [i * 5, i ? `${i * 5}%` : '-'])
+const LOAN_LENGTH: [number, string][] = [
+  [0, 'Fim da época'],
+  [6, '6 meses'],
+  [12, '1 ano'],
+]
+const WAGE_SHARE: [number, string][] = [0, 25, 50, 75, 100].map((v) => [v, `${v}%`])
+
+/** "Proposta de transferência" do CM: valor, prestações mensais, percentagem da próxima
+ *  venda e um valor depois de 10 jogos. */
+export function TransferOfferDialog({
+  name,
+  club,
+  value,
+  budgetText,
+  initial,
+  error,
+  onCancel,
+  onOk,
+}: {
+  name: string
+  club: string
+  value: number
+  budgetText: string
+  initial: DealTerms
+  error?: string | null
+  onCancel: () => void
+  onOk: (t: DealTerms) => void
+}) {
+  const [t, setT] = useState(initial)
+  const set = (p: Partial<DealTerms>) => setT((old) => ({ ...old, ...p }))
+  useDialogKeys(onCancel, () => onOk(t))
+  return (
+    <Overlay>
+      <DialogFrame
+        title={`Proposta por ${name}`}
+        width={680}
+        onCancel={onCancel}
+        onOk={() => onOk(t)}
+        cancelLabel="Atrás"
+        okLabel="Oferecer"
+      >
+        <div className="pb-2 text-[17px] leading-tight text-white">
+          {name}, {club}, está avaliado em {money(value)}.
+          <br />
+          {budgetText}
+        </div>
+        <DialogRow wide label="Valor Transferência">
+          <MoneyField value={t.fee} onChange={(fee) => set({ fee })} />
+        </DialogRow>
+        <DialogRow wide label="Prestações Mensais">
+          <Choice value={t.months} options={INSTALMENTS} onChange={(months) => set({ months })} />
+        </DialogRow>
+        <DialogRow wide label="Percentagem da Próxima Venda">
+          <Choice value={t.sellOn} options={SELL_ON} onChange={(sellOn) => set({ sellOn })} />
+        </DialogRow>
+        <DialogRow wide label="Valor após 10 jogos">
+          <MoneyField value={t.appsBonus} onChange={(appsBonus) => set({ appsBonus })} />
+        </DialogRow>
+        <DialogRow wide label="Valor Total">
+          <span className="text-[17px] font-bold text-cm-yellow">{money(t.fee + t.appsBonus)}</span>
+        </DialogRow>
+        <div className="pt-2 text-[15px] text-white">O {club} responde dentro de alguns dias.</div>
+        {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
+      </DialogFrame>
+    </Overlay>
+  )
+}
+
+/** Pedido de empréstimo: duração, parte do salário, taxa mensal e opção de compra. */
+export function LoanDialog({
+  name,
+  club,
+  wage,
+  initial,
+  error,
+  onCancel,
+  onOk,
+}: {
+  name: string
+  club: string
+  wage: string
+  initial: LoanTerms
+  error?: string | null
+  onCancel: () => void
+  onOk: (t: LoanTerms) => void
+}) {
+  const [t, setT] = useState(initial)
+  const set = (p: Partial<LoanTerms>) => setT((old) => ({ ...old, ...p }))
+  useDialogKeys(onCancel, () => onOk(t))
+  return (
+    <Overlay>
+      <DialogFrame title={`Empréstimo de ${name}`} width={680} onCancel={onCancel} onOk={() => onOk(t)} cancelLabel="Atrás" okLabel="Pedir">
+        <div className="pb-2 text-[17px] leading-tight text-white">
+          {name}, {club}, ganha {wage}.
+        </div>
+        <DialogRow wide label="Duração">
+          <Choice value={t.months} options={LOAN_LENGTH} onChange={(months) => set({ months })} />
+        </DialogRow>
+        <DialogRow wide label="Salário Pago">
+          <Choice value={t.wageShare} options={WAGE_SHARE} onChange={(wageShare) => set({ wageShare })} />
+        </DialogRow>
+        <DialogRow wide label="Taxa Mensal">
+          <MoneyField value={t.monthlyFee} onChange={(monthlyFee) => set({ monthlyFee })} />
+        </DialogRow>
+        <DialogRow wide label="Opção de Compra">
+          <MoneyField value={t.optionFee} onChange={(optionFee) => set({ optionFee })} />
+        </DialogRow>
+        <div className="pt-2 text-[15px] text-white">
+          Sem opção de compra, deixe o valor a zero. O {club} responde dentro de alguns dias.
+        </div>
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
       </DialogFrame>
     </Overlay>
