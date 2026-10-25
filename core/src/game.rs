@@ -91,7 +91,15 @@ pub use staff_reports::ReportStaff;
 /// 24: condições das propostas (`offers.months`... `option_fee`), empréstimos com parte do
 /// salário e opção de compra (`loans`), pagamentos a prazo (`payments`), cláusulas (`sell_on`,
 /// `apps_bonus`), batedores e organizador (`selection`) e instruções individuais (`player_orders`).
-pub const SAVE_VERSION: i32 = 24;
+/// 25: mais condições nas propostas (`offers.apps_needed`, `public`, `exchange`).
+pub const SAVE_VERSION: i32 = 25;
+
+/// Jogos do valor extra, proposta pública e troca (save 25).
+const TERMS2_SCHEMA: &str = "
+ALTER TABLE offers ADD COLUMN apps_needed INTEGER NOT NULL DEFAULT 10;
+ALTER TABLE offers ADD COLUMN public INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE offers ADD COLUMN exchange INTEGER;
+";
 
 /// Condições dos negócios e instruções individuais (save 24).
 const TERMS_SCHEMA: &str = "
@@ -543,6 +551,7 @@ impl Game {
             tx.execute_batch(JOBS_SCHEMA)?;
             tx.execute_batch(SHORTLIST_SCHEMA)?;
             tx.execute_batch(TERMS_SCHEMA)?;
+            tx.execute_batch(TERMS2_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -613,6 +622,8 @@ impl Game {
             game.complete_squads()?;
             numbers::fix_squad_numbers(&game.world, &[game.club_id], game.seed, None)?;
             game.refresh_live()?;
+            // Antes da época começar, como no CM: rever os números do plantel
+            game.numbers_news(&mut fresh, &mut next_id)?;
             for kind in [SeasonKind::Calendar, SeasonKind::European] {
                 if let Some(n) = game.season_news(next_id, kind) {
                     fresh.push(n);
@@ -623,6 +634,7 @@ impl Game {
                 game.news.insert(0, n);
             }
             game.board_setup()?;
+            game.youth_to_reserves()?;
             game.save()?;
             Ok(game)
         })();
@@ -786,6 +798,11 @@ impl Game {
             world.conn.execute_batch(TERMS_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 24", [])?;
             version = 24;
+        }
+        if version == 24 {
+            world.conn.execute_batch(TERMS2_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 25", [])?;
+            version = 25;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -2182,10 +2199,11 @@ mod tests {
         assert_eq!(info.date, "2025-07-01");
         assert_eq!(info.manager_name, "Victor Araujo");
         assert_eq!(info.club.short_name, "Palmeiras");
-        // Boas-vindas e calendário da época de transição
-        assert_eq!(info.unread_news, 2);
+        // Boas-vindas, calendário da época de transição e os números do plantel
+        assert_eq!(info.unread_news, 3);
         assert_eq!(g.news()[0].title, "Calendário 2025");
-        assert!(g.news()[1].body.contains("Victor Araujo"));
+        assert_eq!(g.news()[1].title, "Números do plantel");
+        assert!(g.news()[2].body.contains("Victor Araujo"));
 
         // O treinador está no plantel técnico e o Abel Ferreira saiu
         let club = g.world().get_club(palmeiras).unwrap();

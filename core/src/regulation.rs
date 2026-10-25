@@ -290,6 +290,52 @@ const FILES: [&str; 39] = [
     include_str!("../regulations/europa_league.json"),
 ];
 
+/// Uma faixa da classificação, como as linhas do CM: as vagas noutra competição (pela
+/// classificação final), a subida e a descida. A descida conta a partir do fim.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Zone {
+    pub from: usize,
+    pub to: usize,
+    /// "continental" (a primeira competição com vagas), "continental2", "continental3",
+    /// "promotion", "relegation".
+    pub kind: &'static str,
+    /// A competição para onde vão (vagas, subida ou descida).
+    pub competition: Option<i32>,
+    pub from_bottom: bool,
+}
+
+/// As faixas da classificação final de `competition`, tiradas dos regulamentos.
+pub fn zones(competition: i32) -> Vec<Zone> {
+    let mut slots: Vec<(usize, usize, i32)> = Vec::new();
+    for r in all() {
+        for stage in &r.stages {
+            for l in stage.entrants.leagues.iter().chain(&stage.entrants.league) {
+                if l.competition == competition && l.count > 0 && !slots.iter().any(|s| s.2 == r.competition) {
+                    slots.push((l.from, l.from + l.count - 1, r.competition));
+                }
+            }
+        }
+    }
+    slots.sort();
+    const KINDS: [&str; 3] = ["continental", "continental2", "continental3"];
+    let mut zones: Vec<Zone> = slots
+        .iter()
+        .enumerate()
+        .map(|(i, &(from, to, comp))| Zone { from, to, kind: KINDS[i.min(2)], competition: Some(comp), from_bottom: false })
+        .collect();
+    if let Some(reg) = all().iter().find(|r| r.competition == competition) {
+        if let Some(top) = reg.promotion.as_ref().and_then(|m| m.pick.top) {
+            let to = reg.promotion.as_ref().map(|m| m.to);
+            zones.push(Zone { from: 1, to: top, kind: "promotion", competition: to, from_bottom: false });
+        }
+        if let Some(bottom) = reg.relegation.as_ref().and_then(|m| m.pick.bottom) {
+            let to = reg.relegation.as_ref().map(|m| m.to);
+            zones.push(Zone { from: 1, to: bottom, kind: "relegation", competition: to, from_bottom: true });
+        }
+    }
+    zones
+}
+
 /// Todos os regulamentos, pela ordem de sorteio.
 pub fn all() -> &'static [Regulation] {
     static ALL: OnceLock<Vec<Regulation>> = OnceLock::new();

@@ -122,10 +122,43 @@ function Choice<T>({ value, options, onChange }: { value: T; options: [T, string
 
 const INSTALMENTS: [number, string][] = [
   [0, '-'],
+  [6, '6 meses'],
   [12, '12 meses'],
   [24, '24 meses'],
   [36, '36 meses'],
 ]
+const GAMES: [number, string][] = [10, 20, 30, 40, 50].map((n) => [n, `${n} jogos`])
+// Os valores da lista amarela do CM
+const PRESETS = [0, 100_000, 500_000, 1_000_000, 5_000_000, 15_000_000, 30_000_000, 50_000_000, 75_000_000, 100_000_000, 125_000_000, 150_000_000]
+
+/** O "▾" do CM: escolher o valor numa lista amarela. */
+function Presets({ onPick }: { onPick: (eur: number) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative">
+      <button className="cm-purple h-7 w-6" onClick={() => setOpen((o) => !o)}>
+        ▾
+      </button>
+      {open && (
+        <div className="absolute left-0 top-7 z-10 min-w-28 border border-[#7a5a08] bg-[#e7b51f] text-[14px] text-[#1c1400]">
+          {PRESETS.map((v) => (
+            <div
+              key={v}
+              className="cursor-pointer px-2 hover:bg-[#ffe680]"
+              onClick={() => {
+                onPick(v)
+                setOpen(false)
+              }}
+            >
+              {money(v) === '-' ? `${currency().symbol}0` : money(v)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const SELL_ON: [number, string][] = Array.from({ length: 11 }, (_, i) => [i * 5, i ? `${i * 5}%` : '-'])
 const LOAN_LENGTH: [number, string][] = [
   [0, 'Fim da época'],
@@ -137,36 +170,45 @@ const WAGE_SHARE: [number, string][] = [0, 25, 50, 75, 100].map((v) => [v, `${v}
 /** "Proposta de transferência" do CM: valor, prestações mensais, percentagem da próxima
  *  venda e um valor depois de 10 jogos. */
 export function TransferOfferDialog({
+  title,
   name,
   club,
   value,
   budgetText,
   initial,
+  squad,
+  okLabel = 'Oferecer',
   error,
   onCancel,
   onOk,
 }: {
+  title?: string
   name: string
   club: string
   value: number
   budgetText: string
   initial: DealTerms
+  /** Jogadores do plantel que podem ir na troca; sem lista, não há troca nem proposta pública ("Pedir Mais"). */
+  squad?: { id: number; name: string }[]
+  okLabel?: string
   error?: string | null
   onCancel: () => void
   onOk: (t: DealTerms) => void
 }) {
   const [t, setT] = useState(initial)
   const set = (p: Partial<DealTerms>) => setT((old) => ({ ...old, ...p }))
+  const [picking, setPicking] = useState(false)
   useDialogKeys(onCancel, () => onOk(t))
+  const exchange = squad?.find((p) => p.id === t.exchange)
   return (
     <Overlay>
       <DialogFrame
-        title={`Proposta por ${name}`}
-        width={680}
+        title={title ?? `Proposta por ${name}`}
+        width={720}
         onCancel={onCancel}
         onOk={() => onOk(t)}
         cancelLabel="Atrás"
-        okLabel="Oferecer"
+        okLabel={okLabel}
       >
         <div className="pb-2 text-[17px] leading-tight text-white">
           {name}, {club}, está avaliado em {money(value)}.
@@ -175,6 +217,10 @@ export function TransferOfferDialog({
         </div>
         <DialogRow wide label="Valor Transferência">
           <MoneyField value={t.fee} onChange={(fee) => set({ fee })} />
+          <Presets onPick={(fee) => set({ fee })} />
+          <button className="cm-purple h-7 w-8" title="O valor do jogador" onClick={() => set({ fee: value })}>
+            =
+          </button>
         </DialogRow>
         <DialogRow wide label="Prestações Mensais">
           <Choice value={t.months} options={INSTALMENTS} onChange={(months) => set({ months })} />
@@ -182,9 +228,50 @@ export function TransferOfferDialog({
         <DialogRow wide label="Percentagem da Próxima Venda">
           <Choice value={t.sellOn} options={SELL_ON} onChange={(sellOn) => set({ sellOn })} />
         </DialogRow>
-        <DialogRow wide label="Valor após 10 jogos">
+        <DialogRow wide label="Valor após jogos">
           <MoneyField value={t.appsBonus} onChange={(appsBonus) => set({ appsBonus })} />
+          <Presets onPick={(appsBonus) => set({ appsBonus })} />
+          <Choice value={t.appsNeeded || 10} options={GAMES} onChange={(appsNeeded) => set({ appsNeeded })} />
         </DialogRow>
+        {squad && (
+          <>
+            <DialogRow wide label="Tornar proposta pública">
+              <Choice
+                value={t.public}
+                options={[
+                  [false, 'Não'],
+                  [true, 'Sim'],
+                ]}
+                onChange={(p) => set({ public: p })}
+              />
+            </DialogRow>
+            <DialogRow wide label="Troca">
+              <span className="min-w-40 text-[17px] text-cm-yellow">{exchange?.name ?? '-'}</span>
+              <button className="cm-purple h-7 w-28" onClick={() => setPicking((v) => !v)}>
+                Troca
+              </button>
+              <button className="cm-purple h-7 w-28" disabled={!exchange} onClick={() => set({ exchange: null })}>
+                Remover
+              </button>
+            </DialogRow>
+            {picking && (
+              <div className="ml-72 max-h-40 overflow-auto border border-[#7a5a08] bg-[#e7b51f] text-[14px] text-[#1c1400]">
+                {squad.map((p) => (
+                  <div
+                    key={p.id}
+                    className="cursor-pointer px-2 hover:bg-[#ffe680]"
+                    onClick={() => {
+                      set({ exchange: p.id })
+                      setPicking(false)
+                    }}
+                  >
+                    {p.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
         <DialogRow wide label="Valor Total">
           <span className="text-[17px] font-bold text-cm-yellow">{money(t.fee + t.appsBonus)}</span>
         </DialogRow>

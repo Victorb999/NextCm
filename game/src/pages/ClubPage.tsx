@@ -308,9 +308,43 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
   const colours = club?.club.fg && club?.club.bg ? { fg: club.club.fg, bg: club.club.bg } : { fg: '#ffffff', bg: '#3a3a3a' }
   const division = club?.division
 
+  // Lugar de treinador vago: "Concorrer ao Lugar", como no CM
+  const [vacancy, setVacancy] = useState<{ club: number; text: string | null } | null>(null)
+  const nationId = club?.nationId ?? null
+  const ownClub = club?.club.id === game.info?.club.id
+  useEffect(() => {
+    if (game.mode !== 'game' || ownClub || nationId === null) return
+    api.jobsView(nationId).then(
+      (j) => {
+        const row = j.rows.find((r) => r.club.id === id)
+        setVacancy(row?.vacant && !row.applied ? { club: id, text: null } : null)
+      },
+      () => setVacancy(null),
+    )
+  }, [game.mode, ownClub, nationId, id])
+  const apply = async () => {
+    try {
+      const text = await api.applyJob(id)
+      setVacancy({ club: id, text })
+    } catch (e) {
+      setVacancy({ club: id, text: String(e) })
+    }
+  }
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <TitleBand title={club ? (view === 'reserves' ? `Reservas ${club.club.name}` : club.club.name) : ''} fg={colours.fg} bg={colours.bg} />
+      {vacancy?.club === id && (
+        <div className="absolute right-3 top-2.5 z-20 flex flex-col items-end gap-1">
+          {vacancy.text === null ? (
+            <button className="h-6 border border-black bg-[#ffd21f] px-3 text-[13px] font-bold text-black" onClick={() => void apply()}>
+              Concorrer ao Lugar
+            </button>
+          ) : (
+            <span className="bg-black/80 px-2 text-[13px] text-cm-yellow">{vacancy.text}</span>
+          )}
+        </div>
+      )}
       <Tabs
         tabs={TABS.map((t) =>
           t.key === 'next' || t.key === 'fixtures' ? { ...t, disabled: fixtures.length === 0 } : t.key === 'transfers' ? { ...t, disabled: game.mode !== 'game' } : t,

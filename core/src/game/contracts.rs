@@ -382,13 +382,20 @@ impl Game {
                 self.execute_move(o.person, deal.seller, Some(self.club_id), deal.fee, t.wage, t.years, move_kind, kind)?;
                 if let Some(seller) = deal.seller {
                     self.settle_terms(o.person, self.club_id, seller, &deal.deal_terms())?;
+                    // O jogador da troca vai para o outro clube com o contrato que tem
+                    if let Some(x) = deal.exchange
+                        && let Some(xf) = self.facts(x)?.filter(|xf| xf.club == Some(self.club_id))
+                    {
+                        let years = super::market::contract_years(xf.age, &mut self.deal_rng(x, 0x7E0C));
+                        self.execute_move(x, Some(self.club_id), Some(seller), 0, xf.wage, years, "transfer", kind)?;
+                    }
                 }
                 // Um emprestado comprado (opção de compra) deixa de ser emprestado
                 self.world.conn.execute("DELETE FROM loans WHERE person_id = ?", [o.person])?;
                 self.set_status(deal.id, "done", None)?;
                 self.set_status(o.id, "done", None)?;
                 let how = match deal.seller {
-                    Some(s) => format!("do {} por {}", self.club(s).short_name, deal.deal_terms().text()),
+                    Some(s) => format!("do {} por {}", self.club(s).short_name, self.terms_text(&deal.deal_terms())?),
                     None => "a custo zero".into(),
                 };
                 self.post_news(

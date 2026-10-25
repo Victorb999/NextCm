@@ -316,6 +316,11 @@ impl Session {
         Ok(r)
     }
 
+    /// "Pedir Mais" com condições numa proposta recebida.
+    pub fn ask_terms(&mut self, id: i32, terms: DealTerms) -> Result<OfferView> {
+        self.game_mut()?.ask_terms(id, &terms)
+    }
+
     /// Exercer a opção de compra de um emprestado.
     pub fn exercise_option(&mut self, id: i32) -> Result<TransferView> {
         self.game_mut()?.exercise_option(id)

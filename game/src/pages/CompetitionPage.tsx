@@ -6,6 +6,7 @@ import type { CompetitionProfile } from '../bindings/CompetitionProfile'
 import type { Fixture } from '../bindings/Fixture'
 import type { StageView } from '../bindings/StageView'
 import type { StandingRow } from '../bindings/StandingRow'
+import type { TableZone } from '../bindings/TableZone'
 import type { TieView } from '../bindings/TieView'
 import { FixtureRows, RoundGames } from '../components/Fixtures'
 import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
@@ -69,6 +70,20 @@ function History({ c }: { c: CompetitionProfile }) {
 }
 
 const COLS = ['J', 'V', 'E', 'D', 'M', 'S', 'P']
+// As cores das faixas da classificação (vagas, subida, descida), como as linhas do CM
+const ZONE_COLOURS: Record<string, string> = {
+  continental: '#1f9d3a',
+  continental2: '#2f6fd6',
+  continental3: '#16a3a3',
+  promotion: '#1f9d3a',
+  relegation: '#c02020',
+}
+
+/** A faixa do lugar `pos` (1 = primeiro) numa tabela de `n` clubes. */
+function zoneAt(zones: TableZone[], pos: number, n: number) {
+  return zones.find((z) => (z.fromBottom ? pos >= n - z.to + 1 && pos <= n - z.from + 1 : pos >= z.from && pos <= z.to))
+}
+
 const values = (r: StandingRow) => [r.played, r.won, r.drawn, r.lost, r.goalsFor, r.goalsAgainst, r.points]
 
 /** Classificação: a real quando a competição está viva no jogo; senão, a de pré-temporada
@@ -98,7 +113,12 @@ function Table({ c, rows, own, title = 'Classificação Geral' }: { c: Competiti
         <tbody>
           {shown.map((row, i) => (
             <tr key={row.club.id} className="h-[23px]">
-              <td className="border border-cm-tabline bg-black/60 text-center text-white">{i + 1}º</td>
+              <td
+                className="border border-cm-tabline bg-black/60 text-center text-white"
+                style={rows.length ? { borderLeft: `6px solid ${ZONE_COLOURS[zoneAt(c.zones, i + 1, shown.length)?.kind ?? ''] ?? 'transparent'}` } : undefined}
+              >
+                {i + 1}º
+              </td>
               <td className="px-3">
                 <Link
                   onClick={() => nav.go({ kind: 'club', id: row.club.id })}
@@ -119,6 +139,16 @@ function Table({ c, rows, own, title = 'Classificação Geral' }: { c: Competiti
           ))}
         </tbody>
       </table>
+      {rows.length > 0 && c.zones.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-x-5 pt-2 text-[13px] text-white">
+          {c.zones.map((z) => (
+            <span key={z.kind} className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3" style={{ background: ZONE_COLOURS[z.kind] }} />
+              {z.label}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

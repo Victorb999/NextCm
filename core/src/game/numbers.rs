@@ -284,7 +284,8 @@ impl Game {
         Ok(ids)
     }
 
-    /// Época nova na liga do treinador: a mensagem para rever os números.
+    /// Antes da época (no início do jogo, num clube novo e em cada época nova na liga do
+    /// treinador): a mensagem para rever os números.
     pub(super) fn numbers_news(&self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let missing = squad_rows(&self.world, self.club_id)?.iter().filter(|r| r.1.is_none()).count();
         let extra = if missing > 0 { format!(" {missing} jogadores ainda não têm número.") } else { String::new() };
@@ -292,7 +293,7 @@ impl Game {
             *next_id,
             "message",
             "Números do plantel".into(),
-            format!("Defina os números de camisola do plantel para a nova época.{extra}"),
+            format!("Antes de a época começar, defina os números de camisola do plantel.{extra}"),
         );
         n.link = Some("squadNumbers".into());
         fresh.push(n);

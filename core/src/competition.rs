@@ -64,6 +64,22 @@ pub struct CompetitionProfile {
     /// Clubes que têm esta competição como divisão ou estadual.
     pub clubs: Vec<ClubListItem>,
     pub history: Vec<HistoryEntry>,
+    /// As faixas da classificação (vagas, subida, descida), como as linhas do CM.
+    pub zones: Vec<TableZone>,
+}
+
+/// Uma faixa da classificação final, com o nome da competição para a legenda.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct TableZone {
+    pub from: i32,
+    pub to: i32,
+    /// "continental", "continental2", "continental3", "promotion", "relegation".
+    pub kind: String,
+    pub label: String,
+    /// Conta a partir do último lugar.
+    pub from_bottom: bool,
 }
 
 impl World {
@@ -169,6 +185,7 @@ impl World {
                     reputation: r.get(7)?,
                     clubs: Vec::new(),
                     history: Vec::new(),
+                    zones: Vec::new(),
                 })
             })
             .optional()?;
@@ -177,6 +194,24 @@ impl World {
         };
 
         comp.clubs = self.club_list("c.is_national_team = 0 AND ?1 IN (c.division_id, c.reserve_division_id)", id)?;
+        for z in crate::regulation::zones(id) {
+            let target = z.competition.map(|c| {
+                crate::regulation::all()
+                    .iter()
+                    .find(|r| r.competition == c)
+                    .and_then(|r| r.name.clone())
+                    .or_else(|| self.conn.query_row("SELECT name FROM competitions WHERE id = ?", [c], |r| r.get::<_, String>(0)).ok())
+            });
+            let label = match (z.kind, target.flatten()) {
+                ("promotion", Some(n)) => format!("Subida: {n}"),
+                ("promotion", None) => "Subida".into(),
+                ("relegation", Some(n)) => format!("Descida: {n}"),
+                ("relegation", None) => "Descida".into(),
+                (_, Some(n)) => n,
+                _ => String::new(),
+            };
+            comp.zones.push(TableZone { from: z.from as i32, to: z.to as i32, kind: z.kind.into(), label, from_bottom: z.from_bottom });
+        }
 
         let rows: Vec<(Option<i32>, Option<i32>, Option<i32>, Option<i32>)> = self
             .conn

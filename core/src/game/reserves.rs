@@ -8,6 +8,11 @@ use crate::{Error, Result};
 
 /// Jogadores que a equipa principal mantém, no mínimo.
 const MIN_FIRST_TEAM: usize = 16;
+/// Ao chegar a um clube, os jovens (até esta idade) de reputação baixa que não estão entre os
+/// melhores do plantel começam nas reservas, como no CM; os juniores novos também.
+const YOUTH_AGE: i32 = 19;
+const YOUTH_REP: i32 = 50;
+const FIRST_TEAM_CORE: usize = 22;
 /// Moral que perde quem desce (o dobro se for dos 11 melhores) e que ganha quem sobe.
 const DEMOTED_MORALE: i32 = 2;
 const PROMOTED_MORALE: i32 = 1;
@@ -24,6 +29,23 @@ impl Game {
             )?
             .query_map([self.club_id], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// Os jovens de reputação baixa fora dos [`FIRST_TEAM_CORE`] melhores vão para as reservas.
+    pub(super) fn youth_to_reserves(&mut self) -> Result<()> {
+        let squad = self.own_squad()?;
+        for &id in squad.iter().skip(FIRST_TEAM_CORE) {
+            let (birth, birth_year, rep): (Option<String>, Option<i32>, i32) = self.world.conn.query_row(
+                "SELECT p.birth_date, p.birth_year, COALESCE(pl.current_reputation, 0) FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )?;
+            if super::age_on(birth.as_deref(), birth_year, &self.date) <= YOUTH_AGE && rep < YOUTH_REP {
+                self.squads.states.entry(id).or_default().reserve = true;
+            }
+        }
+        self.unsaved = true;
+        Ok(())
     }
 
     /// Despromove (`reserve = true`) ou promove um jogador; devolve a frase para a tela.
@@ -98,6 +120,10 @@ mod tests {
         // Não deixa o plantel principal com menos de 16
         let mut refused = false;
         for &id in squad.iter().rev() {
+            // Os jovens começam já nas reservas
+            if g.squads.state(id).reserve {
+                continue;
+            }
             if g.set_reserve(id, true).is_err() {
                 refused = true;
                 break;

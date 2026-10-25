@@ -13,6 +13,18 @@ months: number,
  */
 sellOn: number, 
 /**
- * Valor pago depois de 10 jogos pelo clube.
+ * Valor pago depois de `apps_needed` jogos pelo clube.
  */
-appsBonus: number, };
+appsBonus: number, 
+/**
+ * 10, 20, 30, 40 ou 50 jogos (0 = 10).
+ */
+appsNeeded: number, 
+/**
+ * "Tornar proposta pública".
+ */
+public: boolean, 
+/**
+ * Um jogador do plantel do treinador que vai na troca.
+ */
+exchange: number | null, };

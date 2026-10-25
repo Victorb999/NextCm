@@ -133,6 +133,8 @@ export const api = {
   askLoan: (id: number, terms: LoanTerms) => call<TransferView>('ask_loan', { id, terms }),
   /** Exercer a opção de compra de um emprestado. */
   exerciseOption: (id: number) => call<TransferView>('exercise_option', { id }),
+  /** "Pedir Mais" com condições numa proposta recebida. */
+  askTerms: (id: number, terms: DealTerms) => call<OfferView>('ask_terms', { id, terms }),
   /** Funções no clube e o que o jogador pede pela função escolhida (sem ela, pela que espera). */
   contractTerms: (id: number, role: string | null) => call<ContractTerms>('contract_terms', { id, role }),
   /** Proposta de contrato: renovação ou contratação depois de o clube aceitar. */

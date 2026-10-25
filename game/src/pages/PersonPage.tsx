@@ -6,6 +6,8 @@ import { DialogFrame, Overlay } from '../components/Dialog'
 import DisciplineDialog from '../components/DisciplineDialog'
 import ReportDialog from '../components/ReportDialog'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
+import type { TransferView } from '../bindings/TransferView'
+import TransferActions, { type TransferAction } from '../components/TransferActions'
 import TransferTab from '../components/TransferTab'
 import { cmDate, money, wage } from '../format'
 import { useGame } from '../game'
@@ -305,11 +307,23 @@ export default function PersonPage({ id }: { id: number }) {
   const [report, setReport] = useState<'medical' | 'fitness' | null>(null)
   const [discipline, setDiscipline] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  // A situação de mercado do jogador (para o menu Acção) e o diálogo aberto
+  const [market, setMarket] = useState<TransferView | null>(null)
+  const [deal, setDeal] = useState<TransferAction | null>(null)
+  const [version, setVersion] = useState(0)
 
-  const reload = () => api.getPerson(id).then(setPerson, (e) => setError(String(e)))
+  const reload = () => {
+    setVersion((v) => v + 1)
+    return api.getPerson(id).then(setPerson, (e) => setError(String(e)))
+  }
   useEffect(() => {
     api.getPerson(id).then(setPerson, (e) => setError(String(e)))
   }, [id])
+  const playing = game.mode === 'game' && !!person?.player
+  const date = game.info?.date
+  useEffect(() => {
+    if (playing) api.transferView(id).then(setMarket, () => setMarket(null))
+  }, [id, playing, version, date])
 
   // Esc / Backspace voltam para a tela anterior
   useEffect(() => {
@@ -346,8 +360,17 @@ export default function PersonPage({ id }: { id: number }) {
   // plantel, disciplina, imprensa e relatórios do staff. Quem pode assinar decide o core.
   const mine = !!person && person.club?.id === game.info?.club.id
   const canScout = game.mode === 'game' && !!person?.player && !mine && !person.reportOn
+  const m = market
   const actions = mine
     ? [
+        ...(m?.canRenew ? [{ key: 'renew', label: 'Oferecer Novo Contrato' }] : []),
+        m?.transferListed
+          ? { key: 'unlist', label: 'Retirar da Lista de Transferências' }
+          : { key: 'list', label: 'Colocar na Lista de Transferências' },
+        m?.loanListed
+          ? { key: 'unloanlist', label: 'Retirar da Lista de Empréstimos' }
+          : { key: 'loanlist', label: 'Colocar na Lista de Empréstimos' },
+        ...(m?.transferListed ? [{ key: 'price', label: 'Definir Preço Pedido' }] : []),
         person?.status?.reserve
           ? { key: 'promote', label: 'Promover ao Plantel Principal' }
           : { key: 'demote', label: 'Despromover para Reservas' },
@@ -358,6 +381,9 @@ export default function PersonPage({ id }: { id: number }) {
         { key: 'fitness', label: 'Pedir Relatório Preparador Físico' },
       ]
     : [
+        ...(m?.canOffer && !m.free ? [{ key: 'offer', label: 'Abordar Para Comprar' }] : []),
+        ...(m?.canLoan ? [{ key: 'loan', label: 'Propôr Empréstimo' }] : []),
+        ...(m?.canOption ? [{ key: 'option', label: 'Exercer Opção de Compra' }] : []),
         ...(person?.canContract ? [{ key: 'contract', label: 'Propor Contrato' }] : []),
         person?.shortlisted
           ? { key: 'unshortlist', label: 'Retirar da Lista Preferencial' }
@@ -387,6 +413,19 @@ export default function PersonPage({ id }: { id: number }) {
     }
   }
 
+  // Uma acção de mercado do menu: mostra a aba Transferência com o resultado
+  const marketAction = async (f: () => Promise<TransferView>) => {
+    try {
+      setMarket(await f())
+      setError(null)
+      setTab('transfer')
+      refreshInfo()
+      await reload()
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
   const scout = async () => {
     setConfirm(false)
     try {
@@ -408,7 +447,18 @@ export default function PersonPage({ id }: { id: number }) {
             align="right"
             options={actions}
             onChange={(k) => {
-              if (k === 'contract') nav.go({ kind: 'contract', id })
+              if (k === 'contract' || k === 'renew') nav.go({ kind: 'contract', id })
+              else if (k === 'offer' || k === 'loan' || k === 'price') setDeal(k)
+              else if (k === 'option') void marketAction(() => api.exerciseOption(id))
+              else if (k === 'list' || k === 'unlist' || k === 'loanlist' || k === 'unloanlist')
+                void marketAction(() =>
+                  api.setListing(
+                    id,
+                    k === 'list' ? true : k === 'unlist' ? false : !!m?.transferListed,
+                    k === 'loanlist' ? true : k === 'unloanlist' ? false : !!m?.loanListed,
+                    m?.asking ?? null,
+                  ),
+                )
               else if (k === 'shortlist' || k === 'unshortlist')
                 void api.setShortlist(id, k === 'shortlist').then(() => {
                   setNotice(k === 'shortlist' ? 'Adicionado à Lista Preferencial.' : 'Retirado da Lista Preferencial.')
@@ -441,9 +491,23 @@ export default function PersonPage({ id }: { id: number }) {
         {person && tab === 'contract' && <Contract p={person} />}
         {person && tab === 'injuries' && <Injuries p={person} />}
         {person && tab === 'history' && <History p={person} />}
-        {person && tab === 'transfer' && <TransferTab personId={id} name={person.name} onChanged={() => void reload()} />}
+        {person && tab === 'transfer' && <TransferTab personId={id} version={version} onChanged={() => void reload()} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+      {deal && market && person && (
+        <TransferActions
+          action={deal}
+          view={market}
+          name={person.name}
+          onClose={() => setDeal(null)}
+          onDone={(v) => {
+            setDeal(null)
+            setMarket(v)
+            setTab('transfer')
+            void reload()
+          }}
+        />
+      )}
       {discipline && person && (
         <DisciplineDialog
           personId={id}

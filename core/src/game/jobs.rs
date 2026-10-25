@@ -273,6 +273,11 @@ impl Game {
         self.selection = None;
         self.board_setup()?;
         self.refresh_live()?;
+        self.youth_to_reserves()?;
+        let next_id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+        let (mut fresh, mut id) = (Vec::new(), next_id);
+        self.numbers_news(&mut fresh, &mut id)?;
+        self.news.splice(0..0, fresh);
         let name = self.club(club).name;
         self.post_news_as(
             "jobs",

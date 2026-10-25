@@ -37,4 +37,8 @@ optionFee: number, canOption: boolean, note: string | null,
 /**
  * Sem conhecimento do jogador, a direção limita a proposta: a frase do CM.
  */
-budgetNote: string | null, };
+budgetNote: string | null, 
+/**
+ * As linhas da aba como no CM: disponibilidade, propostas, interessados e o futuro.
+ */
+availability: string, offers: Array<string>, interested: Array<ClubRef>, future: string | null, };

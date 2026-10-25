@@ -775,18 +775,28 @@ impl Game {
                     position,
                     contract_until: format!("{}-12-31", year + 2),
                 };
-                if let Some((_, name)) = self.create_player(&mut factory, &p, &mut rng)?
+                if let Some((id, name)) = self.create_player(&mut factory, &p, &mut rng)?
                     && club == self.club_id
                 {
-                    ours.push(format!("{name} ({})", position.1));
+                    ours.push((id, format!("{name} ({})", position.1)));
                 }
             }
         }
+        self.refresh_live()?;
         if !ours.is_empty() {
-            let body = format!("Chegaram aos juniores do clube: {}.\n\nTêm 16 anos e contrato de três anos.", join_names(&ours));
+            // Os juniores começam nas reservas
+            for (id, _) in &ours {
+                self.squads.states.entry(*id).or_default().reserve = true;
+            }
+            let names: Vec<String> = ours.into_iter().map(|o| o.1).collect();
+            let body = format!(
+                "Chegaram aos juniores do clube: {}.
+
+Têm 16 anos e contrato de três anos. Começam na equipa de reservas.",
+                join_names(&names)
+            );
             self.push_news(fresh, next_id, "message", "Novos juniores".into(), body);
         }
-        self.refresh_live()?;
         self.unsaved = true;
         Ok(())
     }

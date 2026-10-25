@@ -130,6 +130,10 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         }
         "exercise_option" => out(serde_json::to_value(session.exercise_option(id()?).map_err(e)?)),
         "lineup_check" => out(serde_json::to_value(session.lineup_check().map_err(e)?)),
+        "ask_terms" => {
+            let terms: DealTerms = serde_json::from_value(args["terms"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.ask_terms(id()?, terms).map_err(e)?))
+        }
         "contract_terms" => {
             let role = args["role"].as_str().map(str::to_string);
             out(serde_json::to_value(session.contract_terms(id()?, role).map_err(e)?))

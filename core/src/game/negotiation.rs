@@ -1,6 +1,6 @@
-//! Condições dos negócios (correções do teste de 24/10): a proposta de transferência como no
-//! diálogo do CM (valor, prestações mensais, percentagem da próxima venda e um valor depois de
-//! 10 jogos), o empréstimo com duração, parte do salário, taxa mensal e opção de compra, e as
+//! Condições dos negócios (correções dos testes de 24 e 25/10): a proposta de transferência
+//! como no diálogo do CM (valor, prestações mensais, percentagem da próxima venda, um valor
+//! depois de 10 a 50 jogos, proposta pública e um jogador do plantel na troca), o empréstimo com duração, parte do salário, taxa mensal e opção de compra, e as
 //! respostas dos clubes em rondas (contraproposta com condições, paciência que acaba). Os
 //! pagamentos a prazo ficam em `payments`, as cláusulas em `sell_on` e `apps_bonus`.
 
@@ -18,19 +18,23 @@ use crate::finance;
 use crate::{Error, Result, date};
 
 /// Prestações mensais possíveis (0 = tudo à cabeça).
-pub const INSTALMENT_MONTHS: [i32; 4] = [0, 12, 24, 36];
+pub const INSTALMENT_MONTHS: [i32; 5] = [0, 6, 12, 24, 36];
 /// Percentagem máxima da próxima venda.
 pub const MAX_SELL_ON: i32 = 50;
-/// Jogos pelo clube até pagar o valor extra.
-pub const APPS_FOR_BONUS: i32 = 10;
+/// Jogos pelo clube até pagar o valor extra (o treinador escolhe).
+pub const APPS_FOR_BONUS: [i32; 5] = [10, 20, 30, 40, 50];
 /// Durações de um empréstimo em meses (0 = até ao fim da época).
 pub const LOAN_MONTHS: [i32; 3] = [0, 6, 12];
 /// Quanto vale cada parte para quem vende: cada ano de prestações tira 6% ao valor, a
 /// percentagem da próxima venda vale metade dessa parte do valor do jogador e o valor por
-/// jogos vale 70% (pode não chegar a ser pago).
+/// jogos vale 70% depois de 10 jogos, menos 1% por cada jogo a mais (pode não chegar a ser pago).
 const INSTALMENT_DISCOUNT: f64 = 0.06;
 const SELL_ON_WORTH: f64 = 0.5;
-const APPS_BONUS_WORTH: f64 = 0.7;
+const APPS_BONUS_WORTH: f64 = 0.8;
+/// Um jogador na troca vale esta parte do valor dele; uma proposta pública por um ambicioso
+/// (de um clube maior) desestabiliza-o e o clube baixa o que pede.
+pub(super) const EXCHANGE_WORTH: f64 = 0.8;
+pub(super) const PUBLIC_DISCOUNT: f64 = 0.05;
 /// O clube que vende faz uma contraproposta se a oferta chegar a esta parte do que pede.
 const COUNTER_FROM: f64 = 0.6;
 /// Propostas pelo mesmo jogador antes de o clube se fartar, quanto o preço desce a cada ronda
@@ -62,9 +66,18 @@ pub struct DealTerms {
     pub months: i32,
     /// Percentagem da próxima venda (0–50).
     pub sell_on: i32,
-    /// Valor pago depois de 10 jogos pelo clube.
+    /// Valor pago depois de `apps_needed` jogos pelo clube.
     #[ts(type = "number")]
     pub apps_bonus: i64,
+    /// 10, 20, 30, 40 ou 50 jogos (0 = 10).
+    #[serde(default)]
+    pub apps_needed: i32,
+    /// "Tornar proposta pública".
+    #[serde(default)]
+    pub public: bool,
+    /// Um jogador do plantel do treinador que vai na troca.
+    #[serde(default)]
+    pub exchange: Option<i32>,
 }
 
 /// Condições de um pedido de empréstimo.
@@ -96,7 +109,10 @@ impl DealTerms {
             return Err(Error::Invalid("Indique o valor da proposta.".into()));
         }
         if !INSTALMENT_MONTHS.contains(&self.months) {
-            return Err(Error::Invalid("Prestações de 12, 24 ou 36 meses.".into()));
+            return Err(Error::Invalid("Prestações de 6, 12, 24 ou 36 meses.".into()));
+        }
+        if self.apps_needed != 0 && !APPS_FOR_BONUS.contains(&self.apps_needed) {
+            return Err(Error::Invalid("O valor por jogos é depois de 10, 20, 30, 40 ou 50 jogos.".into()));
         }
         if !(0..=MAX_SELL_ON).contains(&self.sell_on) {
             return Err(Error::Invalid(format!("A percentagem da próxima venda vai até {MAX_SELL_ON}%.")));
@@ -110,8 +126,17 @@ impl DealTerms {
     /// Quanto vale a proposta para quem vende um jogador de valor `value`.
     pub fn worth(&self, value: i64) -> f64 {
         self.fee as f64 * (1.0 - INSTALMENT_DISCOUNT * self.months as f64 / 12.0)
-            + self.apps_bonus as f64 * APPS_BONUS_WORTH
+            + self.apps_bonus as f64 * self.apps_worth()
             + value as f64 * self.sell_on as f64 / 100.0 * SELL_ON_WORTH
+    }
+
+    /// Jogos para o valor extra (0 conta como 10).
+    pub fn games(&self) -> i32 {
+        if self.apps_needed > 0 { self.apps_needed } else { APPS_FOR_BONUS[0] }
+    }
+
+    fn apps_worth(&self) -> f64 {
+        (APPS_BONUS_WORTH - 0.01 * self.games() as f64).max(0.3)
     }
 
     /// O que sai do orçamento da direção: a parte do valor paga nos primeiros 12 meses e o
@@ -134,7 +159,7 @@ impl DealTerms {
             parts.push(format!("{}% da próxima venda", self.sell_on));
         }
         if self.apps_bonus > 0 {
-            parts.push(format!("{} depois de {APPS_FOR_BONUS} jogos", money_text(self.apps_bonus)));
+            parts.push(format!("{} depois de {} jogos", money_text(self.apps_bonus), self.games()));
         }
         join(&parts)
     }
@@ -192,9 +217,10 @@ pub(super) enum SellerReply {
 /// O clube que vende responde a `t` (`rounds` = propostas anteriores pelo jogador): aceita se
 /// valer o que pede (um pouco menos a cada ronda), faz uma contraproposta se não estiver longe
 /// (às vezes, por um jovem, pede uma parte da próxima venda) e farta-se à terceira.
-pub(super) fn seller_reply(t: &DealTerms, asking: i64, value: i64, age: i32, rounds: i32, rng: &mut ChaCha8Rng) -> SellerReply {
+/// `extra`: o que vale o jogador da troca.
+pub(super) fn seller_reply(t: &DealTerms, asking: i64, value: i64, age: i32, rounds: i32, extra: f64, rng: &mut ChaCha8Rng) -> SellerReply {
     let target = asking as f64 * (1.0 - PATIENCE_STEP * rounds as f64).max(0.9);
-    let worth = t.worth(value);
+    let worth = t.worth(value) + extra;
     if worth >= target {
         return SellerReply::Accept;
     }
@@ -208,11 +234,47 @@ pub(super) fn seller_reply(t: &DealTerms, asking: i64, value: i64, age: i32, rou
     if age <= 23 && c.sell_on == 0 && uniform(rng) < 0.5 {
         c.sell_on = 10 + 5 * (rng.next_u32() % 3) as i32;
     }
-    let rest = target - c.apps_bonus as f64 * APPS_BONUS_WORTH - value as f64 * c.sell_on as f64 / 100.0 * SELL_ON_WORTH;
+    let rest = target - c.apps_bonus as f64 * c.apps_worth() - value as f64 * c.sell_on as f64 / 100.0 * SELL_ON_WORTH - extra;
     let fee = rest / (1.0 - INSTALMENT_DISCOUNT * c.months as f64 / 12.0);
     // Um pouco acima: arredondada, a contraproposta tem de valer o que o clube pede
     c.fee = finance::round_money(fee * 1.01).max(t.fee);
     SellerReply::Counter(c)
+}
+
+/// Um clube que compra paga até mais 30% do que valia a proposta dele quando o treinador pede mais.
+pub(super) const RAISE_UP_TO: f64 = 1.3;
+
+/// A resposta de um clube que propôs ao "Pedir Mais" do treinador.
+#[derive(Debug, PartialEq)]
+pub(super) enum BuyerReply {
+    Accept,
+    Counter(DealTerms),
+    Withdraw,
+}
+
+/// `offered`: quanto valia a proposta do clube; paga até [`RAISE_UP_TO`] disso e o que o
+/// orçamento deixa (`budget`, no que conta no primeiro ano). Senão responde a meio caminho,
+/// nas condições que o treinador pediu, e à terceira desiste.
+pub(super) fn buyer_reply(asked: &DealTerms, value: i64, offered: f64, budget: f64, rounds: i32) -> BuyerReply {
+    let max = offered * RAISE_UP_TO;
+    let worth = asked.worth(value);
+    if worth <= max && asked.budget_cost() as f64 <= budget {
+        return BuyerReply::Accept;
+    }
+    if rounds + 1 >= MAX_ROUNDS {
+        return BuyerReply::Withdraw;
+    }
+    let target = ((offered + worth) / 2.0).min(max);
+    let mut c = *asked;
+    let rest = target - c.apps_bonus as f64 * c.apps_worth() - value as f64 * c.sell_on as f64 / 100.0 * SELL_ON_WORTH;
+    c.fee = finance::round_money(rest / (1.0 - INSTALMENT_DISCOUNT * c.months as f64 / 12.0));
+    while c.fee > 0 && c.budget_cost() as f64 > budget {
+        c.fee = finance::round_money(c.fee as f64 * 0.9);
+    }
+    if c.fee <= 0 || c.worth(value) <= offered {
+        return BuyerReply::Withdraw;
+    }
+    BuyerReply::Counter(c)
 }
 
 /// A resposta de um clube a um pedido de empréstimo.
@@ -252,7 +314,15 @@ pub(super) fn loan_reply(t: &LoanTerms, rank: usize, age: i32, value: i64, askin
 
 impl Offer {
     pub(super) fn deal_terms(&self) -> DealTerms {
-        DealTerms { fee: self.fee, months: self.months, sell_on: self.sell_on, apps_bonus: self.apps_bonus }
+        DealTerms {
+            fee: self.fee,
+            months: self.months,
+            sell_on: self.sell_on,
+            apps_bonus: self.apps_bonus,
+            apps_needed: self.apps_needed,
+            public: self.public,
+            exchange: self.exchange,
+        }
     }
 
     pub(super) fn loan_terms(&self) -> LoanTerms {
@@ -273,8 +343,21 @@ impl Game {
     pub(super) fn set_terms(&self, id: i32, d: &DealTerms, l: &LoanTerms) -> Result<()> {
         self.world.conn.execute(
             "UPDATE offers SET fee = ?, months = ?, sell_on = ?, apps_bonus = ?, loan_months = ?, wage_share = ?, monthly_fee = ?,
-                    option_fee = ? WHERE id = ?",
-            params![d.fee, d.months, d.sell_on, d.apps_bonus, l.months, l.wage_share, l.monthly_fee, l.option_fee, id],
+                    option_fee = ?, apps_needed = ?, public = ?, exchange = ? WHERE id = ?",
+            params![
+                d.fee,
+                d.months,
+                d.sell_on,
+                d.apps_bonus,
+                l.months,
+                l.wage_share,
+                l.monthly_fee,
+                l.option_fee,
+                d.games(),
+                d.public,
+                d.exchange,
+                id
+            ],
         )?;
         Ok(())
     }
@@ -334,7 +417,7 @@ impl Game {
             let apps = self.squads.states.get(&person).map_or(0, |s| s.apps);
             self.world.conn.execute(
                 "INSERT OR REPLACE INTO apps_bonus (person_id, payer, payee, amount, apps_at, needed) VALUES (?, ?, ?, ?, ?, ?)",
-                params![person, buyer, seller, t.apps_bonus, apps, APPS_FOR_BONUS],
+                params![person, buyer, seller, t.apps_bonus, apps, t.games()],
             )?;
         }
         Ok(())
@@ -399,7 +482,7 @@ impl Game {
                 news.push((
                     format!("Valor por jogos de {name}"),
                     format!(
-                        "{name} chegou aos {APPS_FOR_BONUS} jogos: o clube {verb} {who} {}, como combinado na transferência.",
+                        "{name} cumpriu os jogos combinados: o clube {verb} {who} {}, como ficou na transferência.",
                         money_text(amount)
                     ),
                 ));
@@ -566,11 +649,11 @@ mod tests {
     fn the_seller_counters_then_gets_bored() {
         let mut rng = ChaCha8Rng::seed_from_u64(3);
         let low = DealTerms { fee: 7_000_000, ..Default::default() };
-        let SellerReply::Counter(c) = seller_reply(&low, 10_000_000, 10_000_000, 28, 0, &mut rng) else { panic!("contraproposta") };
+        let SellerReply::Counter(c) = seller_reply(&low, 10_000_000, 10_000_000, 28, 0, 0.0, &mut rng) else { panic!("contraproposta") };
         assert!(c.worth(10_000_000) >= 10_000_000.0, "a contraproposta vale o que pede: {c:?}");
-        assert_eq!(seller_reply(&c, 10_000_000, 10_000_000, 28, 1, &mut rng), SellerReply::Accept);
-        assert_eq!(seller_reply(&DealTerms { fee: 1_000_000, ..low }, 10_000_000, 10_000_000, 28, 0, &mut rng), SellerReply::Reject);
-        assert_eq!(seller_reply(&low, 10_000_000, 10_000_000, 28, 2, &mut rng), SellerReply::Bored);
+        assert_eq!(seller_reply(&c, 10_000_000, 10_000_000, 28, 1, 0.0, &mut rng), SellerReply::Accept);
+        assert_eq!(seller_reply(&DealTerms { fee: 1_000_000, ..low }, 10_000_000, 10_000_000, 28, 0, 0.0, &mut rng), SellerReply::Reject);
+        assert_eq!(seller_reply(&low, 10_000_000, 10_000_000, 28, 2, 0.0, &mut rng), SellerReply::Bored);
     }
 
     #[test]
@@ -598,7 +681,7 @@ mod tests {
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .unwrap();
-        let terms = DealTerms { fee: 12_000_000, months: 12, sell_on: 20, apps_bonus: 0 };
+        let terms = DealTerms { fee: 12_000_000, months: 12, sell_on: 20, ..Default::default() };
         let (mine, theirs) = (g.cash_of(7568).unwrap(), g.cash_of(seller).unwrap());
         let kind = g.kind_of(7568).unwrap();
         g.execute_move(person, Some(seller), Some(7568), terms.fee, 10_000, 3, "transfer", kind).unwrap();
@@ -613,6 +696,23 @@ mod tests {
         assert_eq!(g.cash_of(seller).unwrap(), theirs + 2_000_000 + 1_000_000);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_buyer_pays_a_bit_more_or_meets_halfway() {
+        let offer = DealTerms { fee: 10_000_000, ..Default::default() };
+        let offered = offer.worth(10_000_000);
+        let more = DealTerms { fee: 12_000_000, ..offer };
+        assert_eq!(buyer_reply(&more, 10_000_000, offered, 50_000_000.0, 0), BuyerReply::Accept);
+        let greedy = DealTerms { fee: 20_000_000, ..offer };
+        let BuyerReply::Counter(c) = buyer_reply(&greedy, 10_000_000, offered, 50_000_000.0, 0) else { panic!("meio caminho") };
+        assert!(c.fee > 10_000_000 && c.fee <= 13_000_000, "{c:?}");
+        assert_eq!(buyer_reply(&greedy, 10_000_000, offered, 50_000_000.0, 2), BuyerReply::Withdraw);
+        // Pedir uma percentagem também conta: 30% vale +15%, dentro do que o clube paga a mais
+        let sell_on = DealTerms { sell_on: 30, ..offer };
+        assert_eq!(buyer_reply(&sell_on, 10_000_000, offered, 50_000_000.0, 0), BuyerReply::Accept);
+        let both = DealTerms { fee: 12_000_000, sell_on: 30, ..offer };
+        assert!(matches!(buyer_reply(&both, 10_000_000, offered, 50_000_000.0, 0), BuyerReply::Counter(c) if c.sell_on == 30));
     }
 
     #[test]
