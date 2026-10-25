@@ -37,6 +37,7 @@ mod scouting;
 mod season;
 mod shortlist;
 mod staff_reports;
+mod start_loans;
 mod unhappy;
 use crate::league::{self, Fixture, Match, StandingRow};
 use crate::live::{LiveMatch, LiveView, Occasion, TeamStats};
@@ -619,6 +620,8 @@ impl Game {
             game.fill_missing_attributes()?;
             game.schedule_season(SeasonKind::Calendar, year, &mut fresh, &mut next_id)?;
             game.schedule_season(SeasonKind::European, year, &mut fresh, &mut next_id)?;
+            // Os empréstimos em curso de 2025/26 (o banco do CM não os tem)
+            game.start_loans()?;
             game.complete_squads()?;
             numbers::fix_squad_numbers(&game.world, &[game.club_id], game.seed, None)?;
             game.refresh_live()?;
