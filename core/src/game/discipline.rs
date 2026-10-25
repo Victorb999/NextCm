@@ -175,10 +175,20 @@ impl Game {
         if self.logged_since(person, &["praise", "criticise"], PRESS_DAYS)? {
             return Err(Error::Invalid("Já falou dele à imprensa há pouco tempo.".into()));
         }
+        let (title, reaction) = self.press_reaction(person, kind == "praise")?;
+        self.world.conn.execute("INSERT INTO player_log (person_id, kind, date) VALUES (?, ?, ?)", params![person, kind, self.date])?;
+        self.post_news_as("press", title, reaction.clone());
+        self.unsaved = true;
+        Ok(reaction)
+    }
+
+    /// O efeito de um elogio (ou de uma crítica) em público, pela personalidade: muda a moral
+    /// e devolve o título e a reação para a mensagem. Também nas conferências de imprensa.
+    pub(super) fn press_reaction(&mut self, person: i32, praise: bool) -> Result<(String, String)> {
         let name = self.person_name(person)?;
         let m = self.mind(person)?;
         let st = self.squads.state(person);
-        let (delta, title, reaction) = if kind == "praise" {
+        let (delta, title, reaction) = if praise {
             if st.morale >= 18 {
                 (0, format!("{name} elogiado"), format!("{name} agradeceu o elogio, mas já anda nas nuvens: arrisca-se a facilitar."))
             } else {
@@ -195,10 +205,7 @@ impl Game {
             (-2, format!("{name} criticado"), format!("{name} ficou abalado com as críticas do treinador."))
         };
         self.change_morale(person, delta);
-        self.world.conn.execute("INSERT INTO player_log (person_id, kind, date) VALUES (?, ?, ?)", params![person, kind, self.date])?;
-        self.post_news_as("press", title, reaction.clone());
-        self.unsaved = true;
-        Ok(reaction)
+        Ok((title, reaction))
     }
 }
 

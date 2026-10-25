@@ -877,6 +877,13 @@ Referência: `docs/prints/gestao/`.
 - **Mandar o adjunto**: o adjunto vai no lugar do treinador e responde de forma neutra (efeito perto de zero). Faltar sempre irrita um pouco a direção e a imprensa.
 - As frases da conferência viram notícia ("O treinador do X diz que…").
 
+**Feito (passo 4):** `core/src/game/press.rs`, `SAVE_VERSION` 26 (`press`), comandos `press_view`, `answer_press` e `skip_press`, tela `PressPage.tsx` (uma pergunta de cada vez, respostas em botões, "Mandar o Adjunto"). Regras escolhidas:
+- **Quando**: na véspera dos jogos importantes (contra um rival, numa eliminatória, os dois nos 4 primeiros da tabela ou o treinador nos 4 últimos) e depois de cada jogo do treinador. A mensagem ("Conferência antes do jogo com o X") traz o botão Ir à Conferência e aparece com "Responder" na lista. Prazo: o dia do jogo (antes) ou 2 dias (depois); passado o prazo, foi o adjunto.
+- **Perguntas** (3, gravadas ao abrir a conferência): antes, o adversário e a forma (vitórias nos últimos 5 jogos); depois, o resultado e o melhor em campo (nota 7+) ou o pior (abaixo de 6); a terceira é a arbitragem (com um expulso), um rumor de transferência (uma proposta por um jogador do plantel), a pressão da direção (confiança abaixo de 40) ou um jogador com duas más exibições no último mês.
+- **Respostas** (confiante, cautelosa, evasiva, provocadora): moral do plantel ±1–2, elogio ou crítica ao jogador citado (o mesmo efeito do Elogiar/Criticar na Imprensa, pela personalidade), confiança da direção ±1–2 e adeptos ±1–2. As frases vão para as notícias ("Na conferência de imprensa, o treinador do X disse: «…»").
+- **Mandar o Adjunto**: sem efeitos; faltar a 3 conferências antes dos jogos seguidas tira 1 de confiança à direção ("Direcção critica ausências").
+- Fica para depois: a motivação do adversário (as provocações) e perguntas sobre o treinador rival.
+
 #### Marco 3.13 — Polimento: o fluxo do CM pela gravação (por detalhar)
 
 Referência: a gravação do utilizador a jogar o CM 01/02 com a Juventus (`docs/24.10.2026_14.38.58_REC.mp4`, fora do git) e as folhas de quadros em `docs/prints/fluxo-cm/` (um quadro a cada 4 s). O que se vê e ainda falta (ou está diferente) no NextCM:

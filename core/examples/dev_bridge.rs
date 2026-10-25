@@ -130,6 +130,12 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         }
         "exercise_option" => out(serde_json::to_value(session.exercise_option(id()?).map_err(e)?)),
         "lineup_check" => out(serde_json::to_value(session.lineup_check().map_err(e)?)),
+        "press_view" => out(serde_json::to_value(session.press_view(id()?).map_err(e)?)),
+        "answer_press" => {
+            let answers: Vec<usize> = serde_json::from_value(args["answers"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.answer_press(id()?, answers).map_err(e)?))
+        }
+        "skip_press" => out(serde_json::to_value(session.skip_press(id()?).map_err(e)?)),
         "ask_terms" => {
             let terms: DealTerms = serde_json::from_value(args["terms"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.ask_terms(id()?, terms).map_err(e)?))

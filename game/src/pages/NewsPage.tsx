@@ -115,6 +115,13 @@ export default function NewsPage() {
               <div className="whitespace-pre-line font-title text-[19px] leading-snug text-white">
                 <LinkedText text={current.body} links={currentLinks} />
               </div>
+              {current.link?.startsWith('press:') && (
+                <div className="mt-4 flex gap-1 border-t border-cm-line pt-3">
+                  <button className="cm-purple h-7 w-48" onClick={() => nav.go({ kind: 'press', id: Number(current.link!.slice(6)) })}>
+                    Ir à Conferência
+                  </button>
+                </div>
+              )}
               {current.link === 'squadNumbers' && (
                 <div className="mt-4 border-t border-cm-line pt-3">
                   <button className="cm-purple h-7 w-48" onClick={() => nav.go({ kind: 'squadNumbers' })}>

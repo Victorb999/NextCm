@@ -3,6 +3,7 @@ use std::sync::Mutex;
 
 use nextcm_core::LineupCheck;
 use nextcm_core::NewsLink;
+use nextcm_core::PressView;
 use nextcm_core::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem,
     CompetitionProfile, ContinentRef, ContractReply, ContractTerms, DisciplineOptions, Fixture, GameInfo, Instructions, JobsView, LiveView,
@@ -103,6 +104,9 @@ session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
 session_command!(ask_loan(id: i32, terms: LoanTerms) -> TransferView);
 session_command!(exercise_option(id: i32) -> TransferView);
 session_command!(lineup_check() -> LineupCheck);
+session_command!(press_view(id: i32) -> PressView);
+session_command!(answer_press(id: i32, answers: Vec<usize>) -> String);
+session_command!(skip_press(id: i32) -> String);
 session_command!(ask_terms(id: i32, terms: DealTerms) -> OfferView);
 session_command!(contract_terms(id: i32, role: Option<String>) -> ContractTerms);
 session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: i32) -> ContractReply);
@@ -241,6 +245,9 @@ pub fn run() {
             ask_loan,
             exercise_option,
             lineup_check,
+            press_view,
+            answer_press,
+            skip_press,
             ask_terms,
             contract_terms,
             negotiate,

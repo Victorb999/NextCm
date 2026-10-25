@@ -12,6 +12,7 @@ use crate::{
 
 use crate::LineupCheck;
 use crate::NewsLink;
+use crate::PressView;
 use crate::{DealTerms, LoanTerms};
 
 pub struct Session {
@@ -160,6 +161,21 @@ impl Session {
         let game = self.game_mut()?;
         game.advance_day()?;
         game.info()
+    }
+
+    /// Uma conferência de imprensa: as perguntas e as respostas.
+    pub fn press_view(&self, id: i32) -> Result<PressView> {
+        self.game()?.press_view(id)
+    }
+
+    /// As respostas do treinador na conferência (uma por pergunta).
+    pub fn answer_press(&mut self, id: i32, answers: Vec<usize>) -> Result<String> {
+        self.game_mut()?.answer_press(id, &answers)
+    }
+
+    /// Mandar o adjunto à conferência.
+    pub fn skip_press(&mut self, id: i32) -> Result<String> {
+        self.game_mut()?.skip_press(id)
     }
 
     /// O que confirmar (ou o que falta) na equipa antes de entrar no dia de jogo.
@@ -421,6 +437,10 @@ impl Session {
         for n in &mut news {
             if let Some(o) = n.offer_id {
                 n.awaiting = game.offer_view(o).is_ok_and(|v| v.actions.iter().any(|a| a.key != "withdraw"));
+            }
+            // As conferências de imprensa por responder
+            if let Some(id) = n.link.as_deref().and_then(|l| l.strip_prefix("press:")).and_then(|i| i.parse().ok()) {
+                n.awaiting = game.press_view(id).is_ok_and(|v| v.status == "pending");
             }
         }
         Ok(news)

@@ -6,6 +6,7 @@ import type { DealTerms } from './bindings/DealTerms'
 import type { DisciplineOptions } from './bindings/DisciplineOptions'
 import type { LineupCheck } from './bindings/LineupCheck'
 import type { LoanTerms } from './bindings/LoanTerms'
+import type { PressView } from './bindings/PressView'
 import type { JobsView } from './bindings/JobsView'
 import type { NewsLink } from './bindings/NewsLink'
 import type { ClubFinances } from './bindings/ClubFinances'
@@ -92,6 +93,10 @@ export const api = {
   continueGame: () => call<GameInfo>('continue_game'),
   /** Antes do dia de jogo: o que falta ou o que confirmar na equipa. */
   lineupCheck: () => call<LineupCheck>('lineup_check'),
+  pressView: (id: number) => call<PressView>('press_view', { id }),
+  /** As respostas na conferência de imprensa, uma por pergunta. */
+  answerPress: (id: number, answers: number[]) => call<string>('answer_press', { id, answers }),
+  skipPress: (id: number) => call<string>('skip_press', { id }),
   /** Classificação real; vazia sem jogo ou numa competição parada. */
   leagueTable: (id: number) => call<StandingRow[]>('league_table', { id }),
   listFixtures: (id: number) => call<Fixture[]>('list_fixtures', { id }),

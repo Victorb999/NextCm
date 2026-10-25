@@ -35,6 +35,7 @@ pub use game::{
     delete_save, list_saves,
 };
 pub use game::{DealTerms, LoanTerms};
+pub use game::{PressQuestion, PressView};
 pub use league::{
     CHAMPIONS_LEAGUE, COPA_DO_BRASIL, EUROPA_LEAGUE, Fixture, LIBERTADORES, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, SERIE_D,
     SUL_AMERICANA, StandingRow,

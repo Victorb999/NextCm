@@ -10,6 +10,7 @@ import NationPage from '../pages/NationPage'
 import NationsPage from '../pages/NationsPage'
 import NewsPage from '../pages/NewsPage'
 import PersonPage from '../pages/PersonPage'
+import PressPage from '../pages/PressPage'
 import SearchPage from '../pages/SearchPage'
 import SquadNumbersPage from '../pages/SquadNumbersPage'
 import TacticsPage from '../pages/TacticsPage'
@@ -32,6 +33,7 @@ export default function Screens() {
       {current.kind === 'squadNumbers' && <SquadNumbersPage />}
       {current.kind === 'board' && <BoardPage />}
       {current.kind === 'jobs' && <JobsPage />}
+      {current.kind === 'press' && <PressPage key={current.id} id={current.id} />}
       {current.kind === 'club' && <ClubPage key={`${current.id}-${current.reserves ?? false}`} id={current.id} reserves={current.reserves} />}
       {current.kind === 'tactics' && <TacticsPage key={current.id} id={current.id} />}
       {current.kind === 'clubHistory' && <ClubHistoryPage key={current.id} id={current.id} />}
