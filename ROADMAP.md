@@ -648,6 +648,33 @@ Pedido do utilizador ao testar: a contratação está "instantânea" demais.
 - **Outras propostas** (pedido do utilizador): um livre ou um jogador em fim de contrato pode ter a proposta de outro clube gerido de reputação parecida (±2000), com probabilidade de 0% (CA 90) a 60% (CA 138+) e um salário de 95% a 125% do que pede; aí demora 2 a 5 dias a responder ("tem outras propostas e vai pensar"). Escolhe pelo contrato todo, com cada 1000 de reputação a valer 8% (mais para os ambiciosos); se escolher o outro clube, um livre assina já por ele e um jogador em fim de contrato deixa de falar connosco até ao fim do contrato ("X escolhe o Y").
 
 
+#### Correções e ajustes do teste de 24/10 (por fazer, antes de seguir o 3.12)
+
+Pedidos do utilizador a jogar com o Manchester United. Referência: `docs/prints/correcoes/`.
+
+**Bugs**
+- **A partida não passa** (`jogo-nao-passa.webp`): ao Continuar no dia de jogo aparece "Não há nenhum jogo a decorrer." e o jogo fica preso. Reproduzir (provavelmente a tela do dia de jogo pede o jogo ao vivo depois de o core já o ter acabado, ou depois de mudar de clube / ficar sem clube) e corrigir.
+- **Nome do treinador com "~"** na coluna (`nome-treinador-til.png`: "Victor Ara~ujo"): a quebra de linha do botão mostra um til; usar quebra normal ou encolher a letra.
+
+**Pesquisa, perfil e notícias**
+- Botão **Limpar Selecção** (os filtros da pesquisa voltam ao início).
+- **Abrir o perfil com um clique** em todas as listas (plantel, pesquisa, olheiros, mensagens…), não com duplo clique.
+- **O nome do jogador nas notícias abre o perfil** dele (e o do clube abre o clube).
+- **Lista Preferencial**: quem recebe uma proposta minha ou é mandado observar entra sozinho na lista (aba Lista Preferencial da pesquisa).
+- **Notícias mais interativas** e só do que importa: propostas, respostas e negócios com botões e ligações; menos ruído de outros clubes.
+
+**Conhecimento de atributos** (3.10)
+- Está forte demais: os jogadores dos clubes grandes (Real Madrid, Barcelona, PSG…) e das grandes ligas, e os da mesma liga do treinador, devem ser conhecidos por inteiro. Rever as regras: conhecido também pela reputação do clube e da liga (ex.: clubes de reputação alta e as 5 grandes ligas europeias) e pela liga do treinador; o "parcial" e o "desconhecido" ficam para ligas pequenas e de outros continentes.
+
+**Mercado**
+- **Propor Contrato só quando dá**: o menu Acção não mostra a opção quando o jogador não pode assinar (de outro clube sem proposta aceite e com mais de 6 meses de contrato, emprestado…); o core diz se pode.
+- **Fluxo ainda rápido** nalgumas transferências: dar tempo às respostas (o clube e o jogador demoram dias, não sempre o dia seguinte) e mostrar o andamento.
+- **Propor transferência e empréstimo menos robóticos**: uma experiência mais real, com o clube a negociar (contraproposta com valor e condições, prestações, percentagem de uma venda futura, jogador incluído), o empréstimo com duração, salário pago e opção de compra, e mensagens com o tom do CM.
+- **Orçamento da direção estranho**: o Manchester United só autoriza €18M de transferências. Rever a conta (`board.rs`: metade de saldo + 20% das receitas) para clubes grandes: o orçamento deve acompanhar a dimensão do clube (receitas, reputação) e não só o saldo do patch.
+
+**Tácticas**
+- Melhorar as tácticas: **instruções para a equipa** (as do CM: mentalidade, passe, desarme, pressão, linha defensiva, contra-ataque, defesa intensa, marcadores de bolas paradas e organizador) e **instruções individuais** por jogador, se o treinador quiser (passe, desarme, pressão, passar para, bolas paradas, acções livres, marcação, como na gravação do CM).
+
 #### Marco 3.10 — Olheiros e conhecimento
 
 Referência: os prints em `docs/prints/staff/`. Falta fechar as regras e os números com o utilizador antes de programar.
