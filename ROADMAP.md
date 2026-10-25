@@ -730,6 +730,9 @@ Pedidos do utilizador a jogar com o Manchester United. Referência: `docs/prints
 **Propostas recebidas: negociar as condições**
 - O "Pedir Mais" (`pedir-mais.png`) só deixa pedir mais dinheiro. Deve abrir o mesmo diálogo da proposta (valor, prestações, percentagem da próxima venda, valor por jogos): pedir uma percentagem, menos prestações (ou tudo à cabeça) ou um bónus, e o clube que compra responde em rondas como o treinador faz com os outros (aceita, contraproposta, desiste).
 
+**Gravar no dia do jogo**
+- Hoje o save recusa gravar no dia do jogo do treinador (o jogo ao vivo e os resultados do dia só existem na memória). No CM grava-se no dia do jogo, antes da partida (nas gravações de 24/10). Gravar o estado de antes do dia (a data do jogo, com os outros jogos ainda por decidir) e, ao carregar, voltar a correr o dia a partir daí: como tudo usa a seed, os jogos dos outros saem iguais. Durante a partida continua a não se gravar (ou grava-se o mesmo estado de antes do dia).
+
 **Empréstimos do patch no início do jogo**
 - **Jogadores emprestados aparecem no clube dono**: Onana (Man Utd, emprestado) está no plantel do United (`onana-emprestado.webp`); Garnacho é do Chelsea mas está emprestado ao Aston Villa no CM, e no NextCM começa no Chelsea (`garnacho-emprestado.webp`). O extrator (`scripts/extract.py`) só lê o clube com contrato; o `career_history` do banco não tem empréstimos destes. Descobrir onde o patch CLZ guarda os empréstimos em curso (outro campo do `staff.dat`, um ficheiro à parte do patch ou o editor), extraí-los e começar o jogo com eles na tabela `loans` (clube onde joga, clube dono, até ao fim da época).
 
