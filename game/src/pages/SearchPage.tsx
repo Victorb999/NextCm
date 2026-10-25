@@ -18,7 +18,7 @@ import { EMPTY_FILTERS, describe, toQuery, type Filters } from './searchFilters'
 const PAGE_SIZE = 100
 
 const TABS = [
-  { key: 'shortlist', label: 'Lista Preferencial', disabled: true },
+  { key: 'shortlist', label: 'Lista Preferencial' },
   { key: 'players', label: 'Pesquisar Jogador' },
   { key: 'staff', label: 'Pesquisa Staff' },
   { key: 'scout1', label: 'Olheiro #1' },
@@ -110,13 +110,16 @@ export default function SearchPage({ active }: { active: boolean }) {
   // Aba de olheiro aberta (1–7), só num jogo em curso
   const [scout, setScout] = useState<number | null>(null)
   const scouting = game.mode === 'game'
+  // Aba Lista Preferencial: a pesquisa de jogadores só com os da lista
+  const [shortlist, setShortlist] = useState(false)
   const pickTab = (k: string) => {
     if (k.startsWith('scout')) {
       setScout(Number(k.slice(5)))
       return
     }
     setScout(null)
-    setKind(k as PersonKind)
+    setShortlist(k === 'shortlist')
+    setKind(k === 'shortlist' ? 'players' : (k as PersonKind))
     goPage(0)
   }
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
@@ -153,7 +156,7 @@ export default function SearchPage({ active }: { active: boolean }) {
   useEffect(() => {
     const query = {
       ...toQuery({ text: debouncedText, nationId, age, positionGroup, side }, kind),
-      status: status === 'all' || kind !== 'players' ? undefined : status,
+      status: shortlist ? ('shortlist' as const) : status === 'all' || kind !== 'players' ? undefined : status,
       sort,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
@@ -167,7 +170,7 @@ export default function SearchPage({ active }: { active: boolean }) {
       },
       (e) => id === requestId.current && setError(String(e)),
     )
-  }, [debouncedText, nationId, age, positionGroup, side, kind, status, sort, page])
+  }, [debouncedText, nationId, age, positionGroup, side, kind, status, sort, page, shortlist])
 
   const total = result?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -214,8 +217,8 @@ export default function SearchPage({ active }: { active: boolean }) {
     <div className="relative flex h-full flex-col">
       <TitleBand title="Pesquisa Jogador & Staff" fg="#0d5a22" bg="#f5f500" />
       <Tabs
-        tabs={TABS.map((t) => (t.key.startsWith('scout') ? { ...t, disabled: !scouting } : t))}
-        active={scout !== null ? `scout${scout}` : kind}
+        tabs={TABS.map((t) => (t.key.startsWith('scout') || t.key === 'shortlist' ? { ...t, disabled: !scouting } : t))}
+        active={scout !== null ? `scout${scout}` : shortlist ? 'shortlist' : kind}
         onChange={pickTab}
       />
       {scout !== null && <ScoutPanel key={scout} slot={scout} nations={nations} />}
@@ -266,7 +269,7 @@ export default function SearchPage({ active }: { active: boolean }) {
             .join(' · ') || 'Todos'}
         </div>
         <div className="shrink-0 py-1 text-center font-title text-xl font-bold text-cm-yellow">
-          {players ? 'Pesquisar Jogador' : 'Pesquisar Staff'}
+          {shortlist ? 'Lista Preferencial' : players ? 'Pesquisar Jogador' : 'Pesquisar Staff'}
         </div>
         {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
         <div ref={tableRef} className="min-h-0 flex-1 overflow-auto">

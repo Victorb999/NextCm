@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use nextcm_core::NewsLink;
 use nextcm_core::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem,
     CompetitionProfile, ContinentRef, ContractReply, ContractTerms, DisciplineOptions, Fixture, GameInfo, Instructions, JobsView, LiveView,
@@ -89,6 +90,8 @@ session_command!(press_comment(id: i32, kind: String) -> String);
 session_command!(set_reserve(id: i32, reserve: bool) -> String);
 session_command!(jobs_view(nation: Option<i32>) -> JobsView);
 session_command!(apply_job(id: i32) -> String);
+session_command!(news_links(id: i32) -> Vec<NewsLink>);
+session_command!(set_shortlist(id: i32, on: bool) -> ());
 session_command!(league_request(key: String) -> String);
 session_command!(squad_numbers() -> SquadNumbers);
 session_command!(auto_squad_numbers(numbers: Vec<NumberAssign>) -> Vec<NumberAssign>);
@@ -222,6 +225,8 @@ pub fn run() {
             set_reserve,
             jobs_view,
             apply_job,
+            news_links,
+            set_shortlist,
             league_request,
             squad_numbers,
             auto_squad_numbers,

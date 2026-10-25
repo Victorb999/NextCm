@@ -3,4 +3,4 @@
 /**
  * Situação no mercado (o "Vêr" da pesquisa do CM).
  */
-export type MarketStatus = "transfer" | "loan" | "free";
+export type MarketStatus = "transfer" | "loan" | "free" | "shortlist";

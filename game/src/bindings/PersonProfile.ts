@@ -15,4 +15,13 @@ status: PlayerStatus | null,
  * Num jogo em curso: o que o clube do treinador sabe dele (os atributos que não sabe vêm
  * a `null`) e a data do relatório do olheiro, se estiver a ser observado.
  */
-knowledge: Knowledge | null, reportOn: string | null, };
+knowledge: Knowledge | null, reportOn: string | null, 
+/**
+ * Na Lista Preferencial do treinador.
+ */
+shortlisted: boolean, 
+/**
+ * O treinador pode propor-lhe um contrato agora (livre, pré-contrato, negócio acordado
+ * com o clube dele, ou renovação no plantel).
+ */
+canContract: boolean, };

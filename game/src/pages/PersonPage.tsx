@@ -357,7 +357,13 @@ export default function PersonPage({ id }: { id: number }) {
         { key: 'medical', label: 'Pedir Relatório Médico' },
         { key: 'fitness', label: 'Pedir Relatório Preparador Físico' },
       ]
-    : [{ key: 'contract', label: 'Propor Contrato' }, ...(canScout ? [{ key: 'scout', label: 'Observar Jogador' }] : [])]
+    : [
+        ...(person?.canContract ? [{ key: 'contract', label: 'Propor Contrato' }] : []),
+        person?.shortlisted
+          ? { key: 'unshortlist', label: 'Retirar da Lista Preferencial' }
+          : { key: 'shortlist', label: 'Adicionar à Lista Preferencial' },
+        ...(canScout ? [{ key: 'scout', label: 'Observar Jogador' }] : []),
+      ]
   // As mensagens novas contam no "por ler"
   const refreshInfo = () => void api.gameInfo().then((info) => info && game.update(info))
   const comment = async (kind: 'praise' | 'criticise') => {
@@ -403,6 +409,11 @@ export default function PersonPage({ id }: { id: number }) {
             options={actions}
             onChange={(k) => {
               if (k === 'contract') nav.go({ kind: 'contract', id })
+              else if (k === 'shortlist' || k === 'unshortlist')
+                void api.setShortlist(id, k === 'shortlist').then(() => {
+                  setNotice(k === 'shortlist' ? 'Adicionado à Lista Preferencial.' : 'Retirado da Lista Preferencial.')
+                  void reload()
+                })
               else if (k === 'scout') setConfirm(true)
               else if (k === 'discipline') setDiscipline(true)
               else if (k === 'praise' || k === 'criticise') void comment(k)

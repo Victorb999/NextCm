@@ -97,6 +97,11 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             out(serde_json::to_value(session.jobs_view(nation).map_err(e)?))
         }
         "apply_job" => out(serde_json::to_value(session.apply_job(id()?).map_err(e)?)),
+        "news_links" => out(serde_json::to_value(session.news_links(id()?).map_err(e)?)),
+        "set_shortlist" => {
+            let on = args["on"].as_bool().ok_or("falta on")?;
+            out(serde_json::to_value(session.set_shortlist(id()?, on).map_err(e)?))
+        }
         "set_reserve" => {
             let reserve = args["reserve"].as_bool().ok_or("falta reserve")?;
             out(serde_json::to_value(session.set_reserve(id()?, reserve).map_err(e)?))

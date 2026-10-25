@@ -87,6 +87,8 @@ pub enum MarketStatus {
     Loan,
     /// Jogador sem clube.
     Free,
+    /// Na Lista Preferencial do treinador.
+    Shortlist,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
@@ -221,7 +223,11 @@ impl World {
                     wheres.push("p.id NOT IN (SELECT person_id FROM retired)".into());
                 }
             }
-            Some(status) if has("transfer_list")? => {
+            Some(MarketStatus::Shortlist) if has("shortlist")? => {
+                wheres.push("p.id IN (SELECT person_id FROM shortlist)".into());
+            }
+            Some(MarketStatus::Transfer | MarketStatus::Loan) if has("transfer_list")? => {
+                let status = q.status.unwrap_or(MarketStatus::Transfer);
                 let column = if status == MarketStatus::Transfer { "transfer" } else { "loan" };
                 wheres.push(format!("p.id IN (SELECT person_id FROM transfer_list WHERE {column} = 1)"));
             }

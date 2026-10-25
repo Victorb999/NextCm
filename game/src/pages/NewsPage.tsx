@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
+import type { NewsLink } from '../bindings/NewsLink'
+import LinkedText from '../components/LinkedText'
 import type { NewsItem } from '../bindings/NewsItem'
 import type { OfferView } from '../bindings/OfferView'
 import { BottomBar, Tabs, TitleBand } from '../components/Screen'
@@ -54,6 +56,14 @@ export default function NewsPage() {
     if (offerId !== null) api.offerView(offerId).then(setOffer, () => setOffer(null))
   }, [offerId, game.info?.date])
 
+  // Os nomes de jogadores e clubes da notícia, como ligações
+  const [links, setLinks] = useState<{ id: number; list: NewsLink[] }>({ id: -1, list: [] })
+  const currentId = current?.id ?? null
+  useEffect(() => {
+    if (currentId !== null) api.newsLinks(currentId).then((list) => setLinks({ id: currentId, list }), () => {})
+  }, [currentId])
+  const currentLinks = links.id === currentId ? links.list : []
+
   const readNext = () => {
     const next = shown.find((n) => !n.read && n.id !== current?.id)
     if (next) setSelected(next.id)
@@ -86,7 +96,9 @@ export default function NewsPage() {
           {current && (
             <>
               <div className="pb-3 font-title text-[22px] font-bold text-cm-yellow">{current.title}</div>
-              <div className="whitespace-pre-line font-title text-[19px] leading-snug text-white">{current.body}</div>
+              <div className="whitespace-pre-line font-title text-[19px] leading-snug text-white">
+                <LinkedText text={current.body} links={currentLinks} />
+              </div>
               {current.link === 'squadNumbers' && (
                 <div className="mt-4 border-t border-cm-line pt-3">
                   <button className="cm-purple h-7 w-48" onClick={() => nav.go({ kind: 'squadNumbers' })}>

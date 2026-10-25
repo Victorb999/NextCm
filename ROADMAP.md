@@ -648,7 +648,7 @@ Pedido do utilizador ao testar: a contratação está "instantânea" demais.
 - **Outras propostas** (pedido do utilizador): um livre ou um jogador em fim de contrato pode ter a proposta de outro clube gerido de reputação parecida (±2000), com probabilidade de 0% (CA 90) a 60% (CA 138+) e um salário de 95% a 125% do que pede; aí demora 2 a 5 dias a responder ("tem outras propostas e vai pensar"). Escolhe pelo contrato todo, com cada 1000 de reputação a valer 8% (mais para os ambiciosos); se escolher o outro clube, um livre assina já por ele e um jogador em fim de contrato deixa de falar connosco até ao fim do contrato ("X escolhe o Y").
 
 
-#### Correções e ajustes do teste de 24/10 (por fazer, antes de seguir o 3.12)
+#### Correções e ajustes do teste de 24/10 (em curso, antes de seguir o 3.12)
 
 Pedidos do utilizador a jogar com o Manchester United. Referência: `docs/prints/correcoes/`.
 
@@ -674,6 +674,18 @@ Pedidos do utilizador a jogar com o Manchester United. Referência: `docs/prints
 
 **Tácticas**
 - Melhorar as tácticas: **instruções para a equipa** (as do CM: mentalidade, passe, desarme, pressão, linha defensiva, contra-ataque, defesa intensa, marcadores de bolas paradas e organizador) e **instruções individuais** por jogador, se o treinador quiser (passe, desarme, pressão, passar para, bolas paradas, acções livres, marcação, como na gravação do CM).
+
+**Feito (1.ª leva):**
+- A partida não passa: a tela do dia de jogo deixou de ser desmontada quando o treinador sai dela a meio (o Continuar pedia o jogo ao vivo depois de o core o acabar); se o core já não tem jogo, a tela fecha em vez de prender o jogo.
+- O "~" no nome era o nome como foi escrito no save, não um defeito da coluna.
+- Plantel: botão **Limpar Equipa** e o nome abre o perfil com um clique (a pesquisa já tinha o Limpar nos filtros e o clique único).
+- Notícias: os nomes de jogadores e clubes viram ligações (`news_links.rs`, comando `news_links`, `LinkedText.tsx`).
+- **Lista Preferencial** (`shortlist.rs`, `SAVE_VERSION` 23): entra quem recebe proposta, pedido de empréstimo, proposta de contrato ou é mandado observar; à mão no menu Acção; aba na pesquisa.
+- Conhecimento: conhecido por inteiro também quem joga na mesma divisão, num clube de reputação 7000+ ou numa liga de reputação 16+.
+- Propor Contrato só aparece quando o core diz que dá (`PersonProfile.canContract`).
+- Orçamento: clubes de reputação 8000+ têm sempre pelo menos 30% das receitas de uma época para transferências, 6000+ 15%.
+
+**Falta:** fluxo de transferências mais lento, negociação de transferências e empréstimos mais rica, notícias interativas e as instruções das tácticas.
 
 #### Marco 3.10 — Olheiros e conhecimento
 

@@ -493,11 +493,14 @@ function MatchSideButton({
 function LiveScreen({
   ref,
   own,
+  active,
   onFinished,
 }: {
   /** A acção principal (Enter, Continuar Jogo da coluna), para o pai a chamar. */
   ref: React.Ref<{ main: () => void }>
   own: number
+  /** Escondido (o treinador foi a outra tela): o relógio pára até voltar. */
+  active: boolean
   onFinished: () => void
 }) {
   const [view, setView] = useState<LiveView | null>(null)
@@ -533,14 +536,19 @@ function LiveScreen({
         // Ao voltar a um jogo a meio (página recarregada), o relato já dito não se repete
         setShown(v.events.reduce((n, e) => n + e.lines.length, 0))
       },
-      (e) => setError(String(e)),
+      (e) => {
+        // Sem jogo ao vivo (o dia já acabou no core): passa aos resultados em vez de ficar preso
+        setError(String(e))
+        onFinished()
+      },
     )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // O relato e o relógio: primeiro mostra as frases por dizer, uma de cada vez; com
   // tudo dito e o jogo a correr, joga o minuto seguinte
   useEffect(() => {
-    if (!view || finishing) return
+    if (!view || finishing || !active) return
     if (shown < lines.length) {
       const t = setTimeout(() => {
         setShown(shown + 1)
@@ -570,7 +578,7 @@ function LiveScreen({
     }, Math.max(40, speed.ms / 2))
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, lines, shown, running, stepping, tactics, finishing, speed.ms, waiting])
+  }, [view, lines, shown, running, stepping, tactics, finishing, speed.ms, waiting, active])
 
   /** Abre as Tácticas pedidas com o jogo a correr; ao sair delas, o jogo continua. */
   function openWaiting(side: 0 | 1) {
@@ -595,7 +603,7 @@ function LiveScreen({
   useImperativeHandle(ref, () => ({ main }))
 
   if (!view) {
-    return <div className="cm-backdrop fixed inset-0 z-50 p-6 text-[#ff7070]">{error}</div>
+    return <div className="cm-backdrop absolute inset-0 z-50 p-6 text-[#ff7070]">{error}</div>
   }
   const started = view.minute > 0
   const label = view.finished
@@ -751,6 +759,7 @@ export default function MatchDay({
   table,
   own,
   step,
+  active = true,
   onDone,
 }: {
   fixture: Fixture
@@ -761,9 +770,15 @@ export default function MatchDay({
   own: number
   /** Sobe a cada Continuar Jogo na coluna: faz a acção principal, como o Enter. */
   step?: number
+  /** Escondido enquanto o treinador navega: fica montado (guarda a fase) mas não reage. */
+  active?: boolean
   onDone: () => void
 }) {
   const game = useGame()
+  const activeRef = useRef(active)
+  useEffect(() => {
+    activeRef.current = active
+  })
   const [phase, setPhase] = useState<'list' | 'play' | 'results'>('list')
   const [results, setResults] = useState<{ games: Fixture[]; table: StandingRow[] } | null>(null)
   const live = useRef<{ main: () => void }>(null)
@@ -801,7 +816,7 @@ export default function MatchDay({
   // Teclado: Enter/Espaço avançam (na partida: iniciar, pausar, retomar)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' && e.key !== ' ') return
+      if (!activeRef.current || (e.key !== 'Enter' && e.key !== ' ')) return
       e.preventDefault()
       nextRef.current()
     }
@@ -815,5 +830,5 @@ export default function MatchDay({
   if (phase === 'results' && results) {
     return <DayList title="Resultados de Hoje" fixture={fixture} games={results.games} table={results.table} own={own} scores onNext={next} />
   }
-  return <LiveScreen ref={live} own={own} onFinished={() => void finish()} />
+  return <LiveScreen ref={live} own={own} active={active} onFinished={() => void finish()} />
 }

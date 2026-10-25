@@ -94,7 +94,9 @@ function SquadGrid({
           >
             {e.badge}
           </span>
-          <span className="ml-1 flex-1 truncate font-title text-[18px] text-white">{e.name}</span>
+          <span className="ml-1 flex-1 truncate font-title text-[18px] text-white">
+            <Link onClick={() => onOpen(e)}>{e.name}</Link>
+          </span>
           <span className={`w-28 shrink-0 truncate ${i === selected ? 'text-white' : 'text-cm-yellow'}`}>{e.detail}</span>
         </div>
         )
@@ -212,6 +214,20 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
     },
   })
 
+  // "Limpar Equipa", como no CM: tira todos da equipa (antes do jogo o adjunto preenche o que ficar vazio)
+  const clearTeam = async () => {
+    if (!tactics) return
+    try {
+      const sel = selectionOf(tactics)
+      setTactics(await api.setTactics({ ...sel, auto: false, starters: sel.starters.map(() => null), bench: [] }))
+      const info = await api.gameInfo()
+      if (info) game.update(info)
+      setError(null)
+    } catch (err) {
+      setError(String(err))
+    }
+  }
+
   const toggle = async (e: Entry) => {
     if (!tactics) return
     try {
@@ -325,6 +341,11 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
             }}
           />
           <div className="flex-1" />
+          {mine && (
+            <button className="cm-purple h-6 w-40" disabled={!tactics || view !== 'players'} onClick={() => void clearTeam()}>
+              Limpar Equipa
+            </button>
+          )}
           {mine && (
             <button className="cm-purple h-6 w-40" onClick={() => nav.go({ kind: 'squadNumbers' })}>
               Números

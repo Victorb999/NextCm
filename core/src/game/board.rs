@@ -24,6 +24,9 @@ const SALES_BACK: f64 = 0.5;
 const WAGE_CAP: f64 = 0.9;
 const MAX_WAGE_OVER_TOP: f64 = 1.25;
 const MAX_WAGE_SHARE: f64 = 0.1;
+/// Orçamento mínimo de transferências (parte das receitas de uma época) dos clubes de
+/// reputação 8000+ e 6000+.
+const BIG_CLUB_BUDGET: (f64, f64) = (0.3, 0.15);
 /// Saldo negativo (sobre as receitas de uma época) a partir do qual a direção proíbe contratações.
 const NO_SIGNINGS_DEBT: f64 = 0.1;
 /// Vender um dos jogadores que a direção considera valiosos: confiança e adeptos que se perdem.
@@ -122,10 +125,18 @@ impl Game {
             [self.club_id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )?;
+        // Os clubes grandes têm sempre uma parte das receitas para gastar (o saldo do patch
+        // engana: há clubes enormes com pouco dinheiro em caixa)
+        let rep: i32 = self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0))?;
+        let floor = match rep {
+            8000.. => BIG_CLUB_BUDGET.0,
+            6000.. => BIG_CLUB_BUDGET.1,
+            _ => 0.0,
+        };
         let transfer = if (cash as f64) < -NO_SIGNINGS_DEBT * base {
             0
         } else {
-            crate::finance::round_money(((cash as f64 + BUDGET_REVENUE * base) * 0.5).max(0.0))
+            crate::finance::round_money(((cash as f64 + BUDGET_REVENUE * base) * 0.5).max(floor * base).max(0.0))
         };
         let wage_budget = ((base * WAGE_CAP / 52.0) as i64).max(bill * 102 / 100);
         let max_wage = ((top as f64 * MAX_WAGE_OVER_TOP).max(wage_budget as f64 * MAX_WAGE_SHARE)) as i64;

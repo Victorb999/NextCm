@@ -115,6 +115,11 @@ pub struct PersonProfile {
     /// a `null`) e a data do relatório do olheiro, se estiver a ser observado.
     pub knowledge: Option<Knowledge>,
     pub report_on: Option<String>,
+    /// Na Lista Preferencial do treinador.
+    pub shortlisted: bool,
+    /// O treinador pode propor-lhe um contrato agora (livre, pré-contrato, negócio acordado
+    /// com o clube dele, ou renovação no plantel).
+    pub can_contract: bool,
 }
 
 /// O que o clube do treinador sabe de um jogador (marco 3.10).
@@ -250,6 +255,8 @@ impl World {
                         status: None,
                         knowledge: None,
                         report_on: None,
+                        shortlisted: false,
+                        can_contract: false,
                     },
                     r.get::<_, Option<i32>>(10)?,
                 ))

@@ -37,7 +37,17 @@ struct Place {
     same_continent: bool,
     world_rep: i32,
     current_rep: i32,
+    /// Na mesma divisão do clube do treinador.
+    same_division: bool,
+    /// Reputação do clube (0–10 000) e da liga dele (0–20).
+    club_rep: i32,
+    league_rep: i32,
 }
+
+/// Toda a gente conhece os jogadores dos clubes grandes (Real Madrid, PSG, Man Utd, Benfica,
+/// Flamengo...) e das grandes ligas (Inglaterra, Espanha, Alemanha, Itália, França).
+const BIG_CLUB: i32 = 7000;
+const BIG_LEAGUE: i32 = 16;
 
 fn hash(seed: i64, person: i32, key: &str) -> u64 {
     let mut h = (seed as u64) ^ (person as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
@@ -49,31 +59,37 @@ fn hash(seed: i64, person: i32, key: &str) -> u64 {
 
 impl Game {
     fn place(&self, person: i32) -> Result<Option<Place>> {
-        let mine: (Option<i32>, Option<i32>) = self.world.conn.query_row(
-            "SELECT c.nation_id, n.continent_id FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id WHERE c.id = ?",
+        let mine: (Option<i32>, Option<i32>, Option<i32>) = self.world.conn.query_row(
+            "SELECT c.nation_id, n.continent_id, c.division_id FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id WHERE c.id = ?",
             [self.club_id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )?;
         // A nação do clube dele (sem clube: a dele)
-        let row: Option<(Option<i32>, Option<i32>, Option<i32>, i32, i32)> = self
+        type Row = (Option<i32>, Option<i32>, Option<i32>, i32, i32, Option<i32>, i32, i32);
+        let row: Option<Row> = self
             .world
             .conn
             .query_row(
                 "SELECT p.club_id, COALESCE(c.nation_id, p.nation_id), n.continent_id,
-                        COALESCE(pl.world_reputation, 0), COALESCE(pl.current_reputation, 0)
+                        COALESCE(pl.world_reputation, 0), COALESCE(pl.current_reputation, 0),
+                        c.division_id, COALESCE(c.reputation, 0), COALESCE(k.reputation, 0)
                  FROM people p JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id
                  LEFT JOIN nations n ON n.id = COALESCE(c.nation_id, p.nation_id)
+                 LEFT JOIN competitions k ON k.id = c.division_id
                  WHERE p.id = ?",
                 [person],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?)),
             )
             .optional()?;
-        Ok(row.map(|(club, nation, continent, world_rep, current_rep)| Place {
+        Ok(row.map(|(club, nation, continent, world_rep, current_rep, division, club_rep, league_rep)| Place {
             club,
             same_nation: nation.is_some() && nation == mine.0,
             same_continent: continent.is_some() && continent == mine.1,
             world_rep,
             current_rep,
+            same_division: division.is_some() && division == mine.2,
+            club_rep,
+            league_rep,
         }))
     }
 
@@ -92,7 +108,8 @@ impl Game {
             .query_row("SELECT 1 FROM knowledge WHERE person_id = ? AND until >= ?", params![person, self.date], |_| Ok(true))
             .optional()?
             .is_some();
-        Ok(if p.club == Some(self.club_id) || lent || observed {
+        let famous_place = p.same_division || p.club_rep >= BIG_CLUB || p.league_rep >= BIG_LEAGUE;
+        Ok(if p.club == Some(self.club_id) || lent || observed || famous_place {
             Knowledge::Known
         } else if p.same_nation || p.world_rep.max(p.current_rep) >= FAMOUS_WORLD || (p.same_continent && p.current_rep >= FAMOUS_CONTINENT)
         {
@@ -106,6 +123,8 @@ impl Game {
     pub fn mask_profile(&self, p: &mut PersonProfile) -> Result<()> {
         let k = self.knowledge(p.id)?;
         p.knowledge = Some(k);
+        p.shortlisted = self.in_shortlist(p.id)?;
+        p.can_contract = p.player.is_some() && !self.sacked() && self.contract_party(p.id).is_ok();
         p.report_on = self.world.conn.query_row("SELECT ready_on FROM scouting WHERE person_id = ?", [p.id], |r| r.get(0)).optional()?;
         if let Some(pl) = &mut p.player {
             match k {
@@ -313,13 +332,26 @@ mod tests {
         let first = |sql: &str| g.world.conn.query_row(sql, [], |r| r.get::<_, i32>(0)).unwrap();
         let mine = first("SELECT id FROM people WHERE club_id = 7568 AND is_player = 1 LIMIT 1");
         let rival = first(&format!("SELECT id FROM people WHERE club_id = {FLAMENGO} AND is_player = 1 LIMIT 1"));
+        // Um jogador modesto de um clube brasileiro pequeno de outra divisão
+        let nation = first(
+            "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id JOIN clubs c ON c.id = p.club_id
+             WHERE c.nation_id = (SELECT nation_id FROM clubs WHERE id = 7568)
+               AND c.division_id <> (SELECT division_id FROM clubs WHERE id = 7568) AND COALESCE(c.reputation, 0) < 5000
+               AND COALESCE(pl.world_reputation, 0) < 50 AND COALESCE(pl.current_reputation, 0) < 50 ORDER BY p.id LIMIT 1",
+        );
+        // Um jogador de um clube grande europeu
+        let big = first(
+            "SELECT p.id FROM people p JOIN clubs c ON c.id = p.club_id WHERE c.reputation >= 9000 AND p.is_player = 1 ORDER BY p.id LIMIT 1",
+        );
         // Um jogador modesto de um clube da Ásia
         let far = first(
             "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id JOIN clubs c ON c.id = p.club_id
              JOIN nations n ON n.id = c.nation_id WHERE n.continent_id = 1 AND COALESCE(pl.world_reputation, 0) < 50 AND COALESCE(pl.current_reputation, 0) < 50 ORDER BY p.id LIMIT 1",
         );
         assert_eq!(g.knowledge(mine).unwrap(), Knowledge::Known);
-        assert_eq!(g.knowledge(rival).unwrap(), Knowledge::Partial, "mesma nação");
+        assert_eq!(g.knowledge(rival).unwrap(), Knowledge::Known, "mesma divisão");
+        assert_eq!(g.knowledge(big).unwrap(), Knowledge::Known, "clube grande");
+        assert_eq!(g.knowledge(nation).unwrap(), Knowledge::Partial, "mesma nação");
         assert_eq!(g.knowledge(far).unwrap(), Knowledge::Unknown);
 
         // O perfil chega tapado: tudo "-" no desconhecido, parte no parcial
@@ -331,8 +363,8 @@ mod tests {
         };
         let (hidden, total) = masked(&g, far);
         assert_eq!(hidden, total);
-        let (hidden, total) = masked(&g, rival);
-        let some = g.world.get_person(rival).unwrap().player.unwrap().attributes.values().filter(|v| v.is_none()).count();
+        let (hidden, total) = masked(&g, nation);
+        let some = g.world.get_person(nation).unwrap().player.unwrap().attributes.values().filter(|v| v.is_none()).count();
         assert!(hidden > some && hidden < total, "{hidden} de {total}");
 
         // A direção limita a proposta

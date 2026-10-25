@@ -4,6 +4,7 @@ import type { BoardRequest } from './bindings/BoardRequest'
 import type { BoardView } from './bindings/BoardView'
 import type { DisciplineOptions } from './bindings/DisciplineOptions'
 import type { JobsView } from './bindings/JobsView'
+import type { NewsLink } from './bindings/NewsLink'
 import type { ClubFinances } from './bindings/ClubFinances'
 import type { ClubListItem } from './bindings/ClubListItem'
 import type { ClubProfile } from './bindings/ClubProfile'
@@ -115,6 +116,10 @@ export const api = {
   jobsView: (nation: number | null) => call<JobsView>('jobs_view', { nation }),
   /** "Concorrer ao Lugar"; devolve a frase com a data da resposta. */
   applyJob: (id: number) => call<string>('apply_job', { id }),
+  /** Os nomes de jogadores e clubes que uma notícia cita (para os mostrar como ligações). */
+  newsLinks: (id: number) => call<NewsLink[]>('news_links', { id }),
+  /** Adicionar (true) ou Retirar da Lista Preferencial. */
+  setShortlist: (id: number, on: boolean) => call<null>('set_shortlist', { id, on }),
   /** Uma questão à Liga; devolve a resposta. */
   leagueRequest: (key: string) => call<string>('league_request', { key }),
   /** Aba Transferência do perfil de um jogador (jogo em curso). */

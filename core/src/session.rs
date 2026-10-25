@@ -10,6 +10,8 @@ use crate::{
     StandingRow, TransferItem, TransferView, World, list_saves,
 };
 
+use crate::NewsLink;
+
 pub struct Session {
     world_path: PathBuf,
     saves_dir: PathBuf,
@@ -291,12 +293,19 @@ impl Session {
 
     /// Proposta de transferência por um jogador de outro clube (ou por um livre).
     pub fn make_offer(&mut self, id: i32, fee: i64) -> Result<TransferView> {
-        self.game_mut()?.make_offer(id, fee)
+        // Quem recebe uma proposta, um pedido ou um olheiro entra na Lista Preferencial
+        let g = self.game_mut()?;
+        let r = g.make_offer(id, fee)?;
+        g.set_shortlist(id, true)?;
+        Ok(r)
     }
 
     /// Pedido de empréstimo de um jogador de outro clube.
     pub fn ask_loan(&mut self, id: i32) -> Result<TransferView> {
-        self.game_mut()?.ask_loan(id)
+        let g = self.game_mut()?;
+        let r = g.ask_loan(id)?;
+        g.set_shortlist(id, true)?;
+        Ok(r)
     }
 
     /// Funções no clube e o que o jogador pede pela função escolhida.
@@ -306,7 +315,10 @@ impl Session {
 
     /// Proposta de contrato (renovação ou contratação).
     pub fn negotiate(&mut self, id: i32, role: String, wage: i64, bonus: i64, years: i32) -> Result<ContractReply> {
-        self.game_mut()?.negotiate(id, &role, wage, bonus, years)
+        let g = self.game_mut()?;
+        let r = g.negotiate(id, &role, wage, bonus, years)?;
+        g.set_shortlist(id, true)?;
+        Ok(r)
     }
 
     /// Listas de transferências e de empréstimos do plantel.
@@ -321,7 +333,10 @@ impl Session {
 
     /// Resposta do treinador numa proposta.
     pub fn scout_player(&mut self, id: i32) -> Result<String> {
-        self.game_mut()?.scout_player(id)
+        let g = self.game_mut()?;
+        let r = g.scout_player(id)?;
+        g.set_shortlist(id, true)?;
+        Ok(r)
     }
 
     pub fn report_staff(&self, kind: String) -> Result<Vec<ReportStaff>> {
@@ -371,6 +386,14 @@ impl Session {
     /// Partidas de um clube, por data.
     pub fn club_fixtures(&self, id: i32) -> Result<Vec<Fixture>> {
         Ok(self.game.as_ref().map(|g| g.club_fixtures(id)).unwrap_or_default())
+    }
+
+    pub fn set_shortlist(&mut self, id: i32, on: bool) -> Result<()> {
+        self.game_mut()?.set_shortlist(id, on)
+    }
+
+    pub fn news_links(&self, id: i32) -> Result<Vec<NewsLink>> {
+        self.game()?.news_links(id)
     }
 
     pub fn list_news(&self) -> Result<Vec<NewsItem>> {
