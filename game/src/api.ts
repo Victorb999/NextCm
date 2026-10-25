@@ -3,6 +3,7 @@ import type { BoardConfidence } from './bindings/BoardConfidence'
 import type { BoardRequest } from './bindings/BoardRequest'
 import type { BoardView } from './bindings/BoardView'
 import type { DisciplineOptions } from './bindings/DisciplineOptions'
+import type { JobsView } from './bindings/JobsView'
 import type { ClubFinances } from './bindings/ClubFinances'
 import type { ClubListItem } from './bindings/ClubListItem'
 import type { ClubProfile } from './bindings/ClubProfile'
@@ -111,6 +112,9 @@ export const api = {
   pressComment: (id: number, kind: string) => call<string>('press_comment', { id, kind }),
   /** Despromover para as reservas (true) ou promover ao plantel principal. */
   setReserve: (id: number, reserve: boolean) => call<string>('set_reserve', { id, reserve }),
+  jobsView: (nation: number | null) => call<JobsView>('jobs_view', { nation }),
+  /** "Concorrer ao Lugar"; devolve a frase com a data da resposta. */
+  applyJob: (id: number) => call<string>('apply_job', { id }),
   /** Uma questão à Liga; devolve a resposta. */
   leagueRequest: (key: string) => call<string>('league_request', { key }),
   /** Aba Transferência do perfil de um jogador (jogo em curso). */

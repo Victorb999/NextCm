@@ -606,6 +606,15 @@ impl Game {
                 "withdrawn" => ("Proposta retirada.".into(), Vec::new()),
                 _ => ("Negociações terminadas.".into(), Vec::new()),
             },
+            _ if o.kind == "job" => match o.status.as_str() {
+                "applied" => (format!("Concorreu ao lugar no {}; a resposta chega a {until}.", buyer.name), Vec::new()),
+                "pending" => (
+                    format!("O {} quer contratá-lo para treinador. Responda até {until}.", buyer.name),
+                    vec![action("accept", "Aceitar"), action("reject", "Recusar")],
+                ),
+                "done" => (format!("É o treinador do {}.", buyer.name), Vec::new()),
+                _ => ("Proposta encerrada.".into(), Vec::new()),
+            },
             _ if o.kind == "request" => match o.status.as_str() {
                 "pending" => (
                     format!("{name} pede para ser posto na lista de transferências. Responda até {until}."),
@@ -730,6 +739,10 @@ impl Game {
         }
         if o.kind == "contract" {
             self.answer_contract(&o, key)?;
+            return self.offer_view(id);
+        }
+        if o.kind == "job" {
+            self.answer_job(&o, key)?;
             return self.offer_view(id);
         }
         let incoming = o.buyer != self.club_id;

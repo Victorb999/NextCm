@@ -281,8 +281,12 @@ impl Game {
         let club = self.club(self.club_id).name;
         if new == 0 {
             self.world.conn.execute("UPDATE board SET confidence = 0, sacked = 1 WHERE id = 1", [])?;
+            // Fica sem clube: o lugar vago, a reputação a descer, e procura outro emprego
+            self.world.conn.execute("UPDATE people SET club_id = NULL, club_job = NULL WHERE id = ?", [self.manager_id])?;
+            self.world.conn.execute("INSERT OR REPLACE INTO vacancies (club_id, since) VALUES (?, ?)", params![self.club_id, self.date])?;
+            self.change_manager_rep(super::jobs::REP_SACKED)?;
             let body = format!(
-                "A Direcção do {club} perdeu a confiança no seu trabalho e decidiu dispensá-lo do cargo de treinador, com efeitos imediatos.\n\nO jogo acabou."
+                "A Direcção do {club} perdeu a confiança no seu trabalho e decidiu dispensá-lo do cargo de treinador, com efeitos imediatos.\n\nProcure um novo clube em Informação de Empregos."
             );
             fresh.push(self.news_item(*next_id, "message", "Despedido".into(), body));
             *next_id += 1;
@@ -381,7 +385,7 @@ impl Game {
         }
         let (target, goal): (i32, String) =
             self.world.conn.query_row("SELECT target, goal FROM board WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?)))?;
-        let (delta, verdict) = if relegated {
+        let (delta, verdict): (i32, &str) = if relegated {
             (-35, "A descida de divisão é inaceitável para a Direcção.")
         } else if promoted {
             (20, "A subida de divisão deixou a Direcção muito satisfeita.")
@@ -394,6 +398,7 @@ impl Game {
         } else {
             (0, "A época ficou perto do que a Direcção esperava.")
         };
+        self.change_manager_rep(super::jobs::REP_SEASON * delta.signum())?;
         let body = format!("A Direcção esperava {goal} e a equipa terminou em {position}º lugar.\n\n{verdict}");
         fresh.push(self.news_item(*next_id, "message", "Balanço da época".into(), body));
         *next_id += 1;
@@ -496,7 +501,7 @@ mod tests {
         g.change_confidence(-100, &mut fresh, &mut next_id).unwrap();
         assert!(g.sacked() && g.info().unwrap().sacked);
         assert!(fresh.iter().any(|n| n.title == "Despedido"));
-        assert!(g.advance_day().is_err(), "o jogo acabou");
+        assert!(g.advance_day().is_ok(), "o jogo continua sem clube");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

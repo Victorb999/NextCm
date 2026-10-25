@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, ContractReply, ContractTerms,
-    DisciplineOptions, Error, Fixture, Game, GameInfo, Instructions, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign, OfferView,
-    PersonProfile, ReportStaff, Result, SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, SquadNumbers, StageView, StandingRow,
-    TransferItem, TransferView, World, list_saves,
+    DisciplineOptions, Error, Fixture, Game, GameInfo, Instructions, JobsView, LiveView, MatchPreview, NewGame, NewsItem, NumberAssign,
+    OfferView, PersonProfile, ReportStaff, Result, SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, SquadNumbers, StageView,
+    StandingRow, TransferItem, TransferView, World, list_saves,
 };
 
 pub struct Session {
@@ -258,6 +258,14 @@ impl Session {
 
     pub fn discipline(&mut self, id: i32, action: usize, reason: String) -> Result<String> {
         self.game_mut()?.discipline(id, action, &reason)
+    }
+
+    pub fn jobs_view(&self, nation: Option<i32>) -> Result<JobsView> {
+        self.game()?.jobs_view(nation)
+    }
+
+    pub fn apply_job(&mut self, id: i32) -> Result<String> {
+        self.game_mut()?.apply_job(id)
     }
 
     pub fn set_reserve(&mut self, id: i32, reserve: bool) -> Result<String> {

@@ -55,6 +55,10 @@ export default function Shell() {
               setSackedSeen(true)
               nav.go({ kind: 'news' })
             }}
+            onJobs={() => {
+              setSackedSeen(true)
+              nav.go({ kind: 'jobs' })
+            }}
           />
         )}
         {exiting && <ExitDialog onCancel={() => setExiting(false)} notify={notify} />}

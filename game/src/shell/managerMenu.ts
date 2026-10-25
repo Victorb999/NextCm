@@ -28,6 +28,7 @@ export function managerMenu({
     { label: info.unreadNews ? `Notícias (${info.unreadNews})` : 'Notícias', onSelect: () => go({ kind: 'news' }) },
     { label: 'Pesquisa Jogador & Staff', onSelect: () => go({ kind: 'search' }) },
     { label: 'Confiança da Direcção', onSelect: () => go({ kind: 'board' }) },
+    { label: 'Informação de Empregos', onSelect: () => go({ kind: 'jobs' }) },
     { label: 'Perfil do Treinador', onSelect: () => go({ kind: 'person', id: info.managerId }) },
     'separator',
     {

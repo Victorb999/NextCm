@@ -103,12 +103,12 @@ impl Game {
         Ok(())
     }
 
-    fn push_news(&self, fresh: &mut Vec<NewsItem>, next_id: &mut i32, kind: &str, title: String, body: String) {
+    pub(super) fn push_news(&self, fresh: &mut Vec<NewsItem>, next_id: &mut i32, kind: &str, title: String, body: String) {
         fresh.push(self.news_item(*next_id, kind, title, body));
         *next_id += 1;
     }
 
-    fn managed_clubs(&self) -> Result<Vec<i32>> {
+    pub(super) fn managed_clubs(&self) -> Result<Vec<i32>> {
         let sql = format!("SELECT id FROM clubs WHERE division_id IN ({}) ORDER BY id", managed_sql(None));
         Ok(self.world.conn.prepare(&sql)?.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?)
     }
