@@ -730,6 +730,19 @@ Pedidos do utilizador a jogar com o Manchester United. Referência: `docs/prints
 **Propostas recebidas: negociar as condições**
 - O "Pedir Mais" (`pedir-mais.png`) só deixa pedir mais dinheiro. Deve abrir o mesmo diálogo da proposta (valor, prestações, percentagem da próxima venda, valor por jogos): pedir uma percentagem, menos prestações (ou tudo à cabeça) ou um bónus, e o clube que compra responde em rondas como o treinador faz com os outros (aceita, contraproposta, desiste).
 
+**Dia de jogo**
+- **Suplentes sumiram na partida** (`tacticas-jogo-sem-banco.webp`): nas Tácticas a meio do jogo não há banco e jogou um onze diferente do escolhido (`tacticas-depois-do-jogo.webp`: o plantel tem SB1–SB9, mas jogaram Mazraoui, Dorgu, Amad, Tielemans e Zirkzee). Suspeita: depois de "Limpar Equipa" a escolha fica com o banco vazio e no dia do jogo o adjunto só preenche os titulares (`cover_unavailable`), não os suplentes. Reproduzir e corrigir junto com o aviso "Escolha Equipa" do CM.
+- **A tela do dia de jogo fica por cima de tudo** (`resultados-por-cima.webp`): com os Resultados de Hoje abertos, as opções da coluna não aparecem por cima nem escondem o dia de jogo. Rever o `useMatchDay` (esconde só quando a tela muda) e a ordem das camadas (o dia de jogo está em `z-50` dentro do `main`).
+
+**Feito (bugs):**
+- Propor Contrato: salário e prémio vão arredondados para euros inteiros.
+- Dia de jogo: qualquer navegação pela coluna esconde o dia de jogo, também para a tela onde ele abriu (o `nav.seq` conta cada pedido).
+- Escolha da equipa: na véspera do jogo, com a equipa escolhida pelo treinador, o Continuar Jogo pára com o "Escolha Equipa" do CM quando faltam titulares (Ok vai às Tácticas) e pede "Confirmar Por Favor" com batedores fora do onze ou suplentes a menos (`lineup_check`). Era daqui que vinha o banco vazio: depois do Limpar Equipa o adjunto preenchia só os titulares.
+- Gravar no dia do jogo: grava-se antes do apito; ao carregar, os jogos do dia voltam a ser preparados com a mesma seed (teste `match_day_save_resumes_the_same_day`). A meio da partida continua a não gravar.
+
+**Classificação**
+- **Marcadores dos lugares** (`classificacao-sem-marcadores.webp`): como no CM, linhas ou cores na tabela para os lugares de Liga dos Campeões, Liga Europa, Liga Conferência, subida, play-off e despromoção, tirados do regulamento da competição (`core/regulations/*.json`) e das vagas europeias da nação.
+
 **Gravar no dia do jogo**
 - Hoje o save recusa gravar no dia do jogo do treinador (o jogo ao vivo e os resultados do dia só existem na memória). No CM grava-se no dia do jogo, antes da partida (nas gravações de 24/10). Gravar o estado de antes do dia (a data do jogo, com os outros jogos ainda por decidir) e, ao carregar, voltar a correr o dia a partir daí: como tudo usa a seed, os jogos dos outros saem iguais. Durante a partida continua a não se gravar (ou grava-se o mesmo estado de antes do dia).
 

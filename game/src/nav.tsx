@@ -26,24 +26,30 @@ type Nav = {
   forward: () => void
   canBack: boolean
   canForward: boolean
+  /** Conta cada pedido de navegação (também para a tela onde já se está). */
+  seq: number
 }
 
 const NavContext = createContext<Nav | null>(null)
 
 export function NavProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<{ stack: Screen[]; index: number }>({ stack: [{ kind: 'search' }], index: 0 })
+  const [state, setState] = useState<{ stack: Screen[]; index: number; seq: number }>({
+    stack: [{ kind: 'search' }],
+    index: 0,
+    seq: 0,
+  })
 
   const go = useCallback((s: Screen) => {
-    setState(({ stack, index }) => {
+    setState(({ stack, index, seq }) => {
       const cur = stack[index]
-      if (JSON.stringify(cur) === JSON.stringify(s)) return { stack, index }
+      if (JSON.stringify(cur) === JSON.stringify(s)) return { stack, index, seq: seq + 1 }
       // Ir para uma tela nova descarta o "avançar", como num navegador
-      return { stack: [...stack.slice(0, index + 1), s], index: index + 1 }
+      return { stack: [...stack.slice(0, index + 1), s], index: index + 1, seq: seq + 1 }
     })
   }, [])
-  const back = useCallback(() => setState((st) => ({ ...st, index: Math.max(0, st.index - 1) })), [])
+  const back = useCallback(() => setState((st) => ({ ...st, index: Math.max(0, st.index - 1), seq: st.seq + 1 })), [])
   const forward = useCallback(
-    () => setState((st) => ({ ...st, index: Math.min(st.stack.length - 1, st.index + 1) })),
+    () => setState((st) => ({ ...st, index: Math.min(st.stack.length - 1, st.index + 1), seq: st.seq + 1 })),
     [],
   )
 
@@ -55,6 +61,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
       forward,
       canBack: state.index > 0,
       canForward: state.index < state.stack.length - 1,
+      seq: state.seq,
     }),
     [state, go, back, forward],
   )

@@ -129,6 +129,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             out(serde_json::to_value(session.ask_loan(id()?, terms).map_err(e)?))
         }
         "exercise_option" => out(serde_json::to_value(session.exercise_option(id()?).map_err(e)?)),
+        "lineup_check" => out(serde_json::to_value(session.lineup_check().map_err(e)?)),
         "contract_terms" => {
             let role = args["role"].as_str().map(str::to_string);
             out(serde_json::to_value(session.contract_terms(id()?, role).map_err(e)?))

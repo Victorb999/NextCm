@@ -4,6 +4,7 @@ import type { BoardRequest } from './bindings/BoardRequest'
 import type { BoardView } from './bindings/BoardView'
 import type { DealTerms } from './bindings/DealTerms'
 import type { DisciplineOptions } from './bindings/DisciplineOptions'
+import type { LineupCheck } from './bindings/LineupCheck'
 import type { LoanTerms } from './bindings/LoanTerms'
 import type { JobsView } from './bindings/JobsView'
 import type { NewsLink } from './bindings/NewsLink'
@@ -89,6 +90,8 @@ export const api = {
   advanceDay: () => call<GameInfo>('advance_day'),
   /** Avança até o próximo evento (jogo do treinador, notícia...). */
   continueGame: () => call<GameInfo>('continue_game'),
+  /** Antes do dia de jogo: o que falta ou o que confirmar na equipa. */
+  lineupCheck: () => call<LineupCheck>('lineup_check'),
   /** Classificação real; vazia sem jogo ou numa competição parada. */
   leagueTable: (id: number) => call<StandingRow[]>('league_table', { id }),
   listFixtures: (id: number) => call<Fixture[]>('list_fixtures', { id }),

@@ -1,3 +1,5 @@
+import type { LineupCheck } from "../bindings/LineupCheck";
+import LineupDialog from "./LineupDialog";
 import { useState } from "react";
 import { hasBackend } from "../api";
 import Loading from "../components/Loading";
@@ -27,6 +29,8 @@ export default function Shell() {
   const [sackedSeen, setSackedSeen] = useState(false);
   const { notice, notify } = useNotice();
   const matchDay = useMatchDay();
+  // O aviso ou a confirmação da equipa antes do dia de jogo
+  const [lineup, setLineup] = useState<{ check: LineupCheck; go: () => void } | null>(null);
   const browsing = game.mode === "game" || game.mode === "explore";
 
   return (
@@ -38,6 +42,7 @@ export default function Shell() {
         onProcessing={setProcessing}
         onMatch={matchDay.open}
         matchStep={matchDay.advance}
+        onLineup={(check, go) => setLineup({ check, go })}
       />
       <main className="cm-backdrop relative min-w-0 flex-1">
         {!hasBackend && (
@@ -87,6 +92,21 @@ export default function Shell() {
               onDone={matchDay.close}
             />
           </div>
+        )}
+        {lineup && game.info && (
+          <LineupDialog
+            check={lineup.check}
+            onTactics={() => {
+              setLineup(null);
+              nav.go({ kind: "tactics", id: game.info!.club.id });
+            }}
+            onCancel={() => setLineup(null)}
+            onGo={() => {
+              const go = lineup.go;
+              setLineup(null);
+              go();
+            }}
+          />
         )}
         {notice && <Notice text={notice} />}
       </main>

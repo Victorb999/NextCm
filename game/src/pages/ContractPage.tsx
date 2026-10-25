@@ -126,7 +126,8 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
 
   const offer = async () => {
     try {
-      const r = await api.negotiate(terms.personId, terms.role, w, bonus, years)
+      // O − / + no período das Definições deixa casas decimais: o core recebe euros inteiros
+      const r = await api.negotiate(terms.personId, terms.role, Math.round(w), Math.round(bonus), years)
       setReply(r)
       setError(null)
       const info = await api.gameInfo()

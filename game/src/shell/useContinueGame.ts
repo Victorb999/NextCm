@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api'
+import type { LineupCheck } from '../bindings/LineupCheck'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import type { MatchDayData } from './types'
@@ -14,18 +15,21 @@ export function useContinueGame({
   onProcessing,
   onMatch,
   matchStep,
+  onLineup,
 }: {
   notify: (msg: string) => void
   onProcessing: (busy: boolean) => void
   onMatch: (m: MatchDayData) => void
   matchStep?: () => void
+  /** Antes do dia de jogo: o que falta na equipa ou o que confirmar; `go` avança mesmo assim. */
+  onLineup: (check: LineupCheck, go: () => void) => void
 }) {
   const nav = useNav()
   const game = useGame()
   const [busy, setBusy] = useState(false)
   const info = game.mode === 'game' ? game.info : null
 
-  const advance = async () => {
+  const advance = async (confirmed = false) => {
     if (matchStep) return matchStep()
     if (busy) return
     setBusy(true)
@@ -39,6 +43,12 @@ export function useContinueGame({
         return
       }
       if (!next?.live) {
+        // Amanhã há jogo e a equipa é do treinador: o aviso ou a confirmação do CM
+        const check = confirmed ? null : await api.lineupCheck()
+        if (check && (check.problem || check.warnings.length > 0)) {
+          onLineup(check, () => void advance(true))
+          return
+        }
         next = await api.continueGame()
         game.update(next)
       }

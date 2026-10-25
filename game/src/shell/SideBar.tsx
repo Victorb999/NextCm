@@ -1,3 +1,4 @@
+import type { LineupCheck } from '../bindings/LineupCheck'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -69,6 +70,7 @@ export default function SideBar({
   onProcessing,
   onMatch,
   matchStep,
+  onLineup,
 }: {
   onOptions: () => void
   onExit: () => void
@@ -79,13 +81,14 @@ export default function SideBar({
   onMatch: (m: MatchDayData) => void
   /** Com um dia de jogo pendente, o Continuar Jogo volta a ele / faz o papel do Seguinte. */
   matchStep?: () => void
+  onLineup: (check: LineupCheck, go: () => void) => void
 }) {
   const nav = useNav()
   const game = useGame()
   const [comps, setComps] = useState<CompetitionListItem[] | null>(null)
   const [menu, setMenu] = useState<Menu | null>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
-  const { advance, busy } = useContinueGame({ notify, onProcessing, onMatch, matchStep })
+  const { advance, busy } = useContinueGame({ notify, onProcessing, onMatch, matchStep, onLineup })
 
   const browsing = game.mode === 'game' || game.mode === 'explore'
   const info = game.mode === 'game' ? game.info : null

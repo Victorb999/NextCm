@@ -25,6 +25,7 @@ mod discipline;
 mod finances;
 mod jobs;
 mod league_meeting;
+mod lineup_check;
 mod market;
 mod negotiation;
 mod news_links;
@@ -51,6 +52,7 @@ pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, TransferView};
 pub use discipline::DisciplineOptions;
 pub use jobs::{JobNation, JobRow, JobsView};
+pub use lineup_check::LineupCheck;
 pub use market::TransferItem;
 pub use negotiation::{DealTerms, LoanTerms};
 pub use news_links::NewsLink;
@@ -917,9 +919,13 @@ impl Game {
 
     /// Grava o estado em memória no arquivo do save.
     pub fn save(&mut self) -> Result<()> {
-        if self.live.is_some() {
-            return Err(Error::Invalid("Não é possível gravar durante um jogo.".into()));
-        }
+        // No dia de jogo grava-se antes do apito (ao carregar, os jogos do dia voltam a ser
+        // preparados com a mesma seed); a meio da partida não
+        let pending: Vec<NewsItem> = match &self.live {
+            Some(day) if day.games.get(day.user).is_some_and(|(_, l)| !l.started()) => day.news.clone(),
+            Some(_) => return Err(Error::Invalid("Não é possível gravar durante um jogo.".into())),
+            None => Vec::new(),
+        };
         // O save vive numa transação aberta (ver `create`): aqui grava a memória e faz o commit
         let tx = &self.world.conn;
         tx.execute("UPDATE game SET date = ?, seed = ?, club_id = ?", params![self.date, self.seed, self.club_id])?;
@@ -927,7 +933,7 @@ impl Game {
         {
             let mut stmt =
                 tx.prepare("INSERT INTO news (id, date, kind, title, body, read, offer_id, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
-            for n in &self.news {
+            for n in pending.iter().rev().chain(&self.news) {
                 stmt.execute(params![n.id, n.date, n.kind, n.title, n.body, n.read as i32, n.offer_id, n.link])?;
             }
         }
@@ -1112,6 +1118,13 @@ impl Game {
         }
         self.jobs_day(&mut fresh, &mut next_id)?;
 
+        self.start_day_matches(fresh, next_id, false)
+    }
+
+    /// Os jogos de hoje: decide os dos outros e prepara o do treinador (com `watch`, fica à
+    /// espera em `live`). `quiet` não repete as notícias das trocas do adjunto (ao retomar
+    /// um dia de jogo gravado, elas já estão nas notícias).
+    fn start_day_matches(&mut self, mut fresh: Vec<NewsItem>, mut next_id: i32, quiet: bool) -> Result<Vec<NewsItem>> {
         let today: Vec<usize> =
             (0..self.matches.len()).filter(|&i| self.matches[i].date == self.date && self.matches[i].result.is_none()).collect();
         let mut games = Vec::new();
@@ -1123,11 +1136,12 @@ impl Game {
             let (away_t, away_changes) = self.lineup(away, comp)?;
             if let Some(changes) = home_changes.or(away_changes)
                 && !changes.is_empty()
+                && !quiet
             {
                 fresh.push(self.changes_news(next_id, &changes)?);
                 next_id += 1;
             }
-            let side = if unemployed {
+            let side = if self.sacked() {
                 None
             } else if home == self.club_id {
                 Some(0)
@@ -1704,6 +1718,20 @@ impl Game {
     /// Liga/desliga ver os jogos do treinador ao vivo (o app liga; a CLI não).
     pub fn set_watch(&mut self, watch: bool) {
         self.watch = watch;
+    }
+
+    /// Um save gravado no dia de jogo (antes do apito) tem jogos de hoje por jogar: prepara-os
+    /// outra vez (com a mesma seed saem iguais) e volta ao dia de jogo.
+    pub fn resume_match_day(&mut self) -> Result<()> {
+        if self.live.is_some() || !self.matches.iter().any(|m| m.date == self.date && m.result.is_none()) {
+            return Ok(());
+        }
+        let next_id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+        let news = self.start_day_matches(Vec::new(), next_id, true)?;
+        for n in news.into_iter().rev() {
+            self.news.insert(0, n);
+        }
+        Ok(())
     }
 
     /// Números dos jogos acabados desde que o jogo foi aberto.
@@ -2386,13 +2414,41 @@ mod tests {
     }
 
     #[test]
+    fn match_day_save_resumes_the_same_day() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (mut a, d1) = until_kickoff(&world, "dia-gravado", 8, true, false);
+        let today = a.date().to_string();
+        a.save().unwrap();
+        let path = a.path().to_path_buf();
+        let day = |g: &Game| -> Vec<_> {
+            g.fixtures(SERIE_A).into_iter().filter(|f| f.date == today).map(|f| (f.home_goals, f.away_goals)).collect()
+        };
+        // Sem recarregar: joga o dia até ao fim (o save fica como estava ao apito)
+        a.live_step(200).unwrap();
+        a.live_finish().unwrap();
+        let expected = day(&a);
+        drop(a);
+        let mut b = Game::load(&path).unwrap();
+        b.set_watch(true);
+        b.resume_match_day().unwrap();
+        assert!(b.info().unwrap().live, "volta ao dia de jogo");
+        b.live_step(200).unwrap();
+        b.live_finish().unwrap();
+        assert_eq!(day(&b), expected, "os jogos do dia saem iguais");
+        assert!(expected.iter().all(|r| r.0.is_some()));
+        drop(b);
+        let _ = std::fs::remove_dir_all(&d1);
+    }
+
+    #[test]
     fn watched_match_is_the_same_match() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let (mut quick, d1) = until_kickoff(&world, "live-quick", 5, false, false);
         let (mut g, d2) = until_kickoff(&world, "live-watch", 5, true, false);
         assert!(quick.live.is_none());
         assert!(g.info().unwrap().live, "o jogo do treinador fica por jogar");
-        assert!(matches!(g.save(), Err(Error::Invalid(_))), "não grava a meio do jogo");
+        g.save().unwrap(); // antes do apito grava
+
         // Os resultados do dia só aparecem no fim
         let today = g.date().to_string();
         assert!(g.fixtures(SERIE_A).iter().filter(|f| f.date == today).all(|f| f.home_goals.is_none()));
@@ -2402,6 +2458,7 @@ mod tests {
         assert_eq!(v.others.len(), g.fixtures(SERIE_A).iter().filter(|f| f.date == today).count() - 1);
         let half = g.live_step(45).unwrap();
         assert!(half.half_time && !half.finished);
+        assert!(matches!(g.save(), Err(Error::Invalid(_))), "não grava a meio do jogo");
         assert!(half.events.iter().any(|e| e.kind == "half"));
         let end = g.live_step(200).unwrap();
         assert!(end.finished && end.minute == 90);

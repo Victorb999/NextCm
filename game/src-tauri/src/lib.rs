@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use nextcm_core::LineupCheck;
 use nextcm_core::NewsLink;
 use nextcm_core::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem,
@@ -101,6 +102,7 @@ session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
 session_command!(ask_loan(id: i32, terms: LoanTerms) -> TransferView);
 session_command!(exercise_option(id: i32) -> TransferView);
+session_command!(lineup_check() -> LineupCheck);
 session_command!(contract_terms(id: i32, role: Option<String>) -> ContractTerms);
 session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: i32) -> ContractReply);
 session_command!(set_listing(id: i32, transfer: bool, loan: bool, asking: Option<i64>) -> TransferView);
@@ -237,6 +239,7 @@ pub fn run() {
             make_offer,
             ask_loan,
             exercise_option,
+            lineup_check,
             contract_terms,
             negotiate,
             set_listing,

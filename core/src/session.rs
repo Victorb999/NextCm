@@ -10,6 +10,7 @@ use crate::{
     StandingRow, TransferItem, TransferView, World, list_saves,
 };
 
+use crate::LineupCheck;
 use crate::NewsLink;
 use crate::{DealTerms, LoanTerms};
 
@@ -138,6 +139,7 @@ impl Session {
         let name = Path::new(file).file_name().ok_or_else(|| Error::Invalid("Arquivo inválido.".into()))?;
         let mut game = Game::load(&self.saves_dir.join(name))?;
         game.set_watch(true);
+        game.resume_match_day()?;
         let info = game.info()?;
         self.game = Some(game);
         Ok(info)
@@ -158,6 +160,11 @@ impl Session {
         let game = self.game_mut()?;
         game.advance_day()?;
         game.info()
+    }
+
+    /// O que confirmar (ou o que falta) na equipa antes de entrar no dia de jogo.
+    pub fn lineup_check(&self) -> Result<LineupCheck> {
+        self.game()?.lineup_check()
     }
 
     /// "Continuar Jogo": avança até o próximo evento (jogo do treinador, notícia...).

@@ -637,6 +637,11 @@ impl LiveMatch {
         6.0 + (uniform(&mut self.rng) - 0.5) * 0.8
     }
 
+    /// A bola já rolou (antes do apito ainda se grava o jogo).
+    pub fn started(&self) -> bool {
+        self.minute > 0
+    }
+
     pub fn finished(&self) -> bool {
         self.minute >= 90
     }

@@ -12,18 +12,18 @@ export function useMatchDay() {
   const [match, setMatch] = useState<MatchDayData | null>(null)
   const [step, setStep] = useState(0)
   const [hidden, setHidden] = useState(false)
-  // A tela onde o dia de jogo foi aberto: sair dela esconde-o
-  const screen = useRef<string | null>(null)
+  // A navegação quando o dia de jogo foi aberto: qualquer navegação depois (mesmo para a
+  // tela onde já se estava) esconde-o
+  const screen = useRef<number | null>(null)
 
   useEffect(() => {
-    const here = JSON.stringify(nav.current)
     if (!match) {
       screen.current = null
       return
     }
-    if (screen.current === null) screen.current = here
-    else if (screen.current !== here) setHidden(true)
-  }, [match, nav])
+    if (screen.current === null) screen.current = nav.seq
+    else if (screen.current !== nav.seq) setHidden(true)
+  }, [match, nav.seq])
 
   const close = useCallback(() => {
     // Depois dos resultados do dia, como no CM: a caixa de mensagens (com a notícia do jogo)
@@ -36,7 +36,7 @@ export function useMatchDay() {
   const advance = match
     ? () => {
         if (hidden) {
-          screen.current = JSON.stringify(nav.current)
+          screen.current = nav.seq
           setHidden(false)
         } else setStep((n) => n + 1)
       }
