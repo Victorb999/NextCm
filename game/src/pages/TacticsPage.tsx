@@ -166,6 +166,7 @@ export default function TacticsPage({ id }: { id: number }) {
                     onOpen={() => nav.go({ kind: 'person', id: s.player!.id })}
                     onOrders={editable ? () => setOrdersFor(s.player!) : undefined}
                     ordered={t.orders.some((o) => o.personId === s.player!.id)}
+                    captain={t.takers.captain === s.player.id}
                   />
                 ) : (
                   <div key={`s${i}`} {...drag.bind(spot, s.role)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">

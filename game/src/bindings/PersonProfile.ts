@@ -4,6 +4,7 @@ import type { ClubRef } from "./ClubRef";
 import type { Knowledge } from "./Knowledge";
 import type { PlayerDetails } from "./PlayerDetails";
 import type { PlayerStatus } from "./PlayerStatus";
+import type { SeasonLine } from "./SeasonLine";
 import type { StaffDetails } from "./StaffDetails";
 
 export type PersonProfile = { id: number, name: string, listName: string, birthDate: string | null, birthYear: number | null, age: number | null, nationId: number | null, nation: string | null, nationality: string | null, secondNationId: number | null, secondNation: string | null, internationalApps: number, internationalGoals: number, club: ClubRef | null, job: string | null, clubJoined: string | null, contractExpires: string | null, wage: number | null, player: PlayerDetails | null, staff: StaffDetails | null, career: Array<CareerEntry>, 
@@ -24,4 +25,20 @@ shortlisted: boolean,
  * O treinador pode propor-lhe um contrato agora (livre, pré-contrato, negócio acordado
  * com o clube dele, ou renovação no plantel).
  */
-canContract: boolean, };
+canContract: boolean, 
+/**
+ * As últimas notas (a Forma do CM), da mais antiga à mais recente.
+ */
+form: Array<number>, 
+/**
+ * Os jogos da época por competição.
+ */
+season: Array<SeasonLine>, nickname: string | null, 
+/**
+ * A nota do treinador sobre ele.
+ */
+note: string | null, 
+/**
+ * Do plantel do treinador: a indemnização para o dispensar.
+ */
+releaseCost: number | null, };

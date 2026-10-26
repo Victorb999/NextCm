@@ -4,4 +4,8 @@
  * Batedores de bolas paradas e organizador ("Instruções à Equipa" do CM); `None` = o
  * adjunto escolhe no jogo.
  */
-export type Takers = { penalty: number | null, freeKick: number | null, corner: number | null, playmaker: number | null, };
+export type Takers = { penalty: number | null, freeKick: number | null, corner: number | null, playmaker: number | null, 
+/**
+ * O capitão (`None` = o adjunto escolhe).
+ */
+captain: number | null, };

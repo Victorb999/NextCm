@@ -17,6 +17,7 @@ export function Row({
   onOpen,
   onOrders,
   ordered,
+  captain,
 }: {
   p: TacticPlayer
   kind: 'starter' | 'bench' | 'reserve'
@@ -30,6 +31,8 @@ export function Row({
   onOrders?: () => void
   /** Tem instruções individuais diferentes das da equipa. */
   ordered?: boolean
+  /** O capitão ("cap" na lista, como no CM). */
+  captain?: boolean
 }) {
   const text = kind === 'bench' ? 'text-[#8a5ad8]' : kind === 'reserve' ? 'text-[#8a8a8a]' : 'text-white'
   const toggle =
@@ -71,6 +74,7 @@ export function Row({
         {place}
       </span>
       <span className={`flex-1 truncate ${text}`}>{fullName(p.listName)}</span>
+      {captain && <span className="shrink-0 text-[12px] text-cm-yellow">cap</span>}
       {ordered && (
         <span className="shrink-0 text-[11px] font-bold text-cm-magenta" title="Instruções individuais">
           I

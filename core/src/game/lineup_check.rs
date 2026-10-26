@@ -67,6 +67,9 @@ impl Game {
             let parts = if list.len() == 1 { "não faz parte" } else { "não fazem parte" };
             warnings.push(format!("{} {verb} como marcadores de bolas paradas, mas {parts} do onze inicial.", names(&list)));
         }
+        if let Some(c) = k.captain.filter(|c| !sel.starters.contains(&Some(*c))) {
+            warnings.push(format!("O capitão, {}, não faz parte do onze inicial: o adjunto escolhe outro.", self.person_name(c)?));
+        }
         if sel.bench.len() < BENCH {
             warnings.push(match sel.bench.len() {
                 0 => "Não escolheu nenhum substituto.".to_string(),

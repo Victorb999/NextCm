@@ -8,45 +8,15 @@ import ReportDialog from '../components/ReportDialog'
 import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
 import type { TransferView } from '../bindings/TransferView'
 import TransferActions, { type TransferAction } from '../components/TransferActions'
+import TextDialog from '../components/TextDialog'
 import TransferTab from '../components/TransferTab'
+import { compareFirst, setCompareFirst } from '../compare'
 import { cmDate, money, wage } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
+import { PLAYER_ATTRIBUTES } from '../attributes'
 
 // Atributos na ordem e com os nomes do perfil do CM 01/02 em português.
-const PLAYER_ATTRIBUTES: [string, string][] = [
-  ['acceleration', 'Aceleração'],
-  ['agility', 'Agilidade'],
-  ['aggression', 'Agressividade'],
-  ['anticipation', 'Antecipação'],
-  ['balance', 'Balanço'],
-  ['free_kicks', 'Bolas Paradas'],
-  ['bravery', 'Bravura'],
-  ['heading', 'Cabeceamento'],
-  ['vision', 'Criatividade'],
-  ['crossing', 'Cruzamentos'],
-  ['decisions', 'Decisões'],
-  ['tackling', 'Desarme'],
-  ['determination', 'Determinação'],
-  ['finishing', 'Finalização'],
-  ['dribbling', 'Finta'],
-  ['strength', 'Força'],
-  ['jumping', 'Impulsão'],
-  ['work_rate', 'Índice Trabalho'],
-  ['leadership', 'Influência'],
-  ['flair', 'Instinto'],
-  ['handling', 'Jogo Mãos'],
-  ['marking', 'Marcação'],
-  ['passing', 'Passe'],
-  ['positioning', 'Posicionamento'],
-  ['reflexes', 'Reflexos'],
-  ['long_shots', 'Remates Longe'],
-  ['stamina', 'Resistência'],
-  ['off_the_ball', 'Sem Bola'],
-  ['technique', 'Técnica'],
-  ['teamwork', 'Trabalho Equipa'],
-  ['pace', 'Velocidade'],
-]
 
 const STAFF_ATTRIBUTES: [string, string][] = [
   ['adaptability', 'Adaptabilidade'],
@@ -149,7 +119,7 @@ function Profile({ p }: { p: PersonProfile }) {
   if (pl) {
     items.push(
       { label: 'Pé Preferido', value: pl.preferredFoot ?? '-' },
-      { label: 'Forma', value: '-' },
+      { label: 'Forma', value: p.form.length ? p.form.map((r) => Math.round(r)).join('-') : '-' },
       { label: 'Moral', value: p.status?.moraleLabel ?? '-' },
       { label: 'Condição', value: `${p.status?.condition ?? 100}%` },
     )
@@ -186,6 +156,20 @@ function Profile({ p }: { p: PersonProfile }) {
           ]}
         />
       </div>
+      {p.season.length > 0 && (
+        <div className="mt-2 px-1.5">
+          <PurpleTable
+            head={['Época', 'Jogos', 'Golos', 'Asts', 'Nota']}
+            rows={p.season.map((s) => [s.competition, s.apps, s.goals, s.assists, s.rating.toFixed(2)])}
+          />
+        </div>
+      )}
+      {p.note && (
+        <div className="mx-1.5 mt-2 border border-cm-line bg-black/50 px-3 py-1 text-[15px] text-white">
+          <span className="text-cm-yellow">Nota do treinador: </span>
+          {p.note}
+        </div>
+      )}
       {p.knowledge && p.knowledge !== 'known' && (
         <div className="mt-2 px-1.5 text-center text-cm-magenta">
           {p.reportOn
@@ -311,6 +295,8 @@ export default function PersonPage({ id }: { id: number }) {
   const [market, setMarket] = useState<TransferView | null>(null)
   const [deal, setDeal] = useState<TransferAction | null>(null)
   const [version, setVersion] = useState(0)
+  const [text, setText] = useState<'nickname' | 'note' | null>(null)
+  const [release, setRelease] = useState<string | null>(null)
 
   const reload = () => {
     setVersion((v) => v + 1)
@@ -375,6 +361,7 @@ export default function PersonPage({ id }: { id: number }) {
           ? { key: 'promote', label: 'Promover ao Plantel Principal' }
           : { key: 'demote', label: 'Despromover para Reservas' },
         { key: 'discipline', label: 'Disciplinar Jogador' },
+        { key: 'release', label: 'Dispensar' },
         { key: 'praise', label: 'Elogiar na Imprensa' },
         { key: 'criticise', label: 'Criticar na Imprensa' },
         { key: 'medical', label: 'Pedir Relatório Médico' },
@@ -390,6 +377,13 @@ export default function PersonPage({ id }: { id: number }) {
           : { key: 'shortlist', label: 'Adicionar à Lista Preferencial' },
         ...(canScout ? [{ key: 'scout', label: 'Observar Jogador' }] : []),
       ]
+  // Para todos: alcunha, nota e comparar (o 1º escolhido espera pelo 2º)
+  const first = compareFirst()
+  const common = [
+    { key: 'nickname', label: 'Definir Alcunha' },
+    { key: 'note', label: 'Criar Nota Treinador' },
+    first && first.id !== id ? { key: 'compare', label: `Comparar com ${first.name}` } : { key: 'compareFirst', label: 'Comparar Jogadores' },
+  ]
   // As mensagens novas contam no "por ler"
   const refreshInfo = () => void api.gameInfo().then((info) => info && game.update(info))
   const comment = async (kind: 'praise' | 'criticise') => {
@@ -445,11 +439,20 @@ export default function PersonPage({ id }: { id: number }) {
           <PurpleMenu
             label="Acção"
             align="right"
-            options={actions}
+            options={[...actions, ...common]}
             onChange={(k) => {
               if (k === 'contract' || k === 'renew') nav.go({ kind: 'contract', id })
               else if (k === 'offer' || k === 'loan' || k === 'price') setDeal(k)
               else if (k === 'option') void marketAction(() => api.exerciseOption(id))
+              else if (k === 'nickname' || k === 'note') setText(k)
+              else if (k === 'release') void api.releaseQuestion(id).then(setRelease, (e) => setError(String(e)))
+              else if (k === 'compareFirst' && person) {
+                setCompareFirst({ id, name: person.name })
+                setNotice(`Escolha o segundo jogador e, no menu Acção, Comparar com ${person.name}.`)
+              } else if (k === 'compare' && first) {
+                setCompareFirst(null)
+                nav.go({ kind: 'compare', a: first.id, b: id })
+              }
               else if (k === 'list' || k === 'unlist' || k === 'loanlist' || k === 'unloanlist')
                 void marketAction(() =>
                   api.setListing(
@@ -507,6 +510,46 @@ export default function PersonPage({ id }: { id: number }) {
             void reload()
           }}
         />
+      )}
+      {text && person && (
+        <TextDialog
+          title={text === 'nickname' ? 'Definir Alcunha' : 'Criar Nota Treinador'}
+          initial={(text === 'nickname' ? person.nickname : person.note) ?? ''}
+          multiline={text === 'note'}
+          onCancel={() => setText(null)}
+          onOk={(t) => {
+            const save = text === 'nickname' ? api.setNickname(id, t) : api.setNote(id, t)
+            setText(null)
+            void save.then(
+              () => reload(),
+              (e) => setError(String(e)),
+            )
+          }}
+        />
+      )}
+      {release && (
+        <Overlay>
+          <DialogFrame
+            title="Dispensar"
+            width={560}
+            cancelLabel="Não"
+            okLabel="Sim"
+            onCancel={() => setRelease(null)}
+            onOk={() => {
+              setRelease(null)
+              void api.releasePlayer(id).then(
+                (t) => {
+                  setNotice(t)
+                  refreshInfo()
+                  void reload()
+                },
+                (e) => setError(String(e)),
+              )
+            }}
+          >
+            <div className="py-6 text-center font-title text-[19px] text-white">{release}</div>
+          </DialogFrame>
+        </Overlay>
       )}
       {discipline && person && (
         <DisciplineDialog

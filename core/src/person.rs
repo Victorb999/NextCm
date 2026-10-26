@@ -120,6 +120,28 @@ pub struct PersonProfile {
     /// O treinador pode propor-lhe um contrato agora (livre, pré-contrato, negócio acordado
     /// com o clube dele, ou renovação no plantel).
     pub can_contract: bool,
+    /// As últimas notas (a Forma do CM), da mais antiga à mais recente.
+    pub form: Vec<f64>,
+    /// Os jogos da época por competição.
+    pub season: Vec<SeasonLine>,
+    pub nickname: Option<String>,
+    /// A nota do treinador sobre ele.
+    pub note: Option<String>,
+    /// Do plantel do treinador: a indemnização para o dispensar.
+    #[ts(type = "number | null")]
+    pub release_cost: Option<i64>,
+}
+
+/// Uma linha das estatísticas da época no perfil.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SeasonLine {
+    pub competition: String,
+    pub apps: i32,
+    pub goals: i32,
+    pub assists: i32,
+    pub rating: f64,
 }
 
 /// O que o clube do treinador sabe de um jogador (marco 3.10).
@@ -257,6 +279,11 @@ impl World {
                         report_on: None,
                         shortlisted: false,
                         can_contract: false,
+                        form: Vec::new(),
+                        season: Vec::new(),
+                        nickname: None,
+                        note: None,
+                        release_cost: None,
                     },
                     r.get::<_, Option<i32>>(10)?,
                 ))

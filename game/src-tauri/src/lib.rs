@@ -107,6 +107,11 @@ session_command!(lineup_check() -> LineupCheck);
 session_command!(press_view(id: i32) -> PressView);
 session_command!(answer_press(id: i32, answers: Vec<usize>) -> String);
 session_command!(skip_press(id: i32) -> String);
+session_command!(set_nickname(id: i32, nickname: String) -> ());
+session_command!(set_note(id: i32, text: String) -> ());
+session_command!(release_question(id: i32) -> String);
+session_command!(release_player(id: i32) -> String);
+session_command!(day_competitions() -> Vec<i32>);
 session_command!(ask_terms(id: i32, terms: DealTerms) -> OfferView);
 session_command!(contract_terms(id: i32, role: Option<String>) -> ContractTerms);
 session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: i32) -> ContractReply);
@@ -248,6 +253,11 @@ pub fn run() {
             press_view,
             answer_press,
             skip_press,
+            set_nickname,
+            set_note,
+            release_question,
+            release_player,
+            day_competitions,
             ask_terms,
             contract_terms,
             negotiate,

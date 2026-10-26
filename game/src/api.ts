@@ -97,6 +97,13 @@ export const api = {
   /** As respostas na conferência de imprensa, uma por pergunta. */
   answerPress: (id: number, answers: number[]) => call<string>('answer_press', { id, answers }),
   skipPress: (id: number) => call<string>('skip_press', { id }),
+  setNickname: (id: number, nickname: string) => call<null>('set_nickname', { id, nickname }),
+  setNote: (id: number, text: string) => call<null>('set_note', { id, text }),
+  /** A pergunta antes de dispensar, com a indemnização. */
+  releaseQuestion: (id: number) => call<string>('release_question', { id }),
+  releasePlayer: (id: number) => call<string>('release_player', { id }),
+  /** As competições com jogos acabados hoje (os resultados depois do jogo do treinador). */
+  dayCompetitions: () => call<number[]>('day_competitions'),
   /** Classificação real; vazia sem jogo ou numa competição parada. */
   leagueTable: (id: number) => call<StandingRow[]>('league_table', { id }),
   listFixtures: (id: number) => call<Fixture[]>('list_fixtures', { id }),

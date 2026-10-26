@@ -109,6 +109,7 @@ export default function InstructionsDialog({
               ['freeKick', 'Livres'],
               ['corner', 'Cantos'],
               ['playmaker', 'Organizador'],
+              ['captain', 'Capitão'],
             ] as [keyof Takers, string][]
           ).map(([key, label]) => (
             <DialogRow key={key} label={label}>

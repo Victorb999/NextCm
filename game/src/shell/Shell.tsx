@@ -77,7 +77,7 @@ export default function Shell() {
         )}
         {options && <OptionsDialog onClose={() => setOptions(false)} />}
         {processing && (
-          <Loading title="Continuar Jogo" detail="A processar…" delay={250} />
+          <Loading title="Continuar Jogo" detail="Processando, Por Favor Espere…" delay={250} />
         )}
         {/* Escondido fica montado: ao voltar continua na mesma fase (o jogo pode já ter acabado no core) */}
         {matchDay.match && game.info && (

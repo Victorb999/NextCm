@@ -191,6 +191,9 @@ pub struct Takers {
     pub free_kick: Option<i32>,
     pub corner: Option<i32>,
     pub playmaker: Option<i32>,
+    /// O capitão (`None` = o adjunto escolhe).
+    #[serde(default)]
+    pub captain: Option<i32>,
 }
 
 /// "Passar para" das instruções individuais.

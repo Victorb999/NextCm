@@ -781,6 +781,8 @@ export default function MatchDay({
   })
   const [phase, setPhase] = useState<'list' | 'play' | 'results'>('list')
   const [results, setResults] = useState<{ games: Fixture[]; table: StandingRow[] } | null>(null)
+  // Depois dos resultados da competição do treinador, os das outras que jogaram hoje
+  const [others, setOthers] = useState<number[]>([])
   const live = useRef<{ main: () => void }>(null)
 
   /** Acaba o jogo no core (resultados, notícias) e mostra os resultados do dia. */
@@ -790,8 +792,23 @@ export default function MatchDay({
       const [all, tableAfter] = await Promise.all([api.listFixtures(fixture.competitionId), api.leagueTable(fixture.competitionId)])
       setResults({ games: all.filter((f) => f.date === fixture.date), table: tableAfter })
       setPhase('results')
+      api.dayCompetitions().then((c) => setOthers(c.filter((id) => id !== fixture.competitionId)), () => setOthers([]))
     } catch (e) {
       console.error(e)
+      onDone()
+    }
+  }
+
+  /** Os resultados de hoje da próxima competição (como os "Resultados da Noite" do CM). */
+  const nextCompetition = async () => {
+    const [id, ...rest] = others
+    setOthers(rest)
+    try {
+      const [all, table] = await Promise.all([api.listFixtures(id), api.leagueTable(id)])
+      const games = all.filter((f) => f.date === fixture.date)
+      if (games.length === 0) return rest.length ? void nextCompetition() : onDone()
+      setResults({ games, table })
+    } catch {
       onDone()
     }
   }
@@ -799,6 +816,7 @@ export default function MatchDay({
   const next = () => {
     if (phase === 'list') setPhase('play')
     else if (phase === 'play') live.current?.main()
+    else if (others.length > 0) void nextCompetition()
     else onDone()
   }
   const nextRef = useRef(next)
@@ -828,7 +846,17 @@ export default function MatchDay({
     return <DayList title="Jogos de Hoje" fixture={fixture} games={dayGames} table={table} own={own} scores={false} onNext={next} />
   }
   if (phase === 'results' && results) {
-    return <DayList title="Resultados de Hoje" fixture={fixture} games={results.games} table={results.table} own={own} scores onNext={next} />
+    return (
+      <DayList
+        title="Resultados de Hoje"
+        fixture={results.games[0] ?? fixture}
+        games={results.games}
+        table={results.table}
+        own={own}
+        scores
+        onNext={next}
+      />
+    )
   }
   return <LiveScreen ref={live} own={own} active={active} onFinished={() => void finish()} />
 }

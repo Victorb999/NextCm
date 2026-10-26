@@ -884,7 +884,26 @@ Referência: `docs/prints/gestao/`.
 - **Mandar o Adjunto**: sem efeitos; faltar a 3 conferências antes dos jogos seguidas tira 1 de confiança à direção ("Direcção critica ausências").
 - Fica para depois: a motivação do adversário (as provocações) e perguntas sobre o treinador rival.
 
-#### Marco 3.13 — Polimento: o fluxo do CM pela gravação (por detalhar)
+#### Marco 3.13 — Polimento: o fluxo do CM pela gravação
+
+**Passos** (o que já ficou feito nas correções de 24 e 25/10 sai da lista: Instruções à Equipa com batedores, notícias por assunto, Concorrer ao Lugar, Limpar Equipa, o aviso antes do jogo, Propôr Empréstimo, Abordar Para Comprar):
+1. **Perfil e plantel**: Dispensar (com a indemnização do resto do contrato), Definir Alcunha, Criar Nota Treinador, Comparar Jogadores; os jogos de cada jogador gravados (nota, golos, assistências, competição) para a **Forma** (as últimas 5 notas) e as **estatísticas da época por competição** no perfil.
+2. **Dia de jogo**: os marcadores com o minuto, Classificações Jogadores, Últimos Resultados, os resultados por turno/da noite e o "Processando" com os resultados de outras ligas; capitão escolhido nas Tácticas (sem ele, o adjunto indica um no aviso).
+3. **Pesquisa e mercado**: os filtros do CM (Atributos, Contrato, Lesões, Interessados, Incluir Plantel), a coluna Inf com as etiquetas, "Fundos" na faixa, propostas fora da janela que ficam para quando abrir, a tela Transferências do mundo, Negociar a partir da mensagem e a tela Estatuto de Transferência.
+4. **Treinador e jogo**: o menu do treinador completo (Rescindir com Clube, Ir de Férias, Retirar-se, Estatísticas dos Treinadores, Currículo), Gravar Jogo com a lista de ficheiros e "Substituir?", Auto Gravação.
+5. **Seleções** (Mundial, qualificações, convocatórias) fica para um marco próprio.
+
+**Feito (passo 1):** `core/src/game/player_record.rs`, `SAVE_VERSION` 27 (`player_matches`, `nicknames`, `notes`), comandos `set_nickname`, `set_note`, `release_question` e `release_player`, telas `ComparePage.tsx` e `TextDialog.tsx`.
+- Cada jogo das competições vivas grava a linha de quem jogou (nota, golos, assistências, competição, clube). O perfil mostra a **Forma** (as últimas 5 notas arredondadas, "7-6-8-7-7") e a tabela da **época por competição** (jogos, golos, assistências, nota média), desde o início da época do clube (1/1 ou 1/7).
+- Menu Acção, para qualquer jogador: **Definir Alcunha** (substitui o nome no perfil e nas notícias; em branco apaga), **Criar Nota Treinador** (aparece no perfil), **Comparar Jogadores** (o primeiro fica à espera; no segundo, "Comparar com X" abre os dois lado a lado, com o melhor a verde e o que o clube não conhece a "-").
+- No plantel: **Dispensar**, com a pergunta do CM e a indemnização do salário até ao fim do contrato ("O X terá de o indemnizar em €Y"); o jogador fica livre.
+
+**Feito (passo 2):** a tela da partida já tinha os marcadores com o minuto, Classificações Jogadores, Últimos Resultados e o Relatório Jogo (3.4). Agora:
+- **Resultados de hoje das outras competições**: depois dos resultados da competição do treinador, o Seguinte mostra os de cada competição que jogou hoje, das de mais reputação para as de menos (`day_competitions`), como os "Resultados da Noite" do CM.
+- **Capitão** (`SAVE_VERSION` 28, `selection.captain`): escolhido nas Instruções à Equipa com os batedores; "cap" ao lado do nome nas Tácticas; no aviso antes do jogo, um capitão fora do onze ("o adjunto escolhe outro"). Ainda não mexe no motor.
+- O Continuar Jogo diz "Processando, Por Favor Espere…".
+- Fica para depois: os resultados de outras ligas a correr na barra de baixo durante o "Processando" e a tela por turno (Tarde/Noite) antes do jogo.
+
 
 Referência: a gravação do utilizador a jogar o CM 01/02 com a Juventus (`docs/24.10.2026_14.38.58_REC.mp4`, fora do git) e as folhas de quadros em `docs/prints/fluxo-cm/` (um quadro a cada 4 s). O que se vê e ainda falta (ou está diferente) no NextCM:
 - **Resultados do turno** ("Resultados da Tarde", "Jogo da Noite"): ao avançar no dia de jogo, uma tela por turno com os resultados dos outros jogos e as posições, antes do jogo do treinador.

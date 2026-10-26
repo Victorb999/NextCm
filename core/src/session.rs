@@ -64,6 +64,7 @@ impl Session {
         // Os atributos que o clube do treinador não conhece
         if let Some(g) = &self.game {
             g.mask_profile(&mut p)?;
+            g.fill_record(&mut p)?;
         }
         Ok(p)
     }
@@ -161,6 +162,28 @@ impl Session {
         let game = self.game_mut()?;
         game.advance_day()?;
         game.info()
+    }
+
+    pub fn set_nickname(&mut self, id: i32, nickname: String) -> Result<()> {
+        self.game_mut()?.set_nickname(id, &nickname)
+    }
+
+    pub fn set_note(&mut self, id: i32, text: String) -> Result<()> {
+        self.game_mut()?.set_note(id, &text)
+    }
+
+    /// A pergunta antes de dispensar (com a indemnização).
+    pub fn release_question(&self, id: i32) -> Result<String> {
+        self.game()?.release_question(id)
+    }
+
+    pub fn release_player(&mut self, id: i32) -> Result<String> {
+        self.game_mut()?.release_player(id)
+    }
+
+    /// As competições com jogos acabados hoje (os resultados depois do jogo do treinador).
+    pub fn day_competitions(&self) -> Result<Vec<i32>> {
+        self.game()?.day_competitions()
     }
 
     /// Uma conferência de imprensa: as perguntas e as respostas.

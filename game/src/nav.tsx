@@ -12,6 +12,7 @@ export type Screen =
   | { kind: 'board' }
   | { kind: 'jobs' }
   | { kind: 'press'; id: number }
+  | { kind: 'compare'; a: number; b: number }
   | { kind: 'club'; id: number; reserves?: boolean }
   | { kind: 'tactics'; id: number }
   | { kind: 'clubHistory'; id: number }

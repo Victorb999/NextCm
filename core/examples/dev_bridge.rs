@@ -136,6 +136,17 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             out(serde_json::to_value(session.answer_press(id()?, answers).map_err(e)?))
         }
         "skip_press" => out(serde_json::to_value(session.skip_press(id()?).map_err(e)?)),
+        "set_nickname" => {
+            let nickname = args["nickname"].as_str().unwrap_or("").to_string();
+            out(serde_json::to_value(session.set_nickname(id()?, nickname).map_err(e)?))
+        }
+        "set_note" => {
+            let text = args["text"].as_str().unwrap_or("").to_string();
+            out(serde_json::to_value(session.set_note(id()?, text).map_err(e)?))
+        }
+        "release_question" => out(serde_json::to_value(session.release_question(id()?).map_err(e)?)),
+        "release_player" => out(serde_json::to_value(session.release_player(id()?).map_err(e)?)),
+        "day_competitions" => out(serde_json::to_value(session.day_competitions().map_err(e)?)),
         "ask_terms" => {
             let terms: DealTerms = serde_json::from_value(args["terms"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.ask_terms(id()?, terms).map_err(e)?))
