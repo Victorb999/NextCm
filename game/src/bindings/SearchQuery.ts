@@ -9,4 +9,20 @@ export type SearchQuery = { text?: string, kind?: PersonKind, nationId?: number,
 /**
  * Qualquer uma das posições (OU). Vazio = qualquer posição.
  */
-positions?: Array<Position>, side?: Side, minAge?: number, maxAge?: number, status?: MarketStatus, sort?: SearchSort, limit?: number, offset?: number, };
+positions?: Array<Position>, side?: Side, minAge?: number, maxAge?: number, status?: MarketStatus, 
+/**
+ * Só os com o contrato a acabar (6 meses ou menos).
+ */
+expiring?: boolean, 
+/**
+ * Lesionados: só eles (`true`) ou sem eles (`false`); o jogo em curso põe a lista em `injured_ids`.
+ */
+injured?: boolean, 
+/**
+ * Só os que têm propostas ou estão na Lista Preferencial.
+ */
+interested?: boolean, 
+/**
+ * Sem os jogadores deste clube ("Incluir Plantel: Não").
+ */
+excludeClub?: number, sort?: SearchSort, limit?: number, offset?: number, };

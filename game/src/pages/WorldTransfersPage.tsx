@@ -1,0 +1,104 @@
+import { useEffect, useState } from 'react'
+import { api } from '../api'
+import type { TransferItem } from '../bindings/TransferItem'
+import type { WorldTransfers } from '../bindings/WorldTransfers'
+import { BottomBar, Link, TitleBand } from '../components/Screen'
+import { cmDate, money } from '../format'
+import { useGame } from '../game'
+import { useEscBack, useNav } from '../nav'
+
+// "Transferências" do menu do treinador, como no CM: os negócios do mundo mês a mês, com a
+// data, o jogador, o clube de origem, o destino e o valor (os mais caros primeiro).
+
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+/** O mês antes (-1) ou depois (+1) de "2025-08". */
+function shift(month: string, d: number) {
+  const [y, m] = month.split('-').map(Number)
+  const t = y * 12 + (m - 1) + d
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`
+}
+
+function feeText(t: TransferItem) {
+  if (t.kind === 'loan') return 'Empréstimo'
+  return t.fee > 0 ? money(t.fee) : 'Livre'
+}
+
+export default function WorldTransfersPage() {
+  const nav = useNav()
+  const game = useGame()
+  useEscBack()
+  const [month, setMonth] = useState(() => (game.info?.date ?? '2025-07-01').slice(0, 7))
+  const [page, setPage] = useState(0)
+  const [data, setData] = useState<WorldTransfers | null>(null)
+  useEffect(() => {
+    api.worldTransfers(month, page).then(setData, () => setData(null))
+  }, [month, page])
+  const pages = Math.max(1, Math.ceil((data?.total ?? 0) / 200))
+  const [y, m] = month.split('-').map(Number)
+  const go = (d: number) => {
+    setMonth((mo) => shift(mo, d))
+    setPage(0)
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <TitleBand title="Transferências" fg="#000000" bg="#f4f4f4" />
+      <div className="flex shrink-0 items-center justify-center gap-3 py-1.5">
+        <button className="cm-purple h-6 w-10" onClick={() => go(-1)}>
+          &lt;&lt;
+        </button>
+        <span className="w-48 text-center font-title text-[20px] font-bold text-cm-yellow">
+          {MONTHS[m - 1]} {y}
+        </span>
+        <button className="cm-purple h-6 w-10" onClick={() => go(1)}>
+          &gt;&gt;
+        </button>
+        <span className="text-[13px] text-white">{data ? `${data.total} negócios` : ''}</span>
+        {pages > 1 && (
+          <span className="flex items-center gap-1 text-[13px] text-white">
+            <button className="cm-purple h-5 w-6" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              ‹
+            </button>
+            Pág {page + 1}/{pages}
+            <button className="cm-purple h-5 w-6" disabled={page + 1 >= pages} onClick={() => setPage((p) => p + 1)}>
+              ›
+            </button>
+          </span>
+        )}
+      </div>
+      <div className="mx-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-black/60">
+        <table className="w-full table-fixed text-[14px]">
+          <thead className="sticky top-0">
+            <tr className="h-6">
+              {['Data', 'Jogador', 'De', 'Para', 'Valor'].map((h) => (
+                <th key={h} className="border-x border-black bg-cm-head px-2 text-left font-normal text-white">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data?.items.map((t, i) => (
+              <tr key={`${t.personId}-${i}`} className="h-[22px] border-b border-cm-line">
+                <td className="px-2 text-white">{cmDate(t.date)}</td>
+                <td className="truncate px-2">
+                  <Link onClick={() => nav.go({ kind: 'person', id: t.personId })}>{t.name}</Link>
+                </td>
+                <td className="truncate px-2 text-cm-magenta">
+                  {t.from ? <Link onClick={() => nav.go({ kind: 'club', id: t.from!.id })}>{t.from.shortName}</Link> : 'Sem clube'}
+                </td>
+                <td className="truncate px-2 text-cm-magenta">
+                  {t.to ? <Link onClick={() => nav.go({ kind: 'club', id: t.to!.id })}>{t.to.shortName}</Link> : 'Sem clube'}
+                </td>
+                <td className="px-2 font-bold text-cm-yellow">{feeText(t)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data && data.items.length === 0 && <div className="p-6 text-center text-cm-magenta">Sem transferências neste mês.</div>}
+      </div>
+      <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+    </div>
+  )
+}

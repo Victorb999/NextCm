@@ -112,6 +112,21 @@ pub struct SearchQuery {
     pub max_age: Option<i32>,
     #[ts(optional)]
     pub status: Option<MarketStatus>,
+    /// Só os com o contrato a acabar (6 meses ou menos).
+    #[ts(optional)]
+    pub expiring: Option<bool>,
+    /// Lesionados: só eles (`true`) ou sem eles (`false`); o jogo em curso põe a lista em `injured_ids`.
+    #[ts(optional)]
+    pub injured: Option<bool>,
+    /// Só os que têm propostas ou estão na Lista Preferencial.
+    #[ts(optional)]
+    pub interested: Option<bool>,
+    /// Sem os jogadores deste clube ("Incluir Plantel: Não").
+    #[ts(optional)]
+    pub exclude_club: Option<i32>,
+    #[serde(skip)]
+    #[ts(skip)]
+    pub injured_ids: Vec<i32>,
     #[ts(optional)]
     pub sort: Option<SearchSort>,
     #[ts(optional)]
@@ -139,6 +154,8 @@ pub struct PersonSummary {
     /// Valor de mercado (só jogadores). CA e PA não saem do core: são internos.
     #[ts(type = "number | null")]
     pub value: Option<i64>,
+    /// A coluna Inf do CM (num jogo em curso): Pro, Les, Sus, Ped, Lst, Emp, Amr.
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -233,6 +250,29 @@ impl World {
             }
             Some(_) => wheres.push("0".into()),
         }
+        if q.expiring == Some(true) {
+            wheres.push("p.club_id IS NOT NULL AND p.contract_expires IS NOT NULL AND p.contract_expires <= ?".into());
+            args.push(Box::new(crate::date::add_days(today, 183).unwrap_or_default()));
+        }
+        match q.injured {
+            Some(only) if !q.injured_ids.is_empty() => {
+                let ids = q.injured_ids.iter().map(i32::to_string).collect::<Vec<_>>().join(",");
+                wheres.push(format!("p.id {} ({ids})", if only { "IN" } else { "NOT IN" }));
+            }
+            Some(true) => wheres.push("0".into()),
+            _ => {}
+        }
+        if q.interested == Some(true) && has("offers")? {
+            wheres.push(
+                "(p.id IN (SELECT person_id FROM shortlist) OR p.id IN (SELECT person_id FROM offers
+                  WHERE kind IN ('transfer', 'loan', 'contract') AND status IN ('pending', 'countered', 'agreed', 'raised')))"
+                    .into(),
+            );
+        }
+        if let Some(club) = q.exclude_club {
+            wheres.push("(p.club_id IS NULL OR p.club_id <> ?)".into());
+            args.push(Box::new(club));
+        }
         // Idade em 1º de julho do ano inicial: idade >= a  <=>  nasceu até (y-a)-07-01
         if let Some(min) = q.min_age {
             wheres.push("p.birth_sort <= ?".into());
@@ -305,6 +345,7 @@ impl World {
                     position: position_label(&pos),
                     // Preenchido abaixo
                     value: r.get::<_, Option<i32>>(9)?.filter(|&v| v == 1).map(|_| 0),
+                    tags: Vec::new(),
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;

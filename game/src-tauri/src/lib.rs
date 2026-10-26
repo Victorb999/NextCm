@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use nextcm_core::LineupCheck;
 use nextcm_core::NewsLink;
 use nextcm_core::PressView;
+use nextcm_core::WorldTransfers;
 use nextcm_core::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem,
     CompetitionProfile, ContinentRef, ContractReply, ContractTerms, DisciplineOptions, Fixture, GameInfo, Instructions, JobsView, LiveView,
@@ -112,6 +113,7 @@ session_command!(set_note(id: i32, text: String) -> ());
 session_command!(release_question(id: i32) -> String);
 session_command!(release_player(id: i32) -> String);
 session_command!(day_competitions() -> Vec<i32>);
+session_command!(world_transfers(month: String, page: i64) -> WorldTransfers);
 session_command!(ask_terms(id: i32, terms: DealTerms) -> OfferView);
 session_command!(contract_terms(id: i32, role: Option<String>) -> ContractTerms);
 session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: i32) -> ContractReply);
@@ -258,6 +260,7 @@ pub fn run() {
             release_question,
             release_player,
             day_competitions,
+            world_transfers,
             ask_terms,
             contract_terms,
             negotiate,

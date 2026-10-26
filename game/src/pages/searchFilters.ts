@@ -32,11 +32,30 @@ export type Filters = {
   age: string | null
   positionGroup: string | null
   side: Side | null
+  /** Só os com o contrato a acabar. */
+  expiring: boolean
+  /** Lesões: só os lesionados ou sem eles. */
+  injured: 'only' | 'exclude' | null
+  /** Só os com propostas ou na Lista Preferencial. */
+  interested: boolean
+  /** "Incluir Plantel": com os do clube do treinador. */
+  ownSquad: boolean
 }
 
-export const EMPTY_FILTERS: Filters = { text: '', nationId: null, age: null, positionGroup: null, side: null }
+export const EMPTY_FILTERS: Filters = {
+  text: '',
+  nationId: null,
+  age: null,
+  positionGroup: null,
+  side: null,
+  expiring: false,
+  injured: null,
+  interested: false,
+  ownSquad: true,
+}
 
-export function toQuery(f: Filters, kind: PersonKind): SearchQuery {
+/** `own`: o clube do treinador (para o "Incluir Plantel"). */
+export function toQuery(f: Filters, kind: PersonKind, own?: number): SearchQuery {
   const age = AGE_BANDS.find((b) => b.key === f.age)
   const players = kind === 'players'
   return {
@@ -47,6 +66,10 @@ export function toQuery(f: Filters, kind: PersonKind): SearchQuery {
     maxAge: age && 'max' in age ? age.max : undefined,
     positions: players ? POSITION_GROUPS.find((g) => g.key === f.positionGroup)?.positions : undefined,
     side: players ? (f.side ?? undefined) : undefined,
+    expiring: players && f.expiring ? true : undefined,
+    injured: players && f.injured ? f.injured === 'only' : undefined,
+    interested: players && f.interested ? true : undefined,
+    excludeClub: !f.ownSquad && own !== undefined ? own : undefined,
   }
 }
 
@@ -58,5 +81,9 @@ export function describe(f: Filters, nationName: (id: number) => string | undefi
   if (f.age) parts.push(`${f.age} anos`)
   if (f.positionGroup) parts.push(POSITION_GROUPS.find((g) => g.key === f.positionGroup)!.label)
   if (f.side) parts.push(SIDES.find((s) => s.key === f.side)!.label)
+  if (f.expiring) parts.push('contrato a acabar')
+  if (f.injured) parts.push(f.injured === 'only' ? 'lesionados' : 'sem lesionados')
+  if (f.interested) parts.push('interessados')
+  if (!f.ownSquad) parts.push('sem o plantel')
   return parts.length ? parts.join(' · ') : 'Todos'
 }

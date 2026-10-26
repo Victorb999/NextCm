@@ -147,6 +147,11 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "release_question" => out(serde_json::to_value(session.release_question(id()?).map_err(e)?)),
         "release_player" => out(serde_json::to_value(session.release_player(id()?).map_err(e)?)),
         "day_competitions" => out(serde_json::to_value(session.day_competitions().map_err(e)?)),
+        "world_transfers" => {
+            let month = args["month"].as_str().unwrap_or("").to_string();
+            let page = args["page"].as_i64().unwrap_or(0);
+            out(serde_json::to_value(session.world_transfers(month, page).map_err(e)?))
+        }
         "ask_terms" => {
             let terms: DealTerms = serde_json::from_value(args["terms"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.ask_terms(id()?, terms).map_err(e)?))

@@ -69,7 +69,7 @@ impl Game {
     pub(super) fn open_contract(&self, person: i32) -> Result<Option<Offer>> {
         Ok(self
             .offers_where(
-                "person_id = ?1 AND buyer = ?2 AND kind = 'contract' AND status IN ('pending', 'agreed', 'countered')",
+                "person_id = ?1 AND buyer = ?2 AND kind = 'contract' AND status IN ('pending', 'agreed', 'countered', 'waiting')",
                 params![person, self.club_id],
             )?
             .pop())
@@ -375,8 +375,22 @@ impl Game {
                 self.post_news(format!("Pré-contrato com {name}"), body, Some(o.id));
             }
             Party::Transfer(deal) | Party::Free(Some(deal)) => {
+                // Janela fechada: o contrato fica assinado e a mudança espera pela janela
                 if deal.seller.is_some() && !self.window_open_for(self.club_id)? {
-                    return Err(Error::Invalid("A janela de transferências está fechada.".into()));
+                    let opens = super::market::next_window(kind, &self.date);
+                    let keep = date::add_days(&opens, 30).unwrap_or_default();
+                    self.world.conn.execute("UPDATE offers SET status = 'waiting', answer_on = ? WHERE id = ?", params![opens, o.id])?;
+                    self.world.conn.execute("UPDATE offers SET answer_on = ? WHERE id = ?", params![keep, deal.id])?;
+                    self.post_news(
+                        format!("{name} assina"),
+                        format!(
+                            "{name} aceitou o contrato. Esta transferência não pode ser consumada até à data de {}: chega ao clube nesse dia.",
+                            cm_date(&opens)
+                        ),
+                        Some(o.id),
+                    );
+                    self.unsaved = true;
+                    return Ok(());
                 }
                 let move_kind = if deal.seller.is_some() { "transfer" } else { "free" };
                 self.execute_move(o.person, deal.seller, Some(self.club_id), deal.fee, t.wage, t.years, move_kind, kind)?;
@@ -424,6 +438,24 @@ impl Game {
             self.world.conn.execute("DELETE FROM contract_talks WHERE person_id = ?", [o.person])?;
         }
         self.remove_unhappy(o.person, "contract")?;
+        Ok(())
+    }
+
+    /// Os negócios fechados com a janela fechada cujo dia chegou: a transferência consuma-se.
+    pub(super) fn waiting_deals_due(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        let due = self.offers_where(
+            "kind = 'contract' AND buyer = ?1 AND status = 'waiting' AND answer_on <= ?2",
+            params![self.club_id, self.date],
+        )?;
+        for o in due {
+            self.set_status(o.id, "agreed", None)?;
+            if let Err(e) = self.finalize_contract(&o) {
+                self.set_status(o.id, "collapsed", None)?;
+                let name = self.person_name(o.person)?;
+                let body = format!("A transferência de {name} não se consumou: {e}");
+                self.offer_news(fresh, next_id, format!("Negócio por {name} caiu"), body, o.id);
+            }
+        }
         Ok(())
     }
 

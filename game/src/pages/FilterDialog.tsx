@@ -126,6 +126,41 @@ export default function FilterDialog({
                 </Option>
               ))}
             </Row>
+            <Row label="Contrato">
+              <Option selected={!f.expiring} onClick={() => set({ expiring: false })}>
+                Qualquer
+              </Option>
+              <Option selected={f.expiring} onClick={() => set({ expiring: true })}>
+                A expirar
+              </Option>
+            </Row>
+            <Row label="Lesões">
+              <Option selected={f.injured === null} onClick={() => set({ injured: null })}>
+                Qualquer
+              </Option>
+              <Option selected={f.injured === 'only'} onClick={() => set({ injured: 'only' })}>
+                Lesionados
+              </Option>
+              <Option selected={f.injured === 'exclude'} onClick={() => set({ injured: 'exclude' })}>
+                Sem lesionados
+              </Option>
+            </Row>
+            <Row label="Interessados">
+              <Option selected={!f.interested} onClick={() => set({ interested: false })}>
+                Qualquer
+              </Option>
+              <Option selected={f.interested} onClick={() => set({ interested: true })}>
+                Apenas
+              </Option>
+            </Row>
+            <Row label="Incluir Plantel">
+              <Option selected={f.ownSquad} onClick={() => set({ ownSquad: true })}>
+                Sim
+              </Option>
+              <Option selected={!f.ownSquad} onClick={() => set({ ownSquad: false })}>
+                Não
+              </Option>
+            </Row>
             <Row label="Lado">
               <Option selected={f.side === null} onClick={() => set({ side: null })}>
                 Qualquer

@@ -13,6 +13,7 @@ use crate::{
 use crate::LineupCheck;
 use crate::NewsLink;
 use crate::PressView;
+use crate::WorldTransfers;
 use crate::{DealTerms, LoanTerms};
 
 pub struct Session {
@@ -48,7 +49,15 @@ impl Session {
     /// Pesquisa Jogador & Staff, com os valores na data do jogo.
     pub fn search_people(&self, q: &SearchQuery) -> Result<SearchResult> {
         match &self.game {
-            Some(g) => g.world().search_people_on(q, g.date()),
+            Some(g) => {
+                let mut q = q.clone();
+                if q.injured.is_some() {
+                    q.injured_ids = g.injured_ids();
+                }
+                let mut r = g.world().search_people_on(&q, g.date())?;
+                g.tag_people(&mut r.items)?;
+                Ok(r)
+            }
             None => self.world.search_people(q),
         }
     }
@@ -179,6 +188,11 @@ impl Session {
 
     pub fn release_player(&mut self, id: i32) -> Result<String> {
         self.game_mut()?.release_player(id)
+    }
+
+    /// "Transferências": os negócios do mundo num mês ("2025-08"), página a página.
+    pub fn world_transfers(&self, month: String, page: i64) -> Result<WorldTransfers> {
+        self.game()?.world_transfers(&month, page)
     }
 
     /// As competições com jogos acabados hoje (os resultados depois do jogo do treinador).

@@ -12,4 +12,8 @@ position: string,
 /**
  * Valor de mercado (só jogadores). CA e PA não saem do core: são internos.
  */
-value: number | null, };
+value: number | null, 
+/**
+ * A coluna Inf do CM (num jogo em curso): Pro, Les, Sus, Ped, Lst, Emp, Amr.
+ */
+tags: Array<string>, };

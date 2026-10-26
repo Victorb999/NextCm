@@ -612,7 +612,8 @@ impl Game {
         } else if let Some((parent, fee)) = option {
             note = Some(format!("Emprestado com opção de compra: {} ao {}.", money_text(fee), self.club(parent).short_name));
         } else if !mine && f.club.is_some() && !window {
-            note = Some("A janela de transferências está fechada: as propostas esperam pela próxima.".into());
+            let opens = super::market::next_window(self.kind_of(self.club_id)?, &self.date);
+            note = Some(format!("A janela de transferências está fechada: um negócio fechado agora só se consuma a {}.", cm_date(&opens)));
         } else if loan.is_some() && !mine && f.club != Some(self.club_id) {
             note = Some("Está emprestado: o clube onde joga não o pode vender.".into());
         }
@@ -658,11 +659,7 @@ impl Game {
             cash: self.cash_of(self.club_id)?,
             budget: if mine { self.transfer_budget()? } else { self.budget_for(person)?.0 },
             budget_note: if mine { None } else { self.budget_for(person)?.1 },
-            can_offer: f.club != Some(self.club_id)
-                && !busy
-                && bored.is_none()
-                && (f.club.is_none() || window)
-                && self.loan_of(person)?.is_none(),
+            can_offer: f.club != Some(self.club_id) && !busy && bored.is_none() && self.loan_of(person)?.is_none(),
             can_loan: f.club.is_some() && f.club != Some(self.club_id) && !busy && window && self.loan_of(person)?.is_none(),
             can_renew: mine && blocked.is_none() && !busy,
             option_fee: option.map_or(0, |o| o.1),
@@ -737,6 +734,7 @@ impl Game {
                     vec![action("accept", "Aceitar Contraproposta"), action("negotiate", "Negociar"), action("withdraw", "Desistir")],
                 ),
                 "signed" => (format!("Pré-contrato assinado: {name} chega a {until}."), Vec::new()),
+                "waiting" => (format!("{name} assinou: chega a {until}, quando abrir a janela de transferências."), Vec::new()),
                 "done" => ("Contrato assinado.".into(), Vec::new()),
                 "withdrawn" => ("Proposta retirada.".into(), Vec::new()),
                 _ => ("Negociações terminadas.".into(), Vec::new()),
@@ -878,9 +876,7 @@ impl Game {
                 )?;
             }
             Some(seller) => {
-                if !self.window_open_for(self.club_id)? {
-                    return Err(Error::Invalid("A janela de transferências está fechada.".into()));
-                }
+                // Com a janela fechada a proposta segue: o negócio só se consuma quando abrir
                 terms.check()?;
                 let (limit, why) = self.budget_for(person)?;
                 if terms.budget_cost() > limit {
@@ -1297,6 +1293,7 @@ impl Game {
         }
         self.contract_replies(fresh, next_id)?;
         self.precontracts_due(fresh, next_id)?;
+        self.waiting_deals_due(fresh, next_id)?;
         self.option_reminders(fresh, next_id)?;
         for o in self.offers_where("buyer = ?1 AND status IN ('countered', 'agreed') AND answer_on < ?2", params![self.club_id, today])? {
             self.set_status(o.id, "collapsed", None)?;

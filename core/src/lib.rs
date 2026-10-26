@@ -28,6 +28,7 @@ pub use engine::{TeamStrength, expected_goals};
 pub use finance::{ClubFinances, FinanceLine, SeasonBooks};
 pub use game::LineupCheck;
 pub use game::NewsLink;
+pub use game::WorldTransfers;
 pub use game::{
     BoardConfidence, BoardRequest, BoardView, ContractReply, ContractTerms, DisciplineOptions, DivisionStats, Game, GameInfo, GroupTable,
     JobNation, JobRow, JobsView, KoRoundView, MatchPreview, MatchRecord, NewGame, NewsItem, NumberAssign, NumberEntry, OfferAction,

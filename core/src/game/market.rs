@@ -231,6 +231,11 @@ fn window_closing(kind: SeasonKind, md: &str) -> bool {
 }
 
 /// Fim de um empréstimo: o fim da época do clube que recebe.
+/// O próximo dia (a partir de hoje) com a janela de transferências aberta.
+pub(super) fn next_window(kind: SeasonKind, today: &str) -> String {
+    (0..400).filter_map(|d| date::add_days(today, d)).find(|day| window_open(kind, &day[5..])).unwrap_or_else(|| today.to_string())
+}
+
 pub(super) fn loan_until(kind: SeasonKind, today: &str) -> String {
     let year: i32 = today[0..4].parse().unwrap_or(0);
     match kind {

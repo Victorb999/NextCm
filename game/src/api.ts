@@ -6,6 +6,7 @@ import type { DealTerms } from './bindings/DealTerms'
 import type { DisciplineOptions } from './bindings/DisciplineOptions'
 import type { LineupCheck } from './bindings/LineupCheck'
 import type { LoanTerms } from './bindings/LoanTerms'
+import type { WorldTransfers } from './bindings/WorldTransfers'
 import type { PressView } from './bindings/PressView'
 import type { JobsView } from './bindings/JobsView'
 import type { NewsLink } from './bindings/NewsLink'
@@ -104,6 +105,8 @@ export const api = {
   releasePlayer: (id: number) => call<string>('release_player', { id }),
   /** As competições com jogos acabados hoje (os resultados depois do jogo do treinador). */
   dayCompetitions: () => call<number[]>('day_competitions'),
+  /** "Transferências": os negócios do mundo num mês ("2025-08"). */
+  worldTransfers: (month: string, page: number) => call<WorldTransfers>('world_transfers', { month, page }),
   /** Classificação real; vazia sem jogo ou numa competição parada. */
   leagueTable: (id: number) => call<StandingRow[]>('league_table', { id }),
   listFixtures: (id: number) => call<Fixture[]>('list_fixtures', { id }),

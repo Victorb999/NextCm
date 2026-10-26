@@ -75,6 +75,7 @@ function Row({
       </td>
       <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-yellow'}`}>{p.nation ?? '-'}</td>
       <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-orange'}`}>{p.position || p.job}</td>
+      <td className="truncate px-1 text-[12px] font-bold text-cm-magenta">{p.tags.join(' ')}</td>
       <td className="px-2 text-center tabular-nums">{p.age ?? '-'}</td>
       <td className="bg-black/40 px-2 text-right tabular-nums">{p.value === null ? '-' : money(p.value)}</td>
     </tr>
@@ -106,6 +107,11 @@ function PageButton({ label, onClick, disabled }: { label: string; onClick: () =
 export default function SearchPage({ active }: { active: boolean }) {
   const nav = useNav()
   const game = useGame()
+  // "Fundos": o orçamento de transferências, no canto da faixa como no CM
+  const [funds, setFunds] = useState<number | null>(null)
+  useEffect(() => {
+    if (game.mode === 'game') api.boardView().then((b) => setFunds(b.transferBudget), () => setFunds(null))
+  }, [game.mode, game.info?.date])
   const [kind, setKind] = useState<PersonKind>('players')
   // Aba de olheiro aberta (1–7), só num jogo em curso
   const [scout, setScout] = useState<number | null>(null)
@@ -152,10 +158,11 @@ export default function SearchPage({ active }: { active: boolean }) {
     goPage(0)
   }
 
-  const { nationId, age, positionGroup, side } = filters
+  const { nationId, age, positionGroup, side, expiring, injured, interested, ownSquad } = filters
+  const own = game.info?.club.id
   useEffect(() => {
     const query = {
-      ...toQuery({ text: debouncedText, nationId, age, positionGroup, side }, kind),
+      ...toQuery({ text: debouncedText, nationId, age, positionGroup, side, expiring, injured, interested, ownSquad }, kind, own),
       status: shortlist ? ('shortlist' as const) : status === 'all' || kind !== 'players' ? undefined : status,
       sort,
       limit: PAGE_SIZE,
@@ -170,7 +177,7 @@ export default function SearchPage({ active }: { active: boolean }) {
       },
       (e) => id === requestId.current && setError(String(e)),
     )
-  }, [debouncedText, nationId, age, positionGroup, side, kind, status, sort, page, shortlist])
+  }, [debouncedText, nationId, age, positionGroup, side, expiring, injured, interested, ownSquad, own, kind, status, sort, page, shortlist])
 
   const total = result?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -216,6 +223,9 @@ export default function SearchPage({ active }: { active: boolean }) {
   return (
     <div className="relative flex h-full flex-col">
       <TitleBand title="Pesquisa Jogador & Staff" fg="#0d5a22" bg="#f5f500" />
+      {funds !== null && (
+        <div className="absolute right-3 top-3 z-20 bg-black/70 px-2 text-[14px] font-bold text-cm-yellow">Fundos: {money(funds) || '€0'}</div>
+      )}
       <Tabs
         tabs={TABS.map((t) => (t.key.startsWith('scout') || t.key === 'shortlist' ? { ...t, disabled: !scouting } : t))}
         active={scout !== null ? `scout${scout}` : shortlist ? 'shortlist' : kind}
@@ -279,6 +289,7 @@ export default function SearchPage({ active }: { active: boolean }) {
               <col className="w-[22%]" />
               <col className="w-[15%]" />
               <col className="w-[13%]" />
+              <col className="w-20" />
               <col className="w-14" />
               <col className="w-28" />
             </colgroup>
@@ -288,6 +299,7 @@ export default function SearchPage({ active }: { active: boolean }) {
                 <Th label="Clube" current={sort} onSort={setSort} className="text-left" />
                 <Th label="Nação" current={sort} onSort={setSort} className="text-left" />
                 <Th label={players ? 'Posição' : 'Cargo'} current={sort} onSort={setSort} className="text-left" />
+                <Th label="Inf" current={sort} onSort={setSort} />
                 <Th label="Idade" sort="age" current={sort} onSort={setSort} />
                 <Th label="Valor" sort="ability" current={sort} onSort={setSort} />
               </tr>

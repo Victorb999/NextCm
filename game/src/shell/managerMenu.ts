@@ -29,6 +29,7 @@ export function managerMenu({
     { label: 'Pesquisa Jogador & Staff', onSelect: () => go({ kind: 'search' }) },
     { label: 'Confiança da Direcção', onSelect: () => go({ kind: 'board' }) },
     { label: 'Informação de Empregos', onSelect: () => go({ kind: 'jobs' }) },
+    { label: 'Transferências', onSelect: () => go({ kind: 'worldTransfers' }) },
     { label: 'Perfil do Treinador', onSelect: () => go({ kind: 'person', id: info.managerId }) },
     'separator',
     {

@@ -904,6 +904,13 @@ Referência: `docs/prints/gestao/`.
 - O Continuar Jogo diz "Processando, Por Favor Espere…".
 - Fica para depois: os resultados de outras ligas a correr na barra de baixo durante o "Processando" e a tela por turno (Tarde/Noite) antes do jogo.
 
+**Feito (passo 3):** `core/src/game/market_view.rs`, comando `world_transfers`, tela `WorldTransfersPage.tsx`.
+- **Filtros** da pesquisa: Contrato (a expirar: 6 meses ou menos), Lesões (só lesionados / sem lesionados, pelo estado do jogo), Interessados (com propostas ou na Lista Preferencial), Incluir Plantel (Não tira o plantel do treinador).
+- **Coluna Inf** com as etiquetas do CM: Pro (proposta), Les, Sus, Ped (pediu para sair), Lst (lista de transferências), Emp (emprestado), Amr (dois amarelos ou mais). **"Fundos"** (o orçamento de transferências) no canto da faixa.
+- **Negócios fora da janela**: a proposta e o contrato seguem com a janela fechada; ao confirmar, "Esta transferência não pode ser consumada até à data de X" e o jogador chega no dia em que a janela abre (se entretanto saiu do clube, o negócio cai). Os empréstimos continuam a precisar da janela aberta.
+- **Transferências** no menu do treinador: os negócios do mundo mês a mês (<< >>), dos mais caros para os mais baratos, 200 por página.
+- O Negociar a partir da mensagem já existe pelos botões das propostas de contrato; a tela Estatuto de Transferência ficou coberta pelo menu Acção (listas, preço pedido). Fica para depois: a aba Atributos dos filtros (filtrar por atributos tapados mostraria o que o clube não conhece).
+
 
 Referência: a gravação do utilizador a jogar o CM 01/02 com a Juventus (`docs/24.10.2026_14.38.58_REC.mp4`, fora do git) e as folhas de quadros em `docs/prints/fluxo-cm/` (um quadro a cada 4 s). O que se vê e ainda falta (ou está diferente) no NextCM:
 - **Resultados do turno** ("Resultados da Tarde", "Jogo da Noite"): ao avançar no dia de jogo, uma tela por turno com os resultados dos outros jogos e as posições, antes do jogo do treinador.
