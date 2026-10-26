@@ -24,6 +24,7 @@ export type ScreenMode = 'window' | 'fullscreen'
 export type Resolution = '1280x720' | '1366x768' | '1600x900' | '1920x1080'
 export type Background = 'default' | 'plain' | 'photo' | 'image'
 export type MatchSpeed = 'veryFast' | 'fast' | 'normal' | 'slow' | 'verySlow'
+export type AutoSave = 'off' | 'weekly' | 'monthly'
 
 export type Settings = {
   currency: Currency
@@ -45,6 +46,8 @@ export type Settings = {
   backgroundDim: number
   /** Velocidade do relato dos jogos. */
   matchSpeed: MatchSpeed
+  /** Auto Gravação: grava sozinho ao passar a semana ou o mês. */
+  autosave: AutoSave
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -60,6 +63,22 @@ export const DEFAULT_SETTINGS: Settings = {
   backgroundImage: null,
   backgroundDim: 0.5,
   matchSpeed: 'normal',
+  autosave: 'off',
+}
+
+export const AUTOSAVES: { key: AutoSave; label: string }[] = [
+  { key: 'off', label: 'Desligada' },
+  { key: 'weekly', label: 'Semanal' },
+  { key: 'monthly', label: 'Mensal' },
+]
+
+/** O Continuar Jogo passou de `before` para `after`: é altura de gravar sozinho? */
+export function autosaveDue(mode: AutoSave, before: string, after: string) {
+  if (mode === 'off' || before === after) return false
+  if (mode === 'monthly') return before.slice(0, 7) !== after.slice(0, 7)
+  // Semanal: mudou a semana (contada a partir de uma segunda-feira)
+  const week = (iso: string) => Math.floor((Date.parse(iso) / 86_400_000 + 3) / 7)
+  return week(before) !== week(after)
 }
 
 /** "Velocidade Comentário" do CM: quanto fica cada frase do relato no ecrã. */

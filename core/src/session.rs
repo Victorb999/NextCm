@@ -10,6 +10,7 @@ use crate::{
     StandingRow, TransferItem, TransferView, World, list_saves,
 };
 
+use crate::CareerClub;
 use crate::LineupCheck;
 use crate::NewsLink;
 use crate::PressView;
@@ -188,6 +189,55 @@ impl Session {
 
     pub fn release_player(&mut self, id: i32) -> Result<String> {
         self.game_mut()?.release_player(id)
+    }
+
+    /// "Rescindir com Clube".
+    pub fn resign(&mut self) -> Result<String> {
+        self.game_mut()?.resign()
+    }
+
+    /// "Retirar-se": grava e fecha o jogo.
+    pub fn retire_manager(&mut self) -> Result<String> {
+        let game = self.game_mut()?;
+        let text = game.retire_manager()?;
+        game.save()?;
+        self.game = None;
+        Ok(text)
+    }
+
+    /// "Ir de Férias" durante `days` dias.
+    pub fn holiday(&mut self, days: i32) -> Result<GameInfo> {
+        self.game_mut()?.holiday(days)
+    }
+
+    /// O Currículo do treinador.
+    pub fn manager_career(&self) -> Result<Vec<CareerClub>> {
+        self.game()?.manager_career()
+    }
+
+    /// "Gravar Jogo" com outro nome: grava, copia para o ficheiro novo e continua nele.
+    /// Com um ficheiro desse nome já gravado, só substitui com `overwrite`.
+    pub fn save_as(&mut self, name: String, overwrite: bool) -> Result<GameInfo> {
+        let stem = crate::game::file_stem(&name)?;
+        let game = self.game_mut()?;
+        game.save()?;
+        let target = self.saves_dir.join(format!("{stem}.sqlite"));
+        let current = self.game()?.path().to_path_buf();
+        if target != current {
+            if target.exists() && !overwrite {
+                return Err(Error::Invalid("Ficheiro Existe".into()));
+            }
+            std::fs::copy(&current, &target)?;
+            let copy = rusqlite::Connection::open(&target)?;
+            copy.execute("UPDATE game SET name = ?", [name.trim()])?;
+            drop(copy);
+            self.game = None;
+            let mut game = Game::load(&target)?;
+            game.set_watch(true);
+            game.resume_match_day()?;
+            self.game = Some(game);
+        }
+        self.game()?.info()
     }
 
     /// "Transferências": os negócios do mundo num mês ("2025-08"), página a página.
@@ -487,5 +537,36 @@ impl Session {
         let game = self.game_mut()?;
         game.mark_news_read(id);
         game.info()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn save_as_copies_and_continues_in_the_new_file() {
+        let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-gravar-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut s = Session::open(&path, &dir).unwrap();
+        let new = NewGame {
+            save_name: "Original".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 7568,
+        };
+        s.new_game(&new).unwrap();
+        s.save_as("Cópia".into(), false).unwrap();
+        let saves = s.list_saves().unwrap();
+        assert!(saves.iter().any(|x| x.name == "Cópia") && saves.iter().any(|x| x.name == "Original"));
+        // O mesmo nome outra vez: pergunta antes de substituir
+        s.save_as("Original".into(), false).unwrap_err();
+        s.save_as("Original".into(), true).unwrap();
+        drop(s);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

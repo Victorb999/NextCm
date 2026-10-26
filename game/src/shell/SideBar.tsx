@@ -1,4 +1,5 @@
 import type { LineupCheck } from '../bindings/LineupCheck'
+import type { ManagerDialog } from './managerMenu'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -71,6 +72,7 @@ export default function SideBar({
   onMatch,
   matchStep,
   onLineup,
+  onDialog,
 }: {
   onOptions: () => void
   onExit: () => void
@@ -82,6 +84,8 @@ export default function SideBar({
   /** Com um dia de jogo pendente, o Continuar Jogo volta a ele / faz o papel do Seguinte. */
   matchStep?: () => void
   onLineup: (check: LineupCheck, go: () => void) => void
+  /** Os diálogos do menu do treinador (Gravar, Férias, Rescindir, Retirar-se). */
+  onDialog: (d: ManagerDialog) => void
 }) {
   const nav = useNav()
   const game = useGame()
@@ -139,7 +143,7 @@ export default function SideBar({
           x={menu.x}
           y={menu.y}
           onClose={closeMenu}
-          items={managerMenu({ info, go: nav.go, update: game.update, notify, onExit })}
+          items={managerMenu({ info, go: nav.go, onExit, onDialog })}
         />
       )}
       <SideButton disabled={!browsing} onClick={() => nav.go({ kind: 'nations' })}>

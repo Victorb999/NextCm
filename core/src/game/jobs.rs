@@ -269,9 +269,11 @@ impl Game {
         for s in self.squads.states.values_mut() {
             s.reserve = false;
         }
+        self.career_leave()?;
         self.club_id = club;
         self.selection = None;
         self.board_setup()?;
+        self.career_join(club)?;
         self.refresh_live()?;
         self.youth_to_reserves()?;
         let next_id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;

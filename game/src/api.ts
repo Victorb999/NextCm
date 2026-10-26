@@ -7,6 +7,7 @@ import type { DisciplineOptions } from './bindings/DisciplineOptions'
 import type { LineupCheck } from './bindings/LineupCheck'
 import type { LoanTerms } from './bindings/LoanTerms'
 import type { WorldTransfers } from './bindings/WorldTransfers'
+import type { CareerClub } from './bindings/CareerClub'
 import type { PressView } from './bindings/PressView'
 import type { JobsView } from './bindings/JobsView'
 import type { NewsLink } from './bindings/NewsLink'
@@ -107,6 +108,12 @@ export const api = {
   dayCompetitions: () => call<number[]>('day_competitions'),
   /** "Transferências": os negócios do mundo num mês ("2025-08"). */
   worldTransfers: (month: string, page: number) => call<WorldTransfers>('world_transfers', { month, page }),
+  resign: () => call<string>('resign'),
+  retireManager: () => call<string>('retire_manager'),
+  holiday: (days: number) => call<GameInfo>('holiday', { days }),
+  managerCareer: () => call<CareerClub[]>('manager_career'),
+  /** Gravar com outro nome; `overwrite` substitui um ficheiro com esse nome. */
+  saveAs: (name: string, overwrite: boolean) => call<GameInfo>('save_as', { name, overwrite }),
   /** Classificação real; vazia sem jogo ou numa competição parada. */
   leagueTable: (id: number) => call<StandingRow[]>('league_table', { id }),
   listFixtures: (id: number) => call<Fixture[]>('list_fixtures', { id }),

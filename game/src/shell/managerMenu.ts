@@ -1,21 +1,21 @@
-import { api } from '../api'
 import type { GameInfo } from '../bindings/GameInfo'
 import type { MenuNode } from '../components/CascadeMenu'
 import type { Screen } from '../nav'
+
+/** Os diálogos que o menu do treinador abre (em `ManagerDialogs`). */
+export type ManagerDialog = 'save' | 'holiday' | 'resign' | 'retire'
 
 /** O menu amarelo do treinador (botão com o nome dele na coluna). */
 export function managerMenu({
   info,
   go,
-  update,
-  notify,
   onExit,
+  onDialog,
 }: {
   info: GameInfo
   go: (s: Screen) => void
-  update: (info: GameInfo) => void
-  notify: (msg: string) => void
   onExit: () => void
+  onDialog: (d: ManagerDialog) => void
 }): MenuNode[] {
   const club = info.club
   return [
@@ -31,18 +31,13 @@ export function managerMenu({
     { label: 'Informação de Empregos', onSelect: () => go({ kind: 'jobs' }) },
     { label: 'Transferências', onSelect: () => go({ kind: 'worldTransfers' }) },
     { label: 'Perfil do Treinador', onSelect: () => go({ kind: 'person', id: info.managerId }) },
+    { label: 'Currículo', onSelect: () => go({ kind: 'career' }) },
     'separator',
-    {
-      label: 'Gravar Jogo',
-      onSelect: () =>
-        void api.saveGame().then(
-          (g) => {
-            update(g)
-            notify('Jogo gravado.')
-          },
-          (e) => notify(String(e)),
-        ),
-    },
+    { label: 'Ir de Férias', onSelect: () => onDialog('holiday') },
+    ...(info.sacked ? [] : [{ label: 'Rescindir com Clube', onSelect: () => onDialog('resign') }]),
+    { label: 'Retirar-se', onSelect: () => onDialog('retire') },
+    'separator',
+    { label: 'Gravar Jogo', onSelect: () => onDialog('save') },
     { label: 'Sair para o Menu', onSelect: onExit },
   ]
 }

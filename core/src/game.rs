@@ -26,6 +26,7 @@ mod finances;
 mod jobs;
 mod league_meeting;
 mod lineup_check;
+mod manager_career;
 mod market;
 mod market_view;
 mod negotiation;
@@ -57,6 +58,7 @@ pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption
 pub use discipline::DisciplineOptions;
 pub use jobs::{JobNation, JobRow, JobsView};
 pub use lineup_check::LineupCheck;
+pub use manager_career::CareerClub;
 pub use market::TransferItem;
 pub use market_view::WorldTransfers;
 pub use negotiation::{DealTerms, LoanTerms};
@@ -102,7 +104,12 @@ pub use staff_reports::ReportStaff;
 /// 27: os jogos de cada jogador (`player_matches`), alcunhas (`nicknames`) e notas do
 /// treinador (`notes`), marco 3.13.
 /// 28: o capitão (`selection.captain`), marco 3.13.
-pub const SAVE_VERSION: i32 = 28;
+/// 29: os clubes do treinador (`manager_history`), para o Currículo.
+pub const SAVE_VERSION: i32 = 29;
+
+/// O currículo do treinador (save 29).
+const CAREER_SCHEMA: &str =
+    "CREATE TABLE manager_history (id INTEGER PRIMARY KEY, club_id INTEGER NOT NULL, joined TEXT NOT NULL, left TEXT);";
 
 /// O capitão (save 28).
 const CAPTAIN_SCHEMA: &str = "ALTER TABLE selection ADD COLUMN captain INTEGER;";
@@ -527,7 +534,7 @@ pub struct MatchRecord {
 }
 
 /// "Nome do save" → nome de arquivo seguro (letras, números, espaço, - e _).
-fn file_stem(name: &str) -> Result<String> {
+pub(crate) fn file_stem(name: &str) -> Result<String> {
     let stem: String = name.trim().chars().map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' { c } else { '_' }).collect();
     if stem.trim().is_empty() {
         return Err(Error::Invalid("Escolha um nome para o jogo.".into()));
@@ -581,6 +588,7 @@ impl Game {
             tx.execute_batch(PRESS_SCHEMA)?;
             tx.execute_batch(RECORD_SCHEMA)?;
             tx.execute_batch(CAPTAIN_SCHEMA)?;
+            tx.execute_batch(CAREER_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -665,6 +673,7 @@ impl Game {
                 game.news.insert(0, n);
             }
             game.board_setup()?;
+            game.career_join(new.club_id)?;
             game.youth_to_reserves()?;
             game.save()?;
             Ok(game)
@@ -849,6 +858,16 @@ impl Game {
             world.conn.execute_batch(CAPTAIN_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 28", [])?;
             version = 28;
+        }
+        if version == 28 {
+            world.conn.execute_batch(CAREER_SCHEMA)?;
+            // O clube atual entra no currículo a partir de hoje (antes não havia registo)
+            world.conn.execute(
+                "INSERT INTO manager_history (club_id, joined) SELECT g.club_id, g.date FROM game g, board b WHERE b.id = 1 AND b.sacked = 0",
+                [],
+            )?;
+            world.conn.execute("UPDATE game SET version = 29", [])?;
+            version = 29;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -2835,7 +2854,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

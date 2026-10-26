@@ -147,6 +147,18 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "release_question" => out(serde_json::to_value(session.release_question(id()?).map_err(e)?)),
         "release_player" => out(serde_json::to_value(session.release_player(id()?).map_err(e)?)),
         "day_competitions" => out(serde_json::to_value(session.day_competitions().map_err(e)?)),
+        "resign" => out(serde_json::to_value(session.resign().map_err(e)?)),
+        "retire_manager" => out(serde_json::to_value(session.retire_manager().map_err(e)?)),
+        "holiday" => {
+            let days = args["days"].as_i64().ok_or("falta days")? as i32;
+            out(serde_json::to_value(session.holiday(days).map_err(e)?))
+        }
+        "manager_career" => out(serde_json::to_value(session.manager_career().map_err(e)?)),
+        "save_as" => {
+            let name = args["name"].as_str().ok_or("falta name")?.to_string();
+            let overwrite = args["overwrite"].as_bool().unwrap_or(false);
+            out(serde_json::to_value(session.save_as(name, overwrite).map_err(e)?))
+        }
         "world_transfers" => {
             let month = args["month"].as_str().unwrap_or("").to_string();
             let page = args["page"].as_i64().unwrap_or(0);

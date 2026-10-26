@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api'
 import type { LineupCheck } from '../bindings/LineupCheck'
+import { autosaveDue, getSettings } from '../settings'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import type { MatchDayData } from './types'
@@ -49,8 +50,13 @@ export function useContinueGame({
           onLineup(check, () => void advance(true))
           return
         }
+        const before = next?.date
         next = await api.continueGame()
         game.update(next)
+        // Auto Gravação (Opções Jogo): fora dos dias de jogo
+        if (before && !next.live && autosaveDue(getSettings().autosave, before, next.date)) {
+          game.update(await api.saveGame())
+        }
       }
       if (next.live) {
         // O jogo do treinador é hoje: os resultados do dia só entram no fim dele, então a

@@ -296,6 +296,7 @@ impl Game {
             self.world.conn.execute("UPDATE people SET club_id = NULL, club_job = NULL WHERE id = ?", [self.manager_id])?;
             self.world.conn.execute("INSERT OR REPLACE INTO vacancies (club_id, since) VALUES (?, ?)", params![self.club_id, self.date])?;
             self.change_manager_rep(super::jobs::REP_SACKED)?;
+            self.career_leave()?;
             let body = format!(
                 "A Direcção do {club} perdeu a confiança no seu trabalho e decidiu dispensá-lo do cargo de treinador, com efeitos imediatos.\n\nProcure um novo clube em Informação de Empregos."
             );

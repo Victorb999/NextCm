@@ -14,6 +14,7 @@ export type Screen =
   | { kind: 'press'; id: number }
   | { kind: 'compare'; a: number; b: number }
   | { kind: 'worldTransfers' }
+  | { kind: 'career' }
   | { kind: 'club'; id: number; reserves?: boolean }
   | { kind: 'tactics'; id: number }
   | { kind: 'clubHistory'; id: number }

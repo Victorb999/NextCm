@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { BACKGROUND_PHOTOS } from '../backgrounds'
 import {
+  AUTOSAVES,
   CURRENCIES,
   DEFAULT_SETTINGS,
   FONTS,
@@ -155,6 +156,9 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
           </Row>
           <Row label="Velocidade Comentário">
             <Cycle options={MATCH_SPEEDS} value={s.matchSpeed} onChange={(matchSpeed) => set({ matchSpeed })} />
+          </Row>
+          <Row label="Auto Gravação">
+            <Cycle options={AUTOSAVES} value={s.autosave} onChange={(autosave) => set({ autosave })} />
           </Row>
           <Row label="Modo Ecrã">
             <Option selected={s.screen === 'fullscreen'} onClick={() => set({ screen: 'fullscreen' })}>

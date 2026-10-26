@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use nextcm_core::CareerClub;
 use nextcm_core::LineupCheck;
 use nextcm_core::NewsLink;
 use nextcm_core::PressView;
@@ -114,6 +115,11 @@ session_command!(release_question(id: i32) -> String);
 session_command!(release_player(id: i32) -> String);
 session_command!(day_competitions() -> Vec<i32>);
 session_command!(world_transfers(month: String, page: i64) -> WorldTransfers);
+session_command!(resign() -> String);
+session_command!(retire_manager() -> String);
+session_command!(holiday(days: i32) -> GameInfo);
+session_command!(manager_career() -> Vec<CareerClub>);
+session_command!(save_as(name: String, overwrite: bool) -> GameInfo);
 session_command!(ask_terms(id: i32, terms: DealTerms) -> OfferView);
 session_command!(contract_terms(id: i32, role: Option<String>) -> ContractTerms);
 session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: i32) -> ContractReply);
@@ -261,6 +267,11 @@ pub fn run() {
             release_player,
             day_competitions,
             world_transfers,
+            resign,
+            retire_manager,
+            holiday,
+            manager_career,
+            save_as,
             ask_terms,
             contract_terms,
             negotiate,

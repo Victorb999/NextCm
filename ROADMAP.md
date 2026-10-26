@@ -911,6 +911,12 @@ Referência: `docs/prints/gestao/`.
 - **Transferências** no menu do treinador: os negócios do mundo mês a mês (<< >>), dos mais caros para os mais baratos, 200 por página.
 - O Negociar a partir da mensagem já existe pelos botões das propostas de contrato; a tela Estatuto de Transferência ficou coberta pelo menu Acção (listas, preço pedido). Fica para depois: a aba Atributos dos filtros (filtrar por atributos tapados mostraria o que o clube não conhece).
 
+**Feito (passo 4):** `core/src/game/manager_career.rs`, `SAVE_VERSION` 29 (`manager_history`), comandos `resign`, `retire_manager`, `holiday`, `manager_career` e `save_as`; `ManagerDialogs.tsx` e `CareerPage.tsx`.
+- Menu do treinador: **Currículo** (os clubes por onde passou, com as datas, compras e o que gastou, vendas e o que recebeu, dispensas e os títulos de cada passagem), **Ir de Férias** (1 semana, 2 semanas, 1 mês ou 3 meses: o adjunto escolhe a equipa, os jogos não se vêem e o que espera resposta expira; a escolha do treinador volta no regresso), **Rescindir com Clube** (fica sem clube, o lugar fica vago) e **Retirar-se** (sai do clube, grava e volta ao menu).
+- **Gravar Jogo** com a lista dos jogos gravados e o nome: um nome novo grava uma cópia e o jogo continua nela; o nome de outro ficheiro pergunta "Ficheiro Existe — Substituir?".
+- **Auto Gravação** nas Opções Jogo: Desligada, Semanal ou Mensal (grava ao Continuar Jogo quando muda a semana ou o mês, fora dos dias de jogo).
+- Fica para depois: Estatísticas dos Treinadores (reputação por país) e a lista das qualificações no currículo.
+
 
 Referência: a gravação do utilizador a jogar o CM 01/02 com a Juventus (`docs/24.10.2026_14.38.58_REC.mp4`, fora do git) e as folhas de quadros em `docs/prints/fluxo-cm/` (um quadro a cada 4 s). O que se vê e ainda falta (ou está diferente) no NextCM:
 - **Resultados do turno** ("Resultados da Tarde", "Jogo da Noite"): ao avançar no dia de jogo, uma tela por turno com os resultados dos outros jogos e as posições, antes do jogo do treinador.

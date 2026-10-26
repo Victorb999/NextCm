@@ -1,3 +1,5 @@
+import ManagerDialogs from "./ManagerDialogs";
+import type { ManagerDialog } from "./managerMenu";
 import type { LineupCheck } from "../bindings/LineupCheck";
 import LineupDialog from "./LineupDialog";
 import { useState } from "react";
@@ -31,6 +33,7 @@ export default function Shell() {
   const matchDay = useMatchDay();
   // O aviso ou a confirmação da equipa antes do dia de jogo
   const [lineup, setLineup] = useState<{ check: LineupCheck; go: () => void } | null>(null);
+  const [dialog, setDialog] = useState<ManagerDialog | null>(null);
   const browsing = game.mode === "game" || game.mode === "explore";
 
   return (
@@ -43,6 +46,7 @@ export default function Shell() {
         onMatch={matchDay.open}
         matchStep={matchDay.advance}
         onLineup={(check, go) => setLineup({ check, go })}
+        onDialog={setDialog}
       />
       <main className="cm-backdrop relative min-w-0 flex-1">
         {!hasBackend && (
@@ -108,6 +112,7 @@ export default function Shell() {
             }}
           />
         )}
+        {dialog && game.info && <ManagerDialogs dialog={dialog} onClose={() => setDialog(null)} notify={notify} />}
         {notice && <Notice text={notice} />}
       </main>
     </div>
