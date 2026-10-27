@@ -681,7 +681,9 @@ impl Game {
         let Some(club) = f.club else { return Ok(("Livre: sem contrato".into(), None)) };
         let days_left = f.expires.as_deref().and_then(date::parse).zip(date::parse(&self.date)).map(|(e, t)| e - t);
         let (rank, _) = self.squad_rank(club, person, f.role)?;
+        let loan = self.loan_of(person)?.filter(|l| Some(l.0) != f.club);
         let availability = match listing {
+            _ if loan.is_some() => format!("Emprestado pelo {}", self.club(loan.as_ref().map_or(0, |l| l.0)).short_name),
             Some((true, _, Some(ask))) => format!("Na lista de transferências ({})", money_text(ask)),
             Some((true, _, None)) => "Na lista de transferências".into(),
             Some((false, true, _)) => "Disponível para empréstimo".into(),

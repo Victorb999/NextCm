@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
 /** Luminância aproximada de uma cor `#rrggbb` (0 = preto, 1 = branco). */
@@ -91,6 +91,17 @@ export function PurpleMenu<T extends string>({
   align?: 'left' | 'right'
 }) {
   const [open, setOpen] = useState(false)
+  // Com a lista aberta, o Escape só a fecha (não volta à tela anterior)
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopImmediatePropagation()
+      setOpen(false)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [open])
   return (
     <div className="relative" onMouseLeave={() => setOpen(false)}>
       <button

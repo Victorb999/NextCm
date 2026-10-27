@@ -68,6 +68,7 @@ export default function PressPage({ id }: { id: number }) {
             </div>
           </>
         )}
+        {view && !q && !result && view.status === 'pending' && <div className="font-title text-[19px] text-cm-magenta">A falar com os jornalistas…</div>}
         {result && <div className="whitespace-pre-line font-title text-[19px] leading-snug text-white">{result}</div>}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

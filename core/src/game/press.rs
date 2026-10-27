@@ -113,7 +113,8 @@ impl Game {
             return Ok(());
         }
         let opp = if m.home_id == self.club_id { m.away_id } else { m.home_id };
-        let mut questions = vec![self.opponent_question(opp)?, self.form_question()?];
+        let mut questions = vec![self.opponent_question(opp)?];
+        questions.extend(self.form_question()?);
         questions.extend(self.third_question()?);
         self.open_press("pre", m.id, &tomorrow, &questions, fresh, next_id, &self.club(opp).short_name)
     }
@@ -286,9 +287,12 @@ impl Game {
         (wins, last.len())
     }
 
-    fn form_question(&self) -> Result<Question> {
+    fn form_question(&self) -> Result<Option<Question>> {
         let (wins, games) = self.recent_wins();
-        Ok(if games >= 3 && wins <= 1 {
+        if games < 3 {
+            return Ok(None);
+        }
+        Ok(Some(if wins <= 1 {
             Question {
                 text: format!("A equipa ganhou {wins} dos últimos {games} jogos. Está preocupado?"),
                 person: None,
@@ -309,7 +313,7 @@ impl Game {
                     Answer { fans: 1, ..answer("Esta equipa pode chegar muito longe.") },
                 ],
             }
-        })
+        }))
     }
 
     /// Um jogador em destaque (nota 7 ou mais) ou em baixo (abaixo de 6).
@@ -445,7 +449,7 @@ impl Game {
         let squad: Vec<i32> = self.squads.states.keys().copied().filter(|&p| self.club_of(p) == Some(self.club_id)).collect();
         for (q, &i) in questions.iter().zip(answers) {
             let a = q.answers.get(i).ok_or_else(|| Error::Invalid("Resposta inválida.".into()))?;
-            quotes.push(format!("«{}»", a.label));
+            quotes.push(format!("«{}»", a.label.trim_end_matches('.')));
             if a.squad != 0 {
                 for &p in &squad {
                     self.change_morale(p, a.squad);
