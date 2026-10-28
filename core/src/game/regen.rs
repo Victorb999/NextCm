@@ -373,6 +373,7 @@ mod tests {
             birth_date: None,
             nation_id: None,
             club_id: 7568,
+            leagues: Vec::new(),
         };
         (Game::create(world, &dir, &new, seed).unwrap(), dir)
     }

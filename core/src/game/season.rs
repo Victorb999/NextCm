@@ -11,6 +11,7 @@ use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use rusqlite::{OptionalExtension, params};
 
+use super::leagues::LeagueMode;
 use super::regen::{self, PLAYER_JOB};
 use super::{Game, NewsItem, club_refs, competition_names, league_club_ids};
 use crate::engine::{expected_goals, poisson, uniform};
@@ -20,13 +21,6 @@ use crate::regulation::{Regulation, SeasonKind, StageKind};
 use crate::squad::Squads;
 use crate::{Result, regulation};
 
-/// Divisões geridas (as de regulamento com `managed`: plantéis que evoluem, renovam contratos
-/// e recebem juniores), de um tipo de época ou de todos, para um `IN (...)` do SQL.
-fn managed_sql(kind: Option<SeasonKind>) -> String {
-    let ids: Vec<String> =
-        regulation::all().iter().filter(|r| r.managed && kind.is_none_or(|k| r.season == k)).map(|r| r.competition.to_string()).collect();
-    if ids.is_empty() { "-1".into() } else { ids.join(", ") }
-}
 /// Quantos sobem e descem entre duas divisões.
 const SWAP: usize = 4;
 /// Abaixo disto o clube contrata jogadores livres (até [`FILL_TO`]).
@@ -109,7 +103,7 @@ impl Game {
     }
 
     pub(super) fn managed_clubs(&self) -> Result<Vec<i32>> {
-        let sql = format!("SELECT id FROM clubs WHERE division_id IN ({}) ORDER BY id", managed_sql(None));
+        let sql = format!("SELECT id FROM clubs WHERE division_id IN ({}) ORDER BY id", self.managed_sql(None));
         Ok(self.world.conn.prepare(&sql)?.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?)
     }
 
@@ -197,16 +191,18 @@ impl Game {
     fn end_of_season(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         // A época que acaba: o ano, ou a europeia que começou no ano anterior
         let year = if kind == SeasonKind::European { self.season() - 1 } else { self.season() };
-        let regs: Vec<&'static Regulation> = regulation::all().iter().filter(|r| r.season == kind).collect();
+        // As ligas fora do jogo não acabam época (não jogaram)
+        let regs: Vec<&'static Regulation> =
+            regulation::all().iter().filter(|r| r.season == kind && self.comp_mode(r.competition) != LeagueMode::Off).collect();
         match kind {
-            SeasonKind::Calendar => {
+            SeasonKind::Calendar if self.comp_mode(SERIE_A) != LeagueMode::Off => {
                 let a = self.table(SERIE_A);
                 if a.is_empty() || a.iter().any(|r| r.played == 0) {
                     return Ok(()); // a época não chegou a ser jogada
                 }
             }
             // Um save de antes do 3.7 não tem as ligas europeias
-            SeasonKind::European => {
+            _ => {
                 if !regs.iter().any(|r| r.managed && self.year_matches(r.competition, year).next().is_some()) {
                     return Ok(());
                 }
@@ -475,7 +471,7 @@ impl Game {
     /// Reformas a partir dos 34 anos (guarda-redes dois anos depois), nos plantéis das
     /// divisões geridas e entre os livres dessas nações.
     fn retirements(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
-        let managed = managed_sql(Some(kind));
+        let managed = self.managed_sql(Some(kind));
         let today = self.date.clone();
         let mut rng = self.season_rng(0x0E7E);
         let sql = format!(
@@ -523,7 +519,7 @@ impl Game {
     /// Plantéis com menos de [`MIN_SQUAD`] jogadores contratam livres (primeiro do país, com
     /// CA à medida do plantel, um guarda-redes se faltar). Provisório até ao mercado do 3.7.
     fn fill_squads(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
-        let managed = managed_sql(Some(kind));
+        let managed = self.managed_sql(Some(kind));
         let today = self.date.clone();
         let year: i32 = today[0..4].parse().unwrap_or(0);
         let mut rng = self.season_rng(0xF111);
@@ -668,7 +664,7 @@ impl Game {
 
     fn develop(&mut self) -> Result<()> {
         let today = self.date.clone();
-        let managed = managed_sql(None);
+        let managed = self.managed_sql(None);
         let mut rng = self.season_rng(0xDE7E);
         // Jogos já feitos por cada clube nesta época, para medir quanto cada um jogou
         let mut club_games: HashMap<i32, i32> = HashMap::new();
@@ -745,7 +741,7 @@ impl Game {
     fn youth_intake(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let year: i32 = self.date[0..4].parse().unwrap_or(0);
         let mut rng = self.season_rng(0x1A7E);
-        let sql = format!("SELECT id, nation_id, reputation FROM clubs WHERE division_id IN ({}) ORDER BY id", managed_sql(None));
+        let sql = format!("SELECT id, nation_id, reputation FROM clubs WHERE division_id IN ({}) ORDER BY id", self.managed_sql(None));
         let clubs: Vec<(i32, Option<i32>, Option<i32>)> =
             self.world.conn.prepare(&sql)?.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
         let mut factory = self.player_factory()?;
@@ -825,6 +821,7 @@ mod tests {
             birth_date: None,
             nation_id: None,
             club_id,
+            leagues: Vec::new(),
         }
     }
 

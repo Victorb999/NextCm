@@ -168,6 +168,9 @@ impl Game {
             if reg.season != kind || (kind == SeasonKind::Calendar && year == TRANSITION_YEAR && reg.transition_dates.is_none()) {
                 continue;
             }
+            if self.comp_mode(reg.competition) == super::leagues::LeagueMode::Off {
+                continue;
+            }
             self.create_stage(reg, 0, year, fresh, next_id)?;
         }
         Ok(())

@@ -11,6 +11,7 @@ use crate::{
 };
 
 use crate::CareerClub;
+use crate::LeagueNation;
 use crate::LineupCheck;
 use crate::NewsLink;
 use crate::PressView;
@@ -190,6 +191,11 @@ impl Session {
 
     pub fn release_player(&mut self, id: i32) -> Result<String> {
         self.game_mut()?.release_player(id)
+    }
+
+    /// As nações do ecrã "Escolher Campeonato(s)" (antes de criar o jogo).
+    pub fn league_nations(&self) -> Result<Vec<LeagueNation>> {
+        crate::league_nations(&self.world)
     }
 
     /// O painel "Palestra" do jogo do treinador agora.
@@ -569,6 +575,7 @@ mod tests {
             birth_date: None,
             nation_id: None,
             club_id: 7568,
+            leagues: Vec::new(),
         };
         s.new_game(&new).unwrap();
         s.save_as("Cópia".into(), false).unwrap();

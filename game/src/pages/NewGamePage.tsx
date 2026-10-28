@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { LeagueChoice } from '../bindings/LeagueChoice'
+import type { LeagueNation } from '../bindings/LeagueNation'
+import LeaguesStep from './LeaguesStep'
 import { api } from '../api'
 import type { NationOption } from '../bindings/NationOption'
 import type { NationProfile } from '../bindings/NationProfile'
@@ -32,7 +35,10 @@ function maskDate(text: string): string {
 export default function NewGamePage() {
   const game = useGame()
   const nav = useNav()
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<0 | 1 | 2>(0)
+  // "Escolher Campeonato(s)": por omissão o Brasil e a Inglaterra escolhidos, o resto de fundo
+  const [leagueNations, setLeagueNations] = useState<LeagueNation[]>([])
+  const [choices, setChoices] = useState<LeagueChoice[]>([])
   const [nations, setNations] = useState<NationOption[]>([])
   const [form, setForm] = useState({ saveName: 'Jogo 1', firstName: '', lastName: '', birth: '', nationId: null as number | null })
   const [clubNation, setClubNation] = useState<number | null>(null)
@@ -53,6 +59,14 @@ export default function NewGamePage() {
   useEffect(() => {
     if (clubNation !== null) api.getNation(clubNation).then(setNation, (e) => setError(String(e)))
   }, [clubNation])
+
+  useEffect(() => {
+    api.leagueNations().then((list) => {
+      setLeagueNations(list)
+      setChoices(list.map((n) => ({ nationId: n.nationId, mode: ['Brazil', 'England'].includes(n.name) ? 'play' : 'background' })))
+    }, (e) => setError(String(e)))
+  }, [])
+  const playable = choices.filter((c) => c.mode === 'play').map((c) => c.nationId)
 
   const changeClubNation = (id: number) => {
     setNation(null)
@@ -93,6 +107,7 @@ export default function NewGamePage() {
         birthDate: parseBirth(form.birth) ?? null,
         nationId: form.nationId,
         clubId: chosen.id,
+        leagues: choices,
       })
       game.update(info)
       nav.go({ kind: 'news' })
@@ -102,9 +117,9 @@ export default function NewGamePage() {
     }
   }
 
-  const nationSelect = (value: number | null, onChange: (id: number) => void) => (
+  const nationSelect = (value: number | null, onChange: (id: number) => void, only?: number[]) => (
     <select className={FIELD} value={value ?? ''} onChange={(e) => onChange(Number(e.target.value))}>
-      {nations.map((n) => (
+      {nations.filter((n) => !only || only.includes(n.id)).map((n) => (
         <option key={n.id} value={n.id}>
           {n.name}
         </option>
@@ -112,10 +127,29 @@ export default function NewGamePage() {
     </select>
   )
 
+  if (step === 0) {
+    return (
+      <LeaguesStep
+        nations={leagueNations}
+        choices={choices}
+        onChange={setChoices}
+        onCancel={() => game.setMode('start')}
+        error={error}
+        onNext={() => {
+          if (playable.length === 0) return setError('Escolha pelo menos uma liga para jogar.')
+          setError(null)
+          // O clube escolhe-se numa nação escolhida
+          if (clubNation === null || !playable.includes(clubNation)) changeClubNation(playable[0])
+          setStep(1)
+        }}
+      />
+    )
+  }
+
   if (step === 1) {
     return (
       <Overlay>
-        <DialogFrame title="Novo Jogo — Treinador" onCancel={() => game.setMode('start')} onOk={next} okLabel="Seguinte">
+        <DialogFrame title="Novo Jogo — Treinador" onCancel={() => setStep(0)} cancelLabel="Atrás" onOk={next} okLabel="Seguinte">
           <form
             className="space-y-2 py-1"
             onSubmit={(e) => {
@@ -159,7 +193,7 @@ export default function NewGamePage() {
         header={
           <div className="flex shrink-0 items-center gap-3 px-1 pt-2 text-white">
             <span className="font-title text-[17px]">Nação</span>
-            {nationSelect(clubNation, changeClubNation)}
+            {nationSelect(clubNation, changeClubNation, playable)}
             <span className="flex-1 text-right font-title text-[17px] text-cm-yellow">
               {club ? `Clube: ${club.label}` : 'Escolha um clube'}
             </span>

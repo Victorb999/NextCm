@@ -184,6 +184,7 @@ mod tests {
             birth_date: None,
             nation_id: None,
             club_id: 7568,
+            leagues: Vec::new(),
         };
         let mut g = Game::create(&path, &dir, &new, 17).unwrap();
         let first = g.matches.iter().filter(|m| m.home_id == 7568 || m.away_id == 7568).map(|m| m.date.clone()).min().unwrap();

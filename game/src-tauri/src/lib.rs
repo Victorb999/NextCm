@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::CareerClub;
+use nextcm_core::LeagueNation;
 use nextcm_core::LineupCheck;
 use nextcm_core::NewsLink;
 use nextcm_core::PressView;
@@ -117,6 +118,7 @@ session_command!(release_player(id: i32) -> String);
 session_command!(day_competitions() -> Vec<i32>);
 session_command!(world_transfers(month: String, page: i64) -> WorldTransfers);
 session_command!(resign() -> String);
+session_command!(league_nations() -> Vec<LeagueNation>);
 session_command!(talk_view() -> TalkView);
 session_command!(give_talk(key: String, tone: String, person: Option<i32>) -> Vec<TalkReaction>);
 session_command!(retire_manager() -> String);
@@ -271,6 +273,7 @@ pub fn run() {
             day_competitions,
             world_transfers,
             resign,
+            league_nations,
             talk_view,
             give_talk,
             retire_manager,

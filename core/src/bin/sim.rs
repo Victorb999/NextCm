@@ -25,6 +25,7 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         birth_date: None,
         nation_id: None,
         club_id,
+        leagues: Vec::new(),
     };
     let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
     let divisions = [(SERIE_A, "Série A"), (SERIE_B, "Série B"), (SERIE_C, "Série C"), (PREMIER_LEAGUE, "Premier League")];
@@ -146,6 +147,7 @@ fn main() {
             birth_date: None,
             nation_id: None,
             club_id,
+            leagues: Vec::new(),
         };
         let mut game = Game::create(&world, &dir, &new, seed + s).expect("não criou o jogo");
         let created = t.elapsed();

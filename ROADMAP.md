@@ -1001,6 +1001,17 @@ Uma ideia do FM08 que o CM 01/02 não tem: o treinador fala aos jogadores, e cad
 
 Antes do Editor: jogar no app (épocas inteiras, vários clubes) e acertar fluxos, layouts e telas, textos, números do motor e da economia e o desempenho, pelo que o utilizador for encontrando. As correções vão sendo anotadas aqui por data de teste, como nas listas de 24 e 25/10.
 
+**Início do jogo como no CM** (teste de 28/10, `docs/prints/inicio-jogo/`)
+- **Escolher Campeonato(s)** (`escolher-campeonatos.png`): a lista das nações com, para cada uma, **Escolhido** (jogável: as competições correm com tudo, o treinador pode treinar lá), **Fundo** (correm só os resultados: classificação, campeões, subidas e descidas, sem estatísticas de jogadores, mercado detalhado nem notícias) ou nada (não entram no jogo: os clubes ficam parados). Botões Escolher Todos / Não Escolher Todos e, como no CM, "Jogadores Reais: Sim/Não" e "Definição Atributos". Por omissão: Brasil e Inglaterra escolhidos e as outras ligas com regulamento de fundo.
+- **Escolher Iniciar Época** (`escolher-iniciar-epoca.png`): entre as nações escolhidas, a data de início pela época de cada uma ("Inglaterra 25/26" a 1/7/2025, "Brasil 2026" a 1/1/2026...).
+- O ecrã de carregamento com a barra e o passo ("Historial dos jogadores", `carregar-historial.png`).
+- No core: as competições de nações de fundo jogam pelo motor rápido (sem `LiveMatch` detalhado nem `player_matches`), as de nações fora do jogo não têm calendário; o Continuar Jogo fica mais rápido com menos ligas escolhidas.
+
+**Feito:** `core/src/game/leagues.rs`, `SAVE_VERSION` 30 (`league_modes`), comando `league_nations`, `NewGame.leagues`, ecrã `LeaguesStep.tsx` antes do treinador e do clube.
+- **Escolhido**: tudo como até aqui. **Fundo**: as competições jogam-se (classificação, campeões, subidas e descidas, vagas continentais), mas as divisões não são geridas: sem mercado, sem evolução dos plantéis, renovações nem juniores, e sem as linhas dos jogadores (`player_matches`). **Fora**: sem calendário nem fim de época (os clubes ficam como estão); as vagas continentais dessas ligas saem da última classificação do banco. As competições continentais jogam-se sempre.
+- O clube do treinador e os empregos só nas ligas escolhidas. Saves antigos e a CLI: tudo escolhido.
+- Fica para depois: **Escolher Iniciar Época** (o jogo começa sempre a 1/7/2025, com o Brasil a meio da época 2025; começar a 1/1/2026 obrigava a jogar meio ano ao criar o jogo), "Jogadores Reais" e "Definição Atributos", a barra do carregamento com o passo, e as ligas de fundo pelo motor rápido (hoje jogam com o mesmo motor, só sem o resto).
+
 #### Marco 3.16 — Editor de jogos salvos (por detalhar)
 
 Fica para o fim, com o jogo já pronto.

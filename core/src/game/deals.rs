@@ -1515,7 +1515,7 @@ impl Game {
             .conn
             .prepare_cached(&format!(
                 "SELECT id, COALESCE(reputation, 0), COALESCE(cash, 0), division_id FROM clubs WHERE division_id IN ({}) AND id <> ? ORDER BY id",
-                super::market::managed_ids()
+                self.managed_ids()
             ))?
             .query_map([self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
             .collect::<rusqlite::Result<_>>()?;
@@ -1694,6 +1694,7 @@ mod tests {
             birth_date: None,
             nation_id: None,
             club_id: PALMEIRAS,
+            leagues: Vec::new(),
         };
         let mut g = Game::create(&path, &dir, &new, 3).unwrap();
         g.world.conn.execute("UPDATE clubs SET cash = 200000000 WHERE id = ?", [PALMEIRAS]).unwrap();
@@ -1882,6 +1883,7 @@ mod tests {
             birth_date: None,
             nation_id: None,
             club_id: PALMEIRAS,
+            leagues: Vec::new(),
         };
         let mut g = Game::create(&path, &dir, &new, 5).unwrap();
         let set = |g: &Game, id: i32, col: &str, v: i32| {

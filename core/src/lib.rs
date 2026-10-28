@@ -37,6 +37,7 @@ pub use game::{
     delete_save, list_saves,
 };
 pub use game::{DealTerms, LoanTerms};
+pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use game::{PressQuestion, PressView};
 pub use game::{TalkOption, TalkReaction, TalkView};
 pub use league::{

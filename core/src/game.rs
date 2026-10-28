@@ -25,6 +25,7 @@ mod discipline;
 mod finances;
 mod jobs;
 mod league_meeting;
+mod leagues;
 mod lineup_check;
 mod manager_career;
 mod market;
@@ -58,6 +59,7 @@ pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, TransferView};
 pub use discipline::DisciplineOptions;
 pub use jobs::{JobNation, JobRow, JobsView};
+pub use leagues::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use lineup_check::LineupCheck;
 pub use manager_career::CareerClub;
 pub use market::TransferItem;
@@ -107,7 +109,11 @@ pub use team_talk::{TalkOption, TalkReaction, TalkView};
 /// treinador (`notes`), marco 3.13.
 /// 28: o capitão (`selection.captain`), marco 3.13.
 /// 29: os clubes do treinador (`manager_history`), para o Currículo.
-pub const SAVE_VERSION: i32 = 29;
+/// 30: as ligas escolhidas ao começar (`league_modes`: jogável, de fundo ou fora).
+pub const SAVE_VERSION: i32 = 30;
+
+/// As ligas escolhidas (save 30).
+const LEAGUES_SCHEMA: &str = "CREATE TABLE league_modes (nation_id INTEGER PRIMARY KEY, mode TEXT NOT NULL);";
 
 /// O currículo do treinador (save 29).
 const CAREER_SCHEMA: &str =
@@ -398,6 +404,9 @@ pub struct NewGame {
     pub birth_date: Option<String>,
     pub nation_id: Option<i32>,
     pub club_id: i32,
+    /// As ligas escolhidas (vazio = todas jogáveis).
+    #[serde(default)]
+    pub leagues: Vec<leagues::LeagueChoice>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -492,6 +501,9 @@ pub struct Game {
     clubs: HashMap<i32, ClubRef>,
     /// Nome curto das competições vivas ("Série A").
     competitions: HashMap<i32, String>,
+    /// As ligas escolhidas (por nação) e a nação de cada competição com regulamento.
+    league_modes: HashMap<i32, leagues::LeagueMode>,
+    comp_nations: HashMap<i32, i32>,
     /// Condição, moral, lesões e cartões dos jogadores dos clubes vivos.
     squads: Squads,
     /// A equipa escolhida pelo treinador; `None` = o adjunto escolhe (instruções normais).
@@ -593,6 +605,7 @@ impl Game {
             tx.execute_batch(RECORD_SCHEMA)?;
             tx.execute_batch(CAPTAIN_SCHEMA)?;
             tx.execute_batch(CAREER_SCHEMA)?;
+            tx.execute_batch(LEAGUES_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -644,6 +657,8 @@ impl Game {
                 club_id: new.club_id,
                 news: vec![welcome],
                 competitions: HashMap::new(),
+                league_modes: HashMap::new(),
+                comp_nations: HashMap::new(),
                 matches: Vec::new(),
                 clubs: HashMap::new(),
                 squads: Squads { states: HashMap::new(), traits: HashMap::new() },
@@ -656,6 +671,11 @@ impl Game {
             // Calendários da época de transição e da época europeia de 2025/26, sorteados com a seed do jogo
             let (mut fresh, mut next_id) = (Vec::new(), 2);
             game.competitions = competition_names(&game.world, &[])?;
+            // As ligas escolhidas no "Escolher Campeonato(s)" (sem escolha: todas jogáveis)
+            game.comp_nations = leagues::comp_nations(&game.world)?;
+            let club_nation: Option<i32> =
+                game.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [new.club_id], |r| r.get(0)).unwrap_or(None);
+            game.set_league_modes(&new.leagues, club_nation)?;
             // Como o CM ao começar: os atributos que o patch não define são gerados
             game.fill_missing_attributes()?;
             game.schedule_season(SeasonKind::Calendar, year, &mut fresh, &mut next_id)?;
@@ -873,6 +893,11 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 29", [])?;
             version = 29;
         }
+        if version == 29 {
+            world.conn.execute_batch(LEAGUES_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 30", [])?;
+            version = 30;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -968,6 +993,8 @@ impl Game {
             matches,
             clubs: HashMap::new(),
             competitions: HashMap::new(),
+            league_modes: HashMap::new(),
+            comp_nations: HashMap::new(),
             squads: Squads { states, traits: HashMap::new() },
             selection,
             unsaved: false,
@@ -975,6 +1002,8 @@ impl Game {
             live: None,
             records: Vec::new(),
         };
+        game.comp_nations = leagues::comp_nations(&game.world)?;
+        game.league_modes = Game::load_league_modes(&game.world)?;
         // Saves de antes dos atributos gerados: completa-os uma vez
         if game.fill_missing_attributes()? > 0 {
             game.unsaved = true;
@@ -1289,7 +1318,9 @@ impl Game {
         }
         for (i, live) in &day.games {
             let m = &self.matches[*i];
-            self.record_match(m.id, m.competition_id, [m.home_id, m.away_id], [live.player_lines(0), live.player_lines(1)])?;
+            if self.comp_mode(m.competition_id) == leagues::LeagueMode::Play {
+                self.record_match(m.id, m.competition_id, [m.home_id, m.away_id], [live.player_lines(0), live.player_lines(1)])?;
+            }
             if (m.home_id == self.club_id || m.away_id == self.club_id) && !self.sacked() {
                 fresh.push(self.result_news(next_id, m, live));
                 next_id += 1;
@@ -2276,6 +2307,7 @@ mod tests {
             birth_date: Some("1990-05-10".into()),
             nation_id: None,
             club_id,
+            leagues: Vec::new(),
         }
     }
 
@@ -2858,7 +2890,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

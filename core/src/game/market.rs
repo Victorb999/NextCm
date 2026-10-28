@@ -407,7 +407,7 @@ impl Game {
             .conn
             .prepare_cached(&format!(
                 "SELECT id, COALESCE(reputation, 0), division_id FROM clubs WHERE division_id IN ({}) ORDER BY id",
-                managed_ids()
+                self.managed_ids()
             ))?
             .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
             .collect::<rusqlite::Result<_>>()?;
@@ -758,7 +758,7 @@ impl Game {
             .conn
             .prepare_cached(&format!(
                 "SELECT id, COALESCE(reputation, 0), division_id FROM clubs WHERE division_id IN ({}) AND reputation < ? AND id <> ? ORDER BY id",
-                managed_ids()
+                self.managed_ids()
             ))?
             .query_map(params![rep - 1000, self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
             .collect::<rusqlite::Result<_>>()?;
@@ -1001,12 +1001,6 @@ pub(super) fn money_text(v: i64) -> String {
     }
 }
 
-/// Ids das divisões geridas para um `IN (...)`.
-pub(super) fn managed_ids() -> String {
-    let ids: Vec<String> = regulation::all().iter().filter(|r| r.managed).map(|r| r.competition.to_string()).collect();
-    ids.join(", ")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1045,6 +1039,7 @@ mod tests {
             birth_date: None,
             nation_id: None,
             club_id: 7568,
+            leagues: Vec::new(),
         };
         let mut g = Game::create(&path, dir, &new, 11).unwrap();
         while g.date() < until {

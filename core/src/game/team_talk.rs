@@ -379,6 +379,7 @@ mod tests {
             birth_date: None,
             nation_id: None,
             club_id: 7568,
+            leagues: Vec::new(),
         };
         let mut g = Game::create(&path, &dir, &new, 29).unwrap();
         g.set_watch(true);

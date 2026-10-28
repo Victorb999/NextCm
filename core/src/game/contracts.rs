@@ -11,7 +11,7 @@ use rusqlite::{OptionalExtension, params};
 
 use super::deals::Facts;
 use super::deals::{COOLDOWN_DAYS, ContractReply, Offer, Party, TRIES, round_wage};
-use super::market::{managed_ids, money_text};
+use super::market::money_text;
 use super::{Game, NewsItem, cm_date};
 use crate::engine::uniform;
 use crate::{Error, Result, date, personality};
@@ -185,7 +185,7 @@ impl Game {
             .conn
             .prepare_cached(&format!(
                 "SELECT id FROM clubs WHERE division_id IN ({}) AND id <> ? AND COALESCE(reputation, 0) BETWEEN ? AND ? ORDER BY id",
-                managed_ids()
+                self.managed_ids()
             ))?
             .query_map(params![self.club_id, my_rep - RIVAL_REP, my_rep + RIVAL_REP], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
