@@ -3,7 +3,7 @@
 //! e quintas com a janela aberta; nesses dias lê-se uma vez um índice de todos os jogadores e
 //! cada clube gerido (menos o do treinador, que decide ele no passo 3) olha para o plantel:
 //! posições com poucos jogadores ou com titulares fracos para o nível do clube. Regras e
-//! números no detalhe do 3.8 no ROADMAP.
+//! números em docs/roadmap/3.08-mercado.md.
 
 use std::collections::{HashMap, HashSet};
 

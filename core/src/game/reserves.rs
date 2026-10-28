@@ -1,7 +1,7 @@
 //! Equipa de reservas (marco 3.12, passo 2): no menu Acção, Despromover para Reservas e
 //! Promover ao Plantel Principal. Os das reservas saem da escolha da equipa principal
 //! (`Availability::reserve`), e a despromoção mexe na moral, mais em quem se acha titular.
-//! Regras no detalhe do 3.12 no ROADMAP.
+//! Regras em docs/roadmap/3.12-empregos-e-gestao-do-plantel.md.
 
 use super::Game;
 use crate::{Error, Result};

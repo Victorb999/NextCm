@@ -2,7 +2,7 @@
 //! a 20 de dezembro (subidas e descidas, historial, contratos, reformas e plantéis mínimos) e
 //! nova época a 1 de janeiro (sorteios e calendários). Época europeia: fim a 10 de junho e nova
 //! a 1 de julho. Os contratos de meio do ano a 30 de junho, a evolução do CA no dia 1 de cada
-//! mês e os juniores a 1 de março. Regras e números no ROADMAP (detalhe do 3.5, 3.6 e 3.7).
+//! mês e os juniores a 1 de março. Regras e números em docs/roadmap/ (3.05, 3.06 e 3.07).
 //! Tudo sorteado com a seed do jogo e a data, então a mesma seed dá a mesma carreira.
 
 use std::collections::HashMap;

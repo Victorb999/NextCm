@@ -1,7 +1,7 @@
 //! Direção (marco 3.8, passo 4): a expectativa da época, a confiança no treinador (avisos e
 //! despedimento) e os orçamentos de transferências e salarial do clube do treinador. As
 //! dívidas dos clubes da IA (vendas forçadas e falência) ficam no mercado e no fim de época.
-//! Regras e números no detalhe do 3.8 no ROADMAP.
+//! Regras e números em docs/roadmap/3.08-mercado.md.
 
 use rusqlite::{OptionalExtension, params};
 use serde::Serialize;

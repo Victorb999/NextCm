@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-// Menu amarelo em cascata, como o do botão "Competições" do CM 01/02.
+// Menu em cascata, como o do botão "Competições" do CM 01/02, no verde dos painéis novos e com zebra.
 
 export type MenuNode = { label: string; onSelect?: () => void; children?: MenuNode[] } | 'separator'
 
-const ROW = 'flex h-[22px] w-full items-center justify-between gap-4 whitespace-nowrap px-3 text-left'
+const ROW = 'flex h-[26px] w-full items-center justify-between gap-4 whitespace-nowrap px-3 text-left'
 
 function Panel({
   items,
@@ -33,15 +33,15 @@ function Panel({
       <div
         ref={ref}
         style={{ left: x, top }}
-        className="fixed z-[70] max-h-screen min-w-[150px] overflow-y-auto rounded border border-b-[#7a5a08] border-l-[#ffe680] border-r-[#7a5a08] border-t-[#ffe680] bg-[#e7b51f] py-0.5 text-[14px] text-[#1c1400] shadow-[3px_3px_0_rgba(0,0,0,0.6)]"
+        className="cm-zebra fixed z-[70] max-h-screen min-w-[170px] overflow-y-auto rounded-md border border-[#10b981]/60 bg-[#0f241b] py-1 text-[14px] text-[#e3e1e9] shadow-[0_8px_24px_rgba(0,0,0,0.65)]"
       >
         {items.map((item, i) =>
           item === 'separator' ? (
-            <div key={i} className="mx-1 my-1.5 border-b border-t border-b-[#ffe680] border-t-[#7a5a08]" />
+            <div key={i} className="mx-2 my-1 border-t border-[#2f6b52]" />
           ) : (
             <button
               key={i}
-              className={`${ROW} ${open?.index === i ? 'bg-[#ffff40]' : 'hover:bg-[#ffff40]'}`}
+              className={`${ROW} ${open?.index === i ? '!bg-[#1d4d3a] text-cm-yellow' : 'hover:!bg-[#1d4d3a] hover:text-cm-yellow'}`}
               onMouseEnter={(e) => {
                 const r = e.currentTarget.getBoundingClientRect()
                 setOpen(item.children ? { index: i, x: r.right - 2, y: r.top - 2 } : null)
@@ -54,7 +54,7 @@ function Panel({
               }}
             >
               <span>{item.label}</span>
-              {item.children && <span className="text-[10px]">▶</span>}
+              {item.children && <span className="text-[10px] text-[#4edea3]">▶</span>}
             </button>
           ),
         )}

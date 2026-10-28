@@ -3,7 +3,7 @@
 //! do contrato (contratações e renovações) e lista de transferências. Os outros clubes
 //! respondem em 1 a 4 dias, com uma mensagem que traz os botões (`news.offer_id`); as
 //! condições e as rondas da negociação estão em `negotiation.rs`.
-//! Regras e números no detalhe do 3.8 no ROADMAP.
+//! Regras e números em docs/roadmap/3.08-mercado.md.
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};

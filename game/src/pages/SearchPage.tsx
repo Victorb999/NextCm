@@ -144,7 +144,7 @@ export default function SearchPage({ active }: { active: boolean }) {
   const [dialog, setDialog] = useState(false)
 
   const [nations, setNations] = useState<NationOption[]>([])
-  const [result, setResult] = useState<SearchResult | null>(null)
+  const [found, setResult] = useState<SearchResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const requestId = useRef(0)
   const tableRef = useRef<HTMLDivElement>(null)
@@ -168,7 +168,25 @@ export default function SearchPage({ active }: { active: boolean }) {
 
   const { nationId, age, positionGroup, side, expiring, injured, interested, ownSquad } = filters
   const own = game.info?.club.id
+  // Sem nome, filtro, "Vêr" ou Lista Preferencial a tela fica vazia: só se procura com critérios
+  const idle =
+    !shortlist &&
+    (status === 'all' || kind !== 'players') &&
+    !debouncedText.trim() &&
+    nationId === null &&
+    age === null &&
+    positionGroup === null &&
+    side === null &&
+    !expiring &&
+    injured === null &&
+    !interested &&
+    ownSquad === EMPTY_FILTERS.ownSquad
   useEffect(() => {
+    if (idle) {
+      // Descarta a resposta de uma busca ainda a caminho
+      requestId.current++
+      return
+    }
     const query = {
       ...toQuery({ text: debouncedText, nationId, age, positionGroup, side, expiring, injured, interested, ownSquad }, kind, own),
       status: shortlist ? ('shortlist' as const) : status === 'all' || kind !== 'players' ? undefined : status,
@@ -185,8 +203,10 @@ export default function SearchPage({ active }: { active: boolean }) {
       },
       (e) => id === requestId.current && setError(String(e)),
     )
-  }, [debouncedText, nationId, age, positionGroup, side, expiring, injured, interested, ownSquad, own, kind, status, sort, page, shortlist])
+  }, [idle, debouncedText, nationId, age, positionGroup, side, expiring, injured, interested, ownSquad, own, kind, status, sort, page, shortlist])
 
+  // Parada (sem critérios), a tela não mostra a última busca
+  const result = idle ? null : found
   const total = result?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const count = result?.items.length ?? 0
@@ -308,7 +328,7 @@ export default function SearchPage({ active }: { active: boolean }) {
 
       <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
         {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
-        <div ref={tableRef} className="min-h-0 flex-1 overflow-auto">
+        <div ref={tableRef} className={`min-h-0 flex-1 overflow-auto ${idle ? 'hidden' : ''}`}>
           <table className="w-full table-fixed border-collapse">
             <colgroup>
               <col />
@@ -345,7 +365,13 @@ export default function SearchPage({ active }: { active: boolean }) {
             </tbody>
           </table>
         </div>
-        <div className="shrink-0 border-t border-cm-line py-1.5 text-center font-title text-xl font-bold text-cm-magenta">
+        {idle && (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-[#c8c8d0]">
+            <Search size={28} className="text-[#55565f]" />
+            <span className="text-[15px]">Escreva um nome ou abra os Filtros para pesquisar.</span>
+          </div>
+        )}
+        <div className={`shrink-0 border-t border-cm-line py-1.5 text-center font-title text-xl font-bold text-cm-magenta ${idle ? 'hidden' : ''}`}>
           {total.toLocaleString('pt-BR')} {players ? 'jogadores' : 'pessoas'} encontrados
         </div>
       </div>

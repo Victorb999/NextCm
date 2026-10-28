@@ -1,7 +1,7 @@
 //! Insatisfação dos jogadores do treinador e pedidos para sair (depois do 3.9). Às segundas os
 //! motivos entram e saem pelo que aconteceu, pesam na moral e, com o tempo, o jogador pede para
 //! ser posto na lista de transferências (uma proposta `kind = 'request'`, com os botões na
-//! mensagem). Regras e números no ROADMAP ("Listas da IA, insatisfação e pedidos para sair").
+//! mensagem). Regras e números em docs/roadmap/3.09b-insatisfacao-e-pedidos-para-sair.md.
 
 use rusqlite::{OptionalExtension, params};
 

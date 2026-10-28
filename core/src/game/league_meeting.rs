@@ -1,7 +1,7 @@
 //! Reunião com a Federação (marco 3.11, passo 3): "Especifique as questões que deseja discutir
 //! com a Liga". Queixas sobre a arbitragem (depois de um jogo com expulsões ou muitos cartões) e
 //! pedir o adiamento de um jogo (com muitos lesionados ou jogos seguidos). As opções que não
-//! fazem sentido agora aparecem apagadas. Regras e números no detalhe do 3.11 no ROADMAP.
+//! fazem sentido agora aparecem apagadas. Regras e números em docs/roadmap/3.11-direccao-e-federacao.md.
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};

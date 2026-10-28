@@ -3,7 +3,7 @@
 //! falta a confirmação do treinador, que fecha o negócio. Um jogador com 6 meses ou menos de
 //! contrato pode assinar um pré-contrato e chega livre quando o contrato acabar. A proposta é
 //! uma linha de `offers` com `kind = 'contract'` (os botões nas mensagens) e os termos ficam
-//! em `contract_talks`. Regras no ROADMAP ("Contratação como no CM").
+//! em `contract_talks`. Regras em docs/roadmap/3.09c-contratacao-como-no-cm.md.
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};

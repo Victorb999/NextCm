@@ -6,7 +6,7 @@
 //! As receitas de uma época normal de um clube (`club_economy.base`) ficam fixas quando ele
 //! entra no jogo: 1,3 vezes a folha salarial anual de então, para todos começarem perto do
 //! equilíbrio. A TV é da liga: cada clube de uma liga recebe o mesmo, a média das bases dela.
-//! Números e partes em `finance.rs` e no detalhe do 3.8 no ROADMAP.
+//! Números e partes em `finance.rs` e em docs/roadmap/3.08-mercado.md.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 

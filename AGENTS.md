@@ -6,11 +6,12 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 - **Língua:** responder e escrever docs em português do Brasil. Os textos do jogo seguem o CM em
   português de Portugal ("Tácticas", "golo", "equipa", "plantel"): manter esse vocabulário na UI.
 - **Visual:** tem de parecer o CM 01/02 (coluna lateral, faixas com as cores do clube, abas escuras,
-  botões roxos, diálogos verdes, menus amarelos). Sem animações, cards ou espaçamento de dashboard.
+  botões roxos, diálogos e menus verdes). Sem animações, cards ou espaçamento de dashboard.
   Cantos levemente arredondados são permitidos (toque moderno); a densidade continua a do CM.
   Os prints que o utilizador mandar são a referência.
-- **Detalhe de cada marco** (regras, números, decisões): `ROADMAP.md`. Não leia o arquivo inteiro:
-  procure a secção `#### Marco 3.x` que interessa.
+- **Plano e marcos:** `ROADMAP.md` (diretrizes, arquitetura, a tabela dos marcos e um índice). O detalhe
+  de cada marco (regras, números, decisões) está em `docs/roadmap/3.xx-*.md`, um ficheiro por marco: abra só
+  o que interessa. Detalhe novo vai para o ficheiro do marco (ou um novo, ligado no índice do ROADMAP).
 
 ## Mapa
 

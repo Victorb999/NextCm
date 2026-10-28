@@ -1,7 +1,7 @@
 //! Reunião com a Direcção (marco 3.11, passo 2): "Especificar os detalhes das exigências à
 //! direcção". Cinco pedidos (estádio, camadas jovens, fundos para transferências, fundos para
 //! salários, mais tempo); os que não fazem sentido agora aparecem apagados, com o motivo. A
-//! resposta chega já, também como mensagem. Regras e números no detalhe do 3.11 no ROADMAP.
+//! resposta chega já, também como mensagem. Regras e números em docs/roadmap/3.11-direccao-e-federacao.md.
 
 use rusqlite::{OptionalExtension, params};
 use serde::Serialize;

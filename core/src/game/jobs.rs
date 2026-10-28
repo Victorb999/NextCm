@@ -4,7 +4,7 @@
 //! por país, os lugares vagos e os treinadores inseguros; o treinador concorre a um lugar
 //! vago, o clube responde em 3 dias pela reputação dele e, se o quiser, faz uma proposta
 //! (`offers.kind = 'job'`). Despedido, o treinador fica sem clube e continua a jogar até
-//! encontrar outro. Regras e números no detalhe do 3.12 no ROADMAP.
+//! encontrar outro. Regras e números em docs/roadmap/3.12-empregos-e-gestao-do-plantel.md.
 
 use rusqlite::{OptionalExtension, params};
 use serde::Serialize;

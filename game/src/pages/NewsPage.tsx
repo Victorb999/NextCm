@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import type { NewsLink } from '../bindings/NewsLink'
 import LinkedText from '../components/LinkedText'
@@ -41,6 +41,15 @@ function newsDate(iso: string) {
   return `${WEEKDAYS[wd]} ${d} ${MONTHS[m - 1]}`
 }
 
+/** As notícias de uma aba, da mais antiga para a mais recente (o core guarda-as ao contrário). */
+const inOrder = (news: NewsItem[], tab: string) => news.filter((n) => inTab(n, tab)).reverse()
+
+/** Onde a aba abre: na primeira por ler, senão na mais recente. */
+function startAt(news: NewsItem[], tab: string): number | null {
+  const list = inOrder(news, tab)
+  return (list.find((n) => !n.read) ?? list[list.length - 1])?.id ?? null
+}
+
 /** "Notícias para <treinador>": lista em cima, texto da notícia em baixo. */
 export default function NewsPage() {
   const game = useGame()
@@ -50,13 +59,27 @@ export default function NewsPage() {
   const [tab, setTab] = useState('all')
   const [selected, setSelected] = useState<number | null>(null)
 
-  // Recarrega quando o dia avança ou uma notícia é lida
+  // Recarrega quando o dia avança ou uma notícia é lida; ao abrir, fixa a primeira por ler
+  // (escolhida uma vez: ler não a faz saltar para a seguinte)
   useEffect(() => {
-    api.listNews().then(setNews, () => {})
+    api.listNews().then((list) => {
+      setNews(list)
+      setSelected((s) => s ?? startAt(list, tab))
+    }, () => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.info?.date, game.info?.unreadNews])
+  const changeTab = (t: string) => {
+    setTab(t)
+    setSelected(startAt(news, t))
+  }
 
-  const shown = useMemo(() => news.filter((n) => inTab(n, tab)), [news, tab])
-  const current = shown.find((n) => n.id === selected) ?? shown[0]
+  // Da mais antiga para a mais recente (o core guarda-as ao contrário)
+  const shown = useMemo(() => inOrder(news, tab), [news, tab])
+  const current = shown.find((n) => n.id === selected) ?? shown[shown.length - 1]
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    listRef.current?.querySelector('[data-current]')?.scrollIntoView({ block: 'nearest' })
+  }, [current?.id])
 
   // Abrir uma notícia marca-a como lida
   useEffect(() => {
@@ -87,14 +110,15 @@ export default function NewsPage() {
   return (
     <div className="flex h-full flex-col">
       <TitleBand title={game.info ? `Notícias para ${game.info.managerName}` : 'Notícias'} fg="#000000" bg="#f4f4f4" />
-      <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      <Tabs tabs={TABS} active={tab} onChange={changeTab} />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col">
-        <div className="h-[118px] shrink-0 overflow-auto border border-cm-line bg-black/60">
+        <div ref={listRef} className="h-[118px] shrink-0 overflow-auto border border-cm-line bg-black/60">
           {shown.length === 0 && <div className="p-4 text-center text-cm-magenta">Sem notícias.</div>}
           {shown.map((n) => (
             <div
               key={n.id}
               onMouseDown={() => setSelected(n.id)}
+              data-current={n.id === current?.id || undefined}
               className={`flex h-[21px] items-center gap-3 px-2 text-[14px] ${n.id === current?.id ? 'bg-cm-sel' : ''}`}
             >
               <span className="w-24 shrink-0 bg-[#202020] px-1 text-white">{newsDate(n.date)}</span>
@@ -164,7 +188,7 @@ export default function NewsPage() {
             { key: 'records', label: 'Registos', disabled: true },
           ]}
           active={tab in TOPICS ? tab : ''}
-          onChange={setTab}
+          onChange={changeTab}
         />
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

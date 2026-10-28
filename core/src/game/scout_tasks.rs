@@ -2,7 +2,7 @@
 //! Cada olheiro do staff tem uma aba (Olheiro #1 a #7) e uma tarefa (um clube, o próximo
 //! adversário, jogadores jovens, um país ou uma região); todos os dias observa alguns jogadores
 //! do alvo, que passam a conhecidos e entram na lista com a recomendação em estrelas.
-//! Regras e números no detalhe do 3.10 no ROADMAP.
+//! Regras e números em docs/roadmap/3.10-olheiros-e-conhecimento.md.
 
 use rusqlite::{OptionalExtension, params};
 use serde::Serialize;

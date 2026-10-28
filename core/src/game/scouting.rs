@@ -3,7 +3,7 @@
 //! mesma nação do clube e os famosos em parte; os outros nada ("-"). Observar um jogador
 //! manda um olheiro do staff; o relatório chega em dias, pela distância e pelo olheiro.
 //! Sem conhecimento, a direção só autoriza parte do orçamento numa proposta.
-//! Regras e números no detalhe do 3.10 no ROADMAP.
+//! Regras e números em docs/roadmap/3.10-olheiros-e-conhecimento.md.
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};

@@ -1,7 +1,7 @@
 //! Relatórios do staff sobre um jogador do plantel (marco 3.10, passo 3): menu Acção do perfil,
 //! "Pedir Relatório Médico" (fisioterapeutas) e "Pedir Relatório Preparador Físico"
 //! (preparadores e o adjunto). Cada um escolhido manda a sua mensagem na hora; a opinião é mais
-//! certa quanto melhor for quem a escreve. Regras no detalhe do 3.10 no ROADMAP.
+//! certa quanto melhor for quem a escreve. Regras em docs/roadmap/3.10-olheiros-e-conhecimento.md.
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};

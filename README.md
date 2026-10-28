@@ -53,7 +53,7 @@ MeuCM/
 ├─ game/            # interface React + Vite + Tailwind
 │  └─ src-tauri/    # app desktop Tauri 2 (comandos que chamam o core)
 ├─ scripts/         # extrator Python dos .dat → data/world.sqlite
-└─ ROADMAP.md       # plano completo, decisões e estado de cada marco
+└─ ROADMAP.md       # plano, diretrizes e índice dos marcos (detalhe em docs/roadmap/)
 ```
 
 | Camada | Tecnologia | Papel |
@@ -124,7 +124,7 @@ A CLI mostra a classificação, golos por jogo, vitórias em casa, remates, cart
 | ⏳ | **3.7** | Mercado de transferências com IA e finanças |
 | ⏳ | **3.8** | Polimento: notícias completas, empregos, férias |
 
-O detalhe de cada marco — decisões, regras e números — está no [ROADMAP.md](ROADMAP.md).
+O plano está no [ROADMAP.md](ROADMAP.md); o detalhe de cada marco — decisões, regras e números — está em [docs/roadmap/](docs/roadmap/), um ficheiro por marco.
 
 ## ⚠️ Aviso
 
