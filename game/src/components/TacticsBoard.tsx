@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { ClubTactics } from '../bindings/ClubTactics'
 import type { TacticPlayer } from '../bindings/TacticPlayer'
 import type { Spot } from '../selection'
@@ -18,6 +19,8 @@ export function Row({
   onOrders,
   ordered,
   captain,
+  action,
+  highlight,
 }: {
   p: TacticPlayer
   kind: 'starter' | 'bench' | 'reserve'
@@ -33,6 +36,10 @@ export function Row({
   ordered?: boolean
   /** O capitão ("cap" na lista, como no CM). */
   captain?: boolean
+  /** Botão no fim da linha (Substituir, no banco). */
+  action?: ReactNode
+  /** "wait": o suplente escolhido no Substituir; "pick": titular que pode sair. */
+  highlight?: 'wait' | 'pick'
 }) {
   const text = kind === 'bench' ? 'text-[#8a5ad8]' : kind === 'reserve' ? 'text-[#8a8a8a]' : 'text-white'
   const toggle =
@@ -52,7 +59,9 @@ export function Row({
           onOrders()
         })
       }
-      className="flex h-[19px] cursor-grab items-center gap-2 px-1 text-[13.5px]"
+      className={`flex h-[21px] cursor-grab items-center gap-2 px-1.5 text-[13.5px] ${
+        highlight === 'wait' ? '!bg-cm-purple/50' : highlight === 'pick' ? 'cursor-pointer hover:!bg-cm-yellow/15' : ''
+      }`}
     >
       {/* Número e casa: clicar põe/tira da equipa */}
       <span
@@ -85,6 +94,7 @@ export function Row({
       )}
       <span className={`w-24 shrink-0 truncate ${text}`}>{p.position}</span>
       <span className={`w-10 shrink-0 text-right ${conditionColour(p.condition)}`}>{p.condition ?? 100}%</span>
+      {action}
     </div>
   )
 }

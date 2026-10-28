@@ -8,7 +8,7 @@ import type { LivePlayer } from '../bindings/LivePlayer'
 import type { LiveTeam } from '../bindings/LiveTeam'
 import type { LiveView } from '../bindings/LiveView'
 import type { StandingRow } from '../bindings/StandingRow'
-import { longDate, shortListName } from '../format'
+import { initials, longDate, shortListName } from '../format'
 import { useGame } from '../game'
 import { MATCH_SPEEDS, getSettings, saveSettings, useSettings } from '../settings'
 import LiveTactics from './LiveTactics'
@@ -22,12 +22,6 @@ const clubBand = (c: ClubRef) => ({
   backgroundColor: c.fg && c.bg ? c.bg : '#3a3a3a',
   backgroundImage: 'linear-gradient(105deg, rgba(255,255,255,0.16), transparent 45%, rgba(0,0,0,0.2))',
 })
-
-/** "Palmeiras" -> "PA", "Real Madrid" -> "RM": o emblema do placar. */
-const initials = (name: string) => {
-  const words = name.split(/\s+/).filter((w) => /^\p{Lu}/u.test(w))
-  return (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase()
-}
 
 /** Faixa de um clube no resultado: emblema, nome grande nas cores do clube e o placar numa casa. */
 function ScoreBand({

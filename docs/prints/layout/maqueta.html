@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<title>NextCM — maqueta do layout</title>
+<style>
+:root {
+  --bg:#121318; --panel:#1a1b21; --panel2:#1e1f25; --hover:#292a2f; --line:#2c2c33;
+  --text:#e3e1e9; --soft:#c8c8d0; --dim:#86869a;
+  --green:#4edea3; --green2:#10b981; --orange:#ff9a00; --yellow:#ffff40; --magenta:#ff5cff; --pink:#ff77ff;
+  --purple:#5b1fa6; --purple2:#8b5bd6; --red:#9c0000; --blue:#1e9cf0;
+  --clube:#005a2d; --clube-fg:#fff;
+  --mono: "JetBrains Mono", Consolas, monospace;
+}
+* { box-sizing:border-box; margin:0; padding:0 }
+html, body { height:100% }
+body { background:var(--bg); color:var(--text); font:13px/18px "Segoe UI", Tahoma, sans-serif; overflow:hidden; user-select:none }
+a { color:inherit; text-decoration:none }
+svg.i { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0 }
+
+/* ---------- janela ---------- */
+.app { display:grid; grid-template-columns:150px 1fr; grid-template-rows:44px 1fr; height:100vh; min-width:1180px }
+
+/* barra do topo */
+.top { grid-column:1/3; display:flex; align-items:center; gap:12px; background:#0d0d0f; border-bottom:1px solid var(--line); padding-right:10px }
+.marca { width:150px; height:100%; display:flex; align-items:center; gap:9px; padding-left:14px; border-right:1px solid var(--line) }
+.marca b { font-size:17px; letter-spacing:-.02em } .marca b i { font-style:normal; color:var(--green) }
+.hist { display:flex; gap:4px }
+.hist span { width:28px; height:26px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:var(--panel2); color:var(--yellow) }
+.hist span.off { color:#4a4a55 }
+.data { font-weight:700; color:var(--yellow) } .sep { color:#474752 } .liga { color:var(--orange) }
+.busca { margin-left:auto; display:flex; align-items:center; gap:6px; width:250px; height:28px; padding:0 10px; border-radius:4px; background:var(--panel2); color:var(--dim) }
+.busca kbd { margin-left:auto; font:11px var(--mono); color:#5a5a66 }
+.continuar { display:flex; align-items:center; gap:8px; height:32px; padding:0 16px; border-radius:4px; background:var(--green); color:#06281b; font-weight:800; letter-spacing:.03em; text-transform:uppercase }
+
+/* coluna: os mesmos botões do CM, no visual novo */
+.side { position:relative; background:#16171c; border-right:1px solid var(--line); display:flex; flex-direction:column; padding:8px; gap:6px }
+.hist { display:flex; gap:6px }
+.hist span { flex:1; height:30px; display:flex; align-items:center; justify-content:center; border-radius:5px; background:var(--panel2); color:var(--yellow) }
+.hist span.off { color:#4a4a55 }
+.nav { position:relative; display:flex; align-items:center; gap:9px; min-height:44px; padding:6px 10px; border-radius:5px; background:var(--panel2); color:#fff; font-weight:600; line-height:16px }
+.nav:hover { background:var(--hover) }
+.nav .seta { margin-left:auto; color:#6a6a78; font-size:10px }
+.nav .n { position:absolute; top:-5px; right:-5px; min-width:18px; height:18px; padding:0 4px; border-radius:9px; background:var(--red); color:#fff; font:700 10px/18px var(--mono); text-align:center }
+.nav.treinador { color:var(--pink) }
+.nav.opcoes { color:var(--yellow) }
+/* item ativo conforme a tela aberta */
+body:not(:has(section:target)) [data-t~="plantel"],
+body:has(#plantel:target) [data-t~="plantel"], body:has(#tacticas:target) [data-t~="tacticas"],
+body:has(#noticias:target) [data-t~="noticias"], body:has(#competicao:target) [data-t~="competicao"] {
+  background:var(--purple); box-shadow:inset 3px 0 0 var(--purple2) }
+
+/* menus amarelos da coluna: abrem e fecham com um clique, como no jogo */
+.temmenu { cursor:pointer } .temmenu.aberto > .menu { display:block } .temmenu.aberto { background:var(--hover) }
+.menu { display:none; position:absolute; left:calc(100% - 4px); top:0; z-index:20; min-width:220px; padding:3px 0; border-radius:4px;
+  background:#e7b51f; color:#1c1400; font-size:14px; font-weight:400; box-shadow:3px 3px 0 rgba(0,0,0,.6); border:1px solid #7a5a08 }
+.menu a { display:flex; height:22px; align-items:center; padding:0 12px } .menu a:hover { background:#ffff40 }
+.menu hr { margin:4px 6px; border:0; border-top:1px solid #7a5a08; border-bottom:1px solid #ffe680 }
+
+/* cabeçalho das tácticas (Stitch) */
+.tcab { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px; background:var(--panel); flex-shrink:0 }
+.tnome { position:relative; display:flex; align-items:center; gap:10px; padding:4px 10px 4px 4px; border-radius:6px }
+.tnome:hover, .tnome.aberto { background:var(--hover) }
+.tnome small { display:flex; align-items:center; gap:8px; font:700 10px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--soft) }
+.tnome b { font-size:22px; color:var(--orange) }
+.tnome .seta { color:var(--dim) }
+.chipv { padding:1px 6px; border-radius:3px; background:#0f3a2a; color:var(--green); font:700 10px var(--mono); letter-spacing:.06em; text-transform:uppercase }
+.seg { display:flex; gap:2px; padding:3px; border-radius:6px; background:#0d0d0f; margin-left:auto }
+.seg a { height:28px; display:flex; align-items:center; padding:0 14px; border-radius:4px; font:600 12px var(--mono); letter-spacing:.06em; color:var(--soft) }
+.seg a.on { background:var(--purple); color:#fff } .seg a.off { color:#4a4a55 }
+.tacoes { display:flex; gap:6px }
+.tbtn { position:relative; height:34px; display:flex; align-items:center; gap:6px; padding:0 12px; border-radius:5px; background:var(--panel2); font:600 12px var(--mono); letter-spacing:.04em; color:var(--green); cursor:pointer }
+.tbtn:hover, .tbtn.aberto { background:var(--hover) } .tbtn.off { color:#4a4a55; cursor:default } .tbtn.off:hover { background:var(--panel2) }
+.dirmenu > .menu { left:auto; right:0; top:calc(100% + 4px); font-family:"Segoe UI", Tahoma, sans-serif; letter-spacing:0 }
+.tnome > .menu { top:calc(100% + 4px); left:0 }
+.dica { font:400 11px "Segoe UI", sans-serif; letter-spacing:0; text-transform:none; color:var(--dim) }
+.subst { display:inline-block; padding:1px 10px; border-radius:3px; background:var(--purple); color:#fff; font:700 11px var(--mono); letter-spacing:.06em; text-transform:uppercase; cursor:pointer }
+.subst:hover { background:var(--purple2) }
+#banco tr.aguarda td { background:rgba(91,31,166,.35) } #banco tr.aguarda .subst { background:var(--yellow); color:#111 }
+body.escolher #onze tr:not(:first-child) { cursor:pointer } body.escolher #onze tr:not(:first-child):hover td { background:rgba(255,255,64,.12) }
+#onze tr.trocou td, #banco tr.trocou td { background:rgba(78,222,163,.15) }
+
+/* telas */
+main { position:relative; overflow:hidden }
+section { display:none; position:absolute; inset:0; flex-direction:column; gap:6px; padding:8px }
+section:target, body:not(:has(section:target)) #plantel { display:flex }
+
+/* peças comuns */
+.emb { width:34px; height:34px; border-radius:4px; background:rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center; font-weight:800 }
+.faixa { display:flex; align-items:center; gap:14px; height:58px; padding:0 14px; border-radius:6px; flex-shrink:0;
+  background:var(--clube) linear-gradient(105deg, rgba(255,255,255,.16), transparent 45%, rgba(0,0,0,.2)); color:var(--clube-fg) }
+.faixa h1 { font-size:26px; line-height:30px; text-transform:uppercase; text-shadow:2px 2px 0 rgba(0,0,0,.3) }
+.faixa .sub { font:700 11px var(--mono); letter-spacing:.1em; text-transform:uppercase; opacity:.85 }
+.faixa .dir { margin-left:auto; display:flex; gap:8px }
+.chip { padding:3px 8px; border-radius:4px; background:rgba(0,0,0,.3); font:700 11px var(--mono); letter-spacing:.06em }
+.abas { display:flex; gap:6px; flex-shrink:0 }
+.aba { flex:1; height:32px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:var(--panel2); color:var(--soft); white-space:nowrap }
+.aba.on { background:var(--hover); color:var(--yellow); font-weight:700; box-shadow:inset 0 0 0 1px var(--yellow) }
+.barra { display:flex; align-items:center; gap:6px; height:36px; padding:0 6px; border-radius:6px; background:var(--purple); flex-shrink:0 }
+.sel { height:26px; display:flex; align-items:center; gap:6px; padding:0 10px; border-radius:4px; background:#0d0d0f; color:#fff }
+.sel em { font-style:normal; color:var(--orange) }
+.btn { height:26px; display:flex; align-items:center; gap:6px; padding:0 12px; border-radius:4px; background:var(--purple); color:#fff; border:1px solid var(--purple2) }
+.btn.esc { background:#0d0d0f; border-color:#3a3a44 }
+.painel { background:var(--panel); border-radius:6px; overflow:hidden; min-height:0 }
+.titulo { display:flex; align-items:center; gap:8px; height:30px; padding:0 10px; font:700 11px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--orange); border-bottom:1px solid var(--line) }
+.titulo .dir { margin-left:auto; color:var(--dim) }
+.rodape { display:flex; gap:6px; flex-shrink:0 }
+.rodape .btn { height:34px; flex:1; justify-content:center; font-size:15px }
+.rodape .btn:first-child { flex:2 }
+.rodape .btn.off { color:#8a63c4 }
+.cheio { flex:1; min-height:0; display:flex; gap:6px }
+
+/* tabelas densas, cores por coluna como no CM */
+table { width:100%; border-collapse:collapse }
+th { height:22px; padding:0 6px; background:#3d1a73; color:var(--yellow); font-weight:700; text-align:left; white-space:nowrap }
+td { height:21px; padding:0 6px; white-space:nowrap; border-bottom:1px solid rgba(255,255,255,.035) }
+/* zebra: linhas alternadas, como no Stitch */
+tr:nth-child(even) td { background:rgba(255,255,255,.035) }
+tr:hover td { background:rgba(255,255,255,.07) }
+tr.escolhida td { background:var(--red) !important; color:#fff !important }
+.c { text-align:center } .r { text-align:right }
+.cas { display:inline-block; min-width:34px; padding:0 4px; border-radius:3px; background:#262630; color:var(--green); font:700 11px/16px var(--mono); text-align:center }
+.cas.v { color:#5a5a66 }
+.nome { color:#fff } .clube { color:var(--magenta) } .nac { color:var(--yellow) } .pos { color:var(--orange) } .val { color:var(--green) }
+.tag { display:inline-block; padding:0 4px; border-radius:3px; font:700 10px/14px var(--mono) }
+.amr { background:var(--yellow); color:#111 } .les { background:#ff8a8a; color:#300 } .cap { color:var(--yellow); font:700 10px var(--mono) }
+.ok { color:var(--green) } .meio { color:var(--yellow) } .mau { color:#ff6060 }
+
+/* casas da equipa por cima do plantel */
+.casas { display:flex; align-items:center; gap:4px; height:32px; padding:0 8px; border-radius:6px; background:var(--panel); flex-shrink:0; overflow:hidden }
+.casas .lbl { font:700 11px var(--mono); color:var(--orange); letter-spacing:.1em; margin-right:6px }
+.casas span.k { padding:1px 6px; border-radius:3px; background:#2a1450; color:var(--yellow); font:700 11px var(--mono); box-shadow:inset 0 0 0 1px #6c45b0 }
+.casas span.k.on { background:var(--red); color:#fff; box-shadow:none }
+.casas .div { width:1px; height:18px; background:var(--line); margin:0 4px }
+
+/* tácticas */
+.campo { position:relative; flex:1; margin:8px; border-radius:6px; border:2px solid rgba(255,255,255,.35);
+  background:repeating-linear-gradient(0deg, #1c6b45 0 40px, #18603e 40px 80px) }
+.campo .l { position:absolute; border:2px solid rgba(255,255,255,.3) }
+.jog { position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:2px }
+.jog b { width:30px; height:30px; border-radius:50%; background:#fff; color:#111; display:flex; align-items:center; justify-content:center; font:700 13px var(--mono); box-shadow:0 2px 6px rgba(0,0,0,.5) }
+.jog.gr b { background:var(--green); }
+.jog span { padding:0 5px; border-radius:3px; background:rgba(0,0,0,.75); color:#fff; font:700 11px var(--mono) }
+.instr { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; padding:8px }
+.instr div { padding:6px 8px; border-radius:4px; background:var(--panel2) }
+.instr small { display:block; font:700 10px var(--mono); letter-spacing:.1em; color:var(--dim); text-transform:uppercase }
+.instr b { color:var(--green) } .instr b.n { color:var(--soft) }
+
+/* notícias */
+.lista td { height:30px; font-size:14px }
+.dia { font:12px var(--mono); color:var(--soft); background:#0d0d0f; border-radius:3px; padding:2px 6px }
+.cat { font:700 10px var(--mono); padding:2px 6px; border-radius:3px; background:#2a2a33; color:var(--soft); letter-spacing:.06em }
+.cat.dir { background:#0f3a2a; color:var(--green) } .cat.fin { background:#4a3300; color:var(--orange) } .cat.dis { background:#4a0f0f; color:#ff8080 }
+.artigo { padding:14px 18px; display:flex; flex-direction:column; gap:10px; overflow:auto }
+.artigo h2 { font-size:22px; color:var(--orange) }
+.artigo .fonte { font:12px var(--mono); color:var(--dim) }
+.artigo p { font-size:15px; line-height:23px; color:#dcdce4; max-width:820px }
+.artigo p b { color:var(--yellow); font-weight:600 }
+.acoes { display:flex; gap:6px; margin-top:4px }
+
+/* competição */
+.banda { display:flex; align-items:center; justify-content:center; height:52px; border-radius:6px; background:var(--blue); flex-shrink:0;
+  font-size:26px; font-weight:800; color:#fff; text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,2px 2px 0 #000 }
+tr.meu td { background:rgba(255,119,255,.08) } tr.meu td.nome { color:var(--pink); font-weight:700 }
+.zona { width:3px; padding:0 !important } .z1 { background:#3a7bd5 } .z2 { background:#2fa36b } .z3 { background:#c0392b }
+
+/* anotações da maqueta */
+.nota { position:fixed; right:14px; bottom:58px; width:300px; padding:10px 12px; border-radius:6px; background:#26262e; border:1px solid #3a3a44; color:var(--soft); font-size:12px; line-height:17px; box-shadow:0 8px 24px rgba(0,0,0,.5); z-index:9 }
+.nota b { color:var(--green) }
+.nota:not([open]) { width:auto; padding:5px 10px; bottom:50px }
+.nota summary { cursor:pointer; font:700 11px var(--mono); color:var(--green); letter-spacing:.06em }
+.nota[open] summary { margin-bottom:6px }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-plantel" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/><path d="M21 21v-2a4 4 0 0 0-3-3.9"/></symbol>
+  <symbol id="i-tact" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-res" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></symbol>
+  <symbol id="i-num" viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></symbol>
+  <symbol id="i-hist" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></symbol>
+  <symbol id="i-news" viewBox="0 0 24 24"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/></symbol>
+  <symbol id="i-dir" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></symbol>
+  <symbol id="i-trf" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></symbol>
+  <symbol id="i-busca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-emp" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
+  <symbol id="i-taca" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.7V17c0 .6-.5 1-1 1.2C7.9 18.8 7 20.2 7 22M14 14.7V17c0 .6.5 1 1 1.2 1.1.6 2 2 2 3.8M18 2H6v7a6 6 0 0 0 12 0V2Z"/></symbol>
+  <symbol id="i-globo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></symbol>
+  <symbol id="i-perfil" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+  <symbol id="i-cv" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-gravar" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+  <symbol id="i-opc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-sair" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9z" fill="currentColor"/></symbol>
+  <symbol id="i-filtro" viewBox="0 0 24 24"><path d="M22 3H2l8 9.5V19l4 2v-8.5z"/></symbol>
+  <symbol id="i-treino" viewBox="0 0 24 24"><path d="M6.5 6.5h11M6.5 17.5h11M3 9v6M21 9v6M6 6v12M18 6v12"/></symbol>
+</svg>
+
+<div class="app">
+  <!-- ================= BARRA DO TOPO ================= -->
+  <header class="top">
+    <div class="marca">
+      <svg width="28" height="28" viewBox="0 0 64 64"><clipPath id="lc"><rect width="64" height="64" rx="13"/></clipPath><g clip-path="url(#lc)"><rect width="64" height="64" fill="#571bc1"/><rect width="64" height="20" fill="#10b981"/></g><g fill="none" stroke="#0d2a1e" stroke-width="2.4" stroke-miterlimit="1.5"><polyline points="11.5,15 11.5,5.5 19.5,14.5 19.5,5"/><polyline points="30.5,6.2 22.5,6.2 22.5,13.8 30.5,13.8"/><line x1="22.5" y1="10" x2="29" y2="10"/><line x1="33.5" y1="5" x2="41.5" y2="15"/><line x1="41.5" y1="5" x2="33.5" y2="15"/><line x1="44.5" y1="6.2" x2="52.5" y2="6.2"/><line x1="48.5" y1="6.2" x2="48.5" y2="15"/></g><g fill="none" stroke="#fff" stroke-width="6"><path d="M28.4 36.6 A9 9 0 1 0 28.4 49.4"/><polyline points="36,53 36,33.5 44.5,44 53,33.5 53,53" stroke-miterlimit="3"/></g></svg>
+      <b>Next<i>CM</i></b>
+    </div>
+    <span class="data">Domingo 3.8.25</span><span class="sep">|</span>
+    <b>Sociedade Esportiva Palmeiras</b><span class="sep">|</span><span class="liga">Série A</span>
+    <a class="continuar" href="#" style="margin-left:auto">Continuar Jogo <svg class="i" style="width:13px"><use href="#i-play"/></svg></a>
+  </header>
+
+  <!-- ================= COLUNA ================= -->
+  <nav class="side">
+    <div class="hist"><span>◀</span><span class="off">▶</span></div>
+    <div class="nav treinador temmenu" data-t="plantel tacticas noticias">
+      <svg class="i"><use href="#i-perfil"/></svg>A B<span class="seta">▶</span><span class="n">3</span>
+      <div class="menu">
+        <a href="#plantel">Plantel Palmeiras</a><a href="#plantel">Reservas Palmeiras</a><a href="#plantel">Números Plantel</a>
+        <a href="#tacticas">Tácticas</a><a href="#plantel">Historial</a><hr>
+        <a href="#noticias">Notícias (3)</a><a href="#plantel">Pesquisa Jogador &amp; Staff</a><a href="#noticias">Confiança da Direcção</a>
+        <a href="#noticias">Informação de Empregos</a><a href="#plantel">Transferências</a><a href="#plantel">Perfil do Treinador</a><a href="#plantel">Currículo</a><hr>
+        <a>Ir de Férias</a><a>Rescindir com Clube</a><a>Retirar-se</a><hr>
+        <a>Gravar Jogo</a><a>Sair para o Menu</a>
+      </div>
+    </div>
+    <div class="nav temmenu" data-t="competicao"><svg class="i"><use href="#i-taca"/></svg>Competições<span class="seta">▶</span>
+      <div class="menu">
+        <a href="#competicao">Brasil ▸ Série A</a><a href="#competicao">Brasil ▸ Série B</a><a href="#competicao">Brasil ▸ Copa do Brasil</a><hr>
+        <a href="#competicao">Inglaterra ▸ Premier League</a><a href="#competicao">Espanha ▸ La Liga</a><a href="#competicao">Itália ▸ Serie A</a><hr>
+        <a href="#competicao">Todas as Competições</a>
+      </div>
+    </div>
+    <a class="nav" href="#competicao"><svg class="i"><use href="#i-globo"/></svg>Nações &amp; Clubes</a>
+    <a class="nav" href="#plantel"><svg class="i"><use href="#i-busca"/></svg>Procurar</a>
+    <a class="nav opcoes" href="#"><svg class="i"><use href="#i-opc"/></svg>Opções Jogo</a>
+  </nav>
+
+  <main>
+  <!-- ================= PLANTEL ================= -->
+  <section id="plantel">
+    <div class="faixa">
+      <span class="emb" style="width:40px;height:40px;font-size:17px">PA</span>
+      <div><div class="sub">Série A · Época 2025/26</div><h1>Palmeiras</h1></div>
+      <div class="dir"><span class="chip">15º Classificado</span><span class="chip">Allianz Parque · 43.713</span><span class="chip">Fundos: €5.5M</span></div>
+    </div>
+    <div class="abas">
+      <a class="aba on">Plantel</a><a class="aba">Staff</a><a class="aba">Transferências</a><a class="aba">Próximo Jogo</a>
+      <a class="aba">Último Jogo</a><a class="aba">Calendário</a><a class="aba">Finanças &amp; Info</a><a class="aba">Treino</a>
+    </div>
+    <div class="barra">
+      <span class="sel">Vêr: <em>Plantel Principal</em> ▾</span>
+      <span class="sel">Critério: <em>Posição</em> ▾</span>
+      <span style="margin-left:auto" class="btn esc">Limpar Equipa</span>
+      <span class="btn esc"><svg class="i" style="width:13px"><use href="#i-filtro"/></svg>Filtros</span>
+    </div>
+    <div class="casas">
+      <span class="lbl">EQUIPA</span>
+      <span class="k">GR</span><span class="k">DD</span><span class="k">DC</span><span class="k">DC</span><span class="k">DE</span>
+      <span class="k">MD</span><span class="k on">MC</span><span class="k">MC</span><span class="k">ME</span><span class="k">AC</span><span class="k">AC</span>
+      <span class="div"></span>
+      <span class="k">SB1</span><span class="k">SB2</span><span class="k">SB3</span><span class="k">SB4</span><span class="k">SB5</span><span class="k">SB6</span><span class="k">SB7</span><span class="k">SB8</span><span class="k">SB9</span>
+      <span style="margin-left:auto;font:700 11px var(--mono);color:var(--dim)">TITULARES <b class="ok">11/11</b> · BANCO <b class="meio">9/9</b> · INDISP. <b class="mau">1</b></span>
+    </div>
+    <div class="painel" style="flex:1;overflow:auto">
+      <table>
+        <tr><th>Esc</th><th class="c">Nº</th><th>Jogador</th><th></th><th>Posição</th><th>Nac</th><th class="c">Idade</th><th class="c">Cnd</th><th>Moral</th><th class="r">Valor</th><th>Contrato</th></tr>
+        <tr><td><span class="cas">GR</span></td><td class="c">1</td><td class="nome">Miguel, Carlos</td><td></td><td class="pos">GR</td><td class="nac">BRA</td><td class="c">26</td><td class="c ok">100%</td><td class="ok">Muito Bom</td><td class="r val">€8.5M</td><td>Dez 2028</td></tr>
+        <tr><td><span class="cas">DE</span></td><td class="c">22</td><td class="nome">Piquerez, Joaquín</td><td></td><td class="pos">D/AL/M E</td><td class="nac">URU</td><td class="c">27</td><td class="c ok">98%</td><td class="ok">Bom</td><td class="r val">€12M</td><td>Dez 2027</td></tr>
+        <tr><td><span class="cas">DD</span></td><td class="c">12</td><td class="nome">Khellven</td><td></td><td class="pos">D/AL/M D</td><td class="nac">BRA</td><td class="c">24</td><td class="c ok">97%</td><td class="ok">Bom</td><td class="r val">€6M</td><td>Dez 2029</td></tr>
+        <tr><td><span class="cas">DC</span></td><td class="c">15</td><td class="nome">Gómez, Gustavo <span class="cap">CAP</span></td><td></td><td class="pos">D C</td><td class="nac">PAR</td><td class="c">32</td><td class="c ok">96%</td><td class="ok">Muito Bom</td><td class="r val">€4.2M</td><td>Dez 2026</td></tr>
+        <tr><td><span class="cas">DC</span></td><td class="c">26</td><td class="nome">Murilo</td><td><span class="tag amr">Amr</span></td><td class="pos">D C</td><td class="nac">BRA</td><td class="c">28</td><td class="c ok">95%</td><td class="meio">Razoável</td><td class="r val">€9M</td><td>Dez 2027</td></tr>
+        <tr class="escolhida"><td><span class="cas">MC</span></td><td class="c">23</td><td class="nome">Veiga, Raphael</td><td></td><td class="pos">M/MA C</td><td class="nac">BRA</td><td class="c">30</td><td class="c">96%</td><td>Bom</td><td class="r">€15M</td><td>Dez 2027</td></tr>
+        <tr><td><span class="cas">MC</span></td><td class="c">8</td><td class="nome">Pereira, Andreas</td><td></td><td class="pos">M/MA DEC</td><td class="nac">BRA</td><td class="c">29</td><td class="c ok">96%</td><td class="ok">Bom</td><td class="r val">€18M</td><td>Dez 2029</td></tr>
+        <tr><td><span class="cas">MD</span></td><td class="c">18</td><td class="nome">Mauricio</td><td></td><td class="pos">M/MA DEC</td><td class="nac">BRA</td><td class="c">24</td><td class="c ok">96%</td><td class="ok">Muito Bom</td><td class="r val">€14M</td><td>Dez 2029</td></tr>
+        <tr><td><span class="cas">ME</span></td><td class="c">10</td><td class="nome">Paulinho</td><td></td><td class="pos">M/MA EC</td><td class="nac">BRA</td><td class="c">25</td><td class="c ok">96%</td><td class="ok">Bom</td><td class="r val">€20M</td><td>Dez 2029</td></tr>
+        <tr><td><span class="cas">AC</span></td><td class="c">42</td><td class="nome">López, José Manuel</td><td></td><td class="pos">A C</td><td class="nac">ARG</td><td class="c">24</td><td class="c ok">96%</td><td class="ok">Bom</td><td class="r val">€16M</td><td>Dez 2028</td></tr>
+        <tr><td><span class="cas">AC</span></td><td class="c">9</td><td class="nome">Roque, Vitor</td><td></td><td class="pos">MA/A DE</td><td class="nac">BRA</td><td class="c">20</td><td class="c ok">96%</td><td class="ok">Muito Bom</td><td class="r val">€30M</td><td>Dez 2029</td></tr>
+        <tr><td><span class="cas">SB1</span></td><td class="c">24</td><td class="nome">Aranha</td><td></td><td class="pos">GR</td><td class="nac">BRA</td><td class="c">22</td><td class="c ok">100%</td><td class="meio">Razoável</td><td class="r val">€1.2M</td><td>Dez 2027</td></tr>
+        <tr><td><span class="cas">SB2</span></td><td class="c">11</td><td class="nome">Arias, Jhon</td><td></td><td class="pos">M/MA DE</td><td class="nac">COL</td><td class="c">27</td><td class="c ok">100%</td><td class="ok">Bom</td><td class="r val">€17M</td><td>Dez 2028</td></tr>
+        <tr><td><span class="cas">SB3</span></td><td class="c">3</td><td class="nome">Freitas, Marlon</td><td></td><td class="pos">M C</td><td class="nac">BRA</td><td class="c">30</td><td class="c ok">100%</td><td class="ok">Bom</td><td class="r val">€5M</td><td>Dez 2028</td></tr>
+        <tr><td><span class="cas">SB4</span></td><td class="c">4</td><td class="nome">Barboza, Alexander</td><td></td><td class="pos">D C</td><td class="nac">ARG</td><td class="c">30</td><td class="c ok">100%</td><td class="ok">Bom</td><td class="r val">€3M</td><td>Dez 2027</td></tr>
+        <tr><td><span class="cas">SB5</span></td><td class="c">5</td><td class="nome">Fuchs, Bruno</td><td></td><td class="pos">D C</td><td class="nac">BRA</td><td class="c">26</td><td class="c ok">100%</td><td class="meio">Razoável</td><td class="r val">€4M</td><td>Dez 2028</td></tr>
+        <tr><td><span class="cas">SB6</span></td><td class="c">7</td><td class="nome">Anderson, Felipe</td><td></td><td class="pos">M/MA D</td><td class="nac">BRA</td><td class="c">32</td><td class="c ok">100%</td><td class="ok">Bom</td><td class="r val">€3.5M</td><td>Dez 2026</td></tr>
+        <tr><td><span class="cas">SB7</span></td><td class="c">19</td><td class="nome">Sosa, Ramón</td><td></td><td class="pos">MA E</td><td class="nac">PAR</td><td class="c">26</td><td class="c ok">100%</td><td class="ok">Bom</td><td class="r val">€9M</td><td>Dez 2029</td></tr>
+        <tr><td><span class="cas">SB8</span></td><td class="c">4</td><td class="nome">Giay, Agustín</td><td></td><td class="pos">D/AL D</td><td class="nac">ARG</td><td class="c">21</td><td class="c ok">100%</td><td class="ok">Bom</td><td class="r val">€7M</td><td>Dez 2029</td></tr>
+        <tr><td><span class="cas">SB9</span></td><td class="c">32</td><td class="nome">Martínez, Emiliano</td><td></td><td class="pos">MD/M C</td><td class="nac">URU</td><td class="c">26</td><td class="c ok">100%</td><td class="ok">Bom</td><td class="r val">€6M</td><td>Dez 2029</td></tr>
+        <tr><td><span class="cas v">-</span></td><td class="c">14</td><td class="nome">Micael</td><td><span class="tag les">Les</span></td><td class="pos">D C</td><td class="nac">BRA</td><td class="c">25</td><td class="c mau">64%</td><td class="meio">Razoável</td><td class="r val">€5M</td><td>Dez 2029</td></tr>
+        <tr><td><span class="cas v">-</span></td><td class="c">40</td><td class="nome">Allan</td><td></td><td class="pos">MA DE</td><td class="nac">BRA</td><td class="c">21</td><td class="c ok">99%</td><td class="ok">Bom</td><td class="r val">€4M</td><td>Dez 2029</td></tr>
+      </table>
+    </div>
+    <div class="rodape"><a class="btn off">Atrás</a><a class="btn">Seguinte</a></div>
+  </section>
+
+  <!-- ================= TÁCTICAS ================= -->
+  <section id="tacticas">
+    <div class="tcab">
+      <div class="tnome temmenu">
+        <span class="emb" style="background:var(--clube);color:var(--clube-fg)">PA</span>
+        <div>
+          <small>Tácticas Palmeiras <span class="chipv">Táctica activa</span></small>
+          <b>4-4-2*</b>
+        </div>
+        <span class="seta">▾</span>
+        <div class="menu">
+          <a>Instruções à Equipa</a><hr>
+          <a>Pré-definida: 5-3-2 Líbero</a><a>Pré-definida: 5-3-2</a><a>Pré-definida: 4-4-2</a><a>Pré-definida: 4-3-3</a>
+          <a>Pré-definida: 4-2-4</a><a>Pré-definida: 3-5-2</a><a>Pré-definida: 4-1-2-1-2</a><a>Pré-definida: 4-5-1</a><a>Pré-definida: 3-4-3</a>
+        </div>
+      </div>
+      <div class="seg"><a class="on">▦ Vista Geral</a><a class="off">◎ Com Bola</a><a class="off">◇ Sem Bola</a></div>
+      <div class="tacoes">
+        <span class="tbtn off">Vêr ▾</span>
+        <span class="tbtn off">↺ Último Jogo</span>
+        <div class="tbtn temmenu dirmenu">✎ Editar ▾
+          <div class="menu"><a>Adjunto escolhe a equipa</a><a>Repor as posições da táctica</a></div>
+        </div>
+      </div>
+    </div>
+    <div class="cheio">
+      <div style="flex:1.15;display:flex;flex-direction:column;gap:6px;min-width:0">
+        <div class="painel">
+          <div class="titulo">Onze titular <span class="chipv">11/11</span><span class="dir dica">Arraste para trocar · botão direito: instruções</span></div>
+          <table id="onze">
+            <tr><th class="c">Nº</th><th>Pos</th><th>Jogador</th><th>Função</th><th class="c">Cnd</th><th class="c">Est</th></tr>
+            <tr><td class="c">1</td><td><span class="cas">GR</span></td><td class="nome">Carlos Miguel</td><td class="pos">GR</td><td class="c ok">96%</td><td class="c"></td></tr>
+            <tr><td class="c">22</td><td><span class="cas">DE</span></td><td class="nome">Joaquín Piquerez</td><td class="pos">D/AL/M E</td><td class="c ok">96%</td><td class="c"></td></tr>
+            <tr><td class="c">12</td><td><span class="cas">DD</span></td><td class="nome">Khellven</td><td class="pos">D/AL/M D</td><td class="c ok">96%</td><td class="c"></td></tr>
+            <tr><td class="c">15</td><td><span class="cas">DC</span></td><td class="nome">Gustavo Gómez <span class="cap">CAP</span></td><td class="pos">D C</td><td class="c ok">96%</td><td class="c"></td></tr>
+            <tr><td class="c">26</td><td><span class="cas">DC</span></td><td class="nome">Murilo</td><td class="pos">D C</td><td class="c ok">96%</td><td class="c"><span class="tag amr">Amr</span></td></tr>
+            <tr><td class="c">10</td><td><span class="cas">ME</span></td><td class="nome">Paulinho</td><td class="pos">M/MA EC</td><td class="c ok">96%</td><td class="c"></td></tr>
+            <tr><td class="c">23</td><td><span class="cas">MC</span></td><td class="nome">Raphael Veiga</td><td class="pos">M/MA C</td><td class="c meio">88%</td><td class="c"></td></tr>
+            <tr><td class="c">8</td><td><span class="cas">MC</span></td><td class="nome">Andreas Pereira</td><td class="pos">M/MA DEC</td><td class="c ok">96%</td><td class="c"></td></tr>
+            <tr><td class="c">18</td><td><span class="cas">MD</span></td><td class="nome">Mauricio</td><td class="pos">M/MA DEC</td><td class="c ok">96%</td><td class="c"></td></tr>
+            <tr><td class="c">42</td><td><span class="cas">AC</span></td><td class="nome">José Manuel López</td><td class="pos">A C</td><td class="c ok">96%</td><td class="c"></td></tr>
+            <tr><td class="c">9</td><td><span class="cas">AC</span></td><td class="nome">Vitor Roque</td><td class="pos">MA/A DE</td><td class="c ok">96%</td><td class="c"></td></tr>
+          </table>
+        </div>
+        <div class="painel" style="flex:1;overflow:auto">
+          <div class="titulo">Banco de suplentes <span class="chipv">SB1 – SB9</span><span class="dir dica" id="aviso"></span></div>
+          <table id="banco">
+            <tr><th>Slot</th><th class="c">Nº</th><th>Pos</th><th>Jogador</th><th class="c">Cnd</th><th class="r">Acção</th></tr>
+            <tr><td><span class="cas">SB1</span></td><td class="c">24</td><td class="pos">GR</td><td class="nome">Aranha</td><td class="c ok">100%</td><td class="r"><span class="subst">Substituir</span></td></tr>
+            <tr><td><span class="cas">SB2</span></td><td class="c">11</td><td class="pos">M/MA DE</td><td class="nome">Jhon Arias</td><td class="c ok">100%</td><td class="r"><span class="subst">Substituir</span></td></tr>
+            <tr><td><span class="cas">SB3</span></td><td class="c">3</td><td class="pos">M C</td><td class="nome">Marlon Freitas</td><td class="c ok">100%</td><td class="r"><span class="subst">Substituir</span></td></tr>
+            <tr><td><span class="cas">SB4</span></td><td class="c">4</td><td class="pos">D C</td><td class="nome">Alexander Barboza</td><td class="c ok">100%</td><td class="r"><span class="subst">Substituir</span></td></tr>
+            <tr><td><span class="cas">SB5</span></td><td class="c">5</td><td class="pos">D C</td><td class="nome">Bruno Fuchs</td><td class="c ok">100%</td><td class="r"><span class="subst">Substituir</span></td></tr>
+            <tr><td><span class="cas">SB6</span></td><td class="c">7</td><td class="pos">M/MA D</td><td class="nome">Felipe Anderson</td><td class="c ok">100%</td><td class="r"><span class="subst">Substituir</span></td></tr>
+            <tr><td><span class="cas">SB7</span></td><td class="c">19</td><td class="pos">MA E</td><td class="nome">Ramón Sosa</td><td class="c ok">100%</td><td class="r"><span class="subst">Substituir</span></td></tr>
+            <tr><td><span class="cas">SB8</span></td><td class="c">4</td><td class="pos">D/AL D</td><td class="nome">Agustín Giay</td><td class="c ok">100%</td><td class="r"><span class="subst">Substituir</span></td></tr>
+            <tr><td><span class="cas">SB9</span></td><td class="c">32</td><td class="pos">MD/M C</td><td class="nome">Emiliano Martínez</td><td class="c ok">100%</td><td class="r"><span class="subst">Substituir</span></td></tr>
+          </table>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
+        <div class="painel" style="flex:1;display:flex;flex-direction:column">
+          <div class="titulo">Quadro táctico <span class="dir" style="color:var(--yellow)">4-4-2*</span></div>
+          <div class="campo">
+            <div class="l" style="left:25%;right:25%;top:-2px;height:16%;border-top:0"></div>
+            <div class="l" style="left:25%;right:25%;bottom:-2px;height:16%;border-bottom:0"></div>
+            <div class="l" style="left:-2px;right:-2px;top:50%;height:0;border-width:2px 0 0"></div>
+            <div class="l" style="left:50%;top:50%;width:80px;height:80px;border-radius:50%;transform:translate(-50%,-50%)"></div>
+            <div class="jog" style="left:36%;top:16%"><b>42</b><span>López</span></div>
+            <div class="jog" style="left:64%;top:16%"><b>9</b><span>Roque</span></div>
+            <div class="jog" style="left:13%;top:44%"><b>10</b><span>Paulinho</span></div>
+            <div class="jog" style="left:38%;top:47%"><b>23</b><span>Veiga</span></div>
+            <div class="jog" style="left:62%;top:47%"><b>8</b><span>Pereira</span></div>
+            <div class="jog" style="left:87%;top:44%"><b>18</b><span>Mauricio</span></div>
+            <div class="jog" style="left:13%;top:72%"><b>22</b><span>Piquerez</span></div>
+            <div class="jog" style="left:38%;top:75%"><b>15</b><span>Gómez</span></div>
+            <div class="jog" style="left:62%;top:75%"><b>26</b><span>Murilo</span></div>
+            <div class="jog" style="left:87%;top:72%"><b>12</b><span>Khellven</span></div>
+            <div class="jog gr" style="left:50%;top:91%"><b>1</b><span>C. Miguel</span></div>
+          </div>
+        </div>
+        <div class="painel">
+          <div class="titulo">Instruções à equipa <span class="dir" style="color:var(--green)">Editar</span></div>
+          <div class="instr">
+            <div><small>Mentalidade</small><b>Normal</b></div>
+            <div><small>Passe</small><b>Misto</b></div>
+            <div><small>Desarme</small><b>Normal</b></div>
+            <div><small>Pressing</small><b>Sim</b></div>
+            <div><small>Fora-de-jogo</small><b class="n">Não</b></div>
+            <div><small>Contra-ataque</small><b>Sim</b></div>
+            <div><small>Marcação apertada</small><b class="n">Não</b></div>
+            <div><small>Bolas paradas</small><b class="n">Veiga · Gómez</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rodape"><a class="btn">Cancelar</a><a class="btn">Ok</a></div>
+  </section>
+
+  <!-- ================= NOTÍCIAS ================= -->
+  <section id="noticias">
+    <div class="faixa">
+      <span class="emb" style="width:40px;height:40px;font-size:17px">PA</span>
+      <div><div class="sub">Caixa de mensagens</div><h1>Notícias para A B</h1></div>
+      <div class="dir"><span class="chip">Por ler: 3</span></div>
+    </div>
+    <div class="abas">
+      <a class="aba on">Todas (14)</a><a class="aba">Mensagens (4)</a><a class="aba">Competições (6)</a><a class="aba">Lesões e Suspensões <span class="tag les" style="margin-left:6px">2</span></a>
+    </div>
+    <div class="painel lista" style="flex-shrink:0">
+      <table>
+        <tr class="escolhida"><td style="width:120px"><span class="dia">Dom 3 Ago</span></td><td>Raphael Veiga quer mais tempo de jogo</td><td class="r"><span class="cat dis">PLANTEL</span></td></tr>
+        <tr><td><span class="dia">Sáb 2 Ago</span></td><td class="nome">Imprensa elogia o arranque do Palmeiras no Brasileirão</td><td class="r"><span class="cat">IMPRENSA</span></td></tr>
+        <tr><td><span class="dia">Sex 1 Ago</span></td><td class="nome">Direcção satisfeita com a pré-época</td><td class="r"><span class="cat dir">DIRECÇÃO</span></td></tr>
+        <tr><td><span class="dia">Seg 28 Jul</span></td><td style="color:var(--yellow)">Transferências do dia</td><td class="r"><span class="cat fin">TRANSFERÊNCIAS</span></td></tr>
+        <tr><td><span class="dia">Qui 24 Jul</span></td><td style="color:var(--yellow)">Micael lesionado por 3 semanas</td><td class="r"><span class="cat dis">LESÕES</span></td></tr>
+      </table>
+    </div>
+    <div class="painel artigo" style="flex:1">
+      <div class="fonte">PLANTEL · DOMINGO 3 AGOSTO 2025</div>
+      <h2>Raphael Veiga quer mais tempo de jogo</h2>
+      <p><b>Raphael Veiga</b> está descontente por ter começado no banco nos últimos dois jogos e pediu uma conversa com o treinador. O médio considera que merece ser titular e a moral desceu para <b>Razoável</b>.</p>
+      <p>Se a situação não mudar, o jogador pode pedir para ser colocado na lista de transferências.</p>
+      <div class="acoes"><span class="btn">Conversar com o Jogador</span><span class="btn">Ver Perfil</span><span class="btn esc">Ignorar</span></div>
+    </div>
+    <div class="abas">
+      <a class="aba">Contratos e Imprensa</a><a class="aba">Transferências</a><a class="aba">Empregos</a><a class="aba">Registos</a>
+    </div>
+    <div class="rodape"><a class="btn off">Atrás</a><a class="btn">Ler Próxima</a></div>
+  </section>
+
+  <!-- ================= COMPETIÇÃO ================= -->
+  <section id="competicao">
+    <div class="banda">Série A</div>
+    <div class="abas">
+      <a class="aba on">Classificação</a><a class="aba">Resultados</a><a class="aba">Calendário</a><a class="aba">Estatísticas</a><a class="aba">Historial</a>
+    </div>
+    <div class="cheio">
+      <div class="painel" style="flex:2;overflow:auto">
+        <table>
+          <tr><th style="width:3px;padding:0"></th><th class="c">Pos</th><th>Clube</th><th class="c">J</th><th class="c">V</th><th class="c">E</th><th class="c">D</th><th class="c">M</th><th class="c">S</th><th class="c">DG</th><th class="c">P</th><th>Forma</th></tr>
+          <tr><td class="zona z1"></td><td class="c">1º</td><td class="nome">Bahia</td><td class="c">1</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">3</td><td class="c">0</td><td class="c ok">+3</td><td class="c" style="color:var(--yellow);font-weight:700">3</td><td class="ok">V</td></tr>
+          <tr><td class="zona z1"></td><td class="c">2º</td><td class="nome">Internacional</td><td class="c">1</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">3</td><td class="c">1</td><td class="c ok">+2</td><td class="c" style="color:var(--yellow);font-weight:700">3</td><td class="ok">V</td></tr>
+          <tr><td class="zona z1"></td><td class="c">3º</td><td class="nome">Atlético Mineiro</td><td class="c">1</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">2</td><td class="c">0</td><td class="c ok">+2</td><td class="c" style="color:var(--yellow);font-weight:700">3</td><td class="ok">V</td></tr>
+          <tr><td class="zona z1"></td><td class="c">4º</td><td class="nome">Flamengo</td><td class="c">1</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c ok">+1</td><td class="c" style="color:var(--yellow);font-weight:700">3</td><td class="ok">V</td></tr>
+          <tr><td class="zona z2"></td><td class="c">5º</td><td class="nome">Grêmio</td><td class="c">1</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">2</td><td class="c">2</td><td class="c">0</td><td class="c" style="color:var(--yellow);font-weight:700">3</td><td class="ok">V</td></tr>
+          <tr><td class="zona z2"></td><td class="c">6º</td><td class="nome">Athletico Paranaense</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c">1</td><td class="c">0</td><td class="c" style="color:var(--yellow);font-weight:700">1</td><td class="meio">E</td></tr>
+          <tr><td></td><td class="c">7º</td><td class="nome">Corinthians</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c">1</td><td class="c">0</td><td class="c" style="color:var(--yellow);font-weight:700">1</td><td class="meio">E</td></tr>
+          <tr><td></td><td class="c">8º</td><td class="nome">Santos</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">0</td><td class="c">0</td><td class="c" style="color:var(--yellow);font-weight:700">1</td><td class="meio">E</td></tr>
+          <tr><td></td><td class="c">9º</td><td class="nome">São Paulo</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">0</td><td class="c">0</td><td class="c" style="color:var(--yellow);font-weight:700">1</td><td class="meio">E</td></tr>
+          <tr><td></td><td class="c">10º</td><td class="nome">Bragantino</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">0</td><td class="c">0</td><td class="c" style="color:var(--yellow);font-weight:700">1</td><td class="meio">E</td></tr>
+          <tr><td></td><td class="c">11º</td><td class="nome">Coritiba</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">0</td><td class="c">0</td><td class="c" style="color:var(--yellow);font-weight:700">1</td><td class="meio">E</td></tr>
+          <tr><td></td><td class="c">12º</td><td class="nome">Cruzeiro</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">0</td><td class="c">0</td><td class="c" style="color:var(--yellow);font-weight:700">1</td><td class="meio">E</td></tr>
+          <tr><td></td><td class="c">13º</td><td class="nome">Fluminense</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c mau">-1</td><td class="c" style="color:var(--yellow);font-weight:700">0</td><td class="mau">D</td></tr>
+          <tr><td></td><td class="c">14º</td><td class="nome">Mirassol</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c mau">-1</td><td class="c" style="color:var(--yellow);font-weight:700">0</td><td class="mau">D</td></tr>
+          <tr class="meu"><td></td><td class="c">15º</td><td class="nome">Palmeiras</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">1</td><td class="c mau">-1</td><td class="c" style="color:var(--yellow);font-weight:700">0</td><td class="mau">D</td></tr>
+          <tr><td></td><td class="c">16º</td><td class="nome">Vasco</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">1</td><td class="c">1</td><td class="c">2</td><td class="c mau">-1</td><td class="c" style="color:var(--yellow);font-weight:700">0</td><td class="mau">D</td></tr>
+          <tr><td class="zona z3"></td><td class="c">17º</td><td class="nome">Vitória</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">2</td><td class="c mau">-2</td><td class="c" style="color:var(--yellow);font-weight:700">0</td><td class="mau">D</td></tr>
+          <tr><td class="zona z3"></td><td class="c">18º</td><td class="nome">Remo</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">2</td><td class="c mau">-2</td><td class="c" style="color:var(--yellow);font-weight:700">0</td><td class="mau">D</td></tr>
+          <tr><td class="zona z3"></td><td class="c">19º</td><td class="nome">Botafogo</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">2</td><td class="c mau">-2</td><td class="c" style="color:var(--yellow);font-weight:700">0</td><td class="mau">D</td></tr>
+          <tr><td class="zona z3"></td><td class="c">20º</td><td class="nome">Ceará</td><td class="c">1</td><td class="c">0</td><td class="c">0</td><td class="c">1</td><td class="c">0</td><td class="c">3</td><td class="c mau">-3</td><td class="c" style="color:var(--yellow);font-weight:700">0</td><td class="mau">D</td></tr>
+        </table>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
+        <div class="painel">
+          <div class="titulo">Próxima jornada <span class="dir">2ª · Dom 10 Ago</span></div>
+          <table>
+            <tr><td class="nome r">Palmeiras</td><td class="c" style="color:var(--magenta)">v</td><td class="nome">Bahia</td></tr>
+            <tr><td class="nome r">Flamengo</td><td class="c" style="color:var(--magenta)">v</td><td class="nome">Grêmio</td></tr>
+            <tr><td class="nome r">São Paulo</td><td class="c" style="color:var(--magenta)">v</td><td class="nome">Corinthians</td></tr>
+            <tr><td class="nome r">Internacional</td><td class="c" style="color:var(--magenta)">v</td><td class="nome">Cruzeiro</td></tr>
+          </table>
+        </div>
+        <div class="painel" style="flex:1">
+          <div class="titulo">Melhores marcadores</div>
+          <table>
+            <tr><td class="nome">Pedro</td><td class="clube">Flamengo</td><td class="c" style="color:var(--yellow)">1</td></tr>
+            <tr><td class="nome">Hulk</td><td class="clube">Atlético Mineiro</td><td class="c" style="color:var(--yellow)">1</td></tr>
+            <tr><td class="nome">Alerrandro</td><td class="clube">Vitória</td><td class="c" style="color:var(--yellow)">1</td></tr>
+            <tr><td class="nome">Cristaldo</td><td class="clube">Grêmio</td><td class="c" style="color:var(--yellow)">1</td></tr>
+          </table>
+        </div>
+        <div style="display:flex;gap:10px;font:11px var(--mono);color:var(--dim);padding:0 4px">
+          <span><span class="tag z1" style="width:10px">&nbsp;</span> Libertadores</span><span><span class="tag z2" style="width:10px">&nbsp;</span> Sul-Americana</span><span><span class="tag z3" style="width:10px">&nbsp;</span> Descida</span>
+        </div>
+      </div>
+    </div>
+    <div class="rodape"><a class="btn off">Atrás</a><a class="btn">Seguinte</a></div>
+  </section>
+  </main>
+</div>
+
+<details class="nota"><summary>Sobre a maqueta</summary>
+  <b>Maqueta — dados de exemplo.</b> As telas abrem pelo menu do treinador (Plantel, Tácticas, Notícias) e por <b>Competições</b>.
+  A coluna tem os mesmos botões de hoje; clique no <b>nome do treinador</b> ou em <b>Competições</b> para abrir os menus amarelos. Nas Tácticas, experimente <b>Substituir</b> no banco.
+</details>
+<script>
+// Os menus da coluna abrem e fecham no clique; um clique fora ou numa opção fecha
+document.addEventListener('click', (e) => {
+  const alvo = e.target.closest('.temmenu')
+  const opcao = e.target.closest('.menu a')
+  document.querySelectorAll('.temmenu.aberto').forEach((m) => { if (m !== alvo || opcao) m.classList.remove('aberto') })
+  if (alvo && !opcao) alvo.classList.toggle('aberto')
+})
+// Substituir: escolhe o suplente e depois o titular que sai (arrastar continua a valer)
+let suplente = null
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.subst')
+  if (b) {
+    const tr = b.closest('tr')
+    document.querySelectorAll('.trocou, .aguarda').forEach((x) => x.classList.remove('trocou', 'aguarda'))
+    suplente = suplente === tr ? null : tr
+    if (suplente) suplente.classList.add('aguarda')
+    document.body.classList.toggle('escolher', !!suplente)
+    document.getElementById('aviso').textContent = suplente ? 'Clique no titular que sai' : ''
+    return
+  }
+  const t = suplente && e.target.closest('#onze tr')
+  if (t && t.rowIndex > 0) {
+    // troca Nº, jogador e condição; a casa (Pos/Slot) fica onde está
+    for (const [i, j] of [[0, 1], [2, 3], [4, 4]]) {
+      const a = t.cells[i], s = suplente.cells[j]
+      ;[a.innerHTML, s.innerHTML] = [s.innerHTML, a.innerHTML]
+    }
+    const pos = t.cells[3].innerHTML
+    t.cells[3].innerHTML = suplente.cells[2].innerHTML; suplente.cells[2].innerHTML = pos
+    // no campo: o número de quem saiu passa a ser o de quem entrou
+    const saiu = suplente.cells[1].textContent.trim()
+    const ponto = [...document.querySelectorAll('#tacticas .jog')].find((j) => j.querySelector('b').textContent === saiu)
+    if (ponto) {
+      ponto.querySelector('b').textContent = t.cells[0].textContent.trim()
+      ponto.querySelector('span').textContent = t.cells[2].textContent.replace('CAP', '').trim().split(' ').pop()
+    }
+    t.classList.add('trocou'); suplente.classList.remove('aguarda'); suplente.classList.add('trocou')
+    suplente = null; document.body.classList.remove('escolher'); document.getElementById('aviso').textContent = 'Trocados'
+  }
+})
+</script>
+</body>
+</html>

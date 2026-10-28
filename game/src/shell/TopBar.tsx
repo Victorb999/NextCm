@@ -17,13 +17,13 @@ export default function TopBar({ onContinue, busy }: { onContinue: () => void; b
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-cm-line bg-cm-panel pr-2">
-      <div className="flex h-full w-[86px] shrink-0 items-center justify-center gap-1.5 border-r border-cm-line">
+      {/* Por cima da coluna, com a mesma largura */}
+      <div className="flex h-full w-[150px] shrink-0 items-center gap-2 border-r border-cm-line pl-3">
         <img src="/favicon.svg" alt="" className="size-7" />
+        <span className="font-title text-[17px] font-bold tracking-tight">
+          Next<span className="text-[#4edea3]">CM</span>
+        </span>
       </div>
-      <span className="font-title text-[17px] font-bold tracking-tight">
-        Next<span className="text-[#4edea3]">CM</span>
-      </span>
-      <span className="text-cm-tabline">|</span>
       <span className="font-bold text-cm-yellow">{barDate(info?.date ?? START_DATE)}</span>
       {info && (
         <>

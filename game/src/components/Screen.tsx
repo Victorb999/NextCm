@@ -81,6 +81,8 @@ export function PurpleMenu<T extends string>({
   onChange,
   disabled,
   align = 'left',
+  trigger,
+  buttonClass,
 }: {
   label: string
   options: { key: T; label: string }[]
@@ -89,6 +91,9 @@ export function PurpleMenu<T extends string>({
   disabled?: boolean
   /** Lado por onde a lista abre; "right" para botões encostados à direita do ecrã. */
   align?: 'left' | 'right'
+  /** Conteúdo do botão no lugar do rótulo roxo (cabeçalho das Tácticas); abre igual, com um clique. */
+  trigger?: ReactNode
+  buttonClass?: string
 }) {
   const [open, setOpen] = useState(false)
   // Com a lista aberta, o Escape só a fecha (não volta à tela anterior)
@@ -105,15 +110,20 @@ export function PurpleMenu<T extends string>({
   return (
     <div className="relative" onMouseLeave={() => setOpen(false)}>
       <button
-        className="cm-purple flex h-6 w-40 items-center justify-center gap-1"
+        className={buttonClass ?? 'cm-purple flex h-6 w-40 items-center justify-center gap-1'}
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
+        aria-label={trigger ? label : undefined}
       >
-        {label} <ChevronDown size={14} />
+        {trigger ?? (
+          <>
+            {label} <ChevronDown size={14} />
+          </>
+        )}
       </button>
       {open && (
         <div
-          className={`absolute top-6 z-30 min-w-40 whitespace-nowrap border border-cm-purplelight bg-[#2a0d52] ${align === 'right' ? 'right-0' : 'left-0'}`}
+          className={`absolute top-full z-30 min-w-40 overflow-hidden whitespace-nowrap rounded-b border border-cm-purplelight bg-[#2a0d52] ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
           {options.map((o) => (
             <button

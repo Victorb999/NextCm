@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { ClubTactics } from './bindings/ClubTactics'
+import type { Mentality } from './bindings/Mentality'
+import type { Passing } from './bindings/Passing'
 import type { PlayerOrders } from './bindings/PlayerOrders'
+import type { Tackling } from './bindings/Tackling'
 import type { Selection } from './bindings/Selection'
 import type { TacticPlayer } from './bindings/TacticPlayer'
 import { selectionOf } from './selection'
@@ -14,6 +17,24 @@ export const FORMATIONS = ['4-4-2', '5-3-2 Líbero', '5-3-2', '4-4-2', '4-3-3', 
 export const TACTICS_MENU = [
   { key: 'instructions', label: 'Instruções à Equipa' },
   ...FORMATIONS.map((label, i) => ({ key: String(i), label: `Pré-definida: ${label}` })).slice(1),
+]
+
+// Opções das Instruções à Equipa (diálogo e resumo da tela de Tácticas)
+export const MENTALITY: [Mentality, string][] = [
+  ['normal', 'Normal'],
+  ['defensive', 'Defensivo'],
+  ['attacking', 'Atacante'],
+]
+export const PASSING: [Passing, string][] = [
+  ['mixed', 'Misto'],
+  ['short', 'Curto'],
+  ['direct', 'Directo'],
+  ['long', 'Longo'],
+]
+export const TACKLING: [Tackling, string][] = [
+  ['normal', 'Normal'],
+  ['soft', 'Suave'],
+  ['hard', 'Duro'],
 ]
 
 /** Instruções individuais iguais às da equipa. */

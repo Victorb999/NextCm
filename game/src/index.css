@@ -76,15 +76,31 @@ body {
     background-position: center;
   }
 
-  /* Botões da coluna esquerda */
+  /* Botões da coluna esquerda: escuros e arredondados sobre a cor da coluna (Opções Jogo);
+     o da tela aberta fica roxo */
   .cm-side-btn {
-    @apply flex w-full items-center justify-center border border-b-cm-sidedark border-l-cm-sidelight border-r-cm-sidedark border-t-cm-sidelight bg-cm-sidebtn px-1 text-center leading-tight text-white;
+    @apply flex w-full items-center gap-2.5 rounded-[5px] bg-white/[0.07] px-2.5 text-left font-semibold leading-tight text-white;
   }
-  .cm-side-btn:active:not(:disabled) {
-    @apply border-b-cm-sidelight border-l-cm-sidedark border-r-cm-sidelight border-t-cm-sidedark;
+  .cm-side-btn:hover:not(:disabled) {
+    @apply bg-white/[0.13];
+  }
+  .cm-side-btn[aria-current='true'] {
+    @apply bg-cm-purple shadow-[inset_3px_0_0_#8b5bd6];
   }
   .cm-side-btn:disabled {
-    @apply text-[#9aa3b8];
+    @apply text-white/30;
+  }
+
+  /* Zebra: véu claro nas linhas pares, por cima da cor da linha (a selecionada continua vermelha).
+     Nas tabelas é automático; nas listas feitas de divs, a classe cm-zebra no contentor. */
+  :where(tbody) > tr:nth-child(even) > td,
+  .cm-zebra > :nth-child(even) {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.045));
+  }
+  /* Listas em duas colunas (plantel, PickList): a zebra vai por pares de linhas */
+  .cm-zebra-2 > :nth-child(4n + 3),
+  .cm-zebra-2 > :nth-child(4n + 4) {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.045));
   }
 
   /* Continuar Jogo da barra do topo: verde da marca */

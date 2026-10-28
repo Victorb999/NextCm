@@ -66,7 +66,7 @@ function SquadGrid({
   onToggle?: (e: Entry) => void
 }) {
   return (
-    <div className="grid grid-cols-2 gap-x-3 px-2">
+    <div className="cm-zebra-2 grid grid-cols-2 gap-x-3 px-2">
       {entries.map((e, i) => {
         const drag = bind && e.spot ? bind(e.spot, e.name) : undefined
         return (
