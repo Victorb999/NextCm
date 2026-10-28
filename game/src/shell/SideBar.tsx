@@ -1,4 +1,3 @@
-import type { LineupCheck } from '../bindings/LineupCheck'
 import type { ManagerDialog } from './managerMenu'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
@@ -10,9 +9,6 @@ import { competitionsMenu } from '../competitionsMenu'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import { managerMenu } from './managerMenu'
-import type { MatchDayData } from './types'
-import { START_DATE, WEEKDAYS } from './types'
-import { useContinueGame } from './useContinueGame'
 
 type Menu = { kind: 'competitions' | 'manager'; x: number; y: number }
 
@@ -36,18 +32,6 @@ function SideButton({
   )
 }
 
-/** A data do jogo no topo da coluna ("Terça / 1.7.25"). */
-function DateBox({ date }: { date: string }) {
-  const [y, m, d] = date.split('-').map(Number)
-  const weekday = new Date(y, m - 1, d).getDay()
-  return (
-    <div className="cm-side-btn min-h-[46px] flex-col font-bold text-cm-yellow">
-      <span>{WEEKDAYS[weekday]}</span>
-      <span>{`${d}.${m}.${String(y).slice(2)}`}</span>
-    </div>
-  )
-}
-
 /** ◀ ▶: o histórico de telas. */
 function HistoryButtons({ enabled }: { enabled: boolean }) {
   const nav = useNav()
@@ -63,27 +47,14 @@ function HistoryButtons({ enabled }: { enabled: boolean }) {
   )
 }
 
-/** Coluna de navegação à esquerda, como no CM 01/02. */
+/** Coluna de navegação à esquerda, como no CM 01/02 (a data e o Continuar Jogo estão na barra do topo). */
 export default function SideBar({
   onOptions,
   onExit,
-  notify,
-  onProcessing,
-  onMatch,
-  matchStep,
-  onLineup,
   onDialog,
 }: {
   onOptions: () => void
   onExit: () => void
-  notify: (msg: string) => void
-  /** "A processar…" enquanto o Continuar Jogo corre. */
-  onProcessing: (busy: boolean) => void
-  /** O treinador jogou hoje: mostra o dia de jogo. */
-  onMatch: (m: MatchDayData) => void
-  /** Com um dia de jogo pendente, o Continuar Jogo volta a ele / faz o papel do Seguinte. */
-  matchStep?: () => void
-  onLineup: (check: LineupCheck, go: () => void) => void
   /** Os diálogos do menu do treinador (Gravar, Férias, Rescindir, Retirar-se). */
   onDialog: (d: ManagerDialog) => void
 }) {
@@ -92,7 +63,6 @@ export default function SideBar({
   const [comps, setComps] = useState<CompetitionListItem[] | null>(null)
   const [menu, setMenu] = useState<Menu | null>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
-  const { advance, busy } = useContinueGame({ notify, onProcessing, onMatch, matchStep, onLineup })
 
   const browsing = game.mode === 'game' || game.mode === 'explore'
   const info = game.mode === 'game' ? game.info : null
@@ -109,11 +79,7 @@ export default function SideBar({
 
   return (
     <aside className="flex w-[86px] shrink-0 flex-col gap-1 bg-gradient-to-b from-cm-sidetop to-cm-side p-1">
-      <DateBox date={info?.date ?? START_DATE} />
       <HistoryButtons enabled={browsing} />
-      <SideButton disabled={!info || busy} title={info ? 'Avança até ao próximo evento' : 'Comece ou carregue um jogo'} onClick={() => void advance()}>
-        Continuar Jogo
-      </SideButton>
       {info ? (
         <SideButton disabled={!browsing} onClick={toggle('manager')} className="!text-cm-pink" title={info.club.name}>
           <span className="line-clamp-2 break-words">{info.managerName}</span>
@@ -155,9 +121,6 @@ export default function SideBar({
       <SideButton onClick={onOptions} className="!text-cm-yellow">
         Opções Jogo
       </SideButton>
-      <div className="flex flex-1 items-end justify-center pb-3">
-        <span className="rotate-180 font-title text-3xl font-bold tracking-widest text-cm-sidemark [writing-mode:vertical-rl]">NEXTCM</span>
-      </div>
     </aside>
   )
 }

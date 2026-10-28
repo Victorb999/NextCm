@@ -1,3 +1,4 @@
+import { Landmark, MessageSquare, Pause, Play, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
@@ -7,37 +8,58 @@ import type { LivePlayer } from '../bindings/LivePlayer'
 import type { LiveTeam } from '../bindings/LiveTeam'
 import type { LiveView } from '../bindings/LiveView'
 import type { StandingRow } from '../bindings/StandingRow'
-import { longDate } from '../format'
+import { longDate, shortListName } from '../format'
 import { useGame } from '../game'
 import { MATCH_SPEEDS, getSettings, saveSettings, useSettings } from '../settings'
-import CascadeMenu from './CascadeMenu'
 import LiveTactics from './LiveTactics'
 import TalkPanel from './TalkPanel'
 
 const clubStyle = (c: ClubRef) => (c.fg && c.bg ? { color: c.fg, background: c.bg } : { color: '#fff', background: '#3a3a3a' })
 
-/** Faixa de um clube no resultado, como no CM: nome grande nas cores e o placar numa casa. */
-function ScoreBand({ club, goals, side, onClick }: { club: ClubRef; goals: number | null; side: 'home' | 'away'; onClick?: () => void }) {
-  const box = (
-    <span className="flex h-11 w-12 shrink-0 items-center justify-center border-2 border-black bg-[#e8e8e8] font-title text-[30px] font-bold text-black">
-      {goals ?? ''}
-    </span>
-  )
+/** As cores do clube com um brilho por cima (placar, botões das Tácticas). */
+const clubBand = (c: ClubRef) => ({
+  color: c.fg && c.bg ? c.fg : '#fff',
+  backgroundColor: c.fg && c.bg ? c.bg : '#3a3a3a',
+  backgroundImage: 'linear-gradient(105deg, rgba(255,255,255,0.16), transparent 45%, rgba(0,0,0,0.2))',
+})
+
+/** "Palmeiras" -> "PA", "Real Madrid" -> "RM": o emblema do placar. */
+const initials = (name: string) => {
+  const words = name.split(/\s+/).filter((w) => /^\p{Lu}/u.test(w))
+  return (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase()
+}
+
+/** Faixa de um clube no resultado: emblema, nome grande nas cores do clube e o placar numa casa. */
+function ScoreBand({
+  club,
+  goals,
+  side,
+  detail,
+  onClick,
+}: {
+  club: ClubRef
+  goals: number | null
+  side: 'home' | 'away'
+  detail: string
+  onClick?: () => void
+}) {
   return (
     <div
-      className={`flex h-14 min-w-0 flex-1 items-center gap-2 border-2 border-black px-2 ${onClick ? 'cursor-pointer' : ''}`}
-      style={clubStyle(club)}
+      className={`flex h-16 min-w-0 flex-1 items-center gap-3 rounded px-3 shadow-lg ${side === 'away' ? 'flex-row-reverse' : ''} ${onClick ? 'cursor-pointer' : ''}`}
+      style={clubBand(club)}
       onClick={onClick}
       title={onClick ? `Tácticas ${club.shortName}` : undefined}
     >
-      {side === 'away' && box}
-      <span
-        className="flex-1 truncate px-2 font-title text-[28px] font-bold leading-[38px]"
-        style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.35)' }}
-      >
-        {club.shortName}
+      <span className="flex size-10 shrink-0 items-center justify-center rounded bg-black/25 font-title text-[17px] font-bold">{initials(club.shortName)}</span>
+      <div className={`min-w-0 flex-1 ${side === 'away' ? 'text-right' : ''}`}>
+        <div className="truncate font-title text-[28px] font-bold uppercase leading-[32px]" style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.3)' }}>
+          {club.shortName}
+        </div>
+        <div className="truncate text-[11px] font-bold uppercase tracking-wider opacity-80">{detail}</div>
+      </div>
+      <span className="flex h-12 min-w-[54px] shrink-0 items-center justify-center rounded bg-[#0d0e13]/90 px-2 font-title text-[34px] font-bold leading-none text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
+        {goals ?? ''}
       </span>
-      {side === 'home' && box}
     </div>
   )
 }
@@ -128,20 +150,83 @@ const isStoppage = (l: Line) =>
 /** A frase do golo em si ("GOLO! ..."), a última de cada lance de golo. */
 const isGoalLine = (l: Line) => l.kind === 'goal' && l.text.startsWith('GOLO')
 
-/** Barra de posse no caixilho roxo ("Últimos 5 min"), com as cores dos clubes. */
-function PossessionBar({ view, home, label }: { view: LiveView; home: number; label?: string }) {
-  const seg = (c: ClubRef, pct: number) => (
-    <div className="flex items-center justify-center text-[12px] font-bold" style={{ ...clubStyle(c), width: `${pct}%` }}>
+/** Barra de posse no caixilho roxo, com as cores dos clubes e os nomes por cima. */
+function PossessionBar({ view, home, label }: { view: LiveView; home: number; label: string }) {
+  const seg = (c: ClubRef, pct: number, align: string) => (
+    <div className={`flex items-center px-2 text-[11px] font-bold ${align}`} style={{ ...clubStyle(c), width: `${pct}%` }}>
       {pct > 8 ? `${pct}%` : ''}
     </div>
   )
   return (
-    <div className="flex h-9 items-center gap-4 border-2 border-[#3a1470] bg-cm-purple px-6">
-      {label && <span className="w-24 shrink-0 text-white">{label}</span>}
-      <div className="flex h-5 flex-1 border border-black bg-black">
-        {seg(view.home.club, home)}
-        {seg(view.away.club, 100 - home)}
+    <div className="flex flex-col gap-1.5 rounded border border-cm-purple/60 bg-cm-purple/25 px-3 py-2">
+      <div className="flex items-center justify-between text-[12px] font-bold uppercase tracking-wider">
+        <span className="text-[#d0bcff]">{label}</span>
+        <span className="normal-case tracking-normal text-[#e3e1e9]">
+          {view.home.club.shortName} {home}% <span className="text-[#86869a]">vs</span> {view.away.club.shortName} {100 - home}%
+        </span>
       </div>
+      <div className="flex h-4 overflow-hidden rounded bg-black">
+        {seg(view.home.club, home, 'justify-end')}
+        <div className="w-1 shrink-0 bg-cm-orange" />
+        {seg(view.away.club, 100 - home, 'justify-start')}
+      </div>
+    </div>
+  )
+}
+
+/** O nome do lance na caixa do relato; os de perigo só dizem o que foi na última frase. */
+function lineLabel(l: Line): string {
+  if (l.kind === 'goal') return isGoalLine(l) ? 'Golo' : 'Lance Perigoso'
+  if (l.kind === 'save' || l.kind === 'miss') return l.last ? (l.kind === 'save' ? 'Defesa' : 'Remate Falhado') : 'Lance Perigoso'
+  const labels: Record<string, string> = {
+    yellow: 'Cartão Amarelo',
+    red: 'Cartão Vermelho',
+    injury: 'Lesão',
+    sub: 'Substituição',
+    tactics: 'Tácticas',
+    half: 'Intervalo',
+    end: 'Final',
+    start: 'Pontapé de Saída',
+  }
+  return labels[l.kind] ?? 'Lance'
+}
+
+/** A frase do relato em destaque: cartão branco com a cor de quem a faz; o golo nas cores do clube. */
+function LineCard({ view, line }: { view: LiveView; line: Line }) {
+  const team = line.side === 0 ? view.home : line.side === 1 ? view.away : null
+  const goal = isGoalLine(line) && team
+  const stripe = team?.club.bg ?? `linear-gradient(90deg, ${view.home.club.bg ?? '#888'}, #888, ${view.away.club.bg ?? '#888'})`
+  return (
+    <div
+      className={`relative w-full max-w-[760px] overflow-hidden rounded-lg px-5 pb-3.5 pt-4 shadow-[0_12px_32px_rgba(0,0,0,0.8)] ${goal ? '' : 'bg-white text-[#141414]'}`}
+      style={goal ? clubBand(team.club) : undefined}
+    >
+      {!goal && <div className="absolute inset-x-0 top-0 h-1" style={{ background: stripe }} />}
+      <div className="flex items-center gap-4">
+        {team && (
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-black/20 font-title text-[14px] font-bold" style={clubStyle(team.club)}>
+            {initials(team.club.shortName)}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-bold uppercase tracking-widest opacity-60">
+            {lineLabel(line)} · {line.minute}'
+          </div>
+          <div className={`font-title text-[24px] leading-tight ${goal ? 'font-bold' : ''}`}>{line.text}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** As linhas do campo, apagadas, por trás do Panorama. */
+function PitchLines() {
+  return (
+    <div className="pointer-events-none absolute inset-x-6 bottom-28 top-10 border border-white/[0.07]">
+      <div className="absolute inset-y-0 left-1/2 border-l border-white/[0.07]" />
+      <div className="absolute left-1/2 top-1/2 size-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.07]" />
+      <div className="absolute left-0 top-1/4 h-1/2 w-[13%] border border-l-0 border-white/[0.07]" />
+      <div className="absolute right-0 top-1/4 h-1/2 w-[13%] border border-r-0 border-white/[0.07]" />
     </div>
   )
 }
@@ -181,28 +266,34 @@ function Panorama({ view, line, said, started }: { view: LiveView; line: Line | 
   const anyGoal = said.some(isGoalLine)
   const motm = view.finished ? manOfTheMatch(view, said) : null
   const title = !started ? 'Pontapé Saída' : view.finished ? 'Final' : view.halfTime ? 'Intervalo' : view.minute < 45 ? 'Primeira Parte' : 'Segunda Parte'
-  const score = view.halfTime ? ` / INT ${view.homeGoals}-${view.awayGoals}` : view.finished ? ` / FIN ${view.homeGoals}-${view.awayGoals}` : ''
-  const box = line && line.side !== null ? clubStyle(line.side === 0 ? view.home.club : view.away.club) : { background: '#2a2a2a', color: '#fff' }
+  const score = view.halfTime ? ` · INT ${view.homeGoals}-${view.awayGoals}` : view.finished ? ` · FIN ${view.homeGoals}-${view.awayGoals}` : ''
+  // Os cartões que o relato já mostrou
+  const cards = (kind: string) => said.filter((l) => l.kind === kind && l.last).length
+  const [yellows, reds] = [cards('yellow'), cards('red')]
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex h-10 shrink-0 items-center justify-center font-title text-[22px] font-bold text-cm-yellow">{title}</div>
-      <div className="flex h-7 shrink-0 items-center justify-between bg-black/60 px-3 text-[13px] text-cm-pink">
+    <div className="relative flex h-full flex-col">
+      <PitchLines />
+      <div className="relative flex h-10 shrink-0 items-center justify-between px-3 text-[13px]">
         <span>
-          {longDate(view.fixture.date)} {view.fixture.date.slice(0, 4)}
+          <span className="font-bold uppercase tracking-wider text-cm-orange">{title}</span>
+          <span className="text-[#86869a]"> / </span>
+          <span className="text-[#c8c8d0]">
+            {longDate(view.fixture.date)} {view.fixture.date.slice(0, 4)}
+          </span>
         </span>
-        <span>
+        <span className="rounded bg-black/50 px-2 py-0.5 text-[12px] font-bold uppercase tracking-wider text-[#4edea3]">
           {view.fixture.competition}
           {score}
         </span>
       </div>
       {/* Durante o jogo, os marcadores ficam em cima, longe da caixa do relato */}
       {!(view.halfTime || view.finished) && anyGoal && (
-        <div className="flex shrink-0 py-1.5">
+        <div className="relative flex shrink-0 py-1.5">
           <Scorers view={view} said={said} side={0} small />
           <Scorers view={view} said={said} side={1} small />
         </div>
       )}
-      <div className="flex min-h-0 flex-1 items-center justify-center px-8">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center px-8">
         {view.halfTime || view.finished ? (
           <div className="flex w-full flex-col items-center gap-5">
             <div className="flex w-full">
@@ -210,13 +301,13 @@ function Panorama({ view, line, said, started }: { view: LiveView; line: Line | 
               <Scorers view={view} said={said} side={1} />
             </div>
             {motm && (
-              <div className="flex min-w-[360px] flex-col items-center border-2 border-cm-yellow bg-black/70 px-8 py-2">
+              <div className="flex min-w-[360px] flex-col items-center rounded-lg border-2 border-cm-yellow bg-black/70 px-8 py-2">
                 <span className="text-[13px] font-bold uppercase tracking-wider text-cm-yellow">Melhor em Campo</span>
                 <span className="font-title text-[28px] font-bold leading-tight text-white">
                   {motm.player.listName.split(', ').reverse().join(' ')}
                 </span>
                 <span className="flex items-center gap-3 text-[14px]">
-                  <span className="border border-black px-2 font-bold" style={clubStyle(motm.club)}>
+                  <span className="rounded px-2 font-bold" style={clubStyle(motm.club)}>
                     {motm.club.shortName}
                   </span>
                   <span className="font-bold text-cm-magenta">Nota {motm.player.rating ?? '-'}</span>
@@ -225,25 +316,34 @@ function Panorama({ view, line, said, started }: { view: LiveView; line: Line | 
             )}
           </div>
         ) : (
-          line && (
-            <div
-              className={`flex min-h-[68px] w-full max-w-[640px] items-center justify-center border-2 border-black px-6 py-2 text-center font-title text-[24px] leading-tight ${
-                line.kind === 'goal' ? 'font-bold' : ''
-              }`}
-              style={box}
-            >
-              {line.text}
-            </div>
-          )
+          line && <LineCard view={view} line={line} />
         )}
       </div>
-      <div className="mx-auto mb-3 w-full max-w-[640px] shrink-0">
-        <PossessionBar view={view} home={view.recentPossession} label="Últimos 5 min" />
+      <div className="relative mx-3 mb-2 shrink-0">
+        <PossessionBar view={view} home={view.recentPossession} label="Posse · últimos 5 min" />
       </div>
-      <div className="flex h-8 shrink-0 items-center justify-between bg-black/60 px-3 text-[14px] font-bold">
-        <span className="text-cm-yellow">Árbitro: {view.referee}</span>
-        {started && <span className="text-cm-pink">Assistência: {view.attendance}</span>}
-        <span className="text-cm-yellow">Tempo: {view.weather}</span>
+      <div className="relative flex h-8 shrink-0 items-center gap-3 px-3 text-[13px]">
+        <span>
+          <span className="font-bold text-cm-orange">Árbitro:</span> <span className="text-white">{view.referee}</span>
+        </span>
+        <span className="text-[#55565f]">•</span>
+        <span className="flex items-center gap-1.5 text-[#c8c8d0]">
+          Cartões:
+          {yellows + reds === 0 && <span className="text-[#86869a]">-</span>}
+          {yellows > 0 && <span className="rounded bg-cm-yellow/20 px-1.5 text-[11px] font-bold text-cm-yellow">{yellows} Amr</span>}
+          {reds > 0 && <span className="rounded bg-[#ff2020]/20 px-1.5 text-[11px] font-bold text-[#ff6060]">{reds} Verm</span>}
+        </span>
+        <span className="ml-auto text-cm-orange">
+          Tempo: <span className="text-white">{view.weather}</span>
+        </span>
+        {started && (
+          <>
+            <span className="text-[#55565f]">•</span>
+            <span className="text-[#c8c8d0]">
+              Assistência: <span className="text-white">{view.attendance.toLocaleString('pt-PT')}</span>
+            </span>
+          </>
+        )}
       </div>
     </div>
   )
@@ -307,7 +407,7 @@ function Zones({ view }: { view: LiveView }) {
         ))}
       </div>
       <div className="w-[78%]">
-        <PossessionBar view={view} home={view.home.stats.possession} />
+        <PossessionBar view={view} home={view.home.stats.possession} label="Posse de bola" />
       </div>
     </div>
   )
@@ -464,6 +564,55 @@ function Table({ view, own }: { view: LiveView; own: number }) {
   )
 }
 
+/** Cor da condição: verde em forma, amarelo a cansar, vermelho esgotado. */
+const conditionColour = (c: number) => (c >= 90 ? 'text-[#4edea3]' : c >= 75 ? 'text-cm-yellow' : 'text-[#ff6060]')
+
+/** "<clube> · Destaques": os três com melhor nota em campo, com a condição. */
+function Highlights({ team }: { team: LiveTeam }) {
+  const top = [...team.players].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 3)
+  return (
+    <div className="min-w-0 flex-1 rounded bg-[#1a1b21] px-2.5 py-2">
+      <div className="mb-1 flex items-center justify-between text-[12px] font-bold uppercase tracking-wider">
+        <span className="truncate text-cm-orange">{team.club.shortName} · Destaques</span>
+        <span className="shrink-0 text-[#86869a]">Con / Nota</span>
+      </div>
+      {top.map((p) => (
+        <div key={p.id} className="flex h-6 items-center gap-2 text-[13px]">
+          <span className="min-w-0 flex-1 truncate text-white">
+            {shortListName(p.listName)} <span className="text-[#86869a]">({p.role ?? p.position})</span>
+          </span>
+          <span className={`shrink-0 font-bold ${conditionColour(p.condition)}`}>{p.condition}%</span>
+          <span className="w-6 shrink-0 rounded bg-[#34343a] text-center font-bold text-white">{p.rating ?? '-'}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Os últimos lances que contam (golos, defesas, cartões, substituições), o mais recente em cima. */
+function History({ said }: { said: Line[] }) {
+  const kinds = ['save', 'miss', 'yellow', 'red', 'injury', 'sub']
+  const recent = said.filter((l) => isGoalLine(l) || (l.last && kinds.includes(l.kind))).slice(-3).reverse()
+  return (
+    <div className="min-w-0 flex-[1.3] rounded bg-[#1a1b21] px-2.5 py-2">
+      <div className="mb-1 text-[12px] font-bold uppercase tracking-wider text-cm-orange">Histórico Recente</div>
+      {recent.length === 0 && <div className="text-[13px] text-[#86869a]">Ainda sem lances.</div>}
+      {recent.map((l, i) => (
+        <div key={i} className="flex h-6 items-center gap-2 text-[13px]">
+          <span className="w-8 shrink-0 font-bold text-cm-orange">{l.minute}'</span>
+          <span className={`truncate ${isGoalLine(l) ? 'font-bold text-cm-yellow' : l.kind === 'red' ? 'text-[#ff6060]' : 'text-[#e3e1e9]'}`}>{l.text}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Aba da partida: escura e arredondada; a selecionada com borda e texto amarelos, como no CM. */
+const matchTab = (selected: boolean) =>
+  `flex h-8 min-w-0 flex-1 items-center justify-center truncate rounded px-2 ${
+    selected ? 'bg-[#292a2f] font-bold text-cm-yellow ring-1 ring-inset ring-cm-yellow' : 'bg-[#1e1f25] text-[#c8c8d0] hover:bg-[#292a2f] hover:text-white'
+  }`
+
 type Pane = 'panorama' | 'stats' | 'zones' | 'report' | 'homeData' | 'ratings' | 'results' | 'table' | 'awayData'
 
 function MatchSideButton({
@@ -471,14 +620,26 @@ function MatchSideButton({
   onClick,
   disabled,
   anchor,
+  className = '',
+  style,
 }: {
   children: ReactNode
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void
   disabled?: boolean
   anchor?: boolean
+  className?: string
+  style?: React.CSSProperties
 }) {
   return (
-    <button className="cm-side-btn min-h-[46px]" disabled={disabled} onClick={onClick} data-menu-anchor={anchor || undefined}>
+    <button
+      className={`flex min-h-[40px] w-full items-center justify-center gap-2 rounded px-2 text-center font-bold leading-tight disabled:opacity-50 ${
+        style ? '' : 'bg-[#1e1f25] text-white hover:bg-[#292a2f] disabled:hover:bg-[#1e1f25]'
+      } ${className}`}
+      style={style}
+      disabled={disabled}
+      onClick={onClick}
+      data-menu-anchor={anchor || undefined}
+    >
       {children}
     </button>
   )
@@ -513,7 +674,6 @@ function LiveScreen({
   // Tácticas pedidas com o jogo a correr: abrem quando a bola parar (minuto do pedido)
   const [waiting, setWaiting] = useState<{ side: 0 | 1; since: number; from: number } | null>(null)
   const resumeAfter = useRef(false)
-  const [speedMenu, setSpeedMenu] = useState<{ x: number; y: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [finishing, setFinishing] = useState(false)
   const [lines, setLines] = useState<Line[]>([])
@@ -646,76 +806,90 @@ function LiveScreen({
     ['awayData', `Dados ${view.away.club.shortName}`],
   ]
 
+  const period = view.finished ? 'Final' : view.halfTime ? 'Intervalo' : !started ? 'Antes do Jogo' : view.minute <= 45 ? '1ª Parte' : '2ª Parte'
+
   return (
-    <div className="fixed inset-0 z-50 flex bg-cm-screen">
-      <aside className="flex w-[86px] shrink-0 flex-col gap-1 bg-gradient-to-b from-cm-sidetop to-cm-side p-1">
-        <div className="cm-side-btn min-h-[46px] font-title text-[24px] font-bold text-cm-yellow">{view.minute}</div>
-        <div className="flex gap-1">
-          <button className="cm-side-btn h-9 flex-1 text-cm-yellow" disabled aria-label="Voltar">
-            ←
+    // Por baixo da barra do topo (h-11), que continua à vista com o Continuar Jogo
+    <div className="fixed inset-x-0 bottom-0 top-11 z-50 flex bg-[#121318]">
+      <aside className="flex w-[196px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-[#16171c] p-2">
+        <div className="flex flex-col items-center rounded bg-[#1e1f25] py-2">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-[#86869a]">Minuto de Jogo</span>
+          <span className="font-title text-[44px] font-bold leading-[48px] text-cm-orange">{view.minute}'</span>
+          <span className="text-[12px] font-bold uppercase tracking-wider text-[#4edea3]">{period}</span>
+        </div>
+        <div className="flex gap-1.5">
+          <button className="flex h-8 flex-1 items-center justify-center rounded bg-[#1e1f25] text-[#55565f]" disabled aria-label="Voltar">
+            ◀
           </button>
-          <button className="cm-side-btn h-9 flex-1 text-cm-yellow" disabled aria-label="Avançar">
-            →
+          <button className="flex h-8 flex-1 items-center justify-center rounded bg-[#1e1f25] text-[#55565f]" disabled aria-label="Avançar">
+            ▶
           </button>
         </div>
-        <MatchSideButton onClick={main} disabled={finishing || tactics !== null}>
+        <MatchSideButton onClick={main} disabled={finishing || tactics !== null} className="uppercase tracking-wide">
+          {running ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
           {label}
         </MatchSideButton>
-        {([0, 1] as const).map((side) => (
-          <MatchSideButton key={side} onClick={() => openTactics(side)} disabled={tactics !== null || view.finished}>
-            <span className={waiting?.side === side ? 'text-cm-yellow' : ''}>
-              Tácticas {(side === 0 ? view.home : view.away).club.shortName}
-            </span>
-          </MatchSideButton>
-        ))}
+        {([0, 1] as const).map((side) => {
+          const club = (side === 0 ? view.home : view.away).club
+          return (
+            <MatchSideButton
+              key={side}
+              onClick={() => openTactics(side)}
+              disabled={tactics !== null || view.finished}
+              style={clubBand(club)}
+              className={`!justify-between text-left ${waiting?.side === side ? 'ring-2 ring-inset ring-cm-yellow' : ''}`}
+            >
+              <span className="truncate">Tácticas {club.shortName}</span>
+              <SlidersHorizontal size={15} className="shrink-0" />
+            </MatchSideButton>
+          )
+        })}
         {view.userSide !== null && !running && (
           <MatchSideButton onClick={() => setTalk(true)} disabled={running || tactics !== null || talk}>
+            <MessageSquare size={15} />
             Palestra
           </MatchSideButton>
         )}
-        <MatchSideButton
-          anchor
-          disabled={locked}
-          onClick={(e) => {
-            const r = e.currentTarget.getBoundingClientRect()
-            setSpeedMenu((m) => (m ? null : { x: r.right - 2, y: r.top }))
-          }}
-        >
-          Velocidade Comentário
-        </MatchSideButton>
-        {speedMenu && (
-          <CascadeMenu
-            x={speedMenu.x}
-            y={speedMenu.y}
-            onClose={() => setSpeedMenu(null)}
-            items={MATCH_SPEEDS.map((s) => ({
-              label: `${s.key === speed.key ? '✓' : ' '} ${s.label}`,
-              onSelect: () => saveSettings({ ...getSettings(), matchSpeed: s.key }),
-            }))}
-          />
-        )}
-        <div className="flex flex-1 items-end justify-center pb-3">
-          <span className="rotate-180 font-title text-3xl font-bold tracking-widest text-cm-sidemark [writing-mode:vertical-rl]">NEXTCM</span>
+        <div className="flex flex-col gap-1 rounded bg-[#1e1f25] p-2">
+          <span className="mb-0.5 text-[11px] font-bold uppercase tracking-widest text-[#86869a]">Velocidade Comentário</span>
+          {MATCH_SPEEDS.map((s) => (
+            <button
+              key={s.key}
+              disabled={locked}
+              onClick={() => saveSettings({ ...getSettings(), matchSpeed: s.key })}
+              className={`h-6 rounded text-[12px] disabled:opacity-50 ${
+                s.key === speed.key ? 'bg-[#4edea3] font-bold text-[#06281b]' : 'bg-[#16171c] text-[#c8c8d0] hover:text-white'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
       </aside>
 
-      <main className="cm-backdrop flex min-w-0 flex-1 flex-col">
+      <main className="flex min-w-0 flex-1 flex-col gap-1.5 p-2">
         {talk ? (
           <TalkPanel onClose={() => setTalk(false)} />
         ) : tactics !== null ? (
           <LiveTactics view={view} side={tactics} onClose={closeTactics} onApplied={accept} />
         ) : (
           <>
-            <div className="flex shrink-0 gap-1 p-1.5">
-              <ScoreBand club={view.home.club} goals={goalsSaid(0)} side="home" onClick={view.finished ? undefined : () => openTactics(0)} />
-              <ScoreBand club={view.away.club} goals={goalsSaid(1)} side="away" onClick={view.finished ? undefined : () => openTactics(1)} />
+            <div className="flex shrink-0 gap-1.5">
+              <ScoreBand
+                club={view.home.club}
+                goals={goalsSaid(0)}
+                side="home"
+                detail={['Casa', view.venue].filter(Boolean).join(' · ')}
+                onClick={view.finished ? undefined : () => openTactics(0)}
+              />
+              <ScoreBand club={view.away.club} goals={goalsSaid(1)} side="away" detail="Fora" onClick={view.finished ? undefined : () => openTactics(1)} />
             </div>
             {waiting && (
-              <div className="mx-1.5 mb-1 flex h-6 shrink-0 items-center justify-center bg-black/70 text-[13px] font-bold text-cm-yellow">
+              <div className="flex h-6 shrink-0 items-center justify-center rounded bg-black/70 text-[13px] font-bold text-cm-yellow">
                 Tácticas {(waiting.side === 0 ? view.home : view.away).club.shortName}: à espera que a bola saia…
               </div>
             )}
-            <div className="mx-1.5 flex shrink-0 gap-0.5">
+            <div className="flex shrink-0 gap-1.5">
               {(
                 [
                   ['panorama', 'Panorama Jogo'],
@@ -724,12 +898,12 @@ function LiveScreen({
                   ['report', 'Relatório Jogo'],
                 ] as [Pane, string][]
               ).map(([k, t]) => (
-                <button key={k} className="cm-tab" aria-selected={pane === k} onClick={() => setPane(k)}>
+                <button key={k} className={matchTab(pane === k)} onClick={() => setPane(k)}>
                   {t}
                 </button>
               ))}
             </div>
-            <div className="mx-1.5 mt-1 min-h-0 flex-1 overflow-auto bg-cm-panel/70">
+            <div className="min-h-0 flex-1 overflow-auto rounded bg-[#1a1b21]">
               {pane === 'panorama' && <Panorama view={view} line={current} said={said} started={started} />}
               {pane === 'stats' && <Stats view={view} />}
               {pane === 'zones' && <Zones view={view} />}
@@ -740,16 +914,22 @@ function LiveScreen({
               {pane === 'results' && <Results view={view} own={own} />}
               {pane === 'table' && <Table view={view} own={own} />}
             </div>
-            {error && <div className="mx-1.5 text-[#ff7070]">{error}</div>}
-            <div className="mx-1.5 mt-1 flex shrink-0 gap-0.5">
+            {error && <div className="text-[#ff7070]">{error}</div>}
+            <div className="flex shrink-0 gap-1.5">
               {bottom.map(([k, t]) => (
-                <button key={k} className="cm-tab truncate px-1 text-[13px]" aria-selected={pane === k} onClick={() => setPane(k)}>
+                <button key={k} className={`${matchTab(pane === k)} text-[13px]`} onClick={() => setPane(k)}>
                   {t}
                 </button>
               ))}
             </div>
-            <div className="m-1.5 flex h-10 shrink-0 items-center justify-center border border-[#2c0d55] bg-cm-purple font-title text-[22px] text-white">
+            <div className="flex h-10 shrink-0 items-center justify-center gap-2 rounded bg-cm-purple font-title text-[20px] font-bold uppercase text-white">
+              <Landmark size={18} className="shrink-0" />
               {[view.venue, view.city].filter(Boolean).join(', ') || view.home.club.name}
+            </div>
+            <div className="flex h-[112px] shrink-0 gap-1.5">
+              <Highlights team={view.home} />
+              <History said={said} />
+              <Highlights team={view.away} />
             </div>
           </>
         )}

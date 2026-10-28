@@ -87,6 +87,14 @@ body {
     @apply text-[#9aa3b8];
   }
 
+  /* Continuar Jogo da barra do topo: verde da marca */
+  .cm-continue {
+    @apply flex h-8 items-center gap-2 rounded bg-[#4edea3] px-4 font-bold uppercase tracking-wide text-[#06281b] hover:bg-[#6ffbbe];
+  }
+  .cm-continue:disabled {
+    @apply bg-[#2b5a48] text-[#9fbfb2];
+  }
+
   /* Abas escuras, em relevo como no CM; a selecionada tem borda e texto amarelos */
   .cm-tab {
     @apply flex h-9 flex-1 items-center justify-center border bg-cm-tab text-white;

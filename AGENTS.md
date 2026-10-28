@@ -7,6 +7,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
   português de Portugal ("Tácticas", "golo", "equipa", "plantel"): manter esse vocabulário na UI.
 - **Visual:** tem de parecer o CM 01/02 (coluna lateral, faixas com as cores do clube, abas escuras,
   botões roxos, diálogos verdes, menus amarelos). Sem animações, cards ou espaçamento de dashboard.
+  Cantos levemente arredondados são permitidos (toque moderno); a densidade continua a do CM.
   Os prints que o utilizador mandar são a referência.
 - **Detalhe de cada marco** (regras, números, decisões): `ROADMAP.md`. Não leia o arquivo inteiro:
   procure a secção `#### Marco 3.x` que interessa.
