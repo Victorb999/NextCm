@@ -2,8 +2,9 @@
 //! fala à equipa e cada jogador reage pela personalidade (Pressão, Jogos Importantes,
 //! Determinação, Temperamento, Profissionalismo) e pela situação (favorito ou não, o
 //! resultado). A reação mexe na moral e, antes do jogo e ao intervalo, numa motivação só
-//! desta partida (±1,5% de rendimento por ponto). Sem palestra (a CLI, o adjunto) o jogo é o
-//! mesmo: nada aqui gasta o RNG da partida.
+//! desta partida (±1,5% de rendimento por ponto). O tom (calmo, assertivo, agressivo,
+//! motivador) acerta a reação; fala-se à equipa toda ou a um jogador, e ao suplente que
+//! acabou de entrar. Sem palestra (a CLI, o adjunto) o jogo é o mesmo: nada aqui gasta o RNG.
 
 use serde::Serialize;
 use ts_rs::TS;
@@ -26,16 +27,22 @@ pub struct TalkOption {
     pub label: String,
 }
 
-/// O painel "Palestra": o momento, as frases, a que o adjunto sugere e se já foi dada.
+/// O painel "Palestra": o momento, as frases e os tons, a frase que o adjunto sugere, a
+/// quem se pode falar e se a palestra à equipa já foi dada.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct TalkView {
-    /// "pre", "half" ou "full".
+    /// "pre", "half", "full" ou "sub" (a palavra ao suplente que entrou).
     pub moment: String,
     pub title: String,
     pub options: Vec<TalkOption>,
+    pub tones: Vec<TalkOption>,
     pub suggested: String,
+    /// Os jogadores a quem se pode falar sozinhos (`key` = id).
+    pub players: Vec<TalkOption>,
+    /// À equipa toda (não no "sub").
+    pub team: bool,
     pub done: bool,
 }
 
@@ -70,6 +77,12 @@ const FULL: [(&str, &str); 4] = [
     ("not_happy", "Não estou contente"),
     ("disappointed", "Estou desiludido"),
 ];
+
+const SUB: [(&str, &str); 3] =
+    [("change_game", "Vai lá e muda o jogo"), ("stay_calm", "Entra com calma, faz o simples"), ("show_worth", "Mostra o que vales")];
+const TONES: [(&str, &str); 4] = [("calm", "Calmo"), ("assertive", "Assertivo"), ("aggressive", "Agressivo"), ("motivating", "Motivador")];
+/// Minutos depois de entrar em que ainda se fala ao suplente.
+const SUB_MINUTES: u8 = 5;
 
 /// O que conta de um jogador para a reação.
 struct Mind {
@@ -165,12 +178,39 @@ fn react(key: &str, moment: &str, m: &Mind, s: Situation) -> (i32, bool) {
             _ if hothead => (-2, false),
             _ => (0, false),
         },
+        ("sub", "change_game") => match () {
+            _ if nervy => (-1, true),
+            _ if driven || calm_under_pressure => (2, false),
+            _ => (1, false),
+        },
+        ("sub", "stay_calm") => (if nervy { 2 } else { 0 }, false),
+        ("sub", "show_worth") => match () {
+            _ if driven => (2, false),
+            _ if hothead => (-1, false),
+            _ => (1, false),
+        },
         _ => (0, false),
     }
 }
 
+/// O tom acerta a reação: calmo tira os nervos, agressivo puxa por quem tem garra e irrita
+/// quem tem pavio curto, motivador acorda quem não reagia; assertivo fica como está.
+fn tone(v: i32, nervous: bool, tone: &str, m: &Mind) -> (i32, bool) {
+    let v = match tone {
+        "calm" if nervous => v + 1,
+        "calm" if v >= 2 => 1,
+        "aggressive" if m.temperament <= 8 => v - 1,
+        "aggressive" if m.determination >= 14 && v > 0 => v + 1,
+        "aggressive" if v < 0 => v - 1,
+        "motivating" if v == 0 && m.determination < 12 => 1,
+        _ => v,
+    };
+    (v.clamp(-2, 2), nervous && v < 0)
+}
+
 impl Game {
-    /// O momento da palestra agora: antes do apito, ao intervalo ou no fim.
+    /// O momento da palestra agora: antes do apito, ao intervalo, no fim ou depois de uma
+    /// substituição (a palavra ao suplente).
     fn talk_moment(&self) -> Result<&'static str> {
         let day = self.live.as_ref().ok_or_else(|| Error::Invalid("Não há nenhum jogo a decorrer.".into()))?;
         let live = &day.games.get(day.user).ok_or_else(|| Error::Invalid("Não há nenhum jogo a decorrer.".into()))?.1;
@@ -180,9 +220,18 @@ impl Game {
             "pre"
         } else if live.minute() == 45 {
             "half"
+        } else if !self.waiting_subs()?.is_empty() {
+            "sub"
         } else {
-            return Err(Error::Invalid("Só se fala à equipa antes do jogo, ao intervalo ou no fim.".into()));
+            return Err(Error::Invalid("Só se fala à equipa antes do jogo, ao intervalo, no fim ou a quem acabou de entrar.".into()));
         })
+    }
+
+    /// Os suplentes que entraram há pouco e ainda não ouviram nada.
+    fn waiting_subs(&self) -> Result<Vec<(i32, String)>> {
+        let day = self.live.as_ref().ok_or_else(|| Error::Invalid("Não há nenhum jogo a decorrer.".into()))?;
+        let live = &day.games[day.user].1;
+        Ok(live.recent_subs(SUB_MINUTES).into_iter().filter(|(id, _)| !day.talks.contains(&format!("sub:{id}"))).collect())
     }
 
     /// A situação para o clube do treinador: favoritismo e resultado.
@@ -209,13 +258,16 @@ impl Game {
     pub fn talk_view(&self) -> Result<TalkView> {
         let moment = self.talk_moment()?;
         let s = self.talk_situation()?;
-        let (title, options) = match moment {
+        let (title, options): (&str, &[(&str, &str)]) = match moment {
             "pre" => ("Palestra antes do jogo", &PRE),
             "half" => ("Palestra ao intervalo", &HALF),
+            "sub" => ("Uma palavra a quem entra", &SUB),
             _ => ("Palestra no fim do jogo", &FULL),
         };
         // O adjunto sugere uma frase, pela situação
         let suggested = match (moment, s.favourite, s.lead) {
+            ("sub", _, l) if l < 0 => "change_game",
+            ("sub", _, _) => "stay_calm",
             ("pre", 1, _) => "expect_win",
             ("pre", -1, _) => "no_pressure",
             ("pre", _, _) => "show_worth",
@@ -225,35 +277,59 @@ impl Game {
             (_, _, 0) => "well_done",
             _ => "not_happy",
         };
+        let players = if moment == "sub" {
+            self.waiting_subs()?
+        } else {
+            let day = self.live.as_ref().expect("dia de jogo");
+            let done = |id: i32| day.talks.contains(&format!("{moment}:{id}"));
+            day.games[day.user].1.talk_players().into_iter().filter(|(id, _)| !done(*id)).collect()
+        };
         let done = self.live.as_ref().is_some_and(|d| d.talks.iter().any(|t| t == moment));
+        let opt = |(k, l): &(&str, &str)| TalkOption { key: (*k).into(), label: (*l).into() };
         Ok(TalkView {
             moment: moment.into(),
             title: title.into(),
-            options: options.iter().map(|(k, l)| TalkOption { key: (*k).into(), label: (*l).into() }).collect(),
+            options: options.iter().map(opt).collect(),
+            tones: TONES.iter().map(opt).collect(),
             suggested: suggested.into(),
+            players: players.into_iter().map(|(id, name)| TalkOption { key: id.to_string(), label: name }).collect(),
+            team: moment != "sub",
             done,
         })
     }
 
-    /// Dá a palestra: a reação de cada jogador, a moral e (antes do jogo e ao intervalo) a
-    /// motivação nesta partida.
-    pub fn give_talk(&mut self, key: &str) -> Result<Vec<TalkReaction>> {
+    /// Dá a palestra à equipa (`person` = `None`) ou a um jogador: a reação de cada um, a
+    /// moral e (antes do jogo, ao intervalo e ao suplente) a motivação nesta partida.
+    pub fn give_talk(&mut self, key: &str, tone_key: &str, person: Option<i32>) -> Result<Vec<TalkReaction>> {
         let moment = self.talk_moment()?;
         let options: &[(&str, &str)] = match moment {
             "pre" => &PRE,
             "half" => &HALF,
+            "sub" => &SUB,
             _ => &FULL,
         };
         if !options.iter().any(|(k, _)| *k == key) {
             return Err(Error::Invalid("Frase desconhecida.".into()));
         }
-        if self.live.as_ref().is_some_and(|d| d.talks.iter().any(|t| t == moment)) {
-            return Err(Error::Invalid("Já falou à equipa neste momento.".into()));
+        if !TONES.iter().any(|(k, _)| *k == tone_key) {
+            return Err(Error::Invalid("Tom desconhecido.".into()));
+        }
+        let mark = match person {
+            Some(id) => format!("{moment}:{id}"),
+            None if moment == "sub" => return Err(Error::Invalid("Escolha o jogador que entrou.".into())),
+            None => moment.to_string(),
+        };
+        if self.live.as_ref().is_some_and(|d| d.talks.contains(&mark)) {
+            return Err(Error::Invalid(if person.is_some() { "Já falou com ele." } else { "Já falou à equipa neste momento." }.into()));
         }
         let s = self.talk_situation()?;
-        let players = self.live_match_mut()?.talk_players();
+        let everyone = if moment == "sub" { self.waiting_subs()? } else { self.live_match_mut()?.talk_players() };
+        let listeners: Vec<(i32, String)> = everyone.into_iter().filter(|(id, _)| person.is_none_or(|p| p == *id)).collect();
+        if listeners.is_empty() {
+            return Err(Error::Invalid("Esse jogador não está no jogo.".into()));
+        }
         let mut out = Vec::new();
-        for (id, name) in players {
+        for (id, name) in listeners {
             let m = self.world.conn.query_row(
                 "SELECT COALESCE(p.pressure, 10), COALESCE(pl.important_matches, 10), COALESCE(p.determination, 10),
                         COALESCE(p.temperament, 10), COALESCE(p.professionalism, 10)
@@ -270,6 +346,7 @@ impl Game {
                 },
             )?;
             let (v, nervous) = react(key, moment, &m, s);
+            let (v, nervous) = tone(v, nervous, tone_key, &m);
             if moment == "full" {
                 self.change_morale(id, v);
             } else {
@@ -279,7 +356,7 @@ impl Game {
             out.push(TalkReaction { person_id: id, name, reaction: label(v, nervous).into(), delta: v });
         }
         if let Some(day) = self.live.as_mut() {
-            day.talks.push(moment.into());
+            day.talks.push(mark);
         }
         self.unsaved = true;
         Ok(out)
@@ -310,14 +387,18 @@ mod tests {
         }
         let view = g.talk_view().unwrap();
         assert_eq!((view.moment.as_str(), view.done), ("pre", false));
-        let reactions = g.give_talk(&view.suggested).unwrap();
+        let reactions = g.give_talk(&view.suggested, "assertive", None).unwrap();
         assert!(reactions.len() >= 11);
-        assert!(g.give_talk(&view.suggested).is_err(), "uma palestra por momento");
+        assert!(g.give_talk(&view.suggested, "calm", None).is_err(), "uma palestra por momento");
+        // A um jogador sozinho, depois da equipa
+        let one: i32 = view.players[0].key.parse().unwrap();
+        assert_eq!(g.give_talk(&view.suggested, "motivating", Some(one)).unwrap().len(), 1);
+        assert!(g.give_talk(&view.suggested, "motivating", Some(one)).is_err(), "uma vez a cada jogador");
         assert!(g.talk_view().unwrap().done);
         g.live_step(45).unwrap();
         assert_eq!(g.talk_view().unwrap().moment, "half");
         g.live_step(60).unwrap();
-        assert!(g.talk_view().is_err(), "a meio da segunda parte não");
+        assert!(g.talk_view().map_or(true, |v| v.moment == "sub"), "a meio da segunda parte só ao suplente que entrou");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -334,5 +415,9 @@ mod tests {
         let winning = Situation { favourite: 0, lead: 2 };
         assert!(react("disappointed", "full", &leader, winning).0 < 0, "criticar quem ganhou desmotiva");
         assert_eq!(react("proud", "full", &nervy, winning).0, 2);
+        // O tom: calmo tira os nervos, agressivo irrita o pavio curto
+        assert_eq!(tone(-1, true, "calm", &nervy), (0, false));
+        let hot = Mind { pressure: 10, big_games: 10, determination: 10, temperament: 6, professionalism: 10 };
+        assert_eq!(tone(1, false, "aggressive", &hot).0, 0);
     }
 }

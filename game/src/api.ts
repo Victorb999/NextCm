@@ -113,7 +113,8 @@ export const api = {
   resign: () => call<string>('resign'),
   /** O painel "Palestra" do jogo do treinador agora. */
   talkView: () => call<TalkView>('talk_view'),
-  giveTalk: (key: string) => call<TalkReaction[]>('give_talk', { key }),
+  /** `person` = null fala à equipa toda. */
+  giveTalk: (key: string, tone: string, person: number | null) => call<TalkReaction[]>('give_talk', { key, tone, person }),
   retireManager: () => call<string>('retire_manager'),
   holiday: (days: number) => call<GameInfo>('holiday', { days }),
   managerCareer: () => call<CareerClub[]>('manager_career'),

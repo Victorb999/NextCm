@@ -647,6 +647,17 @@ impl LiveMatch {
         self.teams[side].players.iter().filter(|p| !p.red || self.finished()).map(|p| (p.info.id, p.prof.name.clone())).collect()
     }
 
+    /// Os suplentes do treinador que entraram nos últimos `within` minutos (e ainda jogam).
+    pub fn recent_subs(&self, within: u8) -> Vec<(i32, String)> {
+        let Some(side) = self.user else { return Vec::new() };
+        self.teams[side]
+            .players
+            .iter()
+            .filter(|p| p.slot.is_some() && p.entered.is_some_and(|e| e > 0 && self.minute.saturating_sub(e) <= within))
+            .map(|p| (p.info.id, p.prof.name.clone()))
+            .collect()
+    }
+
     /// A motivação de uma palestra: multiplica o rendimento do jogador nesta partida.
     pub fn motivate(&mut self, id: i32, factor: f64) {
         let Some(side) = self.user else { return };

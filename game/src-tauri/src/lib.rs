@@ -118,7 +118,7 @@ session_command!(day_competitions() -> Vec<i32>);
 session_command!(world_transfers(month: String, page: i64) -> WorldTransfers);
 session_command!(resign() -> String);
 session_command!(talk_view() -> TalkView);
-session_command!(give_talk(key: String) -> Vec<TalkReaction>);
+session_command!(give_talk(key: String, tone: String, person: Option<i32>) -> Vec<TalkReaction>);
 session_command!(retire_manager() -> String);
 session_command!(holiday(days: i32) -> GameInfo);
 session_command!(manager_career() -> Vec<CareerClub>);

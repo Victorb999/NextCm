@@ -668,7 +668,7 @@ function LiveScreen({
             </span>
           </MatchSideButton>
         ))}
-        {view.userSide !== null && (!started || view.halfTime || view.finished) && (
+        {view.userSide !== null && !running && (
           <MatchSideButton onClick={() => setTalk(true)} disabled={running || tactics !== null || talk}>
             Palestra
           </MatchSideButton>

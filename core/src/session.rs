@@ -198,8 +198,8 @@ impl Session {
     }
 
     /// Dá a palestra; devolve a reação de cada jogador.
-    pub fn give_talk(&mut self, key: String) -> Result<Vec<TalkReaction>> {
-        self.game_mut()?.give_talk(&key)
+    pub fn give_talk(&mut self, key: String, tone: String, person: Option<i32>) -> Result<Vec<TalkReaction>> {
+        self.game_mut()?.give_talk(&key, &tone, person)
     }
 
     /// "Rescindir com Clube".

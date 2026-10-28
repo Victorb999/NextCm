@@ -2,10 +2,19 @@
 import type { TalkOption } from "./TalkOption";
 
 /**
- * O painel "Palestra": o momento, as frases, a que o adjunto sugere e se já foi dada.
+ * O painel "Palestra": o momento, as frases e os tons, a frase que o adjunto sugere, a
+ * quem se pode falar e se a palestra à equipa já foi dada.
  */
 export type TalkView = { 
 /**
- * "pre", "half" ou "full".
+ * "pre", "half", "full" ou "sub" (a palavra ao suplente que entrou).
  */
-moment: string, title: string, options: Array<TalkOption>, suggested: string, done: boolean, };
+moment: string, title: string, options: Array<TalkOption>, tones: Array<TalkOption>, suggested: string, 
+/**
+ * Os jogadores a quem se pode falar sozinhos (`key` = id).
+ */
+players: Array<TalkOption>, 
+/**
+ * À equipa toda (não no "sub").
+ */
+team: boolean, done: boolean, };

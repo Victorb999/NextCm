@@ -151,7 +151,9 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "talk_view" => out(serde_json::to_value(session.talk_view().map_err(e)?)),
         "give_talk" => {
             let key = args["key"].as_str().ok_or("falta key")?.to_string();
-            out(serde_json::to_value(session.give_talk(key).map_err(e)?))
+            let tone = args["tone"].as_str().unwrap_or("assertive").to_string();
+            let person = args["person"].as_i64().map(|p| p as i32);
+            out(serde_json::to_value(session.give_talk(key, tone, person).map_err(e)?))
         }
         "retire_manager" => out(serde_json::to_value(session.retire_manager().map_err(e)?)),
         "holiday" => {

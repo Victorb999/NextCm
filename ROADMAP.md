@@ -160,10 +160,11 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **3.9** Personalidade | Os atributos ocultos que ainda não fazem nada (Ambição, Lealdade, Adaptabilidade, Versatilidade, Desportivismo, Temperamento) passam a contar no mercado, no motor e na moral | As médias do motor e do mercado continuam na CLI e cada atributo tem um efeito testado |
 | ✅ **3.10** Olheiros e conhecimento | Atributos escondidos como no CM (o clube só vê o que conhece), observar jogadores, designar olheiros (clube, próximo adversário, jovens, país, região), listas Olheiro #1–#7, orçamento limitado para quem a direção não conhece, relatórios do médico e do preparador físico | Um jogador europeu desconhecido aparece com "-", é observado, o relatório chega e a direção passa a autorizar a proposta inteira |
 | ✅ **3.11** Direcção e Federação | A tela Confiança da Direcção com o texto do CM; Reunião com a Direcção (expandir o estádio, investir nas camadas jovens, mais fundos para transferências e salários, mais tempo); Reunião com a Federação (queixas sobre a arbitragem, pedir adiamento de jogo) | Um pedido à direção é aceite ou recusado pela confiança e pelas finanças, e o efeito aparece (orçamento, estádio, juniores) |
-| **3.12** Empregos e gestão do plantel | Informação de Empregos (procurar e aceitar clubes, despedimentos na IA), equipa de reservas, Disciplinar Jogador, elogiar e criticar jogadores na imprensa, conferências de imprensa antes e depois dos jogos (ou mandar o adjunto) | Despedido, o treinador encontra outro clube e continua o jogo; um castigo, um elogio ou uma resposta na conferência muda a moral pela personalidade |
-| **3.13** Polimento | Notícias completas, férias, Auto Gravação, os ajustes pelos prints do 3.8 (menu Acção, proposta em tela inteira, Prémios e Cláusulas do contrato) | — |
-| **3.14** Palestras | Discurso aos jogadores como no FM08: antes do jogo, ao intervalo, no fim e a quem entra; a reação de cada um pela personalidade e pela situação do jogo muda a moral e a motivação na partida | Uma palestra boa ou má muda a moral e o rendimento de forma visível, sem tirar o motor das médias na CLI |
-| **3.15** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
+| ✅ **3.12** Empregos e gestão do plantel | Informação de Empregos (procurar e aceitar clubes, despedimentos na IA), equipa de reservas, Disciplinar Jogador, elogiar e criticar jogadores na imprensa, conferências de imprensa antes e depois dos jogos (ou mandar o adjunto) | Despedido, o treinador encontra outro clube e continua o jogo; um castigo, um elogio ou uma resposta na conferência muda a moral pela personalidade |
+| ✅ **3.13** Polimento | Notícias completas, férias, Auto Gravação, os ajustes pelos prints do 3.8 (menu Acção, proposta em tela inteira, Prémios e Cláusulas do contrato) | — |
+| ✅ **3.14** Palestras | Discurso aos jogadores como no FM08: antes do jogo, ao intervalo, no fim e a quem entra; a reação de cada um pela personalidade e pela situação do jogo muda a moral e a motivação na partida | Uma palestra boa ou má muda a moral e o rendimento de forma visível, sem tirar o motor das médias na CLI |
+| **3.15** Testes e ajustes | Jogar épocas inteiras no app e acertar o que aparecer: fluxos (Continuar Jogo, dia de jogo, mercado, mensagens), layouts e telas pelo CM 01/02, textos, números do motor e da economia, desempenho | Uma época inteira no Man Utd e no Palmeiras sem bugs nem telas fora do CM |
+| **3.16** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
 
 #### Marco 3.1 — Novo jogo e tempo (detalhe)
 
@@ -627,7 +628,7 @@ Referência: `docs/prints/insatisfacao/` (o editor de jogos salvos do CM 01/02: 
 - Com motivos fortes e durante algum tempo, o jogador pede para ser posto na lista de transferências (mensagem com os botões Aceitar / Recusar). Aceitar põe-no na lista "a pedido"; recusar acrescenta "Frustrado por não o deixarem sair", mais moral perdida e, com Temperamento baixo, desabafo na imprensa (que liga ao 3.12).
 - Os da IA também pedem: o clube dele lista-o, e isso alimenta as listas acima.
 
-Fica para o editor de jogos salvos (3.15): ver e mudar os motivos de cada jogador, como no editor do CM.
+Fica para o editor de jogos salvos (3.16): ver e mudar os motivos de cada jogador, como no editor do CM.
 
 **Feito (primeira parte):** `core/src/game/unhappy.rs`, listas da IA em `market.rs`, `SAVE_VERSION` 13 (`unhappy`, `player_state.missed`, `transfer_list.requested`). Números escolhidos:
 - **Listas da IA**, refeitas em cada dia de mercado com a janela aberta: na de transferências os que estão fora dos 18 melhores (23+) e os veteranos fora do onze (32+), até 3 por clube, sem deixar o papel abaixo do mínimo + 1; na de empréstimos os jovens (até 21) fora dos 18 melhores, até 2. Preço pedido = valor; a IA compra um listado por 90% do valor e prefere-os (+5 de CA na escolha); o treinador paga o preço da lista.
@@ -993,9 +994,14 @@ Uma ideia do FM08 que o CM 01/02 não tem: o treinador fala aos jogadores, e cad
 - Frases: antes do jogo "Espero uma vitória", "Não há pressão, divirtam-se", "Mostrem o que valem", "Joguem com calma e concentração"; ao intervalo "Continuem assim", "Quero mais de vocês", "Estou desiludido", "Não há pressão"; no fim "Estou orgulhoso", "Bom trabalho", "Não estou contente", "Estou desiludido". O adjunto sugere uma pela situação.
 - Situação: favorito se a reputação do clube (com 500 a mais em casa) passar a do adversário por 1000; o resultado ao intervalo e no fim.
 - Reação de cada jogador (−2 a +2: Irritado, Nervoso/Complacente, Sem reação, Focado, Motivado) pela Pressão + Jogos Importantes (30+ aguenta "Espero uma vitória", abaixo de 18 fica nervoso), Determinação (14+), Temperamento (8 ou menos irrita-se) e Profissionalismo (13+). Antes do jogo e ao intervalo: moral ±1 (só nos ±2) e o rendimento nesta partida ±1,5% por ponto; no fim: moral ±2. Sem palestra o jogo é o mesmo (nada gasta o RNG), por isso a CLI e as médias não mudam.
-- Fica para depois: falar a um jogador de cada vez, o tom (calmo, assertivo, agressivo) à parte da frase e a palavra ao suplente que entra.
 
-#### Marco 3.15 — Editor de jogos salvos (por detalhar)
+**Feito (passo 2):** o **tom** à parte da frase (Calmo tira os nervos, Assertivo fica como está, Agressivo puxa por quem tem Determinação 14+ e irrita quem tem Temperamento 8 ou menos, Motivador acorda quem não reagia); **a quem**: à equipa toda (uma vez por momento) ou a um jogador de cada vez (uma vez a cada um); a **palavra ao suplente** que entrou há 5 minutos ou menos ("Vai lá e muda o jogo", "Entra com calma, faz o simples", "Mostra o que vales"), com o botão Palestra disponível sempre que o jogo está parado.
+
+#### Marco 3.15 — Testes e ajustes
+
+Antes do Editor: jogar no app (épocas inteiras, vários clubes) e acertar fluxos, layouts e telas, textos, números do motor e da economia e o desempenho, pelo que o utilizador for encontrando. As correções vão sendo anotadas aqui por data de teste, como nas listas de 24 e 25/10.
+
+#### Marco 3.16 — Editor de jogos salvos (por detalhar)
 
 Fica para o fim, com o jogo já pronto.
 
