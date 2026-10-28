@@ -14,6 +14,7 @@ use nextcm_core::{
     TransferView, World,
 };
 use nextcm_core::{DealTerms, LoanTerms};
+use nextcm_core::{TalkReaction, TalkView};
 use tauri::{Manager, State};
 
 /// Mundo base e jogo aberto. `rusqlite::Connection` não é `Sync`, daí o Mutex.
@@ -116,6 +117,8 @@ session_command!(release_player(id: i32) -> String);
 session_command!(day_competitions() -> Vec<i32>);
 session_command!(world_transfers(month: String, page: i64) -> WorldTransfers);
 session_command!(resign() -> String);
+session_command!(talk_view() -> TalkView);
+session_command!(give_talk(key: String) -> Vec<TalkReaction>);
 session_command!(retire_manager() -> String);
 session_command!(holiday(days: i32) -> GameInfo);
 session_command!(manager_career() -> Vec<CareerClub>);
@@ -268,6 +271,8 @@ pub fn run() {
             day_competitions,
             world_transfers,
             resign,
+            talk_view,
+            give_talk,
             retire_manager,
             holiday,
             manager_career,

@@ -16,6 +16,7 @@ use crate::NewsLink;
 use crate::PressView;
 use crate::WorldTransfers;
 use crate::{DealTerms, LoanTerms};
+use crate::{TalkReaction, TalkView};
 
 pub struct Session {
     world_path: PathBuf,
@@ -189,6 +190,16 @@ impl Session {
 
     pub fn release_player(&mut self, id: i32) -> Result<String> {
         self.game_mut()?.release_player(id)
+    }
+
+    /// O painel "Palestra" do jogo do treinador agora.
+    pub fn talk_view(&self) -> Result<TalkView> {
+        self.game()?.talk_view()
+    }
+
+    /// Dá a palestra; devolve a reação de cada jogador.
+    pub fn give_talk(&mut self, key: String) -> Result<Vec<TalkReaction>> {
+        self.game_mut()?.give_talk(&key)
     }
 
     /// "Rescindir com Clube".

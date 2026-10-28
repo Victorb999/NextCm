@@ -968,7 +968,7 @@ Referência: a gravação do utilizador a jogar o CM 01/02 com a Juventus (`docs
 - Perfil do treinador com o **Currículo** (compras, vendas, dispensas, títulos, qualificações) e paginação.
 - Menu do jogo (Opções): Gravar Jogo, Adicionar Treinador, Estatuto Treinador, Definições do Jogo, **Ligas Seleccionadas**, Quadro de Honra, Créditos, Reiniciar Jogo, Deixar Jogo; Gravar com "Ficheiro Existe — Substituir?" e a barra "Gravando Dados Jogo".
 
-#### Marco 3.14 — Palestras (por detalhar)
+#### Marco 3.14 — Palestras
 
 Uma ideia do FM08 que o CM 01/02 não tem: o treinador fala aos jogadores, e cada um reage pela personalidade e pela situação do jogo.
 
@@ -988,6 +988,12 @@ Uma ideia do FM08 que o CM 01/02 não tem: o treinador fala aos jogadores, e cad
 - Tudo determinístico com a seed. A palestra média tem efeito perto de zero: os ~2,6 golos e os ~48% de vitórias em casa têm de continuar na CLI (que não dá palestras ou deixa o adjunto falar).
 
 **Telas** (Palestras): no dia de jogo, antes do pontapé de saída e ao intervalo, um painel "Palestra" no visual do CM (lista dos jogadores com a reação ao lado, tom e frase em menus amarelos, botão para a equipa toda ou por jogador); no fim do jogo, antes dos resultados da jornada; na substituição, a frase ao suplente.
+
+**Feito (passo 1):** `core/src/game/team_talk.rs`, comandos `talk_view` e `give_talk`, `TalkPanel.tsx` e o botão **Palestra** na coluna da partida (antes do apito, ao intervalo e no fim). À equipa toda, uma vez por momento.
+- Frases: antes do jogo "Espero uma vitória", "Não há pressão, divirtam-se", "Mostrem o que valem", "Joguem com calma e concentração"; ao intervalo "Continuem assim", "Quero mais de vocês", "Estou desiludido", "Não há pressão"; no fim "Estou orgulhoso", "Bom trabalho", "Não estou contente", "Estou desiludido". O adjunto sugere uma pela situação.
+- Situação: favorito se a reputação do clube (com 500 a mais em casa) passar a do adversário por 1000; o resultado ao intervalo e no fim.
+- Reação de cada jogador (−2 a +2: Irritado, Nervoso/Complacente, Sem reação, Focado, Motivado) pela Pressão + Jogos Importantes (30+ aguenta "Espero uma vitória", abaixo de 18 fica nervoso), Determinação (14+), Temperamento (8 ou menos irrita-se) e Profissionalismo (13+). Antes do jogo e ao intervalo: moral ±1 (só nos ±2) e o rendimento nesta partida ±1,5% por ponto; no fim: moral ±2. Sem palestra o jogo é o mesmo (nada gasta o RNG), por isso a CLI e as médias não mudam.
+- Fica para depois: falar a um jogador de cada vez, o tom (calmo, assertivo, agressivo) à parte da frase e a palavra ao suplente que entra.
 
 #### Marco 3.15 — Editor de jogos salvos (por detalhar)
 

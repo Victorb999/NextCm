@@ -8,6 +8,8 @@ import type { LineupCheck } from './bindings/LineupCheck'
 import type { LoanTerms } from './bindings/LoanTerms'
 import type { WorldTransfers } from './bindings/WorldTransfers'
 import type { CareerClub } from './bindings/CareerClub'
+import type { TalkReaction } from './bindings/TalkReaction'
+import type { TalkView } from './bindings/TalkView'
 import type { PressView } from './bindings/PressView'
 import type { JobsView } from './bindings/JobsView'
 import type { NewsLink } from './bindings/NewsLink'
@@ -109,6 +111,9 @@ export const api = {
   /** "Transferências": os negócios do mundo num mês ("2025-08"). */
   worldTransfers: (month: string, page: number) => call<WorldTransfers>('world_transfers', { month, page }),
   resign: () => call<string>('resign'),
+  /** O painel "Palestra" do jogo do treinador agora. */
+  talkView: () => call<TalkView>('talk_view'),
+  giveTalk: (key: string) => call<TalkReaction[]>('give_talk', { key }),
   retireManager: () => call<string>('retire_manager'),
   holiday: (days: number) => call<GameInfo>('holiday', { days }),
   managerCareer: () => call<CareerClub[]>('manager_career'),

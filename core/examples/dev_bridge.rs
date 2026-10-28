@@ -148,6 +148,11 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "release_player" => out(serde_json::to_value(session.release_player(id()?).map_err(e)?)),
         "day_competitions" => out(serde_json::to_value(session.day_competitions().map_err(e)?)),
         "resign" => out(serde_json::to_value(session.resign().map_err(e)?)),
+        "talk_view" => out(serde_json::to_value(session.talk_view().map_err(e)?)),
+        "give_talk" => {
+            let key = args["key"].as_str().ok_or("falta key")?.to_string();
+            out(serde_json::to_value(session.give_talk(key).map_err(e)?))
+        }
         "retire_manager" => out(serde_json::to_value(session.retire_manager().map_err(e)?)),
         "holiday" => {
             let days = args["days"].as_i64().ok_or("falta days")? as i32;

@@ -637,6 +637,24 @@ impl LiveMatch {
         6.0 + (uniform(&mut self.rng) - 0.5) * 0.8
     }
 
+    pub fn minute(&self) -> u8 {
+        self.minute
+    }
+
+    /// Quem ouve a palestra no lado do treinador: os que estão (ou estiveram) em campo e o banco.
+    pub fn talk_players(&self) -> Vec<(i32, String)> {
+        let Some(side) = self.user else { return Vec::new() };
+        self.teams[side].players.iter().filter(|p| !p.red || self.finished()).map(|p| (p.info.id, p.prof.name.clone())).collect()
+    }
+
+    /// A motivação de uma palestra: multiplica o rendimento do jogador nesta partida.
+    pub fn motivate(&mut self, id: i32, factor: f64) {
+        let Some(side) = self.user else { return };
+        if let Some(p) = self.teams[side].players.iter_mut().find(|p| p.info.id == id) {
+            p.form *= factor;
+        }
+    }
+
     /// A bola já rolou (antes do apito ainda se grava o jogo).
     pub fn started(&self) -> bool {
         self.minute > 0

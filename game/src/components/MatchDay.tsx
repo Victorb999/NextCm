@@ -12,6 +12,7 @@ import { useGame } from '../game'
 import { MATCH_SPEEDS, getSettings, saveSettings, useSettings } from '../settings'
 import CascadeMenu from './CascadeMenu'
 import LiveTactics from './LiveTactics'
+import TalkPanel from './TalkPanel'
 
 const clubStyle = (c: ClubRef) => (c.fg && c.bg ? { color: c.fg, background: c.bg } : { color: '#fff', background: '#3a3a3a' })
 
@@ -507,6 +508,8 @@ function LiveScreen({
   const [running, setRunning] = useState(false)
   const [pane, setPane] = useState<Pane>('panorama')
   const [tactics, setTactics] = useState<0 | 1 | null>(null)
+  // A palestra do treinador (antes do jogo, ao intervalo, no fim)
+  const [talk, setTalk] = useState(false)
   // Tácticas pedidas com o jogo a correr: abrem quando a bola parar (minuto do pedido)
   const [waiting, setWaiting] = useState<{ side: 0 | 1; since: number; from: number } | null>(null)
   const resumeAfter = useRef(false)
@@ -665,6 +668,11 @@ function LiveScreen({
             </span>
           </MatchSideButton>
         ))}
+        {view.userSide !== null && (!started || view.halfTime || view.finished) && (
+          <MatchSideButton onClick={() => setTalk(true)} disabled={running || tactics !== null || talk}>
+            Palestra
+          </MatchSideButton>
+        )}
         <MatchSideButton
           anchor
           disabled={locked}
@@ -692,7 +700,9 @@ function LiveScreen({
       </aside>
 
       <main className="cm-backdrop flex min-w-0 flex-1 flex-col">
-        {tactics !== null ? (
+        {talk ? (
+          <TalkPanel onClose={() => setTalk(false)} />
+        ) : tactics !== null ? (
           <LiveTactics view={view} side={tactics} onClose={closeTactics} onApplied={accept} />
         ) : (
           <>

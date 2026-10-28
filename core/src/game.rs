@@ -42,6 +42,7 @@ mod season;
 mod shortlist;
 mod staff_reports;
 mod start_loans;
+mod team_talk;
 mod unhappy;
 use crate::league::{self, Fixture, Match, StandingRow};
 use crate::live::{LiveMatch, LiveView, Occasion, TeamStats};
@@ -69,6 +70,7 @@ pub use scout_tasks::{ScoutFind, ScoutList};
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
 pub use staff_reports::ReportStaff;
+pub use team_talk::{TalkOption, TalkReaction, TalkView};
 
 /// Versão do formato do save; saves de outra versão são recusados até haver migração.
 /// 2: tabela `fixtures` (marco 3.2). 3: estado dos jogadores e a escolha da equipa (3.3).
@@ -513,6 +515,8 @@ struct LiveDay {
     news: Vec<NewsItem>,
     /// Estádio, tempo, árbitro e assistência do jogo do treinador.
     extras: Option<MatchExtras>,
+    /// Os momentos em que o treinador já falou à equipa ("pre", "half", "full").
+    talks: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1251,7 +1255,7 @@ impl Game {
             Some(u) => Some(self.match_extras(games[u].0)?),
             None => None,
         };
-        self.live = Some(LiveDay { games, user: user.unwrap_or(usize::MAX), news: fresh, extras });
+        self.live = Some(LiveDay { games, user: user.unwrap_or(usize::MAX), news: fresh, extras, talks: Vec::new() });
         if user_match {
             return Ok(Vec::new());
         }
