@@ -1,6 +1,5 @@
-import type { LineupCheck } from '../bindings/LineupCheck'
 import type { ManagerDialog } from './managerMenu'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { Globe, Search, Settings, Trophy, User } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api, hasBackend } from '../api'
@@ -9,42 +8,42 @@ import CascadeMenu from '../components/CascadeMenu'
 import { competitionsMenu } from '../competitionsMenu'
 import { useGame } from '../game'
 import { useNav } from '../nav'
+import type { Screen } from '../nav'
 import { managerMenu } from './managerMenu'
-import type { MatchDayData } from './types'
-import { START_DATE, WEEKDAYS } from './types'
-import { useContinueGame } from './useContinueGame'
 
 type Menu = { kind: 'competitions' | 'manager'; x: number; y: number }
+type Section = 'manager' | 'competitions' | 'nations' | 'search'
 
 function SideButton({
   children,
+  icon,
   className = '',
+  active,
   disabled,
   title,
   onClick,
 }: {
   children: ReactNode
+  icon: ReactNode
   className?: string
+  /** A tela aberta é deste botão (ou o menu dele está aberto). */
+  active?: boolean
   disabled?: boolean
   title?: string
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
 }) {
   return (
-    <button disabled={disabled} title={title} onClick={onClick} data-menu-anchor className={`cm-side-btn min-h-[46px] ${className}`}>
+    <button
+      disabled={disabled}
+      title={title}
+      onClick={onClick}
+      data-menu-anchor
+      aria-current={active || undefined}
+      className={`cm-side-btn min-h-[44px] ${className}`}
+    >
+      <span className="shrink-0">{icon}</span>
       {children}
     </button>
-  )
-}
-
-/** A data do jogo no topo da coluna ("Terça / 1.7.25"). */
-function DateBox({ date }: { date: string }) {
-  const [y, m, d] = date.split('-').map(Number)
-  const weekday = new Date(y, m - 1, d).getDay()
-  return (
-    <div className="cm-side-btn min-h-[46px] flex-col font-bold text-cm-yellow">
-      <span>{WEEKDAYS[weekday]}</span>
-      <span>{`${d}.${m}.${String(y).slice(2)}`}</span>
-    </div>
   )
 }
 
@@ -52,38 +51,54 @@ function DateBox({ date }: { date: string }) {
 function HistoryButtons({ enabled }: { enabled: boolean }) {
   const nav = useNav()
   return (
-    <div className="flex gap-1">
-      <button className="cm-side-btn h-9 flex-1 text-cm-yellow" disabled={!enabled || !nav.canBack} onClick={nav.back} aria-label="Voltar">
-        <ArrowLeft size={16} strokeWidth={3} />
+    <div className="flex gap-1.5">
+      <button className="cm-side-btn h-8 justify-center text-cm-yellow" disabled={!enabled || !nav.canBack} onClick={nav.back} aria-label="Voltar">
+        ◀
       </button>
-      <button className="cm-side-btn h-9 flex-1 text-cm-yellow" disabled={!enabled || !nav.canForward} onClick={nav.forward} aria-label="Avançar">
-        <ArrowRight size={16} strokeWidth={3} />
+      <button className="cm-side-btn h-8 justify-center text-cm-yellow" disabled={!enabled || !nav.canForward} onClick={nav.forward} aria-label="Avançar">
+        ▶
       </button>
     </div>
   )
 }
 
-/** Coluna de navegação à esquerda, como no CM 01/02. */
+/** O botão da coluna a que a tela aberta pertence (só para a marcar). */
+function sectionOf(s: Screen, club: number | undefined, manager: number | undefined): Section | null {
+  switch (s.kind) {
+    case 'competitions':
+    case 'competition':
+      return 'competitions'
+    case 'nations':
+    case 'nation':
+      return 'nations'
+    case 'search':
+      return 'search'
+    case 'news':
+    case 'board':
+    case 'jobs':
+    case 'worldTransfers':
+    case 'career':
+    case 'squadNumbers':
+      return 'manager'
+    case 'club':
+    case 'tactics':
+    case 'clubHistory':
+      return s.id === club ? 'manager' : null
+    case 'person':
+      return s.id === manager ? 'manager' : null
+    default:
+      return null
+  }
+}
+
+/** Coluna de navegação à esquerda, como no CM 01/02 (a data e o Continuar Jogo estão na barra do topo). */
 export default function SideBar({
   onOptions,
   onExit,
-  notify,
-  onProcessing,
-  onMatch,
-  matchStep,
-  onLineup,
   onDialog,
 }: {
   onOptions: () => void
   onExit: () => void
-  notify: (msg: string) => void
-  /** "A processar…" enquanto o Continuar Jogo corre. */
-  onProcessing: (busy: boolean) => void
-  /** O treinador jogou hoje: mostra o dia de jogo. */
-  onMatch: (m: MatchDayData) => void
-  /** Com um dia de jogo pendente, o Continuar Jogo volta a ele / faz o papel do Seguinte. */
-  matchStep?: () => void
-  onLineup: (check: LineupCheck, go: () => void) => void
   /** Os diálogos do menu do treinador (Gravar, Férias, Rescindir, Retirar-se). */
   onDialog: (d: ManagerDialog) => void
 }) {
@@ -92,10 +107,11 @@ export default function SideBar({
   const [comps, setComps] = useState<CompetitionListItem[] | null>(null)
   const [menu, setMenu] = useState<Menu | null>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
-  const { advance, busy } = useContinueGame({ notify, onProcessing, onMatch, matchStep, onLineup })
 
   const browsing = game.mode === 'game' || game.mode === 'explore'
   const info = game.mode === 'game' ? game.info : null
+  const section = browsing ? sectionOf(nav.current, info?.club.id, info?.managerId) : null
+  const marked = (s: Section) => (menu ? menu.kind === s : section === s)
 
   // Carrega a lista já no início para o menu abrir sem espera
   useEffect(() => {
@@ -104,27 +120,43 @@ export default function SideBar({
 
   const toggle = (kind: Menu['kind']) => (e: React.MouseEvent<HTMLButtonElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
-    setMenu((cur) => (cur?.kind === kind ? null : { kind, x: r.right - 2, y: r.top }))
+    setMenu((cur) => (cur?.kind === kind ? null : { kind, x: r.right + 2, y: r.top }))
   }
 
   return (
-    <aside className="flex w-[86px] shrink-0 flex-col gap-1 bg-gradient-to-b from-cm-sidetop to-cm-side p-1">
-      <DateBox date={info?.date ?? START_DATE} />
+    <aside className="flex w-[150px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-cm-sidedark p-2">
       <HistoryButtons enabled={browsing} />
-      <SideButton disabled={!info || busy} title={info ? 'Avança até ao próximo evento' : 'Comece ou carregue um jogo'} onClick={() => void advance()}>
-        Continuar Jogo
-      </SideButton>
       {info ? (
-        <SideButton disabled={!browsing} onClick={toggle('manager')} className="!text-cm-pink" title={info.club.name}>
+        <SideButton
+          icon={<User size={16} />}
+          disabled={!browsing}
+          active={marked('manager')}
+          onClick={toggle('manager')}
+          className="relative !text-cm-pink"
+          title={info.club.name}
+        >
           <span className="line-clamp-2 break-words">{info.managerName}</span>
+          <span className="ml-auto shrink-0 text-[10px] text-white/40">▶</span>
+          {info.unreadNews > 0 && (
+            <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-cm-sel px-1 text-[10px] font-bold text-white">
+              {info.unreadNews}
+            </span>
+          )}
         </SideButton>
       ) : (
-        <SideButton disabled={game.mode !== 'explore'} onClick={() => game.setMode('start')} className="!text-cm-pink" title="Voltar ao menu inicial">
+        <SideButton
+          icon={<User size={16} />}
+          disabled={game.mode !== 'explore'}
+          onClick={() => game.setMode('start')}
+          className="!text-cm-pink"
+          title="Voltar ao menu inicial"
+        >
           {game.mode === 'explore' ? 'Menu Inicial' : 'Treinador'}
         </SideButton>
       )}
-      <SideButton disabled={!browsing} onClick={toggle('competitions')}>
+      <SideButton icon={<Trophy size={16} />} disabled={!browsing} active={marked('competitions')} onClick={toggle('competitions')}>
         Competições
+        <span className="ml-auto shrink-0 text-[10px] text-white/40">▶</span>
       </SideButton>
       {menu?.kind === 'competitions' && comps && (
         <CascadeMenu
@@ -146,18 +178,15 @@ export default function SideBar({
           items={managerMenu({ info, go: nav.go, onExit, onDialog })}
         />
       )}
-      <SideButton disabled={!browsing} onClick={() => nav.go({ kind: 'nations' })}>
+      <SideButton icon={<Globe size={16} />} disabled={!browsing} active={marked('nations')} onClick={() => nav.go({ kind: 'nations' })}>
         Nações &amp; Clubes
       </SideButton>
-      <SideButton disabled={!browsing} onClick={() => nav.go({ kind: 'search' })}>
+      <SideButton icon={<Search size={16} />} disabled={!browsing} active={marked('search')} onClick={() => nav.go({ kind: 'search' })}>
         Procurar
       </SideButton>
-      <SideButton onClick={onOptions} className="!text-cm-yellow">
+      <SideButton icon={<Settings size={16} />} onClick={onOptions} className="!text-cm-yellow">
         Opções Jogo
       </SideButton>
-      <div className="flex flex-1 items-end justify-center pb-3">
-        <span className="rotate-180 font-title text-3xl font-bold tracking-widest text-cm-sidemark [writing-mode:vertical-rl]">NEXTCM</span>
-      </div>
     </aside>
   )
 }

@@ -90,3 +90,9 @@ export function moneyStep(v: number): number {
   const p = 10 ** Math.floor(Math.log10(target))
   return [1, 2, 5, 10].map((m) => m * p).find((s) => s >= target) ?? p * 10
 }
+
+/** "Palmeiras" -> "PA", "Real Madrid" -> "RM": o emblema do clube (placar, Tácticas). */
+export function initials(name: string): string {
+  const words = name.split(/\s+/).filter((w) => /^\p{Lu}/u.test(w))
+  return (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase()
+}

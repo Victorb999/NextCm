@@ -124,7 +124,12 @@ export default function NewsPage() {
               )}
               {current.link === 'squadNumbers' && (
                 <div className="mt-4 border-t border-cm-line pt-3">
-                  <button className="cm-purple h-7 w-48" onClick={() => nav.go({ kind: 'squadNumbers' })}>
+                  <button
+                    className="cm-purple h-7 w-48"
+                    disabled={!game.info?.numbersOpen}
+                    title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-época'}
+                    onClick={() => nav.go({ kind: 'squadNumbers' })}
+                  >
                     Definir Números
                   </button>
                 </div>

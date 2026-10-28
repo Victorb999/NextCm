@@ -37,6 +37,8 @@ pub struct NumberEntry {
 pub struct SquadNumbers {
     pub club: ClubRef,
     pub players: Vec<NumberEntry>,
+    /// Pré-época: todos os números se mudam. Fora dela só se numeram os que não têm número.
+    pub pre_season: bool,
 }
 
 /// Um número escolhido (ou nenhum) para um jogador.
@@ -197,8 +199,26 @@ impl Game {
         Ok(())
     }
 
-    /// A tela "Números Plantel" do clube do treinador.
+    /// Pré-época: o clube do treinador ainda não jogou nenhum jogo oficial da época em curso.
+    pub(super) fn pre_season(&self) -> bool {
+        !self.season_matches().any(|m| m.result.is_some() && (m.home_id == self.club_id || m.away_id == self.club_id))
+    }
+
+    /// A tela "Números Plantel" abre na pré-época ou quando há jogadores sem número.
+    pub(super) fn numbers_open(&self) -> Result<bool> {
+        Ok(self.pre_season() || squad_rows(&self.world, self.club_id)?.iter().any(|r| r.1.is_none()))
+    }
+
+    /// A tela "Números Plantel" do clube do treinador (só aberta na pré-época ou com
+    /// jogadores sem número).
     pub fn squad_numbers(&self) -> Result<SquadNumbers> {
+        if !self.numbers_open()? {
+            return Err(Error::Invalid("Os números do plantel só se mudam na pré-época.".into()));
+        }
+        self.numbers_screen()
+    }
+
+    fn numbers_screen(&self) -> Result<SquadNumbers> {
         let profile = self.world.get_club(self.club_id)?;
         let mut players: Vec<NumberEntry> = profile
             .players
@@ -212,7 +232,7 @@ impl Game {
             })
             .collect();
         players.sort_by(|a, b| a.position_order.cmp(&b.position_order).then(a.list_name.cmp(&b.list_name)));
-        Ok(SquadNumbers { club: profile.club, players })
+        Ok(SquadNumbers { club: profile.club, players, pre_season: self.pre_season() })
     }
 
     /// O botão Auto: números para quem não tem, sem mexer nos escolhidos.
@@ -232,13 +252,22 @@ impl Game {
             .collect())
     }
 
-    /// Grava os números escolhidos (de 1 a 99, sem repetir).
+    /// Grava os números escolhidos (de 1 a 99, sem repetir). Fora da pré-época quem já tem
+    /// número fica com ele.
     pub fn set_squad_numbers(&mut self, numbers: &[NumberAssign]) -> Result<SquadNumbers> {
-        let squad: HashSet<i32> = squad_rows(&self.world, self.club_id)?.into_iter().map(|r| r.0).collect();
+        if !self.numbers_open()? {
+            return Err(Error::Invalid("Os números do plantel só se mudam na pré-época.".into()));
+        }
+        let pre_season = self.pre_season();
+        let squad: std::collections::HashMap<i32, Option<i32>> =
+            squad_rows(&self.world, self.club_id)?.into_iter().map(|r| (r.0, r.1)).collect();
         let mut seen = HashSet::new();
         for a in numbers {
-            if !squad.contains(&a.id) {
+            let Some(&had) = squad.get(&a.id) else {
                 return Err(Error::Invalid("Só os jogadores do seu plantel.".into()));
+            };
+            if !pre_season && had.is_some() && a.number != had {
+                return Err(Error::Invalid("Com a época a decorrer, só se numeram os jogadores sem número.".into()));
             }
             if let Some(n) = a.number {
                 if !(1..=99).contains(&n) {
@@ -256,7 +285,8 @@ impl Game {
         fix_squad_numbers(&self.world, &[self.club_id], self.seed, Some(self.club_id))?;
         self.refresh_live()?;
         self.unsaved = true;
-        self.squad_numbers()
+        // Gravados todos, a tela pode já ter fechado: devolve-a na mesma
+        self.numbers_screen()
     }
 
     /// Convocados sem número para o próximo jogo do treinador (amanhã): o jogo não começa
@@ -367,6 +397,33 @@ mod tests {
         let mut dup = auto.clone();
         dup[1].number = dup[0].number;
         assert!(g.set_squad_numbers(&dup).is_err());
+        // Na pré-época a tela está aberta mesmo com todos numerados
+        assert!(g.pre_season() && g.info().unwrap().numbers_open);
+        // Depois do primeiro jogo oficial fecha
+        g.set_watch(false);
+        for _ in 0..60 {
+            if !g.pre_season() {
+                break;
+            }
+            g.advance_day().unwrap();
+        }
+        assert!(!g.pre_season());
+        assert!(!g.info().unwrap().numbers_open);
+        assert!(g.squad_numbers().is_err());
+        // Um reforço sem número reabre-a, mas só para ele: os outros números ficam fixos
+        let star = squad_rows(&g.world, 7568).unwrap()[0].0;
+        g.world.conn.execute("UPDATE players SET squad_number = NULL WHERE person_id = ?", [star]).unwrap();
+        let screen = g.squad_numbers().unwrap();
+        assert!(!screen.pre_season);
+        let mut current: Vec<NumberAssign> = screen.players.iter().map(|p| NumberAssign { id: p.id, number: p.number }).collect();
+        let other = current.iter().position(|a| a.number.is_some()).unwrap();
+        let old = current[other].number;
+        current[other].number = Some(98);
+        assert!(g.set_squad_numbers(&current).is_err());
+        current[other].number = old;
+        let auto = g.auto_squad_numbers(&current).unwrap();
+        g.set_squad_numbers(&auto).unwrap();
+        assert!(!g.info().unwrap().numbers_open);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="relva" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c6b45"/>
+      <stop offset="1" stop-color="#0f3f29"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="13" fill="url(#relva)"/>
+  <g fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="1.5">
+    <rect x="6" y="6" width="52" height="52" rx="3"/>
+    <line x1="6" y1="32" x2="58" y2="32"/>
+    <circle cx="32" cy="32" r="8"/>
+  </g>
+  <polyline points="17,47 17,17 47,47 47,17" fill="none" stroke="#fff" stroke-width="3.5"
+    stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5 3.5"/>
+  <circle cx="17" cy="47" r="5" fill="#fff"/>
+  <circle cx="17" cy="17" r="5" fill="#fff"/>
+  <circle cx="47" cy="47" r="5" fill="#fff"/>
+  <circle cx="47" cy="17" r="6.5" fill="#4edea3" stroke="#fff" stroke-width="2"/>
+</svg>

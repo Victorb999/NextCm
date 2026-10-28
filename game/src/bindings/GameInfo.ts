@@ -20,4 +20,8 @@ sacked: boolean,
 /**
  * Há convocados sem número para o jogo de amanhã: o Continuar Jogo abre os números.
  */
-needsNumbers: boolean, };
+needsNumbers: boolean, 
+/**
+ * A tela "Números Plantel" está aberta: pré-época ou jogadores sem número.
+ */
+numbersOpen: boolean, };

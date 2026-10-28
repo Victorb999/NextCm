@@ -5,4 +5,8 @@ import type { NumberEntry } from "./NumberEntry";
 /**
  * A tela "Números Plantel".
  */
-export type SquadNumbers = { club: ClubRef, players: Array<NumberEntry>, };
+export type SquadNumbers = { club: ClubRef, players: Array<NumberEntry>, 
+/**
+ * Pré-época: todos os números se mudam. Fora dela só se numeram os que não têm número.
+ */
+preSeason: boolean, };

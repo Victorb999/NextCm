@@ -66,7 +66,7 @@ function SquadGrid({
   onToggle?: (e: Entry) => void
 }) {
   return (
-    <div className="grid grid-cols-2 gap-x-3 px-2">
+    <div className="cm-zebra-2 grid grid-cols-2 gap-x-3 px-2">
       {entries.map((e, i) => {
         const drag = bind && e.spot ? bind(e.spot, e.name) : undefined
         return (
@@ -381,7 +381,12 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
             </button>
           )}
           {mine && (
-            <button className="cm-purple h-6 w-40" onClick={() => nav.go({ kind: 'squadNumbers' })}>
+            <button
+              className="cm-purple h-6 w-40"
+              disabled={!game.info?.numbersOpen}
+              title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-época'}
+              onClick={() => nav.go({ kind: 'squadNumbers' })}
+            >
               Números
             </button>
           )}

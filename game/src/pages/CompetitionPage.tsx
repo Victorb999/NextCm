@@ -1,3 +1,4 @@
+import { Trophy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
@@ -9,7 +10,7 @@ import type { StandingRow } from '../bindings/StandingRow'
 import type { TableZone } from '../bindings/TableZone'
 import type { TieView } from '../bindings/TieView'
 import { FixtureRows, RoundGames } from '../components/Fixtures'
-import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, Link, ScreenHeader, Tabs } from '../components/Screen'
 import { continentPt } from '../continents'
 import { matchDate } from '../format'
 import { useGame } from '../game'
@@ -22,6 +23,24 @@ const TABS = [
   { key: 'stats', label: 'Estatísticas', disabled: true },
   { key: 'history', label: 'Historial' },
 ]
+
+/** Painel arredondado com título laranja (o padrão das telas novas). */
+function Panel({ title, right, children, className = '' }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <div className={`flex min-h-0 flex-col overflow-hidden rounded-md bg-[#1a1b21] ${className}`}>
+      {title && (
+        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold font-mono uppercase tracking-[0.12em] text-cm-orange">
+          {title}
+          <span className="ml-auto flex items-center gap-1.5 normal-case tracking-normal">{right}</span>
+        </div>
+      )}
+      {children}
+    </div>
+  )
+}
+
+/** Cabeçalho de coluna roxo com letra amarela, como as tabelas do CM. */
+const TH = 'bg-[#3d1a73] px-2 text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow'
 
 function ClubLink({ club }: { club: ClubRef | null }) {
   const nav = useNav()
@@ -37,35 +56,37 @@ function History({ c }: { c: CompetitionProfile }) {
   if (c.history.length === 0) return <div className="p-6 text-center text-cm-magenta">Sem historial registado.</div>
   const head = ['Ano', 'Campeão', 'Vice', '3º']
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-1.5 pt-2">
-      <table className="w-full border-collapse">
-        <thead className="sticky top-0">
-          <tr className="h-6">
-            {head.map((h) => (
-              <th key={h} className="border border-black bg-cm-head px-2 text-left font-normal text-white">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {c.history.map((h, i) => (
-            <tr key={i} className="h-[24px] border-b border-cm-line bg-black/40 text-[15px]">
-              <td className="w-20 px-2 tabular-nums text-cm-yellow">{h.year ?? '-'}</td>
-              <td className="px-2">
-                <ClubLink club={h.winner} />
-              </td>
-              <td className="px-2">
-                <ClubLink club={h.runnerUp} />
-              </td>
-              <td className="px-2">
-                <ClubLink club={h.third} />
-              </td>
+    <Panel title="Historial" className="flex-1">
+      <div className="min-h-0 flex-1 overflow-auto">
+        <table className="w-full border-collapse">
+          <thead className="sticky top-0 z-10">
+            <tr className="h-8">
+              {head.map((h) => (
+                <th key={h} className={`${TH} text-left`}>
+                  {h}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {c.history.map((h, i) => (
+              <tr key={i} className="h-[30px] text-[14.5px]">
+                <td className="w-20 px-2 font-semibold tabular-nums text-cm-yellow">{h.year ?? '-'}</td>
+                <td className="px-2">
+                  <ClubLink club={h.winner} />
+                </td>
+                <td className="px-2">
+                  <ClubLink club={h.runnerUp} />
+                </td>
+                <td className="px-2">
+                  <ClubLink club={h.third} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
   )
 }
 
@@ -86,6 +107,20 @@ function zoneAt(zones: TableZone[], pos: number, n: number) {
 
 const values = (r: StandingRow) => [r.played, r.won, r.drawn, r.lost, r.goalsFor, r.goalsAgainst, r.points]
 
+/** A legenda das faixas da classificação. */
+function ZoneLegend({ zones }: { zones: TableZone[] }) {
+  return (
+    <div className="flex flex-col gap-1.5 p-3 text-[13px] text-[#e3e1e9]">
+      {zones.map((z) => (
+        <span key={z.kind} className="flex items-center gap-2">
+          <span className="inline-block h-3 w-1.5 rounded-sm" style={{ background: ZONE_COLOURS[z.kind] }} />
+          {z.label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 /** Classificação: a real quando a competição está viva no jogo; senão, a de pré-temporada
  * (todos a zero, por ordem alfabética), como no CM. */
 function Table({ c, rows, own, title = 'Classificação Geral' }: { c: CompetitionProfile; rows: StandingRow[]; own?: number; title?: string }) {
@@ -96,60 +131,50 @@ function Table({ c, rows, own, title = 'Classificação Geral' }: { c: Competiti
         .sort((a, b) => a.club.shortName.localeCompare(b.club.shortName))
         .map((r) => ({ club: r.club, values: [0, 0, 0, 0, 0, 0, 0] }))
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
-      <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">{title}</div>
-      <table className="w-full border-separate border-spacing-x-1 border-spacing-y-0">
-        <thead className="sticky top-0 bg-cm-panel">
-          <tr className="h-6">
-            <th className="w-12" />
-            <th />
-            {COLS.map((h) => (
-              <th key={h} className="w-14 border border-black bg-cm-head font-normal text-white">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((row, i) => (
-            <tr key={row.club.id} className="h-[23px]">
-              <td
-                className="border border-cm-tabline bg-black/60 text-center text-white"
-                style={rows.length ? { borderLeft: `6px solid ${ZONE_COLOURS[zoneAt(c.zones, i + 1, shown.length)?.kind ?? ''] ?? 'transparent'}` } : undefined}
-              >
-                {i + 1}º
-              </td>
-              <td className="px-3">
-                <Link
-                  onClick={() => nav.go({ kind: 'club', id: row.club.id })}
-                  className={`font-title text-[17px] ${row.club.id === own ? 'text-cm-pink' : 'text-white'}`}
-                >
-                  {row.club.shortName}
-                </Link>
-              </td>
-              {row.values.map((v, j) => (
-                <td
-                  key={COLS[j]}
-                  className={`text-center tabular-nums text-white ${j === 6 ? 'border border-cm-tabline bg-black/60' : ''}`}
-                >
-                  {v}
-                </td>
+    <Panel title={title} className="min-w-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-auto">
+        <table className="w-full border-collapse">
+          <thead className="sticky top-0 z-10">
+            <tr className="h-8">
+              <th className={`${TH} w-14 text-center`}>Pos</th>
+              <th className={`${TH} text-left`}>Clube</th>
+              {COLS.map((h) => (
+                <th key={h} className={`${TH} w-12 text-center`}>
+                  {h}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {rows.length > 0 && c.zones.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-x-5 pt-2 text-[13px] text-white">
-          {c.zones.map((z) => (
-            <span key={z.kind} className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3" style={{ background: ZONE_COLOURS[z.kind] }} />
-              {z.label}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
+          </thead>
+          <tbody>
+            {shown.map((row, i) => {
+              const zone = rows.length ? ZONE_COLOURS[zoneAt(c.zones, i + 1, shown.length)?.kind ?? ''] : undefined
+              const mine = row.club.id === own
+              return (
+                <tr key={row.club.id} className={`h-[30px] text-[14.5px] ${mine ? 'bg-cm-pink/10' : ''}`}>
+                  <td className="relative text-center font-semibold tabular-nums text-white">
+                    {zone && <span className="absolute inset-y-1 left-0 w-1 rounded-r-sm" style={{ background: zone }} />}
+                    {i + 1}º
+                  </td>
+                  <td className="px-2">
+                    <Link
+                      onClick={() => nav.go({ kind: 'club', id: row.club.id })}
+                      className={`font-title text-[16px] ${mine ? 'font-bold text-cm-pink' : 'text-white'}`}
+                    >
+                      {row.club.shortName}
+                    </Link>
+                  </td>
+                  {row.values.map((v, j) => (
+                    <td key={COLS[j]} className={`text-center tabular-nums ${j === 6 ? 'font-bold text-cm-yellow' : 'text-[#e3e1e9]'}`}>
+                      {v}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
   )
 }
 
@@ -157,14 +182,13 @@ function Table({ c, rows, own, title = 'Classificação Geral' }: { c: Competiti
 function GroupBox({ name, rows, own }: { name: string; rows: StandingRow[]; own?: number }) {
   const nav = useNav()
   return (
-    <div>
-      <div className="pb-0.5 text-center font-title text-lg font-bold text-cm-yellow">{name}</div>
-      <table className="w-full border-separate border-spacing-x-0.5 border-spacing-y-0 text-[14px]">
+    <Panel title={name}>
+      <table className="w-full border-collapse text-[14px]">
         <thead>
-          <tr className="h-5">
-            <th />
+          <tr className="h-7">
+            <th className={`${TH} text-left`}>Clube</th>
             {COLS.map((h) => (
-              <th key={h} className="w-8 border border-black bg-cm-head font-normal text-white">
+              <th key={h} className={`${TH} w-8 text-center`}>
                 {h}
               </th>
             ))}
@@ -172,17 +196,17 @@ function GroupBox({ name, rows, own }: { name: string; rows: StandingRow[]; own?
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.club.id} className="h-[21px]">
-              <td className="truncate px-1">
+            <tr key={r.club.id} className={`h-[28px] ${r.club.id === own ? 'bg-cm-pink/10' : ''}`}>
+              <td className="truncate px-2">
                 <Link
                   onClick={() => nav.go({ kind: 'club', id: r.club.id })}
-                  className={`font-title text-[16px] ${r.club.id === own ? 'text-cm-pink' : 'text-white'}`}
+                  className={`font-title text-[15px] ${r.club.id === own ? 'font-bold text-cm-pink' : 'text-white'}`}
                 >
                   {r.position}. {r.club.shortName}
                 </Link>
               </td>
               {values(r).map((v, j) => (
-                <td key={COLS[j]} className={`text-center tabular-nums text-white ${j === 6 ? 'bg-black/60' : ''}`}>
+                <td key={COLS[j]} className={`text-center tabular-nums ${j === 6 ? 'font-bold text-cm-yellow' : 'text-[#e3e1e9]'}`}>
                   {v}
                 </td>
               ))}
@@ -190,7 +214,7 @@ function GroupBox({ name, rows, own }: { name: string; rows: StandingRow[]; own?
           ))}
         </tbody>
       </table>
-    </div>
+    </Panel>
   )
 }
 
@@ -200,7 +224,7 @@ function Tie({ tie, own }: { tie: TieView; own?: number }) {
   const name = (c: ClubRef, align: string) => (
     <Link
       onClick={() => nav.go({ kind: 'club', id: c.id })}
-      className={`block truncate font-title text-[18px] ${align} ${tie.winner === c.id ? 'font-bold' : ''} ${
+      className={`block truncate font-title text-[16px] ${align} ${tie.winner === c.id ? 'font-bold' : ''} ${
         c.id === own ? 'text-cm-pink' : tie.winner !== null && tie.winner !== c.id ? 'text-[#9aa0aa]' : 'text-white'
       }`}
     >
@@ -211,59 +235,15 @@ function Tie({ tie, own }: { tie: TieView; own?: number }) {
   const legs = tie.games.map((g) =>
     g.homeGoals === null ? 'v' : g.home.id === tie.first.id ? `${g.homeGoals}-${g.awayGoals}` : `${g.awayGoals}-${g.homeGoals}`,
   )
-  const extra = [
-    tie.aggregate ? `total ${tie.aggregate[0]}-${tie.aggregate[1]}` : '',
-    tie.pens ? `${tie.pens[0]}-${tie.pens[1]} g.p.` : '',
-  ]
+  const extra = [tie.aggregate ? `total ${tie.aggregate[0]}-${tie.aggregate[1]}` : '', tie.pens ? `${tie.pens[0]}-${tie.pens[1]} g.p.` : '']
     .filter(Boolean)
     .join(', ')
   return (
-    <div className="flex h-[26px] items-center gap-2 border-b border-cm-line bg-black/40 px-2">
+    <div className="flex h-[30px] items-center gap-2 px-3">
       <div className="min-w-0 flex-1">{name(tie.first, 'text-right')}</div>
-      <span className="w-28 shrink-0 text-center font-bold tabular-nums text-cm-yellow">{legs.join(' · ')}</span>
+      <span className="w-28 shrink-0 text-center font-bold tabular-nums text-cm-magenta">{legs.join(' · ')}</span>
       <div className="min-w-0 flex-1">{name(tie.second, 'text-left')}</div>
       <span className="w-36 shrink-0 text-right text-[13px] text-cm-orange">{extra}</span>
-    </div>
-  )
-}
-
-/** Classificação de uma competição viva, fase a fase (pontos corridos, grupos, eliminatórias). */
-function Stages({ c, stages, own }: { c: CompetitionProfile; stages: StageView[]; own?: number }) {
-  const [index, setIndex] = useState(stages.length - 1)
-  const stage = stages[Math.min(index, stages.length - 1)]
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {stages.length > 1 && (
-        <div className="flex shrink-0 justify-center gap-1 pt-1.5">
-          {stages.map((st, i) => (
-            <button key={st.name} className={`cm-purple h-6 w-44 ${i === index ? '!text-cm-yellow' : ''}`} onClick={() => setIndex(i)}>
-              {st.name}
-            </button>
-          ))}
-        </div>
-      )}
-      {stage.kind === 'league' && (
-        <Table c={c} rows={stage.tables[0]?.rows ?? []} own={own} title={stages.length > 1 ? stage.name : 'Classificação Geral'} />
-      )}
-      {stage.kind === 'groups' && (
-        <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-x-6 gap-y-2 overflow-auto px-3 py-2">
-          {stage.tables.map((t) => (
-            <GroupBox key={t.name} name={t.name} rows={t.rows} own={own} />
-          ))}
-        </div>
-      )}
-      {stage.kind === 'knockout' && (
-        <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
-          {[...stage.rounds].reverse().map((r) => (
-            <div key={r.name}>
-              <div className="pb-1 pt-2 text-center font-title text-lg font-bold text-cm-yellow">{r.name}</div>
-              {r.ties.map((t, i) => (
-                <Tie key={i} tie={t} own={own} />
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
@@ -279,35 +259,128 @@ function byRound(fixtures: Fixture[]): [string, Fixture[]][] {
   return [...rounds.entries()]
 }
 
+/** A jornada a mostrar primeiro: a próxima por jogar (ou a última). */
+function startRound(rounds: [string, Fixture[]][]) {
+  const next = rounds.findIndex(([, games]) => games.some((f) => f.homeGoals === null))
+  return next < 0 ? rounds.length - 1 : next
+}
+
+/** ◀ jornada ▶, para o Calendário e o painel ao lado da classificação. */
+function RoundPicker({ rounds, index, onChange }: { rounds: [string, Fixture[]][]; index: number; onChange: (i: number) => void }) {
+  const [name, games] = rounds[index]
+  return (
+    <span className="flex items-center gap-1.5">
+      <button className="cm-purple h-6 w-8 px-0" disabled={index <= 0} onClick={() => onChange(index - 1)} aria-label="Jornada anterior">
+        ◀
+      </button>
+      <span className="min-w-[9rem] text-center font-bold text-cm-yellow">
+        {name}
+        {games[0] ? ` · ${matchDate(games[0].date).slice(4)}` : ''}
+      </span>
+      <button className="cm-purple h-6 w-8 px-0" disabled={index >= rounds.length - 1} onClick={() => onChange(index + 1)} aria-label="Jornada seguinte">
+        ▶
+      </button>
+    </span>
+  )
+}
+
+/** Painel "Jornada" ao lado da classificação: os jogos de uma jornada, com o resultado. */
+function RoundPanel({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
+  const nav = useNav()
+  const rounds = byRound(fixtures)
+  const [index, setIndex] = useState(() => startRound(rounds))
+  if (rounds.length === 0) return null
+  const i = Math.min(index, rounds.length - 1)
+  const name = (c: ClubRef, align: string) => (
+    <Link
+      onClick={() => nav.go({ kind: 'club', id: c.id })}
+      className={`block truncate ${align} ${c.id === own ? 'font-bold text-cm-yellow' : 'text-white'}`}
+    >
+      {c.shortName}
+    </Link>
+  )
+  return (
+    <Panel title="Jornada" right={<RoundPicker rounds={rounds} index={i} onChange={setIndex} />} className="min-h-0 flex-1">
+      <div className="cm-zebra min-h-0 flex-1 overflow-auto">
+        {rounds[i][1].map((f) => (
+          <div key={f.id} className="flex h-[30px] items-center gap-2 px-3 text-[14px]">
+            <div className="min-w-0 flex-1">{name(f.home, 'text-right')}</div>
+            <span className="w-12 shrink-0 text-center font-bold tabular-nums text-cm-magenta">
+              {f.homeGoals === null ? 'v' : `${f.homeGoals}:${f.awayGoals}`}
+            </span>
+            <div className="min-w-0 flex-1">{name(f.away, 'text-left')}</div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  )
+}
+
+/** Classificação de uma competição viva, fase a fase (pontos corridos, grupos, eliminatórias). */
+function Stages({ c, stages, fixtures, own }: { c: CompetitionProfile; stages: StageView[]; fixtures: Fixture[]; own?: number }) {
+  const [index, setIndex] = useState(stages.length - 1)
+  const stage = stages[Math.min(index, stages.length - 1)]
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+      {stages.length > 1 && (
+        <div className="flex shrink-0 justify-center gap-1.5">
+          {stages.map((st, i) => (
+            <button key={st.name} className={`cm-purple h-7 w-44 ${i === index ? 'ring-1 ring-cm-yellow !text-cm-yellow' : ''}`} onClick={() => setIndex(i)}>
+              {st.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {stage.kind === 'league' && (
+        <div className="flex min-h-0 flex-1 gap-2.5">
+          <Table c={c} rows={stage.tables[0]?.rows ?? []} own={own} title={stages.length > 1 ? stage.name : 'Classificação Geral'} />
+          {(fixtures.length > 0 || c.zones.length > 0) && (
+            <div className="flex min-h-0 w-[360px] shrink-0 flex-col gap-2.5">
+              {fixtures.length > 0 && <RoundPanel fixtures={fixtures} own={own} />}
+              {c.zones.length > 0 && (
+                <Panel title="Zonas" className="shrink-0">
+                  <ZoneLegend zones={c.zones} />
+                </Panel>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {stage.kind === 'groups' && (
+        <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2.5 overflow-auto">
+          {stage.tables.map((t) => (
+            <GroupBox key={t.name} name={t.name} rows={t.rows} own={own} />
+          ))}
+        </div>
+      )}
+      {stage.kind === 'knockout' && (
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">
+          {[...stage.rounds].reverse().map((r) => (
+            <Panel key={r.name} title={r.name} className="shrink-0">
+              <div className="cm-zebra">
+                {r.ties.map((t, i) => (
+                  <Tie key={i} tie={t} own={own} />
+                ))}
+              </div>
+            </Panel>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Calendário: uma jornada de cada vez, com ◀ ▶; abre na próxima por jogar. */
 function Calendar({ fixtures, table, own }: { fixtures: Fixture[]; table: StandingRow[]; own?: number }) {
   const rounds = byRound(fixtures)
-  const next = rounds.findIndex(([, games]) => games.some((f) => f.homeGoals === null))
-  const [index, setIndex] = useState(next < 0 ? rounds.length - 1 : next)
-  const [name, games] = rounds[Math.min(index, rounds.length - 1)]
+  const [index, setIndex] = useState(() => startRound(rounds))
+  const i = Math.min(index, rounds.length - 1)
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
-      <div className="flex shrink-0 items-center justify-center gap-2 py-1.5">
-        <button className="cm-purple h-6 w-10" disabled={index <= 0} onClick={() => setIndex(index - 1)} aria-label="Jornada anterior">
-          ◀
-        </button>
-        <div className="w-[26rem] text-center font-title text-xl font-bold text-cm-yellow">
-          {name}
-          {games[0] ? ` · ${matchDate(games[0].date).slice(4)}` : ''}
-        </div>
-        <button
-          className="cm-purple h-6 w-10"
-          disabled={index >= rounds.length - 1}
-          onClick={() => setIndex(index + 1)}
-          aria-label="Jornada seguinte"
-        >
-          ▶
-        </button>
+    <Panel title="Calendário" right={<RoundPicker rounds={rounds} index={i} onChange={setIndex} />} className="flex-1">
+      <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
+        <RoundGames fixtures={rounds[i][1]} table={table} own={own} />
       </div>
-      <div className="min-h-0 flex-1 overflow-auto pt-1">
-        <RoundGames fixtures={games} table={table} own={own} />
-      </div>
-    </div>
+    </Panel>
   )
 }
 
@@ -316,12 +389,11 @@ function Results({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
   const rounds = byRound(fixtures.filter((f) => f.homeGoals !== null)).reverse()
   if (rounds.length === 0) return <div className="p-6 text-center text-cm-magenta">Ainda não há resultados.</div>
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">
       {rounds.map(([name, games]) => (
-        <div key={name}>
-          <div className="pb-1 pt-2 text-center font-title text-lg font-bold text-cm-yellow">{name}</div>
+        <Panel key={name} title={name} className="shrink-0">
           <FixtureRows fixtures={games} own={own} />
-        </div>
+        </Panel>
       ))}
     </div>
   )
@@ -371,10 +443,27 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
   ) : (
     continentPt(comp?.continent ?? 'Mundial')
   )
-
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={comp?.name ?? ''} fg="#ffffff" bg="#1e9cf0" />
+      {/* O cabeçalho das outras telas; a taça no azul das competições do CM */}
+      <ScreenHeader
+        icon={
+          <span className="flex size-11 items-center justify-center rounded bg-[#1e9cf0] text-white">
+            <Trophy size={22} />
+          </span>
+        }
+        eyebrow={
+          comp && (
+            <>
+              <span className="rounded bg-[#0f2f4a] px-1.5 tracking-wider text-[#7cc8ff]">{where}</span>
+              <span className="rounded bg-black/40 px-1.5 tracking-wider">Reputação {comp.reputation}</span>
+              {comp.kind === 'national' && <span className="rounded bg-black/40 px-1.5 tracking-wider">Seleções</span>}
+            </>
+          )
+        }
+        title={comp?.name ?? ''}
+      />
+      <div className="mt-2.5" />
       <Tabs
         tabs={TABS.map((t) => {
           if (t.key === 'table') return { ...t, disabled: !comp || (comp.clubs.length === 0 && stages.length === 0) }
@@ -385,15 +474,11 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
         active={tab}
         onChange={setTab}
       />
-      <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
-        {comp && (
-          <div className="shrink-0 pt-1.5 text-center text-cm-magenta">
-            {where} · Reputação {comp.reputation}
-            {comp.kind === 'national' && ' · Seleções'}
-          </div>
-        )}
-        {comp && tab === 'table' && (stages.length > 0 ? <Stages c={comp} stages={stages} own={own} /> : <Table c={comp} rows={[]} own={own} />)}
+      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col">
+        {error && <div className="mb-2 rounded bg-red-900 px-2 py-1 text-white">{error}</div>}
+        {comp &&
+          tab === 'table' &&
+          (stages.length > 0 ? <Stages c={comp} stages={stages} fixtures={fixtures} own={own} /> : <Table c={comp} rows={[]} own={own} />)}
         {tab === 'fixtures' && fixtures.length > 0 && <Calendar fixtures={fixtures} table={table} own={own} />}
         {tab === 'results' && <Results fixtures={fixtures} own={own} />}
         {comp && tab === 'history' && <History c={comp} />}

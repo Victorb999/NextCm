@@ -7,6 +7,7 @@ import { photoUrl } from './backgrounds'
 export type Currency = 'EUR' | 'GBP' | 'USD' | 'BRL'
 export type WagePeriod = 'week' | 'month' | 'year'
 export type TitleFont =
+  | 'inter'
   | 'futurista'
   | 'classica'
   | 'moderna'
@@ -19,7 +20,7 @@ export type TitleFont =
   | 'dmSerif'
   | 'play'
   | 'shadows'
-export type TextFont = 'tahoma' | 'googleSans' | 'roboto' | 'robotoCondensed' | 'lato' | 'play' | 'oswald'
+export type TextFont = 'inter' | 'tahoma' | 'googleSans' | 'roboto' | 'robotoCondensed' | 'lato' | 'play' | 'oswald'
 export type ScreenMode = 'window' | 'fullscreen'
 export type Resolution = '1280x720' | '1366x768' | '1600x900' | '1920x1080'
 export type Background = 'default' | 'plain' | 'photo' | 'image'
@@ -32,6 +33,8 @@ export type Settings = {
   /** Letra dos títulos e da letra do resto do texto. */
   font: TitleFont
   textFont: TextFont
+  /** 2: já passou às fontes das maquetas (Inter) por defeito. */
+  fontsVersion?: number
   screen: ScreenMode
   /** Tamanho da janela (só em modo janela): sempre 16:9, para o layout não perder a proporção. */
   resolution: Resolution
@@ -53,8 +56,9 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   currency: 'EUR',
   wages: 'week',
-  font: 'futurista',
-  textFont: 'tahoma',
+  font: 'inter',
+  textFont: 'inter',
+  fontsVersion: 2,
   screen: 'window',
   resolution: '1280x720',
   sideColour: '#45526a',
@@ -113,6 +117,7 @@ export const WAGES: { key: WagePeriod; label: string; suffix: string; long: stri
 ]
 
 export const FONTS: { key: TitleFont; label: string; family: string }[] = [
+  { key: 'inter', label: 'Inter', family: 'Inter, "Segoe UI", sans-serif' },
   { key: 'futurista', label: 'Futurista', family: '"Trebuchet MS", Tahoma, sans-serif' },
   { key: 'classica', label: 'Clássica', family: 'Tahoma, Verdana, sans-serif' },
   { key: 'moderna', label: 'Moderna', family: '"Segoe UI", Arial, sans-serif' },
@@ -129,6 +134,7 @@ export const FONTS: { key: TitleFont; label: string; family: string }[] = [
 
 /** Letra do texto (listas, tabelas, botões): só as que se leem bem em 13 px. */
 export const TEXT_FONTS: { key: TextFont; label: string; family: string }[] = [
+  { key: 'inter', label: 'Inter', family: 'Inter, Tahoma, sans-serif' },
   { key: 'tahoma', label: 'Tahoma (CM)', family: 'Tahoma, Verdana, sans-serif' },
   { key: 'googleSans', label: 'Google Sans', family: '"Google Sans", Tahoma, sans-serif' },
   { key: 'roboto', label: 'Roboto', family: 'Roboto, Tahoma, sans-serif' },
@@ -155,6 +161,11 @@ function load(): Settings {
     const s: Settings = raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS
     // Uma resolução que já não existe (ex.: a antiga "Livre") volta à de origem
     if (!RESOLUTIONS.some((r) => r.key === s.resolution)) s.resolution = DEFAULT_SETTINGS.resolution
+    // Quem ficou com as fontes de origem antigas passa uma vez às novas (Inter); quem escolheu outras fica com elas
+    if ((s.fontsVersion ?? 1) < 2) {
+      if (s.font === 'futurista' && s.textFont === 'tahoma') Object.assign(s, { font: 'inter', textFont: 'inter' })
+      s.fontsVersion = 2
+    }
     return s
   } catch {
     return DEFAULT_SETTINGS

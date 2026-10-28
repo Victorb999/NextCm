@@ -1,28 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Instructions } from '../bindings/Instructions'
-import type { Mentality } from '../bindings/Mentality'
-import type { Passing } from '../bindings/Passing'
-import type { Tackling } from '../bindings/Tackling'
 import type { Takers } from '../bindings/Takers'
+import { MENTALITY, PASSING, TACKLING } from '../tactics'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
-
-const MENTALITY: [Mentality, string][] = [
-  ['normal', 'Normal'],
-  ['defensive', 'Defensivo'],
-  ['attacking', 'Atacante'],
-]
-const PASSING: [Passing, string][] = [
-  ['mixed', 'Misto'],
-  ['short', 'Curto'],
-  ['direct', 'Directo'],
-  ['long', 'Longo'],
-]
-const TACKLING: [Tackling, string][] = [
-  ['normal', 'Normal'],
-  ['soft', 'Suave'],
-  ['hard', 'Duro'],
-]
 
 function Option({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
   return (

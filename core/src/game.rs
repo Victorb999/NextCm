@@ -466,6 +466,8 @@ pub struct GameInfo {
     pub sacked: bool,
     /// Há convocados sem número para o jogo de amanhã: o Continuar Jogo abre os números.
     pub needs_numbers: bool,
+    /// A tela "Números Plantel" está aberta: pré-época ou jogadores sem número.
+    pub numbers_open: bool,
 }
 
 /// Uma linha da lista "Carregar Jogo".
@@ -1876,6 +1878,7 @@ impl Game {
             live: self.live.is_some(),
             sacked: self.sacked(),
             needs_numbers: self.live.is_none() && !self.unnumbered_for_next_match()?.is_empty(),
+            numbers_open: self.numbers_open()?,
         })
     }
 

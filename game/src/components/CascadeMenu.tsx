@@ -33,7 +33,7 @@ function Panel({
       <div
         ref={ref}
         style={{ left: x, top }}
-        className="fixed z-[70] max-h-screen min-w-[150px] overflow-y-auto border border-b-[#7a5a08] border-l-[#ffe680] border-r-[#7a5a08] border-t-[#ffe680] bg-[#e7b51f] py-0.5 text-[14px] text-[#1c1400] shadow-[3px_3px_0_rgba(0,0,0,0.6)]"
+        className="fixed z-[70] max-h-screen min-w-[150px] overflow-y-auto rounded border border-b-[#7a5a08] border-l-[#ffe680] border-r-[#7a5a08] border-t-[#ffe680] bg-[#e7b51f] py-0.5 text-[14px] text-[#1c1400] shadow-[3px_3px_0_rgba(0,0,0,0.6)]"
       >
         {items.map((item, i) =>
           item === 'separator' ? (

@@ -60,7 +60,7 @@ export default function PickList({
             {g.title && (
               <div className="pb-1 pt-2 text-center font-title text-lg font-bold text-cm-yellow">{g.title}</div>
             )}
-            <div className="grid grid-cols-2 gap-x-3">
+            <div className="cm-zebra-2 grid grid-cols-2 gap-x-3">
               {g.items.map((item) => {
                 const i = index++
                 return (
