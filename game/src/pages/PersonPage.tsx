@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
@@ -5,13 +6,13 @@ import type { PersonProfile } from '../bindings/PersonProfile'
 import { DialogFrame, Overlay } from '../components/Dialog'
 import DisciplineDialog from '../components/DisciplineDialog'
 import ReportDialog from '../components/ReportDialog'
-import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, Link, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
 import type { TransferView } from '../bindings/TransferView'
 import TransferActions, { type TransferAction } from '../components/TransferActions'
 import TextDialog from '../components/TextDialog'
 import TransferTab from '../components/TransferTab'
 import { compareFirst, setCompareFirst } from '../compare'
-import { cmDate, money, wage } from '../format'
+import { cmDate, initials, money, wage } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import { PLAYER_ATTRIBUTES } from '../attributes'
@@ -64,13 +65,13 @@ function AttributeGrid({ items }: { items: { label: string; value: ReactNode; co
   const perColumn = Math.ceil(items.length / 3)
   const columns = [0, 1, 2].map((c) => items.slice(c * perColumn, (c + 1) * perColumn))
   return (
-    <div className="grid grid-cols-3 gap-x-1 px-1.5">
+    <div className="grid shrink-0 grid-cols-3 gap-2.5">
       {columns.map((col, c) => (
-        <div key={c}>
+        <div key={c} className="cm-zebra overflow-hidden rounded-md bg-[#1a1b21]">
           {col.map((it) => (
-            <div key={it.label} className="flex h-[23px] items-center justify-between border-b border-cm-line bg-black/50 px-2">
-              <span className="text-[15px] text-white">{it.label}</span>
-              <span className={`text-[15px] font-bold tabular-nums ${it.color ?? 'text-cm-orange'}`}>{it.value}</span>
+            <div key={it.label} className="flex h-[27px] items-center justify-between px-3">
+              <span className="text-[14.5px] text-[#e3e1e9]">{it.label}</span>
+              <span className={`text-[14.5px] font-bold tabular-nums ${it.color ?? 'text-cm-orange'}`}>{it.value}</span>
             </div>
           ))}
         </div>
@@ -82,11 +83,14 @@ function AttributeGrid({ items }: { items: { label: string; value: ReactNode; co
 /** Tabela pequena de cabeçalho roxo (resumo e histórico). */
 function PurpleTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   return (
-    <table className="w-full border-collapse text-center">
+    <table className="w-full overflow-hidden rounded-md border-collapse bg-[#1a1b21] text-center">
       <thead>
-        <tr className="h-6">
+        <tr className="h-8">
           {head.map((h, i) => (
-            <th key={i} className={`border border-black bg-cm-head px-2 font-normal text-white ${i === 0 ? 'text-left' : ''}`}>
+            <th
+              key={i}
+              className={`bg-[#3d1a73] px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 ? 'text-left' : ''}`}
+            >
               {h}
             </th>
           ))}
@@ -94,9 +98,9 @@ function PurpleTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
       </thead>
       <tbody>
         {rows.map((r, i) => (
-          <tr key={i} className="h-[22px] border-b border-cm-line">
+          <tr key={i} className="h-[28px] text-[14.5px]">
             {r.map((cell, j) => (
-              <td key={j} className={`px-2 tabular-nums ${j === 0 ? 'text-left text-white' : 'text-cm-orange'}`}>
+              <td key={j} className={`px-3 tabular-nums ${j === 0 ? 'text-left text-white' : 'text-cm-orange'}`}>
                 {cell}
               </td>
             ))}
@@ -130,8 +134,8 @@ function Profile({ p }: { p: PersonProfile }) {
   const ability = pl ?? p.staff
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 py-2 text-center font-title text-[21px] font-bold text-cm-yellow">
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">
+      <div className="shrink-0 text-[16px] font-semibold text-cm-yellow">
         Nascido {born} (Idade {p.age ?? '?'}).{' '}
         {p.nationId !== null && p.nation ? (
           <Link onClick={() => nav.go({ kind: 'nation', id: p.nationId! })}>{p.nation}</Link>
@@ -141,7 +145,7 @@ function Profile({ p }: { p: PersonProfile }) {
         {caps}.
       </div>
       <AttributeGrid items={items} />
-      <div className="mt-2 px-1.5">
+      <div className="shrink-0">
         <PurpleTable
           head={['', 'Nº', 'Rep. Actual', 'Rep. Mundial', 'Salário', 'Contrato até']}
           rows={[
@@ -157,7 +161,7 @@ function Profile({ p }: { p: PersonProfile }) {
         />
       </div>
       {p.season.length > 0 && (
-        <div className="mt-2 px-1.5">
+        <div className="shrink-0">
           <PurpleTable
             head={['Época', 'Jogos', 'Golos', 'Asts', 'Nota']}
             rows={p.season.map((s) => [s.competition, s.apps, s.goals, s.assists, s.rating.toFixed(2)])}
@@ -165,13 +169,13 @@ function Profile({ p }: { p: PersonProfile }) {
         </div>
       )}
       {p.note && (
-        <div className="mx-1.5 mt-2 border border-cm-line bg-black/50 px-3 py-1 text-[15px] text-white">
+        <div className="shrink-0 rounded-md bg-[#1a1b21] px-3 py-1.5 text-[15px] text-white">
           <span className="text-cm-yellow">Nota do treinador: </span>
           {p.note}
         </div>
       )}
       {p.knowledge && p.knowledge !== 'known' && (
-        <div className="mt-2 px-1.5 text-center text-cm-magenta">
+        <div className="shrink-0 text-center text-cm-magenta">
           {p.reportOn
             ? `Os seus olheiros estão a observá-lo: o relatório chega a ${cmDate(p.reportOn)}.`
             : p.knowledge === 'unknown'
@@ -180,14 +184,14 @@ function Profile({ p }: { p: PersonProfile }) {
         </div>
       )}
       {!!p.status?.unhappy.length && (
-        <div className="mt-2 px-1.5 text-center text-cm-orange">
+        <div className="shrink-0 text-center text-cm-orange">
           {p.status.unhappy.map((u) => (
             <div key={u}>{u}.</div>
           ))}
         </div>
       )}
       <div className="flex-1" />
-      <div className="shrink-0 py-2 text-center font-title text-[22px] font-bold text-cm-magenta">
+      <div className="shrink-0 text-center font-title text-[20px] font-bold text-cm-magenta">
         {pl ? pl.positionLong || '-' : (p.job ?? '-')}
       </div>
     </div>
@@ -207,9 +211,9 @@ function Injuries({ p }: { p: PersonProfile }) {
     ['Moral', st.moraleLabel],
   ]
   return (
-    <div className="mx-auto mt-4 w-full max-w-2xl px-1.5">
+    <div className="cm-zebra mx-auto mt-2 w-full max-w-2xl overflow-hidden rounded-md bg-[#1a1b21]">
       {rows.map(([k, v]) => (
-        <div key={k} className="flex h-8 items-center justify-between border-b border-cm-line bg-black/50 px-3 text-[15px]">
+        <div key={k} className="flex h-[32px] items-center justify-between px-4 text-[15px]">
           <span className="text-white">{k}</span>
           <span className={`font-bold ${k === 'Lesão' && st.injury ? 'text-[#ff5050]' : 'text-cm-yellow'}`}>{v}</span>
         </div>
@@ -249,9 +253,9 @@ function Contract({ p }: { p: PersonProfile }) {
     ],
   ]
   return (
-    <div className="mx-auto mt-4 w-full max-w-2xl px-1.5">
+    <div className="cm-zebra mx-auto mt-2 w-full max-w-2xl overflow-hidden rounded-md bg-[#1a1b21]">
       {rows.map(([k, v]) => (
-        <div key={k} className="flex h-8 items-center justify-between border-b border-cm-line bg-black/50 px-3 text-[15px]">
+        <div key={k} className="flex h-[32px] items-center justify-between px-4 text-[15px]">
           <span className="text-white">{k}</span>
           <span className="font-bold text-cm-yellow">{v}</span>
         </div>
@@ -264,7 +268,7 @@ function History({ p }: { p: PersonProfile }) {
   const nav = useNav()
   if (p.career.length === 0) return <div className="p-6 text-center text-cm-magenta">Sem histórico registado.</div>
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-1.5 pt-2">
+    <div className="min-h-0 flex-1 overflow-auto">
       <PurpleTable
         head={['Clube', 'Ano', 'Jogos', 'Golos']}
         rows={p.career.map((c) => [
@@ -325,10 +329,9 @@ export default function PersonPage({ id }: { id: number }) {
   const club = person?.club
   const colours = club?.fg && club?.bg ? { fg: club.fg, bg: club.bg } : DEFAULT_COLOURS
   const number = person?.player?.squadNumber ? `${person.player.squadNumber}. ` : ''
-  const title = person ? (
-    <>
-      {number}
-      {person.name} (
+  const title = person ? `${number}${person.name}` : ''
+  const clubTag = person ? (
+    <span className="rounded px-1.5 tracking-wider" style={{ color: colours.fg, background: colours.bg }}>
       {club ? (
         <Link onClick={() => nav.go({ kind: 'club', id: club.id, reserves: person.status?.reserve })}>
           {person.status?.reserve ? `Reservas ${club.shortName}` : club.shortName}
@@ -336,50 +339,63 @@ export default function PersonPage({ id }: { id: number }) {
       ) : (
         'Sem clube'
       )}
-      )
-    </>
-  ) : (
-    ''
-  )
+    </span>
+  ) : null
 
   // Menu Acção (num jogo em curso): de outro clube (ou livre), propor contrato e observar; do
   // plantel, disciplina, imprensa e relatórios do staff. Quem pode assinar decide o core.
   const mine = !!person && person.club?.id === game.info?.club.id
   const canScout = game.mode === 'game' && !!person?.player && !mine && !person.reportOn
   const m = market
-  const actions = mine
+  const actions: { key: string; label: string }[][] = mine
     ? [
-        ...(m?.canRenew ? [{ key: 'renew', label: 'Oferecer Novo Contrato' }] : []),
-        m?.transferListed
-          ? { key: 'unlist', label: 'Retirar da Lista de Transferências' }
-          : { key: 'list', label: 'Colocar na Lista de Transferências' },
-        m?.loanListed
-          ? { key: 'unloanlist', label: 'Retirar da Lista de Empréstimos' }
-          : { key: 'loanlist', label: 'Colocar na Lista de Empréstimos' },
-        ...(m?.transferListed ? [{ key: 'price', label: 'Definir Preço Pedido' }] : []),
-        person?.status?.reserve
-          ? { key: 'promote', label: 'Promover ao Plantel Principal' }
-          : { key: 'demote', label: 'Despromover para Reservas' },
-        { key: 'discipline', label: 'Disciplinar Jogador' },
-        { key: 'release', label: 'Dispensar' },
-        { key: 'praise', label: 'Elogiar na Imprensa' },
-        { key: 'criticise', label: 'Criticar na Imprensa' },
-        { key: 'medical', label: 'Pedir Relatório Médico' },
-        { key: 'fitness', label: 'Pedir Relatório Preparador Físico' },
+        // Mercado
+        [
+          ...(m?.canRenew ? [{ key: 'renew', label: 'Oferecer Novo Contrato' }] : []),
+          m?.transferListed
+            ? { key: 'unlist', label: 'Retirar da Lista de Transferências' }
+            : { key: 'list', label: 'Colocar na Lista de Transferências' },
+          m?.loanListed
+            ? { key: 'unloanlist', label: 'Retirar da Lista de Empréstimos' }
+            : { key: 'loanlist', label: 'Colocar na Lista de Empréstimos' },
+          ...(m?.transferListed ? [{ key: 'price', label: 'Definir Preço Pedido' }] : []),
+        ],
+        // Plantel
+        [
+          person?.status?.reserve
+            ? { key: 'promote', label: 'Promover ao Plantel Principal' }
+            : { key: 'demote', label: 'Despromover para Reservas' },
+          { key: 'discipline', label: 'Disciplinar Jogador' },
+          { key: 'release', label: 'Dispensar' },
+        ],
+        // Imprensa
+        [
+          { key: 'praise', label: 'Elogiar na Imprensa' },
+          { key: 'criticise', label: 'Criticar na Imprensa' },
+        ],
+        // Staff
+        [
+          { key: 'medical', label: 'Pedir Relatório Médico' },
+          { key: 'fitness', label: 'Pedir Relatório Preparador Físico' },
+        ],
       ]
     : [
-        ...(m?.canOffer && !m.free ? [{ key: 'offer', label: 'Abordar Para Comprar' }] : []),
-        ...(m?.canLoan ? [{ key: 'loan', label: 'Propôr Empréstimo' }] : []),
-        ...(m?.canOption ? [{ key: 'option', label: 'Exercer Opção de Compra' }] : []),
-        ...(person?.canContract ? [{ key: 'contract', label: 'Propor Contrato' }] : []),
-        person?.shortlisted
-          ? { key: 'unshortlist', label: 'Retirar da Lista Preferencial' }
-          : { key: 'shortlist', label: 'Adicionar à Lista Preferencial' },
-        ...(canScout ? [{ key: 'scout', label: 'Observar Jogador' }] : []),
+        [
+          ...(m?.canOffer && !m.free ? [{ key: 'offer', label: 'Abordar Para Comprar' }] : []),
+          ...(m?.canLoan ? [{ key: 'loan', label: 'Propôr Empréstimo' }] : []),
+          ...(m?.canOption ? [{ key: 'option', label: 'Exercer Opção de Compra' }] : []),
+          ...(person?.canContract ? [{ key: 'contract', label: 'Propor Contrato' }] : []),
+        ],
+        [
+          person?.shortlisted
+            ? { key: 'unshortlist', label: 'Retirar da Lista Preferencial' }
+            : { key: 'shortlist', label: 'Adicionar à Lista Preferencial' },
+          ...(canScout ? [{ key: 'scout', label: 'Observar Jogador' }] : []),
+        ],
       ]
   // Para todos: alcunha, nota e comparar (o 1º escolhido espera pelo 2º)
   const first = compareFirst()
-  const common = [
+  const common: { key: string; label: string }[] = [
     { key: 'nickname', label: 'Definir Alcunha' },
     { key: 'note', label: 'Criar Nota Treinador' },
     first && first.id !== id ? { key: 'compare', label: `Comparar com ${first.name}` } : { key: 'compareFirst', label: 'Comparar Jogadores' },
@@ -433,49 +449,60 @@ export default function PersonPage({ id }: { id: number }) {
 
   return (
     <div className="relative flex h-full flex-col">
-      <TitleBand title={title} fg={colours.fg} bg={colours.bg} />
-      {game.mode === 'game' && person?.player && (
-        <div className="absolute right-3 top-2.5 z-20">
-          <PurpleMenu
-            label="Acção"
-            align="right"
-            options={[...actions, ...common]}
-            onChange={(k) => {
-              if (k === 'contract' || k === 'renew') nav.go({ kind: 'contract', id })
-              else if (k === 'offer' || k === 'loan' || k === 'price') setDeal(k)
-              else if (k === 'option') void marketAction(() => api.exerciseOption(id))
-              else if (k === 'nickname' || k === 'note') setText(k)
-              else if (k === 'release') void api.releaseQuestion(id).then(setRelease, (e) => setError(String(e)))
-              else if (k === 'compareFirst' && person) {
-                setCompareFirst({ id, name: person.name })
-                setNotice(`Escolha o segundo jogador e, no menu Acção, Comparar com ${person.name}.`)
-              } else if (k === 'compare' && first) {
-                setCompareFirst(null)
-                nav.go({ kind: 'compare', a: first.id, b: id })
-              }
-              else if (k === 'list' || k === 'unlist' || k === 'loanlist' || k === 'unloanlist')
-                void marketAction(() =>
-                  api.setListing(
-                    id,
-                    k === 'list' ? true : k === 'unlist' ? false : !!m?.transferListed,
-                    k === 'loanlist' ? true : k === 'unloanlist' ? false : !!m?.loanListed,
-                    m?.asking ?? null,
-                  ),
-                )
-              else if (k === 'shortlist' || k === 'unshortlist')
-                void api.setShortlist(id, k === 'shortlist').then(() => {
-                  setNotice(k === 'shortlist' ? 'Adicionado à Lista Preferencial.' : 'Retirado da Lista Preferencial.')
-                  void reload()
-                })
-              else if (k === 'scout') setConfirm(true)
-              else if (k === 'discipline') setDiscipline(true)
-              else if (k === 'praise' || k === 'criticise') void comment(k)
-              else if (k === 'promote' || k === 'demote') void moveSquad(k === 'demote')
-              else setReport(k as 'medical' | 'fitness')
-            }}
-          />
-        </div>
-      )}
+      <ScreenHeader
+        emblem={club ? { text: initials(club.shortName), fg: colours.fg, bg: colours.bg } : undefined}
+        eyebrow={clubTag}
+        title={title}
+        right={
+          game.mode === 'game' && person?.player && (
+        <PurpleMenu
+          label="Acção"
+          align="right"
+          buttonClass="cm-purple flex h-8 items-center gap-1.5 px-4"
+          trigger={
+            <>
+              Acção <ChevronDown size={14} />
+            </>
+          }
+          options={[...actions, common].filter((g) => g.length > 0).flatMap((g, i) => (i ? ['separator' as const, ...g] : g))}
+          onChange={(k) => {
+            if (k === 'contract' || k === 'renew') nav.go({ kind: 'contract', id })
+            else if (k === 'offer' || k === 'loan' || k === 'price') setDeal(k)
+            else if (k === 'option') void marketAction(() => api.exerciseOption(id))
+            else if (k === 'nickname' || k === 'note') setText(k)
+            else if (k === 'release') void api.releaseQuestion(id).then(setRelease, (e) => setError(String(e)))
+            else if (k === 'compareFirst' && person) {
+              setCompareFirst({ id, name: person.name })
+              setNotice(`Escolha o segundo jogador e, no menu Acção, Comparar com ${person.name}.`)
+            } else if (k === 'compare' && first) {
+              setCompareFirst(null)
+              nav.go({ kind: 'compare', a: first.id, b: id })
+            }
+            else if (k === 'list' || k === 'unlist' || k === 'loanlist' || k === 'unloanlist')
+              void marketAction(() =>
+                api.setListing(
+                  id,
+                  k === 'list' ? true : k === 'unlist' ? false : !!m?.transferListed,
+                  k === 'loanlist' ? true : k === 'unloanlist' ? false : !!m?.loanListed,
+                  m?.asking ?? null,
+                ),
+              )
+            else if (k === 'shortlist' || k === 'unshortlist')
+              void api.setShortlist(id, k === 'shortlist').then(() => {
+                setNotice(k === 'shortlist' ? 'Adicionado à Lista Preferencial.' : 'Retirado da Lista Preferencial.')
+                void reload()
+              })
+            else if (k === 'scout') setConfirm(true)
+            else if (k === 'discipline') setDiscipline(true)
+            else if (k === 'praise' || k === 'criticise') void comment(k)
+            else if (k === 'promote' || k === 'demote') void moveSquad(k === 'demote')
+            else setReport(k as 'medical' | 'fitness')
+          }}
+        />
+          )
+        }
+      />
+      <div className="mt-2.5" />
       <Tabs
         tabs={TABS.map((t) =>
           t.key === 'injuries'
@@ -487,9 +514,9 @@ export default function PersonPage({ id }: { id: number }) {
         active={tab}
         onChange={setTab}
       />
-      <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/70">
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
-        {notice && <div className="bg-[#0b3a10] px-2 py-1 text-center text-cm-yellow">{notice}</div>}
+      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col">
+        {error && <div className="mb-2.5 rounded bg-red-900 px-2 py-1 text-white">{error}</div>}
+        {notice && <div className="mb-2.5 rounded bg-[#0f3a2a] px-2 py-1 text-center text-cm-yellow">{notice}</div>}
         {person && tab === 'profile' && <Profile p={person} />}
         {person && tab === 'contract' && <Contract p={person} />}
         {person && tab === 'injuries' && <Injuries p={person} />}

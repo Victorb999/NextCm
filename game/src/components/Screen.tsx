@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 /** Luminância aproximada de uma cor `#rrggbb` (0 = preto, 1 = branco). */
@@ -109,7 +109,11 @@ export function BottomBar({
   )
 }
 
-/** Botão roxo com menu ("Vêr ▼", "Critério ▼"), como os do CM. */
+/** Uma opção do menu, ou um traço entre grupos. */
+export type MenuOption<T extends string> = { key: T; label: string } | 'separator'
+
+/** Botão roxo com menu ("Vêr ▼", "Critério ▼", "Acção ▼"), como os do CM: abre e fecha no clique
+ * (e fecha com um clique fora ou com Esc); a lista no verde dos menus, com zebra. */
 export function PurpleMenu<T extends string>({
   label,
   options,
@@ -121,7 +125,7 @@ export function PurpleMenu<T extends string>({
   buttonClass,
 }: {
   label: string
-  options: { key: T; label: string }[]
+  options: MenuOption<T>[]
   value?: T
   onChange?: (key: T) => void
   disabled?: boolean
@@ -132,7 +136,8 @@ export function PurpleMenu<T extends string>({
   buttonClass?: string
 }) {
   const [open, setOpen] = useState(false)
-  // Com a lista aberta, o Escape só a fecha (não volta à tela anterior)
+  const box = useRef<HTMLDivElement>(null)
+  // Com a lista aberta, o Escape só a fecha (não volta à tela anterior); um clique fora fecha-a
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -140,16 +145,24 @@ export function PurpleMenu<T extends string>({
       e.stopImmediatePropagation()
       setOpen(false)
     }
+    const onDown = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false)
+    }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    window.addEventListener('mousedown', onDown)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('mousedown', onDown)
+    }
   }, [open])
   return (
-    <div className="relative" onMouseLeave={() => setOpen(false)}>
+    <div ref={box} className="relative">
       <button
         className={buttonClass ?? 'cm-purple flex h-6 w-40 items-center justify-center gap-1'}
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
         aria-label={trigger ? label : undefined}
+        aria-expanded={open}
       >
         {trigger ?? (
           <>
@@ -159,20 +172,29 @@ export function PurpleMenu<T extends string>({
       </button>
       {open && (
         <div
-          className={`absolute top-full z-30 min-w-40 overflow-hidden whitespace-nowrap rounded-b border border-cm-purplelight bg-[#2a0d52] ${align === 'right' ? 'right-0' : 'left-0'}`}
+          className={`cm-zebra absolute top-full z-30 mt-1 min-w-44 overflow-hidden whitespace-nowrap rounded-md border border-[#10b981]/60 bg-[#0f241b] py-1 text-[14px] shadow-[0_8px_24px_rgba(0,0,0,0.65)] ${
+            align === 'right' ? 'right-0' : 'left-0'
+          }`}
         >
-          {options.map((o) => (
-            <button
-              key={o.key}
-              onClick={() => {
-                onChange?.(o.key)
-                setOpen(false)
-              }}
-              className={`block w-full px-3 py-0.5 text-left hover:bg-cm-purple ${o.key === value ? 'text-cm-yellow' : 'text-white'}`}
-            >
-              {o.label}
-            </button>
-          ))}
+          {options.map((o, i) =>
+            o === 'separator' ? (
+              <div key={`s${i}`} className="mx-2 my-1 border-t border-[#2f6b52]" />
+            ) : (
+              <button
+                key={o.key}
+                onClick={() => {
+                  onChange?.(o.key)
+                  setOpen(false)
+                }}
+                className={`flex h-[26px] w-full items-center gap-2 px-3 text-left hover:!bg-[#1d4d3a] hover:text-cm-yellow ${
+                  o.key === value ? 'font-bold text-cm-yellow' : 'text-[#e3e1e9]'
+                }`}
+              >
+                <span className="w-3 shrink-0 text-[11px]">{o.key === value ? '✓' : ''}</span>
+                {o.label}
+              </button>
+            ),
+          )}
         </div>
       )}
     </div>
