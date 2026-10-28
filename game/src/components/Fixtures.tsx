@@ -32,7 +32,7 @@ export function FixtureRows({ fixtures, own, showDate = true }: { fixtures: Fixt
     <table className="w-full border-collapse">
       <tbody>
         {fixtures.map((f) => (
-          <tr key={f.id} className="h-[25px] border-b border-cm-line bg-black/40 text-[15px]">
+          <tr key={f.id} className="h-[30px] text-[15px]">
             {showDate && <td className="w-36 whitespace-nowrap px-2 text-cm-magenta">{matchDate(f.date)}</td>}
             <td className="px-2 text-right">
               <ClubName club={f.home} own={own} />

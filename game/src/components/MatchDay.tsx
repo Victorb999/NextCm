@@ -50,7 +50,7 @@ function ScoreBand({
         <div className="truncate font-title text-[28px] font-bold uppercase leading-[32px]" style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.3)' }}>
           {club.shortName}
         </div>
-        <div className="truncate text-[11px] font-bold uppercase tracking-wider opacity-80">{detail}</div>
+        <div className="truncate text-[11px] font-bold font-mono uppercase tracking-wider opacity-80">{detail}</div>
       </div>
       <span className="flex h-12 min-w-[54px] shrink-0 items-center justify-center rounded bg-[#0d0e13]/90 px-2 font-title text-[34px] font-bold leading-none text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
         {goals ?? ''}
@@ -154,7 +154,7 @@ function PossessionBar({ view, home, label }: { view: LiveView; home: number; la
   )
   return (
     <div className="flex flex-col gap-1.5 rounded border border-cm-purple/60 bg-cm-purple/25 px-3 py-2">
-      <div className="flex items-center justify-between text-[12px] font-bold uppercase tracking-wider">
+      <div className="flex items-center justify-between text-[12px] font-bold font-mono uppercase tracking-wider">
         <span className="text-[#d0bcff]">{label}</span>
         <span className="normal-case tracking-normal text-[#e3e1e9]">
           {view.home.club.shortName} {home}% <span className="text-[#86869a]">vs</span> {view.away.club.shortName} {100 - home}%
@@ -204,7 +204,7 @@ function LineCard({ view, line }: { view: LiveView; line: Line }) {
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-bold uppercase tracking-widest opacity-60">
+          <div className="text-[11px] font-bold font-mono uppercase tracking-widest opacity-60">
             {lineLabel(line)} · {line.minute}'
           </div>
           <div className={`font-title text-[24px] leading-tight ${goal ? 'font-bold' : ''}`}>{line.text}</div>
@@ -270,13 +270,13 @@ function Panorama({ view, line, said, started }: { view: LiveView; line: Line | 
       <PitchLines />
       <div className="relative flex h-10 shrink-0 items-center justify-between px-3 text-[13px]">
         <span>
-          <span className="font-bold uppercase tracking-wider text-cm-orange">{title}</span>
+          <span className="font-bold font-mono uppercase tracking-wider text-cm-orange">{title}</span>
           <span className="text-[#86869a]"> / </span>
           <span className="text-[#c8c8d0]">
             {longDate(view.fixture.date)} {view.fixture.date.slice(0, 4)}
           </span>
         </span>
-        <span className="rounded bg-black/50 px-2 py-0.5 text-[12px] font-bold uppercase tracking-wider text-[#4edea3]">
+        <span className="rounded bg-black/50 px-2 py-0.5 text-[12px] font-bold font-mono uppercase tracking-wider text-[#4edea3]">
           {view.fixture.competition}
           {score}
         </span>
@@ -297,7 +297,7 @@ function Panorama({ view, line, said, started }: { view: LiveView; line: Line | 
             </div>
             {motm && (
               <div className="flex min-w-[360px] flex-col items-center rounded-lg border-2 border-cm-yellow bg-black/70 px-8 py-2">
-                <span className="text-[13px] font-bold uppercase tracking-wider text-cm-yellow">Melhor em Campo</span>
+                <span className="text-[13px] font-bold font-mono uppercase tracking-wider text-cm-yellow">Melhor em Campo</span>
                 <span className="font-title text-[28px] font-bold leading-tight text-white">
                   {motm.player.listName.split(', ').reverse().join(' ')}
                 </span>
@@ -565,7 +565,7 @@ function Highlights({ team }: { team: LiveTeam }) {
   const top = [...team.players].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 3)
   return (
     <div className="min-w-0 flex-1 rounded bg-[#1a1b21] px-2.5 py-2">
-      <div className="mb-1 flex items-center justify-between text-[12px] font-bold uppercase tracking-wider">
+      <div className="mb-1 flex items-center justify-between text-[12px] font-bold font-mono uppercase tracking-wider">
         <span className="truncate text-cm-orange">{team.club.shortName} · Destaques</span>
         <span className="shrink-0 text-[#86869a]">Con / Nota</span>
       </div>
@@ -588,7 +588,7 @@ function History({ said }: { said: Line[] }) {
   const recent = said.filter((l) => isGoalLine(l) || (l.last && kinds.includes(l.kind))).slice(-3).reverse()
   return (
     <div className="min-w-0 flex-[1.3] rounded bg-[#1a1b21] px-2.5 py-2">
-      <div className="mb-1 text-[12px] font-bold uppercase tracking-wider text-cm-orange">Histórico Recente</div>
+      <div className="mb-1 text-[12px] font-bold font-mono uppercase tracking-wider text-cm-orange">Histórico Recente</div>
       {recent.length === 0 && <div className="text-[13px] text-[#86869a]">Ainda sem lances.</div>}
       {recent.map((l, i) => (
         <div key={i} className="flex h-6 items-center gap-2 text-[13px]">
@@ -806,9 +806,9 @@ function LiveScreen({
     <div className="fixed inset-x-0 bottom-0 top-11 z-50 flex bg-[#121318]">
       <aside className="flex w-[196px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-[#16171c] p-2">
         <div className="flex flex-col items-center rounded bg-[#1e1f25] py-2">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-[#86869a]">Minuto de Jogo</span>
+          <span className="text-[11px] font-bold font-mono uppercase tracking-widest text-[#86869a]">Minuto de Jogo</span>
           <span className="font-title text-[44px] font-bold leading-[48px] text-cm-orange">{view.minute}'</span>
-          <span className="text-[12px] font-bold uppercase tracking-wider text-[#4edea3]">{period}</span>
+          <span className="text-[12px] font-bold font-mono uppercase tracking-wider text-[#4edea3]">{period}</span>
         </div>
         <div className="flex gap-1.5">
           <button className="flex h-8 flex-1 items-center justify-center rounded bg-[#1e1f25] text-[#55565f]" disabled aria-label="Voltar">
@@ -818,7 +818,7 @@ function LiveScreen({
             ▶
           </button>
         </div>
-        <MatchSideButton onClick={main} disabled={finishing || tactics !== null} className="uppercase tracking-wide">
+        <MatchSideButton onClick={main} disabled={finishing || tactics !== null} className="font-mono uppercase tracking-wide">
           {running ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
           {label}
         </MatchSideButton>
@@ -844,7 +844,7 @@ function LiveScreen({
           </MatchSideButton>
         )}
         <div className="flex flex-col gap-1 rounded bg-[#1e1f25] p-2">
-          <span className="mb-0.5 text-[11px] font-bold uppercase tracking-widest text-[#86869a]">Velocidade Comentário</span>
+          <span className="mb-0.5 text-[11px] font-bold font-mono uppercase tracking-widest text-[#86869a]">Velocidade Comentário</span>
           {MATCH_SPEEDS.map((s) => (
             <button
               key={s.key}

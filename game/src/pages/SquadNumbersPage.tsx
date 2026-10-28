@@ -60,7 +60,7 @@ function NumberGrid({
             }`}
           >
             <span className="text-[15px] font-bold">{n}</span>
-            <span className={`hidden max-w-full truncate px-1 text-[9px] uppercase tracking-wide [@media(min-height:860px)]:block ${mine ? 'font-bold' : owner !== undefined ? '' : 'text-[#4edea3]'}`}>
+            <span className={`hidden max-w-full truncate px-1 text-[9px] font-mono uppercase tracking-wide [@media(min-height:860px)]:block ${mine ? 'font-bold' : owner !== undefined ? '' : 'text-[#4edea3]'}`}>
               {mine ? 'Escolha' : (owner ?? 'Livre')}
             </span>
           </button>
@@ -194,7 +194,7 @@ export default function SquadNumbersPage() {
       {error && <div className="mx-2.5 mt-2.5 rounded bg-red-900 px-2 py-1 text-white">{error}</div>}
       <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 gap-2.5">
         <div className="flex min-h-0 w-[46%] flex-col overflow-hidden rounded-md bg-[#1a1b21]">
-          <div className="flex h-8 shrink-0 items-center gap-3 border-b border-cm-line bg-black/40 px-4 text-[11px] font-bold uppercase tracking-[0.12em] text-[#86869a]">
+          <div className="flex h-8 shrink-0 items-center gap-3 border-b border-cm-line bg-black/40 px-4 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#86869a]">
             <span className="w-9 text-center">Nº</span>
             <span className="flex-1">Jogador</span>
             <span>Posição</span>
@@ -230,7 +230,7 @@ export default function SquadNumbersPage() {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 rounded-md bg-[#1a1b21] p-4">
           <div className="flex shrink-0 items-center gap-3">
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#86869a]">Painel de escolha</div>
+              <div className="text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#86869a]">Painel de escolha</div>
               <div className="font-title text-[20px] font-bold text-white">Escolha o número</div>
             </div>
             {chosen && (

@@ -94,7 +94,7 @@ function Th({ label, sort, current, onSort, className = '' }: { label: string; s
   return (
     <th
       onClick={sort ? () => onSort(sort) : undefined}
-      className={`bg-[#16171c] px-3 text-[11px] font-bold uppercase tracking-[0.12em] ${sort ? 'cursor-pointer hover:text-white' : ''} ${
+      className={`bg-[#16171c] px-3 text-[11px] font-bold font-mono uppercase tracking-[0.12em] ${sort ? 'cursor-pointer hover:text-white' : ''} ${
         active ? 'text-cm-yellow' : 'text-[#86869a]'
       } ${className}`}
     >

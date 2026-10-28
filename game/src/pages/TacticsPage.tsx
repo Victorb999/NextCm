@@ -143,7 +143,7 @@ export default function TacticsPage({ id }: { id: number }) {
                 {initials(name)}
               </span>
               <span className="min-w-0">
-                <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#c8c8d0]">
+                <span className="flex items-center gap-2 text-[10px] font-bold font-mono uppercase tracking-[0.12em] text-[#c8c8d0]">
                   Tácticas {name}
                   <span className="rounded bg-[#0f3a2a] px-1.5 tracking-wider text-[#4edea3]">{t?.auto ? 'O adjunto escolhe' : 'Táctica activa'}</span>
                 </span>
@@ -390,7 +390,7 @@ export default function TacticsPage({ id }: { id: number }) {
 /** Barra de título de um painel: nome em laranja, uma etiqueta verde e algo à direita. */
 function PanelTitle({ title, chip, right }: { title: string; chip?: string; right?: ReactNode }) {
   return (
-    <div className="flex h-9 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold uppercase tracking-[0.12em] text-cm-orange">
+    <div className="flex h-9 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold font-mono uppercase tracking-[0.12em] text-cm-orange">
       {title}
       {chip && <span className="rounded bg-[#0f3a2a] px-1.5 tracking-wider text-[#4edea3]">{chip}</span>}
       <span className="ml-auto truncate text-[12px] normal-case tracking-normal">{right}</span>
@@ -422,7 +422,7 @@ function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: () => voi
         title="Instruções"
         right={
           onEdit && (
-            <button onClick={onEdit} className="font-bold uppercase tracking-wider text-[#4edea3] hover:text-white">
+            <button onClick={onEdit} className="font-bold font-mono uppercase tracking-wider text-[#4edea3] hover:text-white">
               Editar
             </button>
           )
@@ -431,7 +431,7 @@ function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: () => voi
       <div className="flex min-h-0 flex-col gap-2 overflow-auto p-2.5">
         {items.map(([label, value, on]) => (
           <div key={label} className="min-w-0 rounded bg-[#1e1f25] px-2.5 py-1.5">
-            <div className="truncate text-[10px] font-bold uppercase tracking-wider text-[#86869a]">{label}</div>
+            <div className="truncate text-[10px] font-bold font-mono uppercase tracking-wider text-[#86869a]">{label}</div>
             <div className={`truncate font-semibold ${on ? 'text-[#4edea3]' : 'text-[#c8c8d0]'}`}>{value}</div>
           </div>
         ))}

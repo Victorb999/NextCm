@@ -55,7 +55,7 @@ export function ScreenHeader({
       )}
       {icon && <span className="shrink-0 text-[#c8c8d0]">{icon}</span>}
       <div className="min-w-0">
-        {eyebrow && <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#c8c8d0]">{eyebrow}</div>}
+        {eyebrow && <div className="flex items-center gap-2 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#c8c8d0]">{eyebrow}</div>}
         <div className="truncate font-title text-[24px] font-bold leading-tight text-white">{title}</div>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-2">{right}</div>

@@ -20,7 +20,7 @@ function Option({ selected, onClick, children }: { selected: boolean; onClick: (
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#4edea3]">{label}</div>
+      <div className="mb-1.5 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#4edea3]">{label}</div>
       <div className="flex flex-wrap items-center gap-1.5">{children}</div>
     </div>
   )
@@ -58,7 +58,7 @@ export default function FilterDialog({
     <div className="absolute bottom-[60px] right-2.5 top-[72px] z-30 flex w-[480px] flex-col overflow-hidden rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)]">
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[#2f6b52] px-4">
         <span className="size-2 rounded-full bg-[#4edea3]" />
-        <span className="font-bold uppercase tracking-[0.12em] text-white">{players ? 'Filtros para Pesquisar Jogador' : 'Filtros para Pesquisar Staff'}</span>
+        <span className="font-bold font-mono uppercase tracking-[0.12em] text-white">{players ? 'Filtros para Pesquisar Jogador' : 'Filtros para Pesquisar Staff'}</span>
       </div>
       <div className="flex shrink-0 gap-1.5 px-4 pt-3">
         <button className="cm-purple h-7 w-28 ring-1 ring-cm-yellow">Geral</button>

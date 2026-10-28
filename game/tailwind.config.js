@@ -34,6 +34,8 @@ export default {
       fontFamily: {
         sans: ['var(--cm-text-font)'],
         title: ['var(--cm-title-font)'],
+        // Rótulos em maiúsculas, cabeçalhos de colunas e números (como nas maquetas)
+        mono: ['"JetBrains Mono"', 'Consolas', 'monospace'],
       },
       fontSize: {
         cm: ['13px', '18px'],
