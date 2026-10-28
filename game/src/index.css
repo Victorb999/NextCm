@@ -113,11 +113,10 @@ body {
 
   /* Abas escuras, em relevo como no CM; a selecionada tem borda e texto amarelos */
   .cm-tab {
-    @apply flex h-9 flex-1 items-center justify-center border bg-cm-tab text-white;
-    border-color: #5c5c5c #050505 #050505 #5c5c5c;
+    @apply flex h-9 flex-1 items-center justify-center rounded-[5px] bg-[#1e1f25] text-[#c8c8d0] hover:bg-[#292a2f] hover:text-white;
   }
   .cm-tab[aria-selected='true'] {
-    @apply border-cm-yellow text-cm-yellow;
+    @apply bg-[#292a2f] font-bold text-cm-yellow ring-1 ring-inset ring-cm-yellow;
   }
   .cm-tab:disabled {
     @apply text-[#6c3fb0];
@@ -125,10 +124,10 @@ body {
 
   /* Botões roxos (Filtros, Atrás, Seguinte, Ok...) */
   .cm-purple {
-    @apply border border-b-[#2c0d55] border-l-cm-purplelight border-r-[#2c0d55] border-t-cm-purplelight bg-cm-purple px-3 text-white;
+    @apply rounded-[4px] border border-cm-purplelight/50 bg-cm-purple px-3 font-semibold text-white hover:bg-[#6a2bc0];
   }
   .cm-purple:active:not(:disabled) {
-    @apply border-b-cm-purplelight border-l-[#2c0d55] border-r-cm-purplelight border-t-[#2c0d55];
+    @apply bg-[#4a1888];
   }
   .cm-purple:disabled {
     @apply text-cm-purpledim;

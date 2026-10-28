@@ -11,6 +11,7 @@ import type { StandingRow } from '../bindings/StandingRow'
 import { initials, longDate, shortListName } from '../format'
 import { useGame } from '../game'
 import { MATCH_SPEEDS, getSettings, saveSettings, useSettings } from '../settings'
+import { conditionColour } from '../tactics'
 import LiveTactics from './LiveTactics'
 import TalkPanel from './TalkPanel'
 
@@ -558,8 +559,6 @@ function Table({ view, own }: { view: LiveView; own: number }) {
   )
 }
 
-/** Cor da condição: verde em forma, amarelo a cansar, vermelho esgotado. */
-const conditionColour = (c: number) => (c >= 90 ? 'text-[#4edea3]' : c >= 75 ? 'text-cm-yellow' : 'text-[#ff6060]')
 
 /** "<clube> · Destaques": os três com melhor nota em campo, com a condição. */
 function Highlights({ team }: { team: LiveTeam }) {

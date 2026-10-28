@@ -78,10 +78,11 @@ export const shortRole = (role: string) => role.replace(' ', '')
 /** Fora da posição: nota na função abaixo de 15 (mostrada em laranja). */
 export const outOfPosition = (p: TacticPlayer | null | undefined) => !!p && p.fit !== null && p.fit < 15
 
+/** Cor da condição: verde em forma, amarelo a cansar, vermelho esgotado. */
 export function conditionColour(c: number | null) {
-  if (c === null || c >= 90) return 'text-cm-yellow'
-  if (c >= 75) return 'text-cm-orange'
-  return 'text-[#ff4040]'
+  if (c === null || c >= 90) return 'text-[#4edea3]'
+  if (c >= 75) return 'text-cm-yellow'
+  return 'text-[#ff6060]'
 }
 
 /** Seta a ser desenhada agora (botão direito em curso), em % do campo. */

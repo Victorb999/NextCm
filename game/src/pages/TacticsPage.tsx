@@ -1,4 +1,4 @@
-import { ChevronDown, History, Pencil } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, History, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
@@ -9,12 +9,12 @@ import type { TacticPlayer } from '../bindings/TacticPlayer'
 import InstructionsDialog from '../components/InstructionsDialog'
 import PlayerOrdersDialog from '../components/PlayerOrdersDialog'
 import { BottomBar, Link, PurpleMenu } from '../components/Screen'
-import { Pitch, Row } from '../components/TacticsBoard'
+import { Pitch, Row, RowHeader } from '../components/TacticsBoard'
 import { MENTALITY, PASSING, TACKLING, TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
 import { initials } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
-import { BENCH, selectionOf, swap, useDragSwap, type Spot } from '../selection'
+import { BENCH, sameSpot, selectionOf, swap, useDragSwap, type Spot } from '../selection'
 
 /**
  * Tela "Tácticas <clube>". No clube do treinador as mudanças valem na hora (arrastar troca,
@@ -32,8 +32,8 @@ export default function TacticsPage({ id }: { id: number }) {
   const [ordersFor, setOrdersFor] = useState<TacticPlayer | null>(null)
   // A escolha ao abrir a tela, para o Cancelar
   const original = useRef<Selection | null>(null)
-  // Substituir: o suplente escolhido (lugar no banco), à espera do titular que sai
-  const [subFrom, setSubFrom] = useState<number | null>(null)
+  // Troca em dois cliques (Substituir no banco, ⇄ no onze): o primeiro escolhido, à espera do outro
+  const [pending, setPending] = useState<Spot | null>(null)
   const changed = useRef(false)
 
   useEffect(() => {
@@ -79,11 +79,11 @@ export default function TacticsPage({ id }: { id: number }) {
 
   const drag = useDragSwap({
     enabled: editable,
-    // Com um suplente escolhido no Substituir, clicar num titular (lista ou campo) troca os dois
+    // Com um jogador escolhido (Substituir ou ⇄), clicar noutro (lista ou campo) troca os dois
     onClick: (spot) => {
-      if (subFrom === null || spot.kind !== 'starter' || !t) return
-      setSubFrom(null)
-      void apply(swap(selectionOf(t), { kind: 'bench', index: subFrom }, spot))
+      if (!pending || !t || sameSpot(pending, spot)) return
+      setPending(null)
+      void apply(swap(selectionOf(t), pending, spot))
     },
     onDrop: (from, to) => {
       if (t) void apply(swap(selectionOf(t), from, to))
@@ -114,12 +114,16 @@ export default function TacticsPage({ id }: { id: number }) {
 
   const headButton =
     'flex h-[34px] items-center gap-1.5 rounded-md bg-[#1e1f25] px-3 text-[13px] font-semibold text-[#4edea3] hover:bg-[#292a2f] disabled:text-white/25 disabled:hover:bg-[#1e1f25]'
-  const picking = subFrom !== null
+  const picking = pending !== null
+  const hint = pending?.kind === 'starter' ? 'Clique em quem entra' : 'Clique no titular que sai'
+  /** Escolhe (ou larga) o primeiro jogador da troca. */
+  const choose = (spot: Spot) => setPending((cur) => (sameSpot(cur, spot) ? null : spot))
+  const mark = (spot: Spot) => (sameSpot(pending, spot) ? 'wait' : picking ? 'pick' : undefined)
 
   return (
     <div className="flex h-full flex-col">
       {/* Cabeçalho: o nome da táctica abre o menu Tácticas; as vistas; Vêr, Último Jogo e Editar */}
-      <div className="mx-1.5 mt-1.5 flex shrink-0 items-center gap-2.5 rounded-md bg-[#1a1b21] px-2.5 py-2">
+      <div className="mx-2.5 mt-2.5 flex shrink-0 items-center gap-3 rounded-md bg-[#1a1b21] px-3 py-2.5">
         <PurpleMenu
           label="Tácticas"
           options={TACTICS_MENU}
@@ -193,23 +197,29 @@ export default function TacticsPage({ id }: { id: number }) {
           }
         />
       </div>
-      {error && <div className="mx-1.5 mt-1.5 rounded bg-red-900 px-2 py-1 text-white">{error}</div>}
+      {error && <div className="mx-2.5 mt-2.5 rounded bg-red-900 px-2 py-1 text-white">{error}</div>}
       {t && (
-        <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 gap-1.5">
-          <div className="flex min-h-0 w-[50%] flex-col gap-1.5">
+        <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 gap-2.5">
+          {/* Onze, banco e resto do plantel numa coluna só, que rola */}
+          <div className="flex min-h-0 w-[54%] flex-col gap-2.5 overflow-auto">
             <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
               <PanelTitle
                 title="Onze Titular"
                 chip={`${t.starters.filter((s) => s.player).length}/11`}
                 right={
-                  t.coach && (
-                    <Link onClick={() => nav.go({ kind: 'person', id: t.coachId! })} className="text-cm-magenta">
-                      {t.coach}
-                    </Link>
+                  pending ? (
+                    <span className="font-bold text-cm-yellow">{hint}</span>
+                  ) : (
+                    t.coach && (
+                      <Link onClick={() => nav.go({ kind: 'person', id: t.coachId! })} className="text-cm-magenta">
+                        {t.coach}
+                      </Link>
+                    )
                   )
                 }
               />
-              <div className="cm-zebra py-0.5">
+              <RowHeader place="Pos" action={editable ? 'Troca' : undefined} />
+              <div className="cm-zebra">
                 {t.starters.map((s, i) => {
                   const spot: Spot = { kind: 'starter', index: i }
                   return s.player ? (
@@ -224,30 +234,43 @@ export default function TacticsPage({ id }: { id: number }) {
                       onOrders={editable ? () => setOrdersFor(s.player!) : undefined}
                       ordered={t.orders.some((o) => o.personId === s.player!.id)}
                       captain={t.takers.captain === s.player.id}
-                      highlight={picking ? 'pick' : undefined}
+                      highlight={mark(spot)}
+                      action={
+                        editable && (
+                          <span className="flex w-[84px] shrink-0 justify-end">
+                            <button
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={() => choose(spot)}
+                              title="Troca rápida: escolha depois quem entra"
+                              className={`flex h-[22px] w-8 items-center justify-center rounded-[3px] ${
+                                sameSpot(pending, spot) ? 'bg-cm-yellow text-black' : 'text-[#c8c8d0] hover:bg-white/10 hover:text-white'
+                              }`}
+                            >
+                              <ArrowLeftRight size={15} />
+                            </button>
+                          </span>
+                        )
+                      }
                     />
                   ) : (
                     <div
                       key={`s${i}`}
                       {...drag.bind(spot, s.role)}
-                      className={`flex h-[21px] items-center gap-2 px-1.5 text-[13px] ${picking ? 'cursor-pointer hover:!bg-cm-yellow/15' : ''}`}
+                      className={`flex h-[30px] items-center gap-2 px-3 text-[14px] ${picking ? 'cursor-pointer hover:!bg-cm-yellow/15' : ''}`}
                     >
-                      <span className="w-7 shrink-0" />
-                      <span className="cm-cell w-9 shrink-0 text-center text-[11px] text-cm-yellow">{shortRole(s.role)}</span>
+                      <span className="w-8 shrink-0" />
+                      <span className="w-12 shrink-0 text-[11px] font-bold text-cm-yellow">{shortRole(s.role)}</span>
                       <span className="italic text-[#8a8a8a]">— vazio: arraste alguém para aqui —</span>
                     </div>
                   )
                 })}
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-auto rounded-md bg-[#1a1b21]">
-              <PanelTitle
-                title="Banco de Suplentes"
-                chip="SB1 – SB9"
-                right={picking && <span className="font-bold text-cm-yellow">Clique no titular que sai</span>}
-              />
+            <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
+              <PanelTitle title="Banco de Suplentes" chip="SB1 – SB9" right={pending && <span className="font-bold text-cm-yellow">{hint}</span>} />
+              <RowHeader place="Slot" action={editable ? 'Acção' : undefined} />
               {/* Banco fixo de 9: as casas vazias também recebem jogadores arrastados */}
-              <div className="cm-zebra py-0.5">
+              <div className="cm-zebra">
                 {Array.from({ length: editable ? BENCH : t.bench.length }, (_, i) => {
                   const p = t.bench[i]
                   const spot: Spot = { kind: 'bench', index: i }
@@ -258,62 +281,78 @@ export default function TacticsPage({ id }: { id: number }) {
                       kind="bench"
                       place={`SB${i + 1}`}
                       bind={drag.bind(spot, label(p, ''))}
-                      onToggle={toggler(p)}
+                      onToggle={picking ? undefined : toggler(p)}
                       onOpen={() => nav.go({ kind: 'person', id: p.id })}
-                      highlight={subFrom === i ? 'wait' : undefined}
+                      highlight={mark(spot)}
                       action={
                         editable && (
                           <button
                             onMouseDown={(e) => e.stopPropagation()}
-                            onClick={() => setSubFrom((f) => (f === i ? null : i))}
-                            className={`ml-1 w-[78px] shrink-0 rounded-[3px] text-[10px] font-bold uppercase leading-[16px] tracking-wide ${
-                              subFrom === i ? 'bg-cm-yellow text-black' : 'bg-cm-purple text-white hover:bg-cm-purplelight'
+                            onClick={() => choose(spot)}
+                            className={`w-[84px] shrink-0 rounded-[3px] text-[11px] font-bold uppercase leading-[20px] tracking-wide ${
+                              sameSpot(pending, spot) ? 'bg-cm-yellow text-black' : 'bg-cm-purple text-white hover:bg-cm-purplelight'
                             }`}
                           >
-                            {subFrom === i ? 'Cancelar' : 'Substituir'}
+                            {sameSpot(pending, spot) ? 'Cancelar' : 'Substituir'}
                           </button>
                         )
                       }
                     />
                   ) : (
-                    <div key={`b-empty${i}`} {...drag.bind(spot, `SB${i + 1}`)} className="flex h-[21px] items-center gap-2 px-1.5 text-[13px]">
-                      <span className="cm-cell w-7 shrink-0 !bg-[#1d2d8a]">&nbsp;</span>
-                      <span className="cm-cell w-9 shrink-0 text-center text-[11px] text-cm-yellow">SB{i + 1}</span>
+                    <div key={`b-empty${i}`} {...drag.bind(spot, `SB${i + 1}`)} className="flex h-[30px] items-center gap-2 px-3 text-[14px]">
+                      <span className="w-8 shrink-0" />
+                      <span className="w-12 shrink-0 text-[11px] font-bold text-[#d0bcff]">SB{i + 1}</span>
                       <span className="italic text-[#6a5a8a]">— vazio —</span>
                     </div>
                   )
                 })}
               </div>
-              {editable && t.reserves.length > 0 && (
-                <>
-                  <PanelTitle title="Resto do Plantel" />
-                  <div className="cm-zebra py-0.5">
-                    {t.reserves.map((p) => (
+            </div>
+            {editable && t.reserves.length > 0 && (
+              <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
+                <PanelTitle title="Resto do Plantel" />
+                <RowHeader place="" />
+                <div className="cm-zebra">
+                  {t.reserves.map((p) => {
+                    const spot: Spot = { kind: 'reserve', id: p.id }
+                    return (
                       <Row
                         key={`r${p.id}`}
                         p={p}
                         kind="reserve"
                         place=""
-                        bind={drag.bind({ kind: 'reserve', id: p.id }, label(p, ''))}
-                        onToggle={toggler(p)}
+                        bind={drag.bind(spot, label(p, ''))}
+                        onToggle={picking ? undefined : toggler(p)}
                         onOpen={() => nav.go({ kind: 'person', id: p.id })}
+                        highlight={mark(spot)}
                       />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-1.5">
-            <div className="flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21] p-1.5">
-              <Pitch t={t} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
-            </div>
-            {editable && (
-              <div className="shrink-0 text-center text-[12px] text-[#aab3c4]">
-                Arraste ou use Substituir para trocar · botão direito e arrastar faz a seta (atacar/recuar) · clique no número para pôr/tirar ·
-                botão direito num jogador da lista: instruções individuais
+                    )
+                  })}
+                </div>
               </div>
             )}
+          </div>
+          {/* O campo com toda a altura e, ao lado, o resumo das instruções */}
+          <div className="flex min-h-0 min-w-0 flex-1 gap-2.5">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
+              <PanelTitle
+                title="Quadro Táctico"
+                chip={`${t.formation}${t.custom ? '*' : ''}`}
+                right={
+                  editable && (
+                    <span
+                      className="cursor-help text-[#86869a]"
+                      title="Arraste, ⇄ ou Substituir para trocar · botão direito e arrastar faz a seta (atacar/recuar) · clique no número para pôr/tirar · botão direito num jogador da lista: instruções individuais"
+                    >
+                      Como mexer ?
+                    </span>
+                  )
+                }
+              />
+              <div className="flex min-h-0 flex-1 flex-col p-3">
+                <Pitch t={t} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
+              </div>
+            </div>
             <InstructionsSummary t={t} onEdit={editable ? () => setInstructions(true) : undefined} />
           </div>
         </div>
@@ -351,7 +390,7 @@ export default function TacticsPage({ id }: { id: number }) {
 /** Barra de título de um painel: nome em laranja, uma etiqueta verde e algo à direita. */
 function PanelTitle({ title, chip, right }: { title: string; chip?: string; right?: ReactNode }) {
   return (
-    <div className="flex h-7 items-center gap-2 border-b border-cm-line px-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-cm-orange">
+    <div className="flex h-9 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold uppercase tracking-[0.12em] text-cm-orange">
       {title}
       {chip && <span className="rounded bg-[#0f3a2a] px-1.5 tracking-wider text-[#4edea3]">{chip}</span>}
       <span className="ml-auto truncate text-[12px] normal-case tracking-normal">{right}</span>
@@ -359,7 +398,7 @@ function PanelTitle({ title, chip, right }: { title: string; chip?: string; righ
   )
 }
 
-/** Resumo das Instruções à Equipa debaixo do campo; Editar abre o diálogo de sempre. */
+/** Resumo das Instruções à Equipa ao lado do campo; Editar abre o diálogo de sempre. */
 function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: () => void }) {
   const i = t.instructions
   const name = (id: number | null) => {
@@ -374,12 +413,13 @@ function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: () => voi
     ['Defesa em Linha', i.offsideTrap ? 'Sim' : 'Não', i.offsideTrap],
     ['Contra-Ataque', i.counterAttack ? 'Sim' : 'Não', i.counterAttack],
     ['Defesa Intensa', i.tightMarking ? 'Sim' : 'Não', i.tightMarking],
-    ['Penáltis · Livres', `${name(t.takers.penalty)} · ${name(t.takers.freeKick)}`, false],
+    ['Penáltis', name(t.takers.penalty), false],
+    ['Livres', name(t.takers.freeKick), false],
   ]
   return (
-    <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
+    <div className="flex w-[176px] shrink-0 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
       <PanelTitle
-        title="Instruções à Equipa"
+        title="Instruções"
         right={
           onEdit && (
             <button onClick={onEdit} className="font-bold uppercase tracking-wider text-[#4edea3] hover:text-white">
@@ -388,9 +428,9 @@ function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: () => voi
           )
         }
       />
-      <div className="grid grid-cols-4 gap-1.5 p-1.5">
+      <div className="flex min-h-0 flex-col gap-2 overflow-auto p-2.5">
         {items.map(([label, value, on]) => (
-          <div key={label} className="min-w-0 rounded bg-[#1e1f25] px-2 py-1">
+          <div key={label} className="min-w-0 rounded bg-[#1e1f25] px-2.5 py-1.5">
             <div className="truncate text-[10px] font-bold uppercase tracking-wider text-[#86869a]">{label}</div>
             <div className={`truncate font-semibold ${on ? 'text-[#4edea3]' : 'text-[#c8c8d0]'}`}>{value}</div>
           </div>

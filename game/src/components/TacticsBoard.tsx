@@ -9,6 +9,39 @@ import { conditionColour, fullName, outOfPosition, shortRole, surname, type Run 
 
 export type Bind = { 'data-spot': string; onMouseDown: (e: React.MouseEvent) => void }
 
+/** Cor da casa da função, pela linha do campo (como no Stitch): GR, defesa, meio, ataque. */
+function roleChip(place: string) {
+  if (place.startsWith('SB')) return 'bg-[#2a1450] text-[#d0bcff]'
+  if (place.startsWith('GR')) return 'bg-[#12323a] text-[#5ad1e6]'
+  if (place.startsWith('D') || place.startsWith('AL')) return 'bg-[#16244a] text-[#7aa2ff]'
+  if (place.startsWith('M')) return 'bg-[#3a2508] text-cm-orange'
+  return 'bg-[#3d0f1c] text-[#ff6b8a]'
+}
+
+// Larguras das colunas, iguais no cabeçalho e nas linhas
+const COL = {
+  num: 'w-8 shrink-0 text-center',
+  place: 'w-12 shrink-0',
+  pos: 'w-28 shrink-0 truncate',
+  cond: 'w-12 shrink-0 text-right',
+  stat: 'w-12 shrink-0 text-center',
+}
+
+/** Cabeçalho das colunas da lista (onze, banco, resto do plantel). */
+export function RowHeader({ place, action }: { place: string; action?: string }) {
+  return (
+    <div className="flex h-7 items-center gap-2 bg-black/40 px-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#86869a]">
+      <span className={COL.num}>Nº</span>
+      <span className={COL.place}>{place}</span>
+      <span className="flex-1">Jogador</span>
+      <span className={COL.pos}>Posição</span>
+      <span className={COL.cond}>Cond</span>
+      <span className={COL.stat}>Est</span>
+      {action !== undefined && <span className="w-[84px] shrink-0 text-right">{action}</span>}
+    </div>
+  )
+}
+
 export function Row({
   p,
   kind,
@@ -24,7 +57,7 @@ export function Row({
 }: {
   p: TacticPlayer
   kind: 'starter' | 'bench' | 'reserve'
-  /** Função (titular) ou SB1–SB7 (suplente). */
+  /** Função (titular) ou SB1–SB9 (suplente). */
   place: string
   bind: Bind
   onToggle?: () => void
@@ -34,20 +67,21 @@ export function Row({
   onOrders?: () => void
   /** Tem instruções individuais diferentes das da equipa. */
   ordered?: boolean
-  /** O capitão ("cap" na lista, como no CM). */
+  /** O capitão ("C" antes do nome). */
   captain?: boolean
-  /** Botão no fim da linha (Substituir, no banco). */
+  /** Botão no fim da linha (troca rápida no onze, Substituir no banco). */
   action?: ReactNode
-  /** "wait": o suplente escolhido no Substituir; "pick": titular que pode sair. */
+  /** "wait": o jogador escolhido para a troca; "pick": pode ser o outro da troca. */
   highlight?: 'wait' | 'pick'
 }) {
-  const text = kind === 'bench' ? 'text-[#8a5ad8]' : kind === 'reserve' ? 'text-[#8a8a8a]' : 'text-white'
+  const text = kind === 'reserve' ? 'text-[#9a9aa6]' : 'text-white'
   const toggle =
     onToggle &&
     ((e: React.MouseEvent) => {
       e.stopPropagation()
       onToggle()
     })
+  const out = kind === 'starter' && outOfPosition(p)
   return (
     <div
       {...bind}
@@ -59,7 +93,7 @@ export function Row({
           onOrders()
         })
       }
-      className={`flex h-[21px] cursor-grab items-center gap-2 px-1.5 text-[13.5px] ${
+      className={`flex h-[30px] cursor-grab items-center gap-2 px-3 text-[14.5px] ${
         highlight === 'wait' ? '!bg-cm-purple/50' : highlight === 'pick' ? 'cursor-pointer hover:!bg-cm-yellow/15' : ''
       }`}
     >
@@ -68,32 +102,42 @@ export function Row({
         onMouseDown={(e) => onToggle && e.stopPropagation()}
         onClick={toggle}
         title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
-        className={`w-7 shrink-0 text-center tabular-nums cm-cell ${onToggle ? 'cursor-pointer' : ''} ${kind === 'bench' ? '!bg-[#1d2d8a] text-white' : 'text-white'}`}
+        className={`${COL.num} font-semibold tabular-nums ${text} ${onToggle ? 'cursor-pointer' : ''}`}
       >
         {p.squadNumber ?? ''}
       </span>
-      <span
-        onMouseDown={(e) => onToggle && e.stopPropagation()}
-        onClick={toggle}
-        className={`w-9 shrink-0 text-center text-[11px] ${onToggle ? 'cursor-pointer' : ''} ${
-          kind === 'starter' && outOfPosition(p) ? 'cm-cell !bg-[#7a3d00] text-cm-orange' : 'cm-cell text-cm-yellow'
-        }`}
-        title={kind === 'starter' && p.fit !== null ? `Nota na função: ${p.fit}` : undefined}
-      >
-        {place}
+      <span className={COL.place}>
+        {place && (
+          <span
+            onMouseDown={(e) => onToggle && e.stopPropagation()}
+            onClick={toggle}
+            className={`inline-block min-w-[38px] rounded-[3px] px-1 text-center text-[11px] font-bold leading-[18px] tracking-wide ${
+              out ? 'bg-[#7a3d00] text-cm-orange' : roleChip(place)
+            } ${onToggle ? 'cursor-pointer' : ''}`}
+            title={kind === 'starter' && p.fit !== null ? `Nota na função: ${p.fit}` : undefined}
+          >
+            {place}
+          </span>
+        )}
       </span>
-      <span className={`flex-1 truncate ${text}`}>{fullName(p.listName)}</span>
-      {captain && <span className="shrink-0 text-[12px] text-cm-yellow">cap</span>}
-      {ordered && (
-        <span className="shrink-0 text-[11px] font-bold text-cm-magenta" title="Instruções individuais">
-          I
-        </span>
-      )}
-      {(p.injured || p.suspended) && (
-        <span className="shrink-0 bg-[#9c0000] px-1 text-[11px] font-bold text-white">{p.injured ? 'Les' : 'Sus'}</span>
-      )}
-      <span className={`w-24 shrink-0 truncate ${text}`}>{p.position}</span>
-      <span className={`w-10 shrink-0 text-right ${conditionColour(p.condition)}`}>{p.condition ?? 100}%</span>
+      <span className={`flex min-w-0 flex-1 items-center gap-1.5 ${text}`}>
+        {captain && <span className="shrink-0 rounded-[3px] bg-[#4a3300] px-1 text-[11px] font-bold leading-[16px] text-cm-yellow">C</span>}
+        <span className="truncate">{fullName(p.listName)}</span>
+        {ordered && (
+          <span className="shrink-0 text-[11px] font-bold text-cm-magenta" title="Instruções individuais">
+            I
+          </span>
+        )}
+      </span>
+      <span className={`${COL.pos} text-[13px] text-[#c8c8d0]`}>{p.position}</span>
+      <span className={`${COL.cond} font-semibold tabular-nums ${conditionColour(p.condition)}`}>{p.condition ?? 100}%</span>
+      <span className={COL.stat}>
+        {p.injured || p.suspended ? (
+          <span className="rounded-[3px] bg-[#9c0000] px-1.5 text-[11px] font-bold text-white">{p.injured ? 'Les' : 'Sus'}</span>
+        ) : (
+          <span className="rounded-[3px] bg-white/10 px-1.5 text-[11px] font-bold text-[#c8c8d0]">OK</span>
+        )}
+      </span>
       {action}
     </div>
   )
@@ -131,55 +175,75 @@ export function Pitch({
   run: Run | null
   onRunStart: (index: number) => void
 }) {
+  const line = 'pointer-events-none absolute border-white/25'
   return (
-    <div
-      data-pitch
-      onContextMenu={(e) => e.preventDefault()}
-      className="relative min-h-0 flex-1 overflow-hidden border border-[#1d5a1d] bg-[repeating-linear-gradient(0deg,#1f6b22_0_36px,#1c6420_36px_72px)]"
-    >
-      {/* Linhas do campo */}
-      <div className="pointer-events-none absolute inset-2 border border-white/40" />
-      <div className="pointer-events-none absolute left-2 right-2 top-1/2 border-t border-white/40" />
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40" />
-      <div className="pointer-events-none absolute left-1/2 top-2 h-[16%] w-[44%] -translate-x-1/2 border border-t-0 border-white/40" />
-      <div className="pointer-events-none absolute bottom-2 left-1/2 h-[16%] w-[44%] -translate-x-1/2 border border-b-0 border-white/40" />
-      <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {t.starters.map((s, i) => (s.run && run?.index !== i ? <Arrow key={i} from={[s.x, s.y]} to={[s.run[0], s.run[1]]} /> : null))}
-        {run && <Arrow from={[t.starters[run.index].x, t.starters[run.index].y]} to={[run.x, run.y]} live />}
-      </svg>
-      {t.starters.map((s, i) => {
-        const b = bind({ kind: 'starter', index: i }, s.player ? surname(s.player.listName) : s.role)
-        return (
-          <div
-            key={i}
-            {...b}
-            onMouseDown={(e) => {
-              if (e.button === 2 && t.editable && s.role !== 'GR') {
-                e.preventDefault()
-                onRunStart(i)
-              } else b.onMouseDown(e)
-            }}
-            className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center ${t.editable ? 'cursor-grab' : ''}`}
-            style={{ left: `${s.x}%`, top: `${s.y}%` }}
-            title={s.role}
-          >
-            <span
-              className={`flex h-6 w-6 items-center justify-center rounded-full border border-black text-[12px] font-bold ${
-                s.role === 'GR' ? 'bg-[#0f9a2a] text-white' : s.player ? 'bg-white text-black' : 'bg-transparent text-white'
-              }`}
+    // O campo mantém a proporção de um campo a sério (68 x 105) e fica centrado no espaço que tiver
+    <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden [container-type:size]">
+      <div
+        data-pitch
+        onContextMenu={(e) => e.preventDefault()}
+        className="relative overflow-hidden rounded-md shadow-[inset_0_0_60px_rgba(0,0,0,0.45)]"
+        style={{
+          // O maior campo que cabe no espaço, sempre na mesma proporção
+          width: 'min(100cqw, 100cqh * 0.7)',
+          aspectRatio: '7 / 10',
+          background:
+            'repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 7.5%, transparent 7.5% 15%), radial-gradient(ellipse at 50% 45%, #2a6e47, #173f2b 75%)',
+        }}
+      >
+        {/* Linhas do campo */}
+        <div className={`${line} inset-[4%] rounded-[2px] border-2`} />
+        <div className={`${line} left-[4%] right-[4%] top-1/2 border-t-2`} />
+        <div className={`${line} left-1/2 top-1/2 aspect-square w-[26%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2`} />
+        <div className={`${line} left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/40`} />
+        <div className={`${line} left-1/2 top-[4%] h-[16%] w-[54%] -translate-x-1/2 border-2 border-t-0`} />
+        <div className={`${line} left-1/2 top-[4%] h-[6%] w-[26%] -translate-x-1/2 border-2 border-t-0`} />
+        <div className={`${line} left-1/2 top-[20%] aspect-[2/1] w-[20%] -translate-x-1/2 rounded-b-full border-2 border-t-0`} />
+        <div className={`${line} bottom-[4%] left-1/2 h-[16%] w-[54%] -translate-x-1/2 border-2 border-b-0`} />
+        <div className={`${line} bottom-[4%] left-1/2 h-[6%] w-[26%] -translate-x-1/2 border-2 border-b-0`} />
+        <div className={`${line} bottom-[20%] left-1/2 aspect-[2/1] w-[20%] -translate-x-1/2 rounded-t-full border-2 border-b-0`} />
+        <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          {t.starters.map((s, i) => (s.run && run?.index !== i ? <Arrow key={i} from={[s.x, s.y]} to={[s.run[0], s.run[1]]} /> : null))}
+          {run && <Arrow from={[t.starters[run.index].x, t.starters[run.index].y]} to={[run.x, run.y]} live />}
+        </svg>
+        {t.starters.map((s, i) => {
+          const b = bind({ kind: 'starter', index: i }, s.player ? surname(s.player.listName) : s.role)
+          return (
+            <div
+              key={i}
+              {...b}
+              onMouseDown={(e) => {
+                if (e.button === 2 && t.editable && s.role !== 'GR') {
+                  e.preventDefault()
+                  onRunStart(i)
+                } else b.onMouseDown(e)
+              }}
+              className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 ${t.editable ? 'cursor-grab' : ''}`}
+              style={{ left: `${s.x}%`, top: `${s.y}%` }}
+              title={s.role}
             >
-              {s.player?.squadNumber ?? ''}
-            </span>
-            <span
-              className={`whitespace-nowrap text-[13px] font-bold [text-shadow:1px_1px_0_#000] ${
-                outOfPosition(s.player) ? 'text-cm-orange' : s.player ? 'text-cm-yellow' : 'text-white/70'
-              }`}
-            >
-              {s.player ? surname(s.player.listName) : shortRole(s.role)}
-            </span>
-          </div>
-        )
-      })}
+              <span
+                className={`flex size-8 items-center justify-center rounded-lg text-[14px] font-bold shadow-[0_2px_6px_rgba(0,0,0,0.5)] ${
+                  s.role === 'GR'
+                    ? 'bg-[#4edea3] text-[#06281b]'
+                    : s.player
+                      ? 'bg-white text-[#141414]'
+                      : 'border-2 border-dashed border-white/50 text-white'
+                }`}
+              >
+                {s.player?.squadNumber ?? ''}
+              </span>
+              <span
+                className={`whitespace-nowrap rounded bg-black/75 px-1.5 text-[12px] font-bold leading-[18px] ${
+                  outOfPosition(s.player) ? 'text-cm-orange' : s.player ? 'text-white' : 'text-white/60'
+                }`}
+              >
+                {s.player ? surname(s.player.listName) : shortRole(s.role)}
+              </span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

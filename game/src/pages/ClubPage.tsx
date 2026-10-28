@@ -381,7 +381,12 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
             </button>
           )}
           {mine && (
-            <button className="cm-purple h-6 w-40" onClick={() => nav.go({ kind: 'squadNumbers' })}>
+            <button
+              className="cm-purple h-6 w-40"
+              disabled={!game.info?.numbersOpen}
+              title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-época'}
+              onClick={() => nav.go({ kind: 'squadNumbers' })}
+            >
               Números
             </button>
           )}

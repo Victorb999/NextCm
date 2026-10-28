@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import type { MarketStatus } from '../bindings/MarketStatus'
@@ -8,7 +8,7 @@ import type { PersonSummary } from '../bindings/PersonSummary'
 import type { SearchResult } from '../bindings/SearchResult'
 import type { SearchSort } from '../bindings/SearchSort'
 import ScoutPanel from '../components/ScoutPanel'
-import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, Link, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
 import { money } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
@@ -62,12 +62,12 @@ function Row({
 }) {
   return (
     <tr
-      className={`h-[22px] border-b border-cm-line ${selected ? 'bg-cm-sel' : ''}`}
+      className={`h-[30px] text-[14px] ${selected ? 'bg-cm-sel' : 'hover:bg-white/[0.05]'}`}
       onMouseDown={onSelect}
       onDoubleClick={onOpen}
       data-row={index}
     >
-      <td className="truncate px-2 text-white">
+      <td className="truncate px-3 text-white">
         <Link onClick={onOpen}>{p.listName}</Link>
       </td>
       <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-magenta'}`}>
@@ -75,9 +75,15 @@ function Row({
       </td>
       <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-yellow'}`}>{p.nation ?? '-'}</td>
       <td className={`truncate px-2 ${selected ? 'text-white' : 'text-cm-orange'}`}>{p.position || p.job}</td>
-      <td className="truncate px-1 text-[12px] font-bold text-cm-magenta">{p.tags.join(' ')}</td>
+      <td className="truncate px-1">
+        {p.tags.map((t) => (
+          <span key={t} className="mr-1 rounded-[3px] bg-cm-magenta/15 px-1 text-[11px] font-bold text-cm-magenta">
+            {t}
+          </span>
+        ))}
+      </td>
       <td className="px-2 text-center tabular-nums">{p.age ?? '-'}</td>
-      <td className="bg-black/40 px-2 text-right tabular-nums">{p.value === null ? '-' : money(p.value)}</td>
+      <td className={`px-3 text-right font-semibold tabular-nums ${selected ? 'text-white' : 'text-[#4edea3]'}`}>{p.value === null ? '-' : money(p.value)}</td>
     </tr>
   )
 }
@@ -88,7 +94,9 @@ function Th({ label, sort, current, onSort, className = '' }: { label: string; s
   return (
     <th
       onClick={sort ? () => onSort(sort) : undefined}
-      className={`border-x border-black bg-cm-head px-2 font-normal ${sort ? 'cursor-pointer' : ''} ${active ? 'text-cm-yellow' : 'text-white'} ${className}`}
+      className={`bg-[#16171c] px-3 text-[11px] font-bold uppercase tracking-[0.12em] ${sort ? 'cursor-pointer hover:text-white' : ''} ${
+        active ? 'text-cm-yellow' : 'text-[#86869a]'
+      } ${className}`}
     >
       {label}
       {active && ' ▾'}
@@ -98,7 +106,7 @@ function Th({ label, sort, current, onSort, className = '' }: { label: string; s
 
 function PageButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
   return (
-    <button onClick={onClick} disabled={disabled} className="px-1 font-bold text-cm-yellow disabled:text-[#555]">
+    <button onClick={onClick} disabled={disabled} className="rounded px-1.5 font-bold text-cm-yellow hover:bg-white/10 disabled:text-white/25 disabled:hover:bg-transparent">
       {label}
     </button>
   )
@@ -219,13 +227,26 @@ export default function SearchPage({ active }: { active: boolean }) {
   })
 
   const nationName = (id: number) => nations.find((n) => n.id === id)?.name
+  // Os filtros ativos, em etiquetas na barra roxa
+  const chips = [status !== 'all' && players ? STATUSES.find((s) => s.key === status)!.label : null, ...describe(filters, nationName).split(' · ')]
+    .filter((t): t is string => !!t && t !== 'Todos')
+  const barButton =
+    'flex h-8 items-center gap-1.5 rounded-[4px] border border-white/20 bg-black/25 px-3 text-[13px] font-semibold text-white hover:bg-black/40 disabled:text-white/30'
 
   return (
     <div className="relative flex h-full flex-col">
-      <TitleBand title="Pesquisa Jogador & Staff" fg="#0d5a22" bg="#f5f500" />
-      {funds !== null && (
-        <div className="absolute right-3 top-3 z-20 bg-black/70 px-2 text-[14px] font-bold text-cm-yellow">Fundos: {money(funds) || '€0'}</div>
-      )}
+      <ScreenHeader
+        icon={<Search size={22} />}
+        title="Pesquisa Jogador & Staff"
+        right={
+          funds !== null && (
+            <span className="rounded-md bg-black/40 px-3 py-1.5 text-[13px] text-[#c8c8d0]">
+              Fundos: <b className="text-cm-yellow">{money(funds) || '€0'}</b>
+            </span>
+          )
+        }
+      />
+      <div className="mt-2.5" />
       <Tabs
         tabs={TABS.map((t) => (t.key.startsWith('scout') || t.key === 'shortlist' ? { ...t, disabled: !scouting } : t))}
         active={scout !== null ? `scout${scout}` : shortlist ? 'shortlist' : kind}
@@ -235,8 +256,8 @@ export default function SearchPage({ active }: { active: boolean }) {
       {scout === null && (
         <>
 
-      <div className="flex shrink-0 items-center gap-1 px-1.5 pt-2">
-        <button className="cm-purple flex h-6 w-40 items-center justify-center gap-1" onClick={() => setDialog(true)}>
+      <div className="mx-2.5 mt-2.5 flex h-11 shrink-0 items-center gap-2 rounded-md bg-cm-purple px-2">
+        <button className={barButton} onClick={() => setDialog(true)}>
           Filtros <ChevronDown size={14} />
         </button>
         {kind === 'players' && (
@@ -248,20 +269,33 @@ export default function SearchPage({ active }: { active: boolean }) {
               setStatus(s)
               goPage(0)
             }}
+            buttonClass={barButton}
+            trigger={
+              <>
+                Vêr <ChevronDown size={14} />
+              </>
+            }
           />
         )}
-        <label className="ml-2 flex items-center gap-1.5 text-white">
-          Nome
+        <label className="ml-1 flex items-center gap-2 text-[13px] font-semibold text-white">
+          Nome:
           <input
             ref={nameRef}
             autoFocus
             value={filters.text}
             onChange={(e) => applyFilters({ ...filters, text: e.target.value })}
-            className="cm-field h-6 w-52"
+            placeholder="Filtrar por nome…"
+            className="h-8 w-56 rounded-[4px] border border-white/15 bg-[#0d0e13] px-2.5 text-cm-yellow outline-none placeholder:text-[#55565f] focus:border-[#4edea3]"
           />
         </label>
-        <div className="flex-1" />
-        <div className="flex items-center gap-0.5 bg-black/60 px-2 py-0.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+          {chips.map((c) => (
+            <span key={c} className="shrink-0 rounded-[4px] border border-white/15 bg-black/25 px-2 py-0.5 text-[12px] text-white">
+              {c}
+            </span>
+          ))}
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5 rounded-[4px] bg-black/40 px-1.5 py-1">
           <PageButton label="◀◀" onClick={() => goPage(0)} disabled={page === 0} />
           <PageButton label="◀" onClick={() => goPage(page - 1)} disabled={page === 0} />
           <span className="w-24 text-center font-bold tabular-nums text-cm-yellow">
@@ -272,15 +306,7 @@ export default function SearchPage({ active }: { active: boolean }) {
         </div>
       </div>
 
-      <div className="mx-1.5 mt-1 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/85">
-        <div className="shrink-0 px-2 pt-1 text-center text-cm-magenta">
-          {[status !== 'all' && players ? STATUSES.find((s) => s.key === status)!.label : null, describe(filters, nationName)]
-            .filter((t) => t && t !== 'Todos')
-            .join(' · ') || 'Todos'}
-        </div>
-        <div className="shrink-0 py-1 text-center font-title text-xl font-bold text-cm-yellow">
-          {shortlist ? 'Lista Preferencial' : players ? 'Pesquisar Jogador' : 'Pesquisar Staff'}
-        </div>
+      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
         {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
         <div ref={tableRef} className="min-h-0 flex-1 overflow-auto">
           <table className="w-full table-fixed border-collapse">
@@ -294,7 +320,7 @@ export default function SearchPage({ active }: { active: boolean }) {
               <col className="w-28" />
             </colgroup>
             <thead className="sticky top-0 z-10">
-              <tr className="h-6">
+              <tr className="h-8">
                 <Th label="Nome" sort="name" current={sort} onSort={setSort} className="text-left" />
                 <Th label="Clube" current={sort} onSort={setSort} className="text-left" />
                 <Th label="Nação" current={sort} onSort={setSort} className="text-left" />
@@ -319,7 +345,7 @@ export default function SearchPage({ active }: { active: boolean }) {
             </tbody>
           </table>
         </div>
-        <div className="shrink-0 py-1.5 text-center font-title text-2xl font-bold text-cm-magenta">
+        <div className="shrink-0 border-t border-cm-line py-1.5 text-center font-title text-xl font-bold text-cm-magenta">
           {total.toLocaleString('pt-BR')} {players ? 'jogadores' : 'pessoas'} encontrados
         </div>
       </div>
@@ -327,7 +353,7 @@ export default function SearchPage({ active }: { active: boolean }) {
         </>
       )}
       {scouting && (
-        <div className="mt-1">
+        <div className="mt-2.5">
           <Tabs tabs={MORE_SCOUTS} active={scout !== null ? `scout${scout}` : ''} onChange={pickTab} />
         </div>
       )}
