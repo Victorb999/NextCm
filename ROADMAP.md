@@ -1010,7 +1010,13 @@ Antes do Editor: jogar no app (épocas inteiras, vários clubes) e acertar fluxo
 **Feito:** `core/src/game/leagues.rs`, `SAVE_VERSION` 30 (`league_modes`), comando `league_nations`, `NewGame.leagues`, ecrã `LeaguesStep.tsx` antes do treinador e do clube.
 - **Escolhido**: tudo como até aqui. **Fundo**: as competições jogam-se (classificação, campeões, subidas e descidas, vagas continentais), mas as divisões não são geridas: sem mercado, sem evolução dos plantéis, renovações nem juniores, e sem as linhas dos jogadores (`player_matches`). **Fora**: sem calendário nem fim de época (os clubes ficam como estão); as vagas continentais dessas ligas saem da última classificação do banco. As competições continentais jogam-se sempre.
 - O clube do treinador e os empregos só nas ligas escolhidas. Saves antigos e a CLI: tudo escolhido.
-- Fica para depois: **Escolher Iniciar Época** (o jogo começa sempre a 1/7/2025, com o Brasil a meio da época 2025; começar a 1/1/2026 obrigava a jogar meio ano ao criar o jogo), "Jogadores Reais" e "Definição Atributos", a barra do carregamento com o passo, e as ligas de fundo pelo motor rápido (hoje jogam com o mesmo motor, só sem o resto).
+
+**Feito — Escolher Iniciar Época:** `NewGame.start` (`StartSeason`), ecrã `StartStep.tsx` depois das ligas. Duas opções:
+- **Europa 26/27**: 1/7/2026, o Brasil a meio de 2026 (as datas da transição passam a ser as do ano em que o jogo começa, `Game.first_year`, lido do `created` do save). Os contratos dos jogadores que acabaram a 30/6/2026 tratam-se como num fim de época (o plantel do treinador também renova), e os empréstimos de 2025/26 da lista já acabaram.
+- **Brasil 2026** (só com uma liga de ano civil escolhida): parte do patch tal como está (1/7/2025), o 2º semestre de 2025 joga-se ao criar o jogo (o adjunto escolhe a equipa, a direção não conta; ~40 s), e o treinador chega a 1/1/2026, com a Europa a meio de 2025/26 e a direção, as mensagens e a carreira de novo.
+- Os testes e a CLI continuam no `Patch` (1/7/2025).
+
+- Fica para depois: "Jogadores Reais" e "Definição Atributos", a barra do carregamento com o passo, e as ligas de fundo pelo motor rápido (hoje jogam com o mesmo motor, só sem o resto).
 
 #### Marco 3.16 — Editor de jogos salvos (por detalhar)
 

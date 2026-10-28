@@ -15,7 +15,7 @@ use super::{Game, NewsItem, cm_date};
 use crate::engine::{self, uniform};
 use crate::league::{self, Fixture, Match, SERIE_A, SERIE_B, SERIE_C, SERIE_D, StandingRow};
 use crate::person::ClubRef;
-use crate::regulation::{self, ContinentPick, GroupDraw, Pairing, Pick, Regulation, SeasonKind, SingleHome, StageKind, TRANSITION_YEAR};
+use crate::regulation::{self, ContinentPick, GroupDraw, Pairing, Pick, Regulation, SeasonKind, SingleHome, StageKind};
 use crate::{Error, Result};
 
 /// Uma tabela de uma fase: a classificação toda ou um grupo.
@@ -162,10 +162,10 @@ impl Game {
 
     /// Sorteia as competições de um tipo de época que começa em `year` (as do ano civil a 1
     /// de janeiro, as europeias a 1 de julho; na criação do jogo, as da transição e a época
-    /// europeia de 2025/26). As fases seguintes saem à medida que as anteriores acabam.
+    /// europeia). As fases seguintes saem à medida que as anteriores acabam.
     pub(super) fn schedule_season(&mut self, kind: SeasonKind, year: i32, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         for reg in regulation::all() {
-            if reg.season != kind || (kind == SeasonKind::Calendar && year == TRANSITION_YEAR && reg.transition_dates.is_none()) {
+            if reg.season != kind || (kind == SeasonKind::Calendar && year == self.first_year && reg.transition_dates.is_none()) {
                 continue;
             }
             if self.comp_mode(reg.competition) == super::leagues::LeagueMode::Off {
@@ -525,8 +525,8 @@ impl Game {
             return Ok(());
         }
         let mut rng = self.comp_rng(comp, year, stage as u64 + 1);
-        let spec = match (&reg.transition_dates, stage, year) {
-            (Some(t), 0, TRANSITION_YEAR) => t.as_str(),
+        let spec = match (&reg.transition_dates, stage) {
+            (Some(t), 0) if year == self.first_year => t.as_str(),
             _ => st.dates.as_str(),
         };
         match st.kind {

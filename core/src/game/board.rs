@@ -279,7 +279,7 @@ impl Game {
 
     /// Mexe na confiança, com os avisos e o despedimento.
     pub(super) fn change_confidence(&mut self, delta: i32, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
-        if delta == 0 || self.sacked() {
+        if delta == 0 || self.sacked() || self.prestart {
             return Ok(());
         }
         // Com "mais tempo" dado pela direção, as quedas contam metade
@@ -449,6 +449,7 @@ mod tests {
             nation_id: None,
             club_id: 1669,
             leagues: Vec::new(),
+            start: Default::default(),
         };
         let mut g = Game::create(&path, &dir, &new, 29).unwrap();
         // Um save que ficou sem a linha da direção (aconteceu num jogo do Botafogo)
@@ -475,6 +476,7 @@ mod tests {
             nation_id: None,
             club_id: 7568,
             leagues: Vec::new(),
+            start: Default::default(),
         };
         let mut g = Game::create(&path, &dir, &new, 5).unwrap();
         let b = g.board_view().unwrap();

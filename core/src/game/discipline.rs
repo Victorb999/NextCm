@@ -228,6 +228,7 @@ mod tests {
             nation_id: None,
             club_id: PALMEIRAS,
             leagues: Vec::new(),
+            start: Default::default(),
         };
         let mut g = Game::create(&path, &dir, &new, 23).unwrap();
         let ids: Vec<i32> = g

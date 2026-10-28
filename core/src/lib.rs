@@ -33,8 +33,8 @@ pub use game::WorldTransfers;
 pub use game::{
     BoardConfidence, BoardRequest, BoardView, ContractReply, ContractTerms, DisciplineOptions, DivisionStats, Game, GameInfo, GroupTable,
     JobNation, JobRow, JobsView, KoRoundView, MatchPreview, MatchRecord, NewGame, NewsItem, NumberAssign, NumberEntry, OfferAction,
-    OfferView, ReportStaff, RoleOption, SaveSummary, ScoutFind, ScoutList, SquadNumbers, StageView, TieView, TransferItem, TransferView,
-    delete_save, list_saves,
+    OfferView, ReportStaff, RoleOption, SaveSummary, ScoutFind, ScoutList, SquadNumbers, StageView, StartSeason, TieView, TransferItem,
+    TransferView, delete_save, list_saves,
 };
 pub use game::{DealTerms, LoanTerms};
 pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};

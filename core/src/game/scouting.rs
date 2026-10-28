@@ -328,6 +328,7 @@ mod tests {
             nation_id: None,
             club_id: PALMEIRAS,
             leagues: Vec::new(),
+            start: Default::default(),
         };
         let mut g = Game::create(&path, &dir, &new, 9).unwrap();
         let first = |sql: &str| g.world.conn.query_row(sql, [], |r| r.get::<_, i32>(0)).unwrap();

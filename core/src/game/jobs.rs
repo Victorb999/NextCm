@@ -429,6 +429,7 @@ mod tests {
             nation_id: None,
             club_id: PALMEIRAS,
             leagues: Vec::new(),
+            start: Default::default(),
         };
         let mut g = Game::create(&path, &dir, &new, 37).unwrap();
         // Um clube da Série A com o treinador a zero de confiança: despedido no dia 1

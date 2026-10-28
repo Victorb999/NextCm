@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { LeagueChoice } from '../bindings/LeagueChoice'
 import type { LeagueNation } from '../bindings/LeagueNation'
+import type { StartSeason } from '../bindings/StartSeason'
 import LeaguesStep from './LeaguesStep'
+import StartStep from './StartStep'
 import { api } from '../api'
 import type { NationOption } from '../bindings/NationOption'
 import type { NationProfile } from '../bindings/NationProfile'
@@ -31,11 +33,12 @@ function maskDate(text: string): string {
   return [d.slice(0, 2), d.slice(2, 4), d.slice(4)].filter(Boolean).join('.')
 }
 
-/** "Novo Jogo": 1) dados do treinador, 2) escolha do clube. */
+/** "Novo Jogo": as ligas, a época, os dados do treinador e o clube. */
 export default function NewGamePage() {
   const game = useGame()
   const nav = useNav()
-  const [step, setStep] = useState<0 | 1 | 2>(0)
+  const [step, setStep] = useState<'leagues' | 'start' | 'manager' | 'club'>('leagues')
+  const [season, setSeason] = useState<StartSeason>('europe')
   // "Escolher Campeonato(s)": por omissão o Brasil e a Inglaterra escolhidos, o resto de fundo
   const [leagueNations, setLeagueNations] = useState<LeagueNation[]>([])
   const [choices, setChoices] = useState<LeagueChoice[]>([])
@@ -67,6 +70,7 @@ export default function NewGamePage() {
     }, (e) => setError(String(e)))
   }, [])
   const playable = choices.filter((c) => c.mode === 'play').map((c) => c.nationId)
+  const calendarPlay = leagueNations.some((n) => n.calendar && playable.includes(n.nationId))
 
   const changeClubNation = (id: number) => {
     setNation(null)
@@ -92,7 +96,7 @@ export default function NewGamePage() {
     if (!form.saveName.trim()) return setError('Escolha um nome para o jogo.')
     if (parseBirth(form.birth) === undefined) return setError('Data de nascimento inválida (use dd.mm.aaaa).')
     setError(null)
-    setStep(2)
+    setStep('club')
   }
 
   const start = async (chosen: PickItem | null) => {
@@ -108,6 +112,7 @@ export default function NewGamePage() {
         nationId: form.nationId,
         clubId: chosen.id,
         leagues: choices,
+        start: season,
       })
       game.update(info)
       nav.go({ kind: 'news' })
@@ -127,7 +132,7 @@ export default function NewGamePage() {
     </select>
   )
 
-  if (step === 0) {
+  if (step === 'leagues') {
     return (
       <LeaguesStep
         nations={leagueNations}
@@ -140,16 +145,29 @@ export default function NewGamePage() {
           setError(null)
           // O clube escolhe-se numa nação escolhida
           if (clubNation === null || !playable.includes(clubNation)) changeClubNation(playable[0])
-          setStep(1)
+          if (!calendarPlay) setSeason('europe')
+          setStep('start')
         }}
       />
     )
   }
 
-  if (step === 1) {
+  if (step === 'start') {
+    return (
+      <StartStep
+        value={season}
+        onChange={setSeason}
+        brazil={calendarPlay}
+        onCancel={() => setStep('leagues')}
+        onNext={() => setStep('manager')}
+      />
+    )
+  }
+
+  if (step === 'manager') {
     return (
       <Overlay>
-        <DialogFrame title="Novo Jogo — Treinador" onCancel={() => setStep(0)} cancelLabel="Atrás" onOk={next} okLabel="Seguinte">
+        <DialogFrame title="Novo Jogo — Treinador" onCancel={() => setStep('start')} cancelLabel="Atrás" onOk={next} okLabel="Seguinte">
           <form
             className="space-y-2 py-1"
             onSubmit={(e) => {
@@ -199,7 +217,7 @@ export default function NewGamePage() {
             </span>
           </div>
         }
-        onCancel={() => setStep(1)}
+        onCancel={() => setStep('manager')}
         cancelLabel="Atrás"
         onOk={club ? () => void start(club) : undefined}
         okLabel={busy ? 'A criar o jogo…' : 'Começar'}
@@ -209,7 +227,9 @@ export default function NewGamePage() {
           {nation && <PickList key={nation.id} groups={groups} onSelect={setClub} onOpen={(c) => void start(c)} empty="Nenhum clube com liga nesta nação." />}
         </div>
       </DialogFrame>
-      {busy && <Loading title="Novo Jogo" detail="A criar o jogo e o calendário…" />}
+      {busy && (
+        <Loading title="Novo Jogo" detail={season === 'brazil' ? 'A jogar o 2º semestre de 2025…' : 'A criar o jogo e o calendário…'} />
+      )}
     </Overlay>
   )
 }

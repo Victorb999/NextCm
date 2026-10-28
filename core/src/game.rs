@@ -407,6 +407,23 @@ pub struct NewGame {
     /// As ligas escolhidas (vazio = todas jogáveis).
     #[serde(default)]
     pub leagues: Vec<leagues::LeagueChoice>,
+    /// "Escolher Iniciar Época".
+    #[serde(default)]
+    pub start: StartSeason,
+}
+
+/// Época em que o jogo começa ("Escolher Iniciar Época", como no CM).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub enum StartSeason {
+    /// 1/7/2025, com o Brasil a meio de 2025: os dados do patch tal como estão (testes e CLI).
+    #[default]
+    Patch,
+    /// Europa 2026/27: 1/7/2026, com o Brasil a meio de 2026.
+    Europe,
+    /// Brasil 2026: a partir do patch, o 2º semestre de 2025 joga-se ao criar o jogo e começa a 1/1/2026.
+    Brazil,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -515,6 +532,10 @@ pub struct Game {
     live: Option<LiveDay>,
     /// Estatísticas dos jogos desde que o jogo foi aberto (para a CLI).
     records: Vec<MatchRecord>,
+    /// Ano em que o jogo começou: a época de transição das ligas do ano civil.
+    first_year: i32,
+    /// A jogar o semestre antes do "Brasil 2026": a direção ainda não conta.
+    prestart: bool,
 }
 
 /// Os jogos de um dia: os outros já jogados até ao fim, o do treinador a decorrer.
@@ -579,7 +600,11 @@ impl Game {
         std::fs::copy(world_path, &path)?;
 
         let result = (|| {
-            let world = World::open_save(&path)?;
+            let mut world = World::open_save(&path)?;
+            // O patch é de 2025/26; a Europa 26/27 começa um ano depois com os mesmos dados
+            if new.start == StartSeason::Europe {
+                world.start_year += 1;
+            }
             let start = format!("{}-{START_MONTH_DAY}", world.start_year());
             let club = world.club_ref(Some(new.club_id))?.ok_or_else(|| Error::NotFound(format!("clube {}", new.club_id)))?;
 
@@ -667,8 +692,10 @@ impl Game {
                 watch: false,
                 live: None,
                 records: Vec::new(),
+                first_year: year,
+                prestart: false,
             };
-            // Calendários da época de transição e da época europeia de 2025/26, sorteados com a seed do jogo
+            // Calendários da época de transição e da época europeia, sorteados com a seed do jogo
             let (mut fresh, mut next_id) = (Vec::new(), 2);
             game.competitions = competition_names(&game.world, &[])?;
             // As ligas escolhidas no "Escolher Campeonato(s)" (sem escolha: todas jogáveis)
@@ -682,6 +709,10 @@ impl Game {
             game.schedule_season(SeasonKind::European, year, &mut fresh, &mut next_id)?;
             // Os empréstimos em curso de 2025/26 (o banco do CM não os tem)
             game.start_loans()?;
+            // Um ano depois do patch: os contratos que acabaram a 30/6 renovam-se ou saem
+            if new.start == StartSeason::Europe {
+                game.start_contracts(&mut fresh, &mut next_id)?;
+            }
             game.complete_squads()?;
             numbers::fix_squad_numbers(&game.world, &[game.club_id], game.seed, None)?;
             game.refresh_live()?;
@@ -699,6 +730,9 @@ impl Game {
             game.board_setup()?;
             game.career_join(new.club_id)?;
             game.youth_to_reserves()?;
+            if new.start == StartSeason::Brazil {
+                game.play_to_brazil_start()?;
+            }
             game.save()?;
             Ok(game)
         })();
@@ -712,13 +746,13 @@ impl Game {
         let world = World::open_save(path)?;
         let row = world
             .conn
-            .query_row("SELECT version, name, date, seed, manager_id, club_id FROM game", [], |r| {
-                Ok((r.get::<_, i32>(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
+            .query_row("SELECT version, name, date, seed, manager_id, club_id, created FROM game", [], |r| {
+                Ok((r.get::<_, i32>(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))
             })
             .optional()
             .map_err(|_| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?
             .ok_or_else(|| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?;
-        let (version, name, date, seed, manager_id, club_id): (i32, String, String, i64, i32, i32) = row;
+        let (version, name, date, seed, manager_id, club_id, created): (i32, String, String, i64, i32, i32, String) = row;
         let mut version = version;
         if version == 3 {
             migrate_v3(&world, club_id)?;
@@ -1001,6 +1035,8 @@ impl Game {
             watch: false,
             live: None,
             records: Vec::new(),
+            first_year: season_of(&created),
+            prestart: false,
         };
         game.comp_nations = leagues::comp_nations(&game.world)?;
         game.league_modes = Game::load_league_modes(&game.world)?;
@@ -1860,6 +1896,34 @@ impl Game {
         Ok(ranked.into_iter().map(|r| r.1).collect())
     }
 
+    /// "Brasil 2026": joga o 2º semestre de 2025 (o adjunto escolhe a equipa, a direção não
+    /// conta) e o treinador chega a 1/1/2026, com a direção e as mensagens de novo.
+    fn play_to_brazil_start(&mut self) -> Result<()> {
+        let day = format!("{}-01-01", self.first_year + 1);
+        self.prestart = true;
+        while self.date < day {
+            self.advance_day()?;
+        }
+        self.prestart = false;
+        // O que ficou a meio no mercado do clube não é com o treinador
+        self.world.conn.execute(
+            "UPDATE offers SET status = 'withdrawn' WHERE status IN ('pending', 'countered', 'agreed', 'raised') AND (buyer = ?1 OR seller = ?1)",
+            [self.club_id],
+        )?;
+        self.world.conn.execute("UPDATE people SET club_joined = ?1 WHERE id = ?2", params![self.date, self.manager_id])?;
+        self.world.conn.execute("UPDATE manager_history SET joined = ?", [&self.date])?;
+        self.board_setup()?;
+        // Fica o que saiu de hoje (a nova época), com as boas-vindas à frente
+        let club = self.world.club_ref(Some(self.club_id))?.ok_or_else(|| Error::NotFound(format!("clube {}", self.club_id)))?;
+        let manager: String = self.world.conn.query_row("SELECT display_name FROM people WHERE id = ?", [self.manager_id], |r| r.get(0))?;
+        let mut welcome = welcome_news(&self.world, &club, &manager, &self.date)?;
+        welcome.id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+        let today = self.date.clone();
+        self.news.retain(|n| n.date >= today);
+        self.news.insert(0, welcome);
+        Ok(())
+    }
+
     /// Liga/desliga ver os jogos do treinador ao vivo (o app liga; a CLI não).
     pub fn set_watch(&mut self, watch: bool) {
         self.watch = watch;
@@ -2308,6 +2372,7 @@ mod tests {
             nation_id: None,
             club_id,
             leagues: Vec::new(),
+            start: Default::default(),
         }
     }
 

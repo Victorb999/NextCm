@@ -26,7 +26,8 @@ impl Game {
         let loans: Vec<StartLoan> =
             serde_json::from_str(LOANS).map_err(|e| Error::Invalid(format!("Lista de empréstimos inválida: {e}")))?;
         let mut done = 0;
-        for l in loans {
+        // Começando um ano depois do patch, os que acabavam em 2026 já voltaram
+        for l in loans.into_iter().filter(|l| l.until > self.date) {
             let club: Option<Option<i32>> =
                 self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [l.player], |r| r.get(0)).optional()?;
             match club.flatten() {
@@ -66,6 +67,7 @@ mod tests {
             nation_id: None,
             club_id: 6271,
             leagues: Vec::new(),
+            start: Default::default(),
         };
         let g = Game::create(&path, &dir, &new, 3).unwrap();
         // Onana (Man Utd) joga no Trabzonspor e volta ao United no fim da época

@@ -288,6 +288,7 @@ mod tests {
             nation_id: None,
             club_id: PALMEIRAS,
             leagues: Vec::new(),
+            start: Default::default(),
         };
         let mut g = Game::create(&path, &dir, &new, 17).unwrap();
         g.world.conn.execute("UPDATE clubs SET cash = 500000000 WHERE id = ?", [PALMEIRAS]).unwrap();

@@ -133,6 +133,7 @@ mod tests {
             nation_id: None,
             club_id: 7568,
             leagues: Vec::new(),
+            start: Default::default(),
         };
         let mut g = Game::create(&path, &dir, &new, 19).unwrap();
         for _ in 0..20 {

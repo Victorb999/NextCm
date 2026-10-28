@@ -234,7 +234,7 @@ pub struct Regulation {
     /// Divisão cujos plantéis evoluem, renovam contratos e recebem juniores (marco 3.5).
     #[serde(default)]
     pub managed: bool,
-    /// Datas da fase 0 na época de transição de 2025 (só as competições que jogam nela).
+    /// Datas da fase 0 na época de transição, a do ano em que o jogo começa (só as competições que jogam nela).
     #[serde(default)]
     pub transition_dates: Option<String>,
     #[serde(default)]
@@ -244,9 +244,6 @@ pub struct Regulation {
     #[serde(default)]
     pub draw_up: Option<DrawUp>,
 }
-
-/// Ano da época de transição: o jogo começa a meio dela (1.7.2025).
-pub const TRANSITION_YEAR: i32 = 2025;
 
 const FILES: [&str; 39] = [
     include_str!("../regulations/serie_a.json"),

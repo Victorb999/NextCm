@@ -576,6 +576,7 @@ mod tests {
             nation_id: None,
             club_id: 7568,
             leagues: Vec::new(),
+            start: Default::default(),
         };
         s.new_game(&new).unwrap();
         s.save_as("Cópia".into(), false).unwrap();

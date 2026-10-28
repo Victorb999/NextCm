@@ -68,7 +68,7 @@ export default function LeaguesStep({
                 ))}
                 <span className="truncate text-[13px] text-[#bfe6c4]">
                   {n.divisions.join(', ')}
-                  {n.calendar ? ' · época 2025 (a meio)' : ' · época 2025/26'}
+                  {n.calendar ? ' · época de ano civil' : ' · época de agosto a maio'}
                 </span>
               </div>
             )

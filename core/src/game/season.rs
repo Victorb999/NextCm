@@ -85,7 +85,7 @@ impl Game {
             // Contratos que acabam a meio do ano (o fim de época trata os de dezembro)
             "06-30" => {
                 let today = self.date.clone();
-                self.contracts(fresh, next_id, &today)?;
+                self.contracts(fresh, next_id, &today, false)?;
                 self.clean_selection()?;
             }
             "06-10" => self.end_of_season(SeasonKind::European, fresh, next_id)?,
@@ -350,7 +350,7 @@ impl Game {
 
         // Os contratos de dezembro tratam-se aqui; os de junho já foram a 30/6
         if kind == SeasonKind::Calendar {
-            self.contracts(fresh, next_id, &format!("{year}-12-31"))?;
+            self.contracts(fresh, next_id, &format!("{year}-12-31"), false)?;
         }
         self.retirements(kind, fresh, next_id)?;
         self.fill_squads(kind, fresh, next_id)?;
@@ -389,10 +389,18 @@ impl Game {
         Ok(scored.into_iter().take(n).map(|s| s.0).collect())
     }
 
+    /// Começando um ano depois do patch: os contratos que acabaram a 30/6 tratam-se como num
+    /// fim de época.
+    pub(super) fn start_contracts(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        let cutoff = format!("{}-06-30", self.world.start_year());
+        self.contracts(fresh, next_id, &cutoff, true)
+    }
+
     /// Contratos que acabam até `cutoff`: renova quem está entre os melhores do plantel e não
     /// é velho; os outros saem livres. No clube do treinador renova só quem o treinador
     /// renovou (3.8); os contratos sem data, aí e nos outros, só se tratam no fim da época.
-    fn contracts(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32, cutoff: &str) -> Result<()> {
+    /// `start`: ao criar o jogo um ano depois do patch (o plantel do treinador renova como os outros).
+    fn contracts(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32, cutoff: &str, start: bool) -> Result<()> {
         let today = self.date.clone();
         let year_end = today.ends_with("12-20");
         let year: i32 = today[0..4].parse().unwrap_or(0);
@@ -433,7 +441,7 @@ impl Game {
                 // Fica quem é dos melhores do plantel; os veteranos só se forem titulares e os
                 // juniores só se já forem do grupo principal
                 let keep = match age {
-                    _ if club == self.club_id && expires.is_some() => false,
+                    _ if club == self.club_id && expires.is_some() && !start => false,
                     ..=20 => rank < YOUTH_RANK,
                     21..=33 => rank < KEEP_BEST,
                     _ => rank < VETERAN_RANK && age < 36,
@@ -455,7 +463,8 @@ impl Game {
                 }
             }
             if club == self.club_id && !(renewed.is_empty() && left.is_empty()) {
-                let mut body = String::from("Acabaram os contratos desta época.");
+                let mut body =
+                    String::from(if start { "Acabaram os contratos da época passada." } else { "Acabaram os contratos desta época." });
                 if !renewed.is_empty() {
                     body += &format!("\n\nRenovaram: {}.", join_names(&renewed));
                 }
@@ -822,6 +831,7 @@ mod tests {
             nation_id: None,
             club_id,
             leagues: Vec::new(),
+            start: Default::default(),
         }
     }
 
@@ -993,6 +1003,53 @@ mod tests {
         let g = Game::load(&path).unwrap();
         assert_eq!(ca(&g), original, "nada ficou gravado");
         assert_eq!(g.date(), "2025-07-01");
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn start_in_2026_27_and_brazil_2026() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("inicio");
+        // Europa 26/27: um ano depois do patch, com o Brasil a meio de 2026
+        let mut new = new_game(7568);
+        new.start = crate::StartSeason::Europe;
+        let g = Game::create(&world, &dir, &new, 3).unwrap();
+        assert_eq!(g.date(), "2026-07-01");
+        assert_eq!(g.world.start_year(), 2026);
+        let first = |comp: i32| g.matches.iter().filter(|m| m.competition_id == comp).map(|m| m.date.clone()).min().unwrap();
+        assert!(first(crate::league::SERIE_A).starts_with("2026-08"), "a Série A de 2026 joga-se com as datas da transição");
+        assert!(first(7).starts_with("2026-08"), "a Premier League de 2026/27");
+        // Os contratos dos jogadores que acabaram a 30/6/2026 já foram tratados e os empréstimos de 2025/26 acabaram
+        let expired: i64 = g
+            .world
+            .conn
+            .query_row(
+                &format!("SELECT COUNT(*) FROM people p JOIN clubs c ON c.id = p.club_id WHERE c.division_id IN ({}) AND p.is_player = 1 AND p.contract_expires < '2026-07-01'", g.managed_ids()),
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(expired, 0);
+        let loans: i64 = g.world.conn.query_row("SELECT COUNT(*) FROM loans WHERE until < '2026-07-01'", [], |r| r.get(0)).unwrap();
+        assert_eq!(loans, 0);
+        let squad: i64 =
+            g.world.conn.query_row("SELECT COUNT(*) FROM people WHERE club_id = 7568 AND is_player = 1", [], |r| r.get(0)).unwrap();
+        assert!(squad >= 22, "o plantel do treinador não se esvazia ({squad})");
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+        // Brasil 2026: do patch, o 2º semestre de 2025 já jogado, o treinador chega a 1/1/2026
+        new.start = crate::StartSeason::Brazil;
+        let g = Game::create(&world, &dir, &new, 3).unwrap();
+        assert_eq!(g.date(), "2026-01-01");
+        assert!(g.year_matches(crate::league::SERIE_A, 2025).all(|m| m.result.is_some()));
+        assert!(g.year_matches(crate::league::SERIE_A, 2026).count() > 0);
+        assert!(!g.sacked());
+        assert!(g.news[0].title.starts_with("Bem-vindo"));
+        let file = g.path().to_path_buf();
+        drop(g);
+        let g = Game::load(&file).unwrap();
+        assert_eq!(g.first_year, 2025);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
