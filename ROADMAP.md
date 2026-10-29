@@ -165,9 +165,9 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **3.13** Polimento | Notícias completas, férias, Auto Gravação, os ajustes pelos prints do 3.8 (menu Acção, proposta em tela inteira, Prémios e Cláusulas do contrato) | — |
 | ✅ **3.14** Palestras | Discurso aos jogadores como no FM08: antes do jogo, ao intervalo, no fim e a quem entra; a reação de cada um pela personalidade e pela situação do jogo muda a moral e a motivação na partida | Uma palestra boa ou má muda a moral e o rendimento de forma visível, sem tirar o motor das médias na CLI |
 | **3.15** Testes e ajustes | Jogar épocas inteiras no app e acertar o que aparecer: fluxos (Continuar Jogo, dia de jogo, mercado, mensagens), layouts e telas pelo CM 01/02, textos, números do motor e da economia, desempenho | Uma época inteira no Man Utd e no Palmeiras sem bugs nem telas fora do CM |
-| **3.16** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
-| **3.17** Plantel completo | O Plantel como no CM: menu do clube (principal, reservas, os outros clubes da divisão), Vêr (Tradicional, Contrato, Selecção, Estatísticas, Mais Dados, Atributos, Outros, Marcadores Penalties), Filtrar, siglas da coluna Inf, atalhos com ▸; reservas e clubes U21/B ligados ao clube principal | Ver o contrato, a forma e a nota média do plantel pelo Vêr, filtrar os médios disponíveis e saltar das reservas para o plantel principal |
-| **3.18** Treino | A tela "<Clube> - Treinos": programas por grupo de jogadores (intensidade de Prep. Física, Táctica, Remate, Técnica e G-Redes, nova posição e novo lado), os treinadores, e o efeito no core (condição, evolução dos atributos, aprender uma posição) | Mudar o programa de um grupo muda a evolução numa época na CLI, e um jogador aprende uma posição nova |
+| **3.16** Plantel completo | O Plantel como no CM: menu do clube (principal, reservas, os outros clubes da divisão), Vêr (Tradicional, Contrato, Selecção, Estatísticas, Mais Dados, Atributos, Outros, Marcadores Penalties), Filtrar, siglas da coluna Inf, atalhos com ▸; reservas e clubes U21/B ligados ao clube principal | Ver o contrato, a forma e a nota média do plantel pelo Vêr, filtrar os médios disponíveis e saltar das reservas para o plantel principal |
+| **3.17** Treino | A tela "<Clube> - Treinos": programas por grupo de jogadores (intensidade de Prep. Física, Táctica, Remate, Técnica e G-Redes, nova posição e novo lado), os treinadores, e o efeito no core (condição, evolução dos atributos, aprender uma posição) | Mudar o programa de um grupo muda a evolução numa época na CLI, e um jogador aprende uma posição nova |
+| **3.18** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
 
 #### Detalhe de cada marco
 
@@ -196,9 +196,9 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 3.13 — Polimento: o fluxo do CM pela gravação](docs/roadmap/3.13-polimento.md)
 - [Marco 3.14 — Palestras](docs/roadmap/3.14-palestras.md)
 - [Marco 3.15 — Testes e ajustes](docs/roadmap/3.15-testes-e-ajustes.md)
-- [Marco 3.16 — Editor de jogos salvos (por detalhar)](docs/roadmap/3.16-editor-de-saves.md)
-- [Marco 3.17 — Plantel completo (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.17-plantel-completo.md)
-- [Marco 3.18 — Treino (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.18-treino.md)
+- [Marco 3.16 — Plantel completo (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.16-plantel-completo.md)
+- [Marco 3.17 — Treino (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.17-treino.md)
+- [Marco 3.18 — Editor de jogos salvos (por detalhar)](docs/roadmap/3.18-editor-de-saves.md)
 
 ---
 

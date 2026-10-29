@@ -191,6 +191,47 @@ pub(crate) fn position_label(p: &[Option<i32>; 12]) -> String {
     }
 }
 
+/// Uma posição com lado ("MAD", "AC", "GR") para as etiquetas do perfil.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct PositionTag {
+    pub code: String,
+    /// "GR", "L", "D", "AL", "MD", "M", "MA" ou "A".
+    pub role: String,
+    /// "D", "E" ou "C" (nada no guarda-redes e em quem não tem lado).
+    pub side: Option<String>,
+    /// Posição e lado com 20: a de origem.
+    pub natural: bool,
+}
+
+/// As posições em que joga (função e lado com 15 ou mais), cada uma com o seu lado.
+pub(crate) fn position_tags(p: &[Option<i32>; 12]) -> Vec<PositionTag> {
+    let r = |i: usize| p[i].unwrap_or(0);
+    if r(0) >= NATURAL_POSITION {
+        return vec![PositionTag { code: "GR".into(), role: "GR".into(), side: None, natural: r(0) >= 20 }];
+    }
+    let sides: Vec<(usize, &str)> = [(8, "D"), (9, "E"), (10, "C")].into_iter().filter(|&(i, _)| r(i) >= NATURAL_POSITION).collect();
+    let mut out = Vec::new();
+    for (i, role) in [(1, "L"), (2, "D"), (7, "AL"), (3, "MD"), (4, "M"), (5, "MA"), (6, "A")] {
+        if r(i) < NATURAL_POSITION {
+            continue;
+        }
+        if sides.is_empty() {
+            out.push(PositionTag { code: role.into(), role: role.into(), side: None, natural: r(i) >= 20 });
+        }
+        for &(s, side) in &sides {
+            out.push(PositionTag {
+                code: format!("{role}{side}"),
+                role: role.into(),
+                side: Some(side.into()),
+                natural: r(i).min(r(s)) >= 20,
+            });
+        }
+    }
+    out
+}
+
 impl World {
     /// Pesquisa no início do jogo (sem jogo aberto).
     pub fn search_people(&self, q: &SearchQuery) -> Result<SearchResult> {
@@ -381,6 +422,8 @@ mod tests {
         p[8] = Some(15);
         p[10] = Some(20);
         assert_eq!(position_label(&p), "MA/A DC");
+        let tags: Vec<(String, bool)> = position_tags(&p).into_iter().map(|t| (t.code, t.natural)).collect();
+        assert_eq!(tags, [("MAD".into(), false), ("MAC".into(), false), ("AD".into(), false), ("AC".into(), true)]);
         p[0] = Some(20);
         assert_eq!(position_label(&p), "GR");
     }

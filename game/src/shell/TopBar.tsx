@@ -31,8 +31,10 @@ export default function TopBar({ onContinue, busy }: { onContinue: () => void; b
           <span className="truncate font-bold">{info.club.name}</span>
         </>
       )}
+      {/* Os botões da tela aberta (Atrás / Seguinte, Cancelar / Ok) */}
+      <div id="top-actions" className="ml-auto flex shrink-0 items-center gap-1.5" />
       <button
-        className="cm-continue ml-auto"
+        className="cm-continue"
         disabled={!info || busy}
         title={info ? 'Avança até ao próximo evento' : 'Comece ou carregue um jogo'}
         onClick={onContinue}

@@ -10,9 +10,9 @@ import { budgetText } from '../transferTerms'
 import { LoanDialog, TransferOfferDialog } from './DealDialogs'
 import { Empty, Link } from './Screen'
 
-// Aba Transferência do perfil do jogador (jogo em curso), como no CM: disponibilidade, valor,
-// contrato, propostas, interessados e o futuro, com a proposta em curso e os botões dela. As
-// acções (Abordar Para Comprar, Propôr Empréstimo, as listas...) estão no menu Acção.
+// Painel Mercado da aba Contrato & Transferência do perfil (jogo em curso), como no CM:
+// disponibilidade, valor, propostas, interessados e o futuro, com a proposta em curso e os
+// botões dela. As acções (Abordar Para Comprar, as listas...) vêm do perfil.
 
 /** Botões de uma proposta (mensagens e perfil); "counter", "offer" e "negotiate" abrem diálogos. */
 export function OfferButtons({
@@ -140,8 +140,6 @@ export default function TransferTab({ personId, version, onChanged }: { personId
   const rows: [string, ReactNode][] = [
     ['Disponibilidade', view.availability],
     ['Valor', money(view.value) || '-'],
-    ['Salário', wage(view.wage, true)],
-    ['Contrato até', view.free ? 'Sem contrato' : cmDate(view.contractExpires)],
     ['Propostas', view.offers.length ? view.offers.join(', ') : 'Nenhuma'],
     [
       'Interessados',
@@ -169,15 +167,17 @@ export default function TransferTab({ personId, version, onChanged }: { personId
   rows.push(['Orçamento de transferências', money(view.budget) || '€0'])
 
   return (
-    <div className="mx-auto mt-4 w-full max-w-3xl px-1.5">
-      {rows.map(([k, v]) => (
-        <div key={k} className="flex min-h-8 items-center justify-between gap-4 border-b border-cm-line bg-black/50 px-3 text-[15px]">
-          <span className="shrink-0 text-white">{k}</span>
-          <span className="text-right font-bold text-cm-yellow">{v}</span>
-        </div>
-      ))}
+    <div>
+      <div className="cm-zebra">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex min-h-[26px] items-center justify-between gap-4 px-3 text-[13.5px]">
+            <span className="shrink-0 text-[#c8c8d0]">{k}</span>
+            <span className="text-right font-bold text-cm-yellow">{v}</span>
+          </div>
+        ))}
+      </div>
       {view.offer && (
-        <div className="mt-3 border border-cm-line bg-black/50 px-3 py-2">
+        <div className="border-t border-cm-line px-3 py-2">
           <OfferButtons
             offer={view.offer}
             onChange={() => {
@@ -188,8 +188,8 @@ export default function TransferTab({ personId, version, onChanged }: { personId
           />
         </div>
       )}
-      {view.note && <div className="mt-3 text-center text-[15px] text-cm-magenta">{view.note}</div>}
-      {error && <div className="mt-2 text-center text-[15px] font-bold text-[#ff5050]">{error}</div>}
+      {view.note && <div className="border-t border-cm-line px-3 py-1.5 text-center text-[14px] text-cm-magenta">{view.note}</div>}
+      {error && <div className="px-3 py-1.5 text-center text-[14px] font-bold text-[#ff5050]">{error}</div>}
     </div>
   )
 }

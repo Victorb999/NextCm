@@ -65,42 +65,60 @@ function SquadGrid({
   /** Só no clube do treinador: clicar no número ou na casa põe/tira da equipa. */
   onToggle?: (e: Entry) => void
 }) {
-  return (
-    <div className="cm-zebra-2 grid grid-cols-2 gap-x-3 px-2">
-      {entries.map((e, i) => {
-        const drag = bind && e.spot ? bind(e.spot, e.name) : undefined
-        return (
-        <div
-          key={e.id}
-          data-row={i}
-          data-spot={drag?.['data-spot']}
-          onMouseDown={drag?.onMouseDown}
-          onClick={() => onSelect(i)}
-          onDoubleClick={() => onOpen(e)}
-          className={`flex h-[26px] items-center gap-1 ${i === selected ? 'bg-cm-sel' : ''} ${drag ? 'cursor-grab' : ''}`}
+  const row = (e: Entry, i: number) => {
+    const drag = bind && e.spot ? bind(e.spot, e.name) : undefined
+    const toggle = onToggle && (() => onToggle(e))
+    const stop = onToggle && ((ev: React.MouseEvent) => ev.stopPropagation())
+    return (
+      <div
+        key={e.id}
+        data-row={i}
+        data-spot={drag?.['data-spot']}
+        onMouseDown={drag?.onMouseDown}
+        onClick={() => onSelect(i)}
+        onDoubleClick={() => onOpen(e)}
+        className={`flex h-[26px] items-center gap-1.5 px-2 ${i === selected ? '!bg-cm-sel' : ''} ${drag ? 'cursor-grab' : ''}`}
+      >
+        <span
+          onMouseDown={stop}
+          onClick={toggle}
+          className={`w-8 shrink-0 text-center font-mono text-[13px] text-[#c8c8d0] ${onToggle ? 'cursor-pointer' : ''}`}
         >
-          <span
-            onMouseDown={onToggle && ((ev) => ev.stopPropagation())}
-            onClick={onToggle && (() => onToggle(e))}
-            className={`flex h-[22px] w-10 shrink-0 items-center justify-center cm-cell text-white ${onToggle ? 'cursor-pointer' : ''}`}
-          >
-            {e.number}
-          </span>
-          <span
-            onMouseDown={onToggle && ((ev) => ev.stopPropagation())}
-            onClick={onToggle && (() => onToggle(e))}
-            title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
-            className={`flex h-[22px] w-9 shrink-0 items-center justify-center cm-cell text-xs text-cm-yellow ${onToggle ? 'cursor-pointer' : ''}`}
-          >
-            {e.badge}
-          </span>
-          <span className="ml-1 flex-1 truncate font-title text-[18px] text-white">
-            <Link onClick={() => onOpen(e)}>{e.name}</Link>
-          </span>
-          <span className={`w-28 shrink-0 truncate ${i === selected ? 'text-white' : 'text-cm-yellow'}`}>{e.detail}</span>
-        </div>
-        )
-      })}
+          {e.number}
+        </span>
+        <span
+          onMouseDown={stop}
+          onClick={toggle}
+          title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
+          className={`w-10 shrink-0 text-center font-mono text-[12px] font-bold text-[#4edea3] ${onToggle ? 'cursor-pointer' : ''}`}
+        >
+          {e.badge || <span className="text-[#5a5a66]">-</span>}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
+          <Link onClick={() => onOpen(e)}>{e.name}</Link>
+        </span>
+        <span className={`w-28 shrink-0 truncate text-right font-mono text-[12.5px] ${i === selected ? 'text-white' : 'text-cm-yellow'}`}>{e.detail}</span>
+      </div>
+    )
+  }
+  const head = (
+    <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-cm-line bg-black/30 px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#86869a]">
+      <span className="w-8 text-center">Nº</span>
+      <span className="w-10 text-center">Esc</span>
+      <span className="flex-1">Jogador</span>
+      <span className="w-28 text-right">Posição</span>
+    </div>
+  )
+  const column = (side: 0 | 1) => (
+    <div className="min-w-0 flex-1 overflow-hidden rounded-md bg-[#1a1b21]">
+      {head}
+      <div className="cm-zebra">{entries.map((e, i) => (i % 2 === side ? row(e, i) : null)).filter(Boolean)}</div>
+    </div>
+  )
+  return (
+    <div className="flex items-start gap-2.5">
+      {column(0)}
+      {column(1)}
     </div>
   )
 }
@@ -334,17 +352,37 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
     <div className="relative flex h-full flex-col">
       <ScreenHeader
         club={club?.club}
-        eyebrow={view === 'reserves' ? 'Reservas' : undefined}
+        eyebrow={
+          club && (
+            <>
+              <span className="text-cm-orange">{club.division?.name ?? club.status ?? ''}</span>
+              {view === 'reserves' && <span className="rounded bg-[#0f3a2a] px-1.5 text-[#4edea3]">Reservas</span>}
+            </>
+          )
+        }
         title={club?.club.name ?? ''}
         right={
-          vacancy?.club === id &&
-          (vacancy.text === null ? (
-            <button className="h-6 border border-black bg-[#ffd21f] px-3 text-[13px] font-bold text-black" onClick={() => void apply()}>
-              Concorrer ao Lugar
-            </button>
-          ) : (
-            <span className="bg-black/80 px-2 text-[13px] text-cm-yellow">{vacancy.text}</span>
-          ))
+          <>
+            {club?.stadium && (
+              <span className="hidden rounded-md bg-black/30 px-3 py-1.5 font-mono text-[12px] text-[#86869a] xl:inline">
+                Estádio: <b className="text-white">{club.stadium}</b>
+                {club.stadiumCapacity ? (
+                  <>
+                    {' '}
+                    · Lotação: <b className="text-white">{club.stadiumCapacity.toLocaleString('pt-BR')}</b>
+                  </>
+                ) : null}
+              </span>
+            )}
+            {vacancy?.club === id &&
+              (vacancy.text === null ? (
+                <button className="h-8 rounded bg-cm-orange px-4 font-title text-[15px] font-bold text-black hover:brightness-110" onClick={() => void apply()}>
+                  Concorrer ao Lugar
+                </button>
+              ) : (
+                <span className="rounded bg-black/60 px-2 py-1 text-[13px] text-cm-yellow">{vacancy.text}</span>
+              ))}
+          </>
         }
       />
       <Tabs
@@ -356,7 +394,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
       />
 
       {tab === 'squad' && (
-        <div className="flex shrink-0 items-center gap-1 px-1.5 pt-2">
+        <div className="mx-2.5 mt-2.5 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
           <PurpleMenu
             label="Vêr"
             options={mine ? VIEWS : VIEWS.filter((v) => v.key !== 'reserves')}
@@ -396,16 +434,17 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
         </div>
       )}
 
-      <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
-        <ErrorBox>{error}</ErrorBox>
+      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col">
+        <ErrorBox className="mb-2">{error}</ErrorBox>
         {club && tab === 'squad' && (
           <>
-            <div className="shrink-0 py-1.5 text-center font-title text-xl font-bold text-cm-yellow">
-              {view === 'staff' ? 'Staff' : CRITERIA.find((c) => c.key === criterion)!.label}
-            </div>
             {/* Casas da equipa: arraste um jogador para uma casa (ou para outro jogador) para mudar o lugar */}
-            {mine && tactics && view === 'players' && (
-              <div className="flex shrink-0 flex-wrap gap-0.5 px-2 pb-1.5">
+            <div className="mb-2.5 flex shrink-0 flex-wrap items-center gap-0.5 rounded-md bg-[#1a1b21] px-3 py-1.5">
+              <span className="mr-2 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-cm-orange">
+                {view === 'staff' ? 'Staff' : CRITERIA.find((c) => c.key === criterion)!.label}
+              </span>
+              {mine && tactics && view === 'players' && (
+              <>
                 {tactics.starters.map((s, i) => {
                   const b = drag.bind({ kind: 'starter', index: i }, shortRole(s.role))
                   return (
@@ -429,10 +468,11 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
                     </span>
                   )
                 })}
-                <span className="ml-2 self-center text-[11px] text-[#aab3c4]">Arraste para trocar · clique no número ou na casa para pôr/tirar</span>
-              </div>
-            )}
-            <div ref={gridRef} className="min-h-0 flex-1 overflow-auto pb-2">
+                <span className="ml-2 self-center text-[11px] text-[#86869a]">Arraste para trocar · clique no número ou na casa para pôr/tirar</span>
+              </>
+              )}
+            </div>
+            <div ref={gridRef} className="min-h-0 flex-1 overflow-auto">
               {entries.length ? (
                 <SquadGrid
                   entries={entries}
@@ -448,19 +488,23 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
             </div>
           </>
         )}
-        {club && tab === 'info' && <Info c={club} finances={mine ? <FinancesPanel clubId={id} /> : undefined} />}
-        {tab === 'next' && (
-          <MatchInfo key="next" clubId={id} fixtures={fixtures} start={nextMatch ? fixtures.indexOf(nextMatch) : fixtures.length} empty="Não há mais jogos marcados." />
+        {tab !== 'squad' && (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
+            {club && tab === 'info' && <Info c={club} finances={mine ? <FinancesPanel clubId={id} /> : undefined} />}
+            {tab === 'next' && (
+              <MatchInfo key="next" clubId={id} fixtures={fixtures} start={nextMatch ? fixtures.indexOf(nextMatch) : fixtures.length} empty="Não há mais jogos marcados." />
+            )}
+            {tab === 'last' && (
+              <MatchInfo key="last" clubId={id} fixtures={fixtures} start={lastMatch ? fixtures.indexOf(lastMatch) : -1} empty="Ainda não jogou." />
+            )}
+            {tab === 'transfers' && <TransfersPanel clubId={id} />}
+            {tab === 'fixtures' && <ClubFixtureList clubId={id} fixtures={fixtures} />}
+          </div>
         )}
-        {tab === 'last' && (
-          <MatchInfo key="last" clubId={id} fixtures={fixtures} start={lastMatch ? fixtures.indexOf(lastMatch) : -1} empty="Ainda não jogou." />
-        )}
-        {tab === 'transfers' && <TransfersPanel clubId={id} />}
-        {tab === 'fixtures' && <ClubFixtureList clubId={id} fixtures={fixtures} />}
       </div>
 
       {/* Atalhos inferiores do CM; o Treino chega no marco 3.3 */}
-      <div className="mt-1.5">
+      <div className="mt-2.5">
         <Tabs
           tabs={[
             { key: 'tactics', label: 'Tácticas' },

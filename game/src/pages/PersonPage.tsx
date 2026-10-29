@@ -5,14 +5,16 @@ import { api } from '../api'
 import type { PersonProfile } from '../bindings/PersonProfile'
 import { DialogFrame, Overlay } from '../components/Dialog'
 import DisciplineDialog from '../components/DisciplineDialog'
+import PlayerHistory, { SeasonTable } from '../components/PlayerHistory'
 import ReportDialog from '../components/ReportDialog'
-import { BottomBar, Empty, ErrorBox, Link, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, Link, Panel, PurpleMenu, Tabs } from '../components/Screen'
+import type { PositionTag } from '../bindings/PositionTag'
 import type { TransferView } from '../bindings/TransferView'
 import TransferActions, { type TransferAction } from '../components/TransferActions'
 import TextDialog from '../components/TextDialog'
 import TransferTab from '../components/TransferTab'
 import { compareFirst, setCompareFirst } from '../compare'
-import { cmDate, initials, money, wage } from '../format'
+import { cmDate, money, wage } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import { PLAYER_ATTRIBUTES } from '../attributes'
@@ -47,11 +49,10 @@ const STAFF_ATTRIBUTES: [string, string][] = [
 ]
 
 const TABS = [
-  { key: 'profile', label: 'Perfil' },
-  { key: 'injuries', label: 'Lesões & Castigos', disabled: true },
-  { key: 'contract', label: 'Contrato' },
-  { key: 'transfer', label: 'Transferência' },
-  { key: 'history', label: 'Historial' },
+  { key: 'profile', label: 'Perfil Geral' },
+  { key: 'contract', label: 'Contrato & Transferência' },
+  { key: 'history', label: 'Historial / Carreira' },
+  { key: 'injuries', label: 'Lesões & Castigos' },
 ]
 
 const DEFAULT_COLOURS = { fg: '#ffffff', bg: '#3a3a3a' }
@@ -80,7 +81,7 @@ function AttributeGrid({ items }: { items: { label: string; value: ReactNode; co
   )
 }
 
-/** Tabela pequena de cabeçalho roxo (resumo e histórico). */
+/** Tabela pequena de cabeçalho roxo (a época quando não há dados do jogo). */
 function PurpleTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   return (
     <table className="w-full overflow-hidden rounded-md border-collapse bg-[#1a1b21] text-center">
@@ -111,8 +112,131 @@ function PurpleTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   )
 }
 
-function Profile({ p }: { p: PersonProfile }) {
+/** Cabeçalho do perfil: número e clube, nome, a linha dos dados, a faixa da posição e as abas,
+ * tudo num painel; Acção no canto. */
+function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: ReactNode; tabs: ReactNode }) {
   const nav = useNav()
+  const club = p?.club
+  const colours = club?.fg && club?.bg ? { fg: club.fg, bg: club.bg } : DEFAULT_COLOURS
+  const pl = p?.player
+  const born = p?.birthDate ? cmDate(p.birthDate) : p?.birthYear ? String(p.birthYear) : '?'
+  const dot = <span className="text-[#5a5a66]"> · </span>
+  return (
+    <div className="m-2.5 shrink-0 rounded-md bg-[#1a1b21] px-4 pb-2 pt-3">
+      <div className="flex items-start gap-3">
+        <div
+          className="flex size-[52px] shrink-0 flex-col items-center justify-center rounded border border-black/40 leading-none"
+          style={{ color: colours.fg, background: colours.bg }}
+          title={club?.name}
+        >
+          <span className="font-title text-[26px] font-bold">{pl?.squadNumber ?? '-'}</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate font-title text-[26px] font-bold uppercase leading-tight text-white">{p?.name ?? ''}</span>
+            {p && (
+              <span className="shrink-0 rounded px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider" style={{ color: colours.fg, background: colours.bg }}>
+                {club ? (
+                  <Link onClick={() => nav.go({ kind: 'club', id: club.id, reserves: p.status?.reserve })}>
+                    {p.status?.reserve ? `Reservas ${club.shortName}` : club.shortName}
+                  </Link>
+                ) : (
+                  'Sem clube'
+                )}
+              </span>
+            )}
+            {p && !pl && p.job && (
+              <span className="shrink-0 rounded bg-[#0f3a2a] px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[#4edea3]">{p.job}</span>
+            )}
+          </div>
+          {p && (
+            <div className="truncate font-mono text-[13px] text-[#c8c8d0]">
+              {born} ({p.age ?? '?'} anos)
+              {dot}
+              {p.nationId !== null && p.nation ? <Link onClick={() => nav.go({ kind: 'nation', id: p.nationId! })}>{p.nation}</Link> : (p.nation ?? '-')}
+              {p.internationalApps > 0 && (
+                <>
+                  {' '}
+                  (<b className="text-cm-yellow">{p.internationalApps}</b> internac. / <b className="text-cm-yellow">{p.internationalGoals}</b> golos)
+                </>
+              )}
+              {pl && (
+                <>
+                  {dot}Valor: <b className="text-[#4edea3]">{money(pl.value) || '-'}</b>
+                </>
+              )}
+              {dot}Salário: <b className="text-white">{wage(p.wage) || '-'}</b>
+            </div>
+          )}
+        </div>
+        <div className="shrink-0">{action}</div>
+      </div>
+      {pl && (
+        <div className="mt-2 flex h-8 items-center gap-2 rounded bg-black/30 px-3">
+          <span className="truncate font-title text-[16px] font-bold text-[#4edea3]">{pl.positionLong || '-'}</span>
+          <span className="ml-auto flex shrink-0 gap-1">
+            {pl.positions.map((t) => (
+              <span
+                key={t.code}
+                title={t.natural ? 'Posição de origem' : undefined}
+                className={`rounded px-1.5 font-mono text-[11px] font-bold tracking-wider ${t.natural ? 'bg-[#10b981] text-black' : 'bg-[#0f3a2a] text-[#4edea3]'}`}
+              >
+                {t.code}
+              </span>
+            ))}
+          </span>
+          <span className="shrink-0 font-mono text-[11px] uppercase tracking-wider text-[#86869a]">
+            Pé preferido: <b className="text-cm-yellow">{pl.preferredFoot ?? '-'}</b>
+          </span>
+        </div>
+      )}
+      <div className="mt-2">{tabs}</div>
+    </div>
+  )
+}
+
+// Onde fica cada posição no campo pequeno (ataque para a direita, esquerda em cima)
+const ROLE_X: Record<string, number> = { GR: 6, L: 16, D: 25, AL: 40, MD: 42, M: 57, MA: 72, A: 88 }
+const SIDE_Y: Record<string, number> = { E: 18, C: 50, D: 82 }
+
+/** Campo pequeno com as posições em que joga (a de origem a cheio). */
+function Pitch({ tags }: { tags: PositionTag[] }) {
+  return (
+    <div className="relative h-[118px] overflow-hidden rounded border border-[#2f6b52] bg-[#0f241b]">
+      <div className="absolute inset-y-0 left-1/2 border-l border-[#2f6b52]" />
+      <div className="absolute left-1/2 top-1/2 size-9 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#2f6b52]" />
+      <div className="absolute left-0 top-1/2 h-12 w-5 -translate-y-1/2 border border-l-0 border-[#2f6b52]" />
+      <div className="absolute right-0 top-1/2 h-12 w-5 -translate-y-1/2 border border-r-0 border-[#2f6b52]" />
+      {tags.map((t) => (
+        <span
+          key={t.code}
+          className={`absolute -translate-x-1/2 -translate-y-1/2 rounded px-1 font-mono text-[10px] font-bold ${
+            t.natural ? 'bg-[#10b981] text-black' : 'border border-[#10b981] bg-[#0f241b] text-[#4edea3]'
+          }`}
+          style={{ left: `${ROLE_X[t.role] ?? 50}%`, top: `${SIDE_Y[t.side ?? 'C']}%` }}
+        >
+          {t.code}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/** Linhas "Nome .... valor" de um painel. */
+function InfoRows({ rows }: { rows: [string, ReactNode][] }) {
+  return (
+    <div className="cm-zebra">
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex h-[26px] items-center justify-between gap-2 px-3 text-[13.5px]">
+          <span className="text-[#c8c8d0]">{k}</span>
+          <span className="truncate font-bold text-cm-yellow">{v}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Profile({ p }: { p: PersonProfile }) {
   const pl = p.player
   const attrs = pl?.attributes ?? p.staff?.attributes ?? {}
   const list = pl ? PLAYER_ATTRIBUTES : STAFF_ATTRIBUTES
@@ -122,58 +246,52 @@ function Profile({ p }: { p: PersonProfile }) {
   })
   if (pl) {
     items.push(
-      { label: 'Pé Preferido', value: pl.preferredFoot ?? '-' },
       { label: 'Forma', value: p.form.length ? p.form.map((r) => Math.round(r)).join('-') : '-' },
       { label: 'Moral', value: p.status?.moraleLabel ?? '-' },
       { label: 'Condição', value: `${p.status?.condition ?? 100}%` },
     )
   }
-
-  const born = p.birthDate ? cmDate(p.birthDate) : p.birthYear ? String(p.birthYear) : '?'
-  const caps = p.internationalApps ? ` (${p.internationalApps} internac./${p.internationalGoals} golos)` : ''
   const ability = pl ?? p.staff
+  const total = p.season.reduce((t, s) => ({ apps: t.apps + s.apps, goals: t.goals + s.goals, assists: t.assists + s.assists }), {
+    apps: 0,
+    goals: 0,
+    assists: 0,
+  })
+  const rating = total.apps ? p.season.reduce((t, s) => t + s.rating * s.apps, 0) / total.apps : 0
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">
-      <div className="shrink-0 text-[16px] font-semibold text-cm-yellow">
-        Nascido {born} (Idade {p.age ?? '?'}).{' '}
-        {p.nationId !== null && p.nation ? (
-          <Link onClick={() => nav.go({ kind: 'nation', id: p.nationId! })}>{p.nation}</Link>
-        ) : (
-          (p.nation ?? '')
-        )}
-        {caps}.
-      </div>
-      <AttributeGrid items={items} />
-      <div className="shrink-0">
-        <PurpleTable
-          head={['', 'Nº', 'Rep. Actual', 'Rep. Mundial', 'Salário', 'Contrato até']}
-          rows={[
-            [
-              p.club?.shortName ?? 'Sem clube',
-              pl?.squadNumber ?? '-',
-              ability?.currentReputation ?? '-',
-              ability?.worldReputation ?? '-',
-              wage(p.wage),
-              cmDate(p.contractExpires),
-            ],
-          ]}
-        />
-      </div>
-      {p.season.length > 0 && (
-        <div className="shrink-0">
-          <PurpleTable
-            head={['Época', 'Jogos', 'Golos', 'Asts', 'Nota']}
-            rows={p.season.map((s) => [s.competition, s.apps, s.goals, s.assists, s.rating.toFixed(2)])}
-          />
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto pb-1">
+      <div className="flex shrink-0 gap-2.5">
+        <div className="min-w-0 flex-1">
+          <AttributeGrid items={items} />
         </div>
-      )}
-      {p.note && (
-        <div className="shrink-0 rounded-md bg-[#1a1b21] px-3 py-1.5 text-[15px] text-white">
-          <span className="text-cm-yellow">Nota do treinador: </span>
-          {p.note}
+        <div className="flex w-[250px] shrink-0 flex-col gap-2.5">
+          {pl && (
+            <Panel title="Posições">
+              <div className="p-2">
+                <Pitch tags={pl.positions} />
+              </div>
+            </Panel>
+          )}
+          <Panel title="Situação">
+            <InfoRows
+              rows={[
+                ...(pl ? ([['Número', pl.squadNumber ?? '-']] as [string, ReactNode][]) : []),
+                ['Rep. Actual', ability?.currentReputation ?? '-'],
+                ['Rep. Mundial', ability?.worldReputation ?? '-'],
+                ['No clube desde', cmDate(p.clubJoined)],
+                ['Contrato até', cmDate(p.contractExpires)],
+              ]}
+            />
+            {p.note && (
+              <div className="border-t border-cm-line px-3 py-1.5 text-[13px] text-white">
+                <span className="text-cm-yellow">Nota: </span>
+                {p.note}
+              </div>
+            )}
+          </Panel>
         </div>
-      )}
+      </div>
       {p.knowledge && p.knowledge !== 'known' && (
         <div className="shrink-0 text-center text-cm-magenta">
           {p.reportOn
@@ -183,17 +301,27 @@ function Profile({ p }: { p: PersonProfile }) {
               : 'O seu clube conhece este jogador só em parte. Mande observá-lo para ver tudo.'}
         </div>
       )}
-      {!!p.status?.unhappy.length && (
-        <div className="shrink-0 text-center text-cm-orange">
-          {p.status.unhappy.map((u) => (
-            <div key={u}>{u}.</div>
-          ))}
-        </div>
+      {pl && p.seasons[0]?.byKind.length ? (
+        <Panel title={`Estatísticas da Época ${p.seasons[0].label}`} className="shrink-0">
+          <SeasonTable byKind={p.seasons[0].byKind} />
+        </Panel>
+      ) : (
+        pl && (
+          <Panel title="Estatísticas da Época" className="shrink-0">
+            {p.season.length === 0 ? (
+              <Empty className="p-3">Ainda não jogou esta época.</Empty>
+            ) : (
+              <PurpleTable
+                head={['Competição', 'Jogos', 'Golos', 'Asts', 'Nota']}
+                rows={[
+                  ...p.season.map((s) => [s.competition, s.apps, s.goals, s.assists, s.rating.toFixed(2)]),
+                  [<b key="t" className="text-[#4edea3]">Total</b>, total.apps, total.goals, total.assists, rating.toFixed(2)],
+                ]}
+              />
+            )}
+          </Panel>
+        )
       )}
-      <div className="flex-1" />
-      <div className="shrink-0 text-center font-title text-[20px] font-bold text-cm-magenta">
-        {pl ? pl.positionLong || '-' : (p.job ?? '-')}
-      </div>
     </div>
   )
 }
@@ -202,33 +330,64 @@ function Profile({ p }: { p: PersonProfile }) {
 function Injuries({ p }: { p: PersonProfile }) {
   const st = p.status
   if (!st) return <Empty>Sem registos.</Empty>
-  const rows: [string, ReactNode][] = [
-    ['Lesão', st.injury ?? 'Nenhuma'],
-    ['Regresso previsto', st.injuryUntil ? cmDate(st.injuryUntil) : '-'],
-    ['Suspensão', st.suspended ? `${st.suspended} jogo${st.suspended > 1 ? 's' : ''}` : 'Nenhuma'],
-    ['Cartões amarelos', `${st.yellows} (suspensão ao 3º)`],
+  const health: [string, ReactNode][] = [
     ['Condição', `${st.condition}%`],
+    [
+      'Lesão',
+      st.injury ? (
+        <span key="i" className="text-[#ff5050]">
+          {st.injury}
+        </span>
+      ) : (
+        'Nenhuma'
+      ),
+    ],
+    ['Regresso previsto', st.injuryUntil ? cmDate(st.injuryUntil) : '-'],
     ['Moral', st.moraleLabel],
   ]
+  const rows: [string, ReactNode][] = [
+    [
+      'Suspensão',
+      st.suspended ? (
+        <span key="s" className="text-[#ff5050]">
+          {`${st.suspended} jogo${st.suspended > 1 ? 's' : ''}`}
+        </span>
+      ) : (
+        'Nenhuma'
+      ),
+    ],
+    ['Cartões amarelos', `${st.yellows} (suspensão ao 3º)`],
+  ]
   return (
-    <div className="cm-zebra mx-auto mt-2 w-full max-w-2xl overflow-hidden rounded-md bg-[#1a1b21]">
-      {rows.map(([k, v]) => (
-        <div key={k} className="flex h-[32px] items-center justify-between px-4 text-[15px]">
-          <span className="text-white">{k}</span>
-          <span className={`font-bold ${k === 'Lesão' && st.injury ? 'text-[#ff5050]' : 'text-cm-yellow'}`}>{v}</span>
-        </div>
-      ))}
+    <div className="flex min-h-0 flex-1 items-start gap-2.5 overflow-auto pb-1">
+      <Panel title="Condição Física" chip={st.injury ? undefined : 'Apto para jogar'} className="min-w-0 flex-1">
+        <InfoRows rows={health} />
+      </Panel>
+      <Panel title="Disciplina & Suspensões" className="min-w-0 flex-1">
+        <InfoRows rows={rows} />
+      </Panel>
     </div>
   )
 }
 
+/** " (3 anos)": o que falta do contrato, contado a partir da data do jogo. */
+function useYearsLeft() {
+  const today = useGame().info?.date
+  return (until: string) => {
+    if (!today) return ''
+    const y = Number(until.slice(0, 4)) - Number(today.slice(0, 4)) - (until.slice(5) < today.slice(5) ? 1 : 0)
+    return y >= 1 ? ` (${y} ano${y > 1 ? 's' : ''})` : ' (último ano)'
+  }
+}
+
 function Contract({ p }: { p: PersonProfile }) {
+  const years = useYearsLeft()
   const nav = useNav()
   const rows: [string, ReactNode][] = [
     ['Clube', p.club ? <Link key="club" onClick={() => nav.go({ kind: 'club', id: p.club!.id })}>{p.club.name}</Link> : 'Sem clube'],
     ['Função', p.job ?? '-'],
     ['No clube desde', cmDate(p.clubJoined)],
-    ['Contrato até', cmDate(p.contractExpires)],
+    ['Contrato até', p.contractExpires ? `${cmDate(p.contractExpires)}${years(p.contractExpires)}` : '-'],
     ['Salário', wage(p.wage, true)],
     ...(p.player ? ([['Valor', money(p.player.value) || '-']] as [string, ReactNode][]) : []),
     [
@@ -252,37 +411,7 @@ function Contract({ p }: { p: PersonProfile }) {
       ),
     ],
   ]
-  return (
-    <div className="cm-zebra mx-auto mt-2 w-full max-w-2xl overflow-hidden rounded-md bg-[#1a1b21]">
-      {rows.map(([k, v]) => (
-        <div key={k} className="flex h-[32px] items-center justify-between px-4 text-[15px]">
-          <span className="text-white">{k}</span>
-          <span className="font-bold text-cm-yellow">{v}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function History({ p }: { p: PersonProfile }) {
-  const nav = useNav()
-  if (p.career.length === 0) return <Empty>Sem histórico registado.</Empty>
-  return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      <PurpleTable
-        head={['Clube', 'Ano', 'Jogos', 'Golos']}
-        rows={p.career.map((c) => [
-          <span key="club" className="text-cm-magenta">
-            {c.club ? <Link onClick={() => nav.go({ kind: 'club', id: c.club!.id })}>{c.club.shortName}</Link> : '-'}
-            {c.onLoan && <span className="text-cm-yellow"> (emp.)</span>}
-          </span>,
-          c.year ?? '-',
-          c.apps,
-          c.goals,
-        ])}
-      />
-    </div>
-  )
+  return <InfoRows rows={rows} />
 }
 
 export default function PersonPage({ id }: { id: number }) {
@@ -325,22 +454,6 @@ export default function PersonPage({ id }: { id: number }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [nav])
-
-  const club = person?.club
-  const colours = club?.fg && club?.bg ? { fg: club.fg, bg: club.bg } : DEFAULT_COLOURS
-  const number = person?.player?.squadNumber ? `${person.player.squadNumber}. ` : ''
-  const title = person ? `${number}${person.name}` : ''
-  const clubTag = person ? (
-    <span className="rounded px-1.5 tracking-wider" style={{ color: colours.fg, background: colours.bg }}>
-      {club ? (
-        <Link onClick={() => nav.go({ kind: 'club', id: club.id, reserves: person.status?.reserve })}>
-          {person.status?.reserve ? `Reservas ${club.shortName}` : club.shortName}
-        </Link>
-      ) : (
-        'Sem clube'
-      )}
-    </span>
-  ) : null
 
   // Menu Acção (num jogo em curso): de outro clube (ou livre), propor contrato e observar; do
   // plantel, disciplina, imprensa e relatórios do staff. Quem pode assinar decide o core.
@@ -393,6 +506,20 @@ export default function PersonPage({ id }: { id: number }) {
           ...(canScout ? [{ key: 'scout', label: 'Observar Jogador' }] : []),
         ],
       ]
+  // Os botões da aba Contrato & Transferência: os principais, iguais aos do menu
+  const pick = (keys: string[]) => actions.flat().filter((a) => keys.includes(a.key))
+  const contractButtons = pick(['renew', 'contract'])
+  const marketButtons = pick(['list', 'unlist', 'price', 'loanlist', 'unloanlist', 'offer', 'loan', 'option', 'shortlist', 'unshortlist', 'scout'])
+  const buttonRow = (list: { key: string; label: string }[]) =>
+    list.length > 0 && (
+      <div className="flex flex-wrap gap-1.5 border-t border-cm-line p-2">
+        {list.map((b) => (
+          <button key={b.key} className="cm-purple h-7 px-3" onClick={() => act(b.key)}>
+            {b.label}
+          </button>
+        ))}
+      </div>
+    )
   // Para todos: alcunha, nota e comparar (o 1º escolhido espera pelo 2º)
   const first = compareFirst()
   const common: { key: string; label: string }[] = [
@@ -428,7 +555,7 @@ export default function PersonPage({ id }: { id: number }) {
     try {
       setMarket(await f())
       setError(null)
-      setTab('transfer')
+      setTab('contract')
       refreshInfo()
       await reload()
     } catch (e) {
@@ -447,80 +574,108 @@ export default function PersonPage({ id }: { id: number }) {
     }
   }
 
+  const act = (k: string) => {
+    if (k === 'contract' || k === 'renew') nav.go({ kind: 'contract', id })
+    else if (k === 'offer' || k === 'loan' || k === 'price') setDeal(k)
+    else if (k === 'option') void marketAction(() => api.exerciseOption(id))
+    else if (k === 'nickname' || k === 'note') setText(k)
+    else if (k === 'release') void api.releaseQuestion(id).then(setRelease, (e) => setError(String(e)))
+    else if (k === 'compareFirst' && person) {
+      setCompareFirst({ id, name: person.name })
+      setNotice(`Escolha o segundo jogador e, no menu Acção, Comparar com ${person.name}.`)
+    } else if (k === 'compare' && first) {
+      setCompareFirst(null)
+      nav.go({ kind: 'compare', a: first.id, b: id })
+    }
+    else if (k === 'list' || k === 'unlist' || k === 'loanlist' || k === 'unloanlist')
+      void marketAction(() =>
+        api.setListing(
+          id,
+          k === 'list' ? true : k === 'unlist' ? false : !!m?.transferListed,
+          k === 'loanlist' ? true : k === 'unloanlist' ? false : !!m?.loanListed,
+          m?.asking ?? null,
+        ),
+      )
+    else if (k === 'shortlist' || k === 'unshortlist')
+      void api.setShortlist(id, k === 'shortlist').then(() => {
+        setNotice(k === 'shortlist' ? 'Adicionado à Lista Preferencial.' : 'Retirado da Lista Preferencial.')
+        void reload()
+      })
+    else if (k === 'scout') setConfirm(true)
+    else if (k === 'discipline') setDiscipline(true)
+    else if (k === 'praise' || k === 'criticise') void comment(k)
+    else if (k === 'promote' || k === 'demote') void moveSquad(k === 'demote')
+    else setReport(k as 'medical' | 'fitness')
+  }
+
   return (
     <div className="relative flex h-full flex-col">
-      <ScreenHeader
-        emblem={club ? { text: initials(club.shortName), fg: colours.fg, bg: colours.bg } : undefined}
-        eyebrow={clubTag}
-        title={title}
-        right={
-          game.mode === 'game' && person?.player && (
-        <PurpleMenu
-          label="Acção"
-          align="right"
-          buttonClass="cm-purple flex h-8 items-center gap-1.5 px-4"
-          trigger={
-            <>
-              Acção <ChevronDown size={14} />
-            </>
-          }
-          options={[...actions, common].filter((g) => g.length > 0).flatMap((g, i) => (i ? ['separator' as const, ...g] : g))}
-          onChange={(k) => {
-            if (k === 'contract' || k === 'renew') nav.go({ kind: 'contract', id })
-            else if (k === 'offer' || k === 'loan' || k === 'price') setDeal(k)
-            else if (k === 'option') void marketAction(() => api.exerciseOption(id))
-            else if (k === 'nickname' || k === 'note') setText(k)
-            else if (k === 'release') void api.releaseQuestion(id).then(setRelease, (e) => setError(String(e)))
-            else if (k === 'compareFirst' && person) {
-              setCompareFirst({ id, name: person.name })
-              setNotice(`Escolha o segundo jogador e, no menu Acção, Comparar com ${person.name}.`)
-            } else if (k === 'compare' && first) {
-              setCompareFirst(null)
-              nav.go({ kind: 'compare', a: first.id, b: id })
-            }
-            else if (k === 'list' || k === 'unlist' || k === 'loanlist' || k === 'unloanlist')
-              void marketAction(() =>
-                api.setListing(
-                  id,
-                  k === 'list' ? true : k === 'unlist' ? false : !!m?.transferListed,
-                  k === 'loanlist' ? true : k === 'unloanlist' ? false : !!m?.loanListed,
-                  m?.asking ?? null,
-                ),
-              )
-            else if (k === 'shortlist' || k === 'unshortlist')
-              void api.setShortlist(id, k === 'shortlist').then(() => {
-                setNotice(k === 'shortlist' ? 'Adicionado à Lista Preferencial.' : 'Retirado da Lista Preferencial.')
-                void reload()
-              })
-            else if (k === 'scout') setConfirm(true)
-            else if (k === 'discipline') setDiscipline(true)
-            else if (k === 'praise' || k === 'criticise') void comment(k)
-            else if (k === 'promote' || k === 'demote') void moveSquad(k === 'demote')
-            else setReport(k as 'medical' | 'fitness')
-          }}
-        />
+      <PersonHeader
+        p={person}
+        action={
+          game.mode === 'game' &&
+          person?.player && (
+            <PurpleMenu
+              label="Acção"
+              align="right"
+              buttonClass="flex h-9 items-center gap-1.5 rounded bg-cm-orange px-4 font-title text-[17px] font-bold text-black hover:brightness-110"
+              trigger={
+                <>
+                  Acção <ChevronDown size={14} />
+                </>
+              }
+              options={[...actions, common].filter((g) => g.length > 0).flatMap((g, i) => (i ? ['separator' as const, ...g] : g))}
+              onChange={act}
+            />
           )
         }
+        tabs={
+          <Tabs
+            tabs={(person?.player ? TABS : TABS.filter((t) => t.key !== 'injuries')).map((t) =>
+              t.key === 'injuries'
+                ? { ...t, label: person?.status?.injury || person?.status?.suspended ? `${t.label} •` : t.label, disabled: !person?.status }
+                : t.key === 'contract' && !person?.player
+                  ? { ...t, label: 'Contrato' }
+                  : t,
+            )}
+            active={tab}
+            onChange={setTab}
+          />
+        }
       />
-      <Tabs
-        tabs={TABS.map((t) =>
-          t.key === 'injuries'
-            ? { ...t, disabled: !person?.status }
-            : t.key === 'transfer'
-              ? { ...t, disabled: game.mode !== 'game' || !person?.player }
-              : t,
-        )}
-        active={tab}
-        onChange={setTab}
-      />
-      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col">
+      <div className="mx-2.5 flex min-h-0 flex-1 flex-col">
         <ErrorBox className="mb-2.5">{error}</ErrorBox>
         {notice && <div className="mb-2.5 rounded bg-[#0f3a2a] px-2 py-1 text-center text-cm-yellow">{notice}</div>}
         {person && tab === 'profile' && <Profile p={person} />}
-        {person && tab === 'contract' && <Contract p={person} />}
+        {person && tab === 'contract' && (
+          <div className="flex min-h-0 flex-1 items-start gap-2.5 overflow-auto pb-1">
+            <Panel title="Contrato" className="w-[42%] shrink-0">
+              <Contract p={person} />
+              {game.mode === 'game' && buttonRow(contractButtons)}
+            </Panel>
+            {game.mode === 'game' && person.player && (
+              <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+                <Panel title="Mercado">
+                  <TransferTab personId={id} version={version} onChanged={() => void reload()} />
+                  {buttonRow(marketButtons)}
+                </Panel>
+                {!!person.status?.unhappy.length && (
+                  <Panel title="Estado de Espírito" chip="Insatisfeito">
+                    <div className="cm-zebra">
+                      {person.status.unhappy.map((u) => (
+                        <div key={u} className="flex min-h-[26px] items-center px-3 text-[13.5px] text-cm-orange">
+                          {u}.
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {person && tab === 'injuries' && <Injuries p={person} />}
-        {person && tab === 'history' && <History p={person} />}
-        {person && tab === 'transfer' && <TransferTab personId={id} version={version} onChanged={() => void reload()} />}
+        {person && tab === 'history' && <PlayerHistory p={person} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
       {deal && market && person && (
@@ -532,7 +687,7 @@ export default function PersonPage({ id }: { id: number }) {
           onDone={(v) => {
             setDeal(null)
             setMarket(v)
-            setTab('transfer')
+            setTab('contract')
             void reload()
           }}
         />

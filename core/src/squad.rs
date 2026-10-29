@@ -19,7 +19,7 @@ pub const START_MORALE: i32 = 12;
 /// Condição com que um jogador volta de lesão.
 const BACK_FROM_INJURY: i32 = 80;
 /// Amarelos que dão um jogo de suspensão.
-const YELLOWS_FOR_BAN: i32 = 3;
+pub(crate) const YELLOWS_FOR_BAN: i32 = 3;
 
 /// Amarelos e jogos de castigo por cumprir numa competição.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]

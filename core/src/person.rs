@@ -41,6 +41,8 @@ pub struct PlayerDetails {
     pub position: String,
     /// Por extenso, ex.: "Médio Atacante/Avançado (Direita/Esquerda/Centro)".
     pub position_long: String,
+    /// As etiquetas do perfil, uma por posição e lado ("MAD", "MAE", "AC").
+    pub positions: Vec<crate::search::PositionTag>,
     /// "Direito", "Esquerdo" ou "Qualquer".
     pub preferred_foot: Option<String>,
     pub morale: Option<i32>,
@@ -109,6 +111,13 @@ pub struct PersonProfile {
     pub player: Option<PlayerDetails>,
     pub staff: Option<StaffDetails>,
     pub career: Vec<CareerEntry>,
+    /// Num jogo em curso: a carreira por época com as estatísticas (as épocas jogadas no jogo
+    /// e, antes, as do patch só com jogos e golos), da mais recente à mais antiga.
+    pub seasons: Vec<SeasonRecord>,
+    /// Lesões, suspensões e títulos ganhos durante o jogo (Historial: Vêr).
+    pub injuries: Vec<InjuryLine>,
+    pub suspensions: Vec<SuspensionLine>,
+    pub honours: Vec<HonourLine>,
     /// Condição, moral, lesão e castigos num jogo em curso (só jogadores de clubes vivos).
     pub status: Option<crate::squad::PlayerStatus>,
     /// Num jogo em curso: o que o clube do treinador sabe dele (os atributos que não sabe vêm
@@ -142,6 +151,77 @@ pub struct SeasonLine {
     pub goals: i32,
     pub assists: i32,
     pub rating: f64,
+}
+
+/// Números de um conjunto de jogos (uma época, uma competição), como no Historial do CM.
+#[derive(Debug, Clone, Default, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct StatLine {
+    /// Jogos e, desses, a sair do banco.
+    pub apps: i32,
+    pub subs: i32,
+    pub goals: i32,
+    pub assists: i32,
+    /// Homem do jogo.
+    pub mom: i32,
+    /// Passes certos em %; cortes e dribles por jogo; remates à baliza em %; nota média.
+    /// `None` sem dados (épocas antes do jogo).
+    pub pass_pct: Option<i32>,
+    pub tackles: Option<f64>,
+    pub dribbles: Option<f64>,
+    pub shot_pct: Option<i32>,
+    pub rating: Option<f64>,
+}
+
+/// Uma época da carreira num clube.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SeasonRecord {
+    /// "2025/26" ou "2026".
+    pub label: String,
+    pub year: i32,
+    pub club: Option<ClubRef>,
+    pub on_loan: bool,
+    pub stats: StatLine,
+    /// Por tipo de competição (Liga, Taça, Continentais) e o total, só nas épocas do jogo.
+    pub by_kind: Vec<(String, StatLine)>,
+}
+
+/// Uma lesão no Historial.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct InjuryLine {
+    pub date: String,
+    pub injury: String,
+    /// "Jogo" ou "Treino".
+    pub kind: String,
+    pub days: i32,
+}
+
+/// Uma suspensão no Historial.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SuspensionLine {
+    pub date: String,
+    /// "Suspensão de 1 jogo (Série A)".
+    pub text: String,
+    /// "Cartão vermelho" ou "3 cartões amarelos".
+    pub reason: String,
+}
+
+/// Um título (ou final perdida) no Currículo do jogador.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct HonourLine {
+    pub date: String,
+    pub club: Option<ClubRef>,
+    /// "Campeão Série A", "Vencedor Copa do Brasil", "Finalista vencido Libertadores".
+    pub text: String,
 }
 
 /// O que o clube do treinador sabe de um jogador (marco 3.10).
@@ -274,6 +354,10 @@ impl World {
                         player: None,
                         staff: None,
                         career: Vec::new(),
+                        seasons: Vec::new(),
+                        injuries: Vec::new(),
+                        suspensions: Vec::new(),
+                        honours: Vec::new(),
                         status: None,
                         knowledge: None,
                         report_on: None,
@@ -334,6 +418,7 @@ impl World {
                     world_reputation: r.get("world_reputation")?,
                     position: position_label(&pos),
                     position_long: position_long(&pos),
+                    positions: crate::search::position_tags(&pos),
                     preferred_foot: foot,
                     morale: r.get("morale")?,
                     attributes: displayed_attributes(&attributes, current_ability, pos[0]),

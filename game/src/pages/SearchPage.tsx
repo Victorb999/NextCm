@@ -382,7 +382,7 @@ export default function SearchPage({ active }: { active: boolean }) {
           <Tabs tabs={MORE_SCOUTS} active={scout !== null ? `scout${scout}` : ''} onChange={pickTab} />
         </div>
       )}
-      <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+      <BottomBar active={active} onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
 
       {dialog && (
         <FilterDialog

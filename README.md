@@ -19,28 +19,38 @@ O mesmo visual, a mesma velocidade, a mesma fluidez — com o banco de dados atu
 
 ## 📖 Sobre
 
-O **NextCM** recria a experiência do **Championship Manager 01/02** (com o tema *Coalizão* do patch CLZ) do zero: coluna esquerda cinza-azulada, faixas de título com as cores do clube, botões roxos, menus amarelos em cascata, tudo instantâneo. Sem cara de dashboard moderno: **a informação vem antes do estilo**.
+O **NextCM** recria a experiência do **Championship Manager 01/02** (com o tema *Coalizão* do patch CLZ) do zero: coluna esquerda, cabeçalhos com as cores do clube, abas escuras, botões roxos, menus e diálogos verdes, tudo instantâneo, com a densidade de informação do CM e um toque moderno (cantos levemente arredondados, fontes Inter e JetBrains Mono). Sem cara de dashboard: **a informação vem antes do estilo**.
 
 O mundo do jogo vem dos arquivos `.dat` originais do CM 01/02 com o **CLZ Leagues Patch (DB 25-26)**: mais de **144 mil pessoas**, 11 mil clubes e 400 competições, extraídos para um SQLite. As regras do jogo vivem num núcleo em **Rust** determinístico — a mesma seed dá sempre a mesma época.
 
 ## ✨ O que já dá para fazer
 
-### 🔎 Enciclopédia
-- **Pesquisa de jogadores e staff** em milissegundos, com filtros (nome sem acento, posição, idade, nação, atributos) e o diálogo verde de filtros do CM.
-- **Perfil** com os atributos 1–20 exatamente como o CM mostra (a conversão foi lida do próprio `cm0102.exe`), contrato, historial, lesões e castigos.
-- **Clubes, competições e nações** ligados entre si: do Brasil até qualquer jogador do Brasileirão só clicando. Menu **Competições** em cascata, historial de campeões, títulos de cada clube.
+### 🌍 Começar um jogo como no CM
+- **Escolher Campeonato(s)**: cada nação jogável, de fundo (só resultados) ou fora do jogo.
+- **Escolher Iniciar Época**: Europa 26/27 (1/7/2026) ou Brasil 2026 (1/1/2026).
+- Gravar, carregar e apagar jogos (um SQLite por save, migrado sozinho), gravar no dia de jogo e Auto Gravação.
 
-### 🎮 Jogo (Série A do Brasileirão)
-- **Novo jogo, gravar, carregar e apagar** — o save é um SQLite; saves antigos são migrados sozinhos.
-- **Época inteira da Série A**: calendário de turno e returno, classificação real, Próximo/Último Jogo com local, tempo e notícias de cada lado.
-- **Dia de jogo** como no CM: *Jogos de Hoje* → a partida ao vivo → *Resultados de Hoje* → caixa de mensagens.
-- **Partida ao vivo** com motor por lances: relato minuto a minuto com velocidade ajustável, remates, defesas, golos com marcadores e assistências, cartões, lesões, estatísticas, notas dos jogadores e os outros jogos do dia; pausa no intervalo para **substituições** e **Instruções à Equipa**.
-- **O seu time**: tácticas editáveis arrastando jogadores (na lista, no campo ou no plantel), posições livres no campo, setas de movimento com o botão direito, banco de 9, *Instruções à Equipa* e o adjunto que escolhe a equipa por você.
-- **Condição física, moral, lesões, cartões e suspensões**, com notícias na caixa de mensagens.
+### ⚽ O mundo a jogar
+- **Brasil** (Séries A a D, Copa do Brasil, estaduais), **Inglaterra, Espanha, Itália, Alemanha, França, Portugal, Holanda, Argentina e Arábia Saudita** (1ª e 2ª divisão), **Libertadores, Sul-Americana, Liga dos Campeões e Liga Europa**, com épocas de ano civil e de agosto a maio lado a lado.
+- **Fim de época**: subidas e descidas, campeões, evolução e envelhecimento, contratos, reformas e juniores.
+- **Mercado** nas janelas reais: a IA compra, vende, empresta e dispensa; finanças de cada clube.
+
+### 🎮 O seu clube
+- **Dia de jogo** como no CM: *Jogos de Hoje* → a partida ao vivo com relato minuto a minuto, estatísticas e notas → *Resultados de Hoje*; substituições e tácticas a meio do jogo.
+- **Tácticas** arrastando jogadores no campo e na lista, setas de movimento, *Instruções à Equipa*, instruções individuais, banco de 9 e o adjunto que escolhe a equipa.
+- **Mercado do treinador**: propostas com valor, prestações, percentagem de venda futura e extras, empréstimos, contratos com resposta e contraproposta, renovações, pré-contratos, lista de transferências.
+- **Olheiros**: atributos tapados até conhecer o jogador, Observar Jogador, tarefas dos olheiros e as listas Olheiro #1–#7.
+- **Plantel**: condição, moral, lesões e castigos, insatisfação e pedidos para sair, equipa de reservas, números de camisola, Disciplinar, elogiar e criticar na imprensa.
+- **Direcção e Federação**: confiança, orçamentos, reuniões e pedidos, despedimento; Informação de Empregos, candidaturas e currículo do treinador.
+- **Imprensa e palestras**: conferências antes e depois dos jogos e palestras aos jogadores, com a reação de cada um pela personalidade.
+
+### 🔎 Enciclopédia
+- **Pesquisa de jogadores e staff** em milissegundos, com os filtros do CM.
+- **Perfil** com os atributos 1–20 exatamente como o CM mostra (a conversão foi lida do próprio `cm0102.exe`), contrato, transferência, historial e estatísticas por jogo.
+- **Clubes, competições e nações** ligados entre si, com historial de campeões e títulos.
 
 ### 🎨 Personalização
-- Moeda (€, £, $, R$), salários semanais/mensais/anuais, fonte dos títulos, ecrã completo.
-- **Cor da coluna lateral** e **fundo personalizado** com a sua própria imagem.
+- Moeda (€, £, $, R$), salários semanais/mensais/anuais, resolução, fontes, ecrã completo, cor da coluna lateral e fundo com a sua imagem.
 
 ## 🏗️ Arquitetura
 
@@ -115,14 +125,14 @@ A CLI mostra a classificação, golos por jogo, vitórias em casa, remates, cart
 |---|---|---|
 | ✅ | **Fase 1** | Extrator dos `.dat` → SQLite |
 | ✅ | **Fase 2** | Enciclopédia navegável no visual do CM |
-| ✅ | **3.1** | Novo jogo, gravar/carregar, tempo e notícias |
-| ✅ | **3.2** | Série A jogável (calendário, match engine v1, classificação) |
-| ✅ | **3.3** | O seu time: tácticas, condição, moral, lesões, suspensões |
-| ✅ | **3.4** | Dia de jogo: motor por lances e relato ao vivo |
-| ⏳ | **3.5** | Fim de época: subidas e descidas, evolução, contratos, regens |
-| ⏳ | **3.6** | Mais competições (Série B, Copa do Brasil, estaduais, Libertadores...) |
-| ⏳ | **3.7** | Mercado de transferências com IA e finanças |
-| ⏳ | **3.8** | Polimento: notícias completas, empregos, férias |
+| ✅ | **3.1 – 3.4** | Novo jogo e tempo, Série A jogável, o seu time, dia de jogo com motor por lances |
+| ✅ | **3.5 – 3.7** | Fim de época, mais competições no Brasil, as ligas estrangeiras e a Europa |
+| ✅ | **3.8 – 3.10** | Mercado e finanças, personalidade, olheiros e conhecimento |
+| ✅ | **3.11 – 3.14** | Direcção e Federação, empregos e imprensa, polimento, palestras |
+| ⏳ | **3.15** | Testes e ajustes: jogar épocas inteiras, fluxos, o visual novo das telas, início do jogo como no CM |
+| ⏳ | **3.16** | Plantel completo (Vêr, Filtrar, reservas e clubes B) |
+| ⏳ | **3.17** | Treino |
+| ⏳ | **3.18** | Editor de jogos salvos |
 
 O plano está no [ROADMAP.md](ROADMAP.md); o detalhe de cada marco — decisões, regras e números — está em [docs/roadmap/](docs/roadmap/), um ficheiro por marco.
 

@@ -61,6 +61,8 @@ struct Profile {
     injury_proneness: f64,
     tackling: f64,
     jumping: f64,
+    /// Só para as estatísticas (dribles), nunca para o resultado.
+    dribbling: f64,
     /// Agressividade + Maldade.
     temper: f64,
     /// Consistência: quanto o rendimento varia de jogo para jogo.
@@ -88,7 +90,8 @@ fn load_profile(world: &World, id: i32, date: &str) -> Result<Profile> {
                 pl.versatility, p.sportsmanship, p.temperament, p.adaptability, p.club_joined,
                 -- Estrangeiro que chegou ao clube durante o jogo (o banco traz datas de entrada fictícias)
                 p.nation_id <> c.nation_id AND COALESCE(p.second_nation_id, 0) <> c.nation_id
-                  AND EXISTS (SELECT 1 FROM transfers t WHERE t.date = p.club_joined AND t.person_id = p.id AND t.to_club = p.club_id)
+                  AND EXISTS (SELECT 1 FROM transfers t WHERE t.date = p.club_joined AND t.person_id = p.id AND t.to_club = p.club_id),
+                pl.dribbling
          FROM people p JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id WHERE p.id = ?",
     )?;
     let today = date::parse(date).unwrap_or(0);
@@ -118,6 +121,7 @@ fn load_profile(world: &World, id: i32, date: &str) -> Result<Profile> {
             temper: (v(20)? + v(21)?) * personality::sportsmanship_factor(v(29)?),
             tackling: v(22)?,
             jumping: v(23)?,
+            dribbling: v(34)?,
             // Vazios no patch (o CM gera-os ao começar): contam como 10
             consistency: v(24)?,
             nerve: (v(25)? + v(26)?) / 2.0,
@@ -159,6 +163,7 @@ struct MatchPlayer {
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerStats {
+    pub dribbles: i32,
     pub passes: i32,
     pub passes_ok: i32,
     pub tackles: i32,
@@ -1444,12 +1449,68 @@ impl LiveMatch {
     }
 
     /// Quem jogou num lado: (id, nota, golos, assistências).
-    pub fn player_lines(&self, side: usize) -> Vec<(i32, f64, u8, u8)> {
+    pub fn player_lines(&self, side: usize) -> Vec<PlayerLine> {
         let t = &self.teams[side];
         (0..t.players.len())
             .filter(|&i| t.players[i].entered.is_some())
-            .map(|i| (t.players[i].info.id, self.final_rating(side, i), t.players[i].goals, t.players[i].assists))
+            .map(|i| {
+                let p = &t.players[i];
+                PlayerLine {
+                    id: p.info.id,
+                    rating: self.final_rating(side, i),
+                    goals: p.goals,
+                    assists: p.assists,
+                    sub: p.entered != Some(0),
+                    stats: p.stats,
+                }
+            })
             .collect()
+    }
+
+    /// Num jogo que ninguém viu (sem o enchimento minuto a minuto): passes, cortes e dribles
+    /// de cada jogador pelos minutos em campo, a posse e os atributos, com um RNG só para isto
+    /// (o resultado já está feito e não muda).
+    pub fn quiet_stats(&mut self, r: &mut ChaCha8Rng) {
+        if self.teams.iter().any(|t| t.stats.passes > 0) {
+            return;
+        }
+        let total = self.teams[0].possession + self.teams[1].possession;
+        let home = if total > 0.0 { self.teams[0].possession / total } else { 0.5 };
+        for side in 0..2 {
+            let share = if side == 0 { home } else { 1.0 - home };
+            let pressed = self.teams[1 - side].tactics.instructions.pressing;
+            let t = &self.teams[side];
+            // Peso de cada um: minutos em campo × função (a de onde acabou ou a do onze) × atributo
+            let minutes = |i: usize| {
+                let p = &t.players[i];
+                p.entered.map_or(0.0, |e| (p.left.unwrap_or(90).max(e) - e) as f64)
+            };
+            let role = |i: usize, table: [f64; 8]| match t.players[i].slot {
+                Some(slot) => role_weight(t.role(slot), table),
+                None if t.players[i].prof.pos[0].unwrap_or(0) >= 15 => table[0],
+                None => table[5],
+            };
+            let share_of = |table: [f64; 8], attr: &dyn Fn(&Profile) -> f64| {
+                let w: Vec<f64> = (0..t.players.len()).map(|i| minutes(i) * role(i, table) * attr(&t.players[i].prof)).collect();
+                let sum: f64 = w.iter().sum();
+                w.into_iter().map(|x| if sum > 0.0 { x / sum } else { 0.0 }).collect::<Vec<f64>>()
+            };
+            let passes = share_of(PASSERS, &|p| 6.0 + p.passing + p.vision);
+            let tackles = share_of(TACKLERS, &|p| 5.0 + p.tackling);
+            let dribbles = share_of(DRIBBLERS, &|p| p.dribbling);
+            for i in 0..self.teams[side].players.len() {
+                let prof = self.teams[side].players[i].prof.clone();
+                let mut st = self.teams[side].players[i].stats;
+                let chance = (0.47 + 0.018 * prof.passing + 0.008 * prof.vision - if pressed { 0.04 } else { 0.0 }).clamp(0.45, 0.9);
+                st.passes = poisson(9.2 * share * 90.0 * passes[i], r) as i32;
+                st.passes_ok = (0..st.passes).filter(|_| uniform(r) < chance).count() as i32;
+                let won = (0.45 + 0.02 * (prof.tackling - 10.0)).clamp(0.25, 0.75);
+                st.tackles = poisson(0.44 * (1.0 - share) * 90.0 * tackles[i], r) as i32;
+                st.tackles_won = (0..st.tackles).filter(|_| uniform(r) < won).count() as i32;
+                st.dribbles = poisson(DRIBBLES_PER_MINUTE * share * 90.0 * dribbles[i], r) as i32;
+                self.teams[side].players[i].stats = st;
+            }
+        }
     }
 
     /// Marcadores de um lado: (nome, minuto).
@@ -1608,6 +1669,21 @@ fn role_weight(role: &str, table: [f64; 8]) -> f64 {
 const PASSERS: [f64; 8] = [0.5, 1.0, 1.0, 1.1, 1.4, 1.5, 1.2, 0.7];
 const TACKLERS: [f64; 8] = [0.0, 1.5, 1.5, 1.2, 1.6, 1.0, 0.5, 0.3];
 const HEADERS: [f64; 8] = [0.1, 1.5, 1.5, 0.6, 1.0, 0.7, 0.5, 1.4];
+const DRIBBLERS: [f64; 8] = [0.0, 0.1, 0.3, 1.2, 0.5, 0.8, 1.6, 1.4];
+/// ~11 dribles por equipa num jogo a 50% de posse.
+const DRIBBLES_PER_MINUTE: f64 = 0.25;
+
+/// A linha de um jogador no fim do jogo (para `player_matches`).
+#[derive(Debug, Clone)]
+pub struct PlayerLine {
+    pub id: i32,
+    pub rating: f64,
+    pub goals: u8,
+    pub assists: u8,
+    /// Entrou do banco.
+    pub sub: bool,
+    pub stats: PlayerStats,
+}
 
 impl LiveMatch {
     /// Quem está em campo com o peso de um tipo de lance.
@@ -1666,6 +1742,12 @@ impl LiveMatch {
                     t.players[i].stats.tackles_won += 1;
                     t.stats.tackles_won += 1;
                 }
+            }
+            // Dribles: quem tem a bola e drible para isso
+            let dribblers = self.weights(side, DRIBBLERS, |p| p.dribbling);
+            for _ in 0..poisson(DRIBBLES_PER_MINUTE * share, r) {
+                let Some(i) = weighted(r, &dribblers) else { break };
+                self.teams[side].players[i].stats.dribbles += 1;
             }
             if uniform(r) < 0.24 {
                 self.teams[side].stats.throw_ins += 1;

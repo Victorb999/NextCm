@@ -1,8 +1,10 @@
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import type { ClubRef } from '../bindings/ClubRef'
 import { initials } from '../format'
+import { useTopActions } from './topActions'
 
 /** As cores de um clube, com o cinzento de sempre quando o patch não as tem. */
 function clubColours(club: Pick<ClubRef, 'fg' | 'bg'>) {
@@ -115,18 +117,43 @@ export function Tabs({ tabs, active, onChange }: { tabs: Tab[]; active: string; 
   )
 }
 
-/** Barra inferior roxa com Atrás / Seguinte (ou Cancelar / Ok). */
+/** Os botões da tela (Atrás / Seguinte, Cancelar / Ok): vão para a barra de cima, ao lado do
+ * Continuar Jogo (`#top-actions`); fora do jogo, sem a barra, ficam em baixo como no CM. */
 export function BottomBar({
   left = 'Atrás',
   right = 'Seguinte',
   onLeft,
   onRight,
+  active = true,
 }: {
   left?: ReactNode
   right?: ReactNode
   onLeft?: () => void
   onRight?: () => void
+  /** Uma tela montada mas escondida (a Pesquisa) não mostra os botões. */
+  active?: boolean
 }) {
+  // A barra de cima já está no ecrã quando a tela abre
+  const [target] = useState(() => document.getElementById('top-actions'))
+  const shown = useTopActions(!!target && active)
+  if (target) {
+    return (
+      <>
+        <div className="h-2.5 shrink-0" />
+        {shown && createPortal(
+          <>
+            <button className="cm-purple h-8 min-w-24 px-4 font-title text-[15px]" disabled={!onLeft} onClick={onLeft}>
+              {left}
+            </button>
+            <button className="cm-purple h-8 min-w-24 px-4 font-title text-[15px]" disabled={!onRight} onClick={onRight}>
+              {right}
+            </button>
+          </>,
+          target,
+        )}
+      </>
+    )
+  }
   return (
     <div className="flex h-[50px] shrink-0 gap-1.5 px-2.5 pb-2.5 pt-1.5">
       <button className="cm-purple flex-[2] font-title text-lg" disabled={!onLeft} onClick={onLeft}>
