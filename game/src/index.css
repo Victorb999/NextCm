@@ -133,21 +133,19 @@ body {
     @apply text-cm-purpledim;
   }
 
-  /* Casa escura em relevo (número da camisola, GR/DD/SB1 no plantel e nas tácticas) */
+  /* Casa escura (número da camisola, datas e resultados, GR/DD/SB1 nas tácticas) */
   .cm-cell {
-    @apply border bg-[#262626];
-    border-color: #575757 #050505 #050505 #575757;
+    @apply rounded-[3px] bg-[#2a2b32];
   }
   .cm-cell:active {
-    border-color: #050505 #575757 #575757 #050505;
+    @apply bg-[#1e1f25];
   }
-  /* Casa roxa em relevo (as casas da equipa por cima do plantel) */
+  /* Casa roxa (as casas da equipa por cima do plantel) */
   .cm-chip {
-    @apply border bg-cm-head text-cm-yellow;
-    border-color: #a07ae0 #22093f #22093f #a07ae0;
+    @apply rounded-[3px] bg-cm-head text-cm-yellow;
   }
   .cm-chip:active {
-    border-color: #22093f #a07ae0 #a07ae0 #22093f;
+    @apply bg-[#2a0d52];
   }
   /* Barra de progresso dos ecrãs de carregamento */
   .cm-progress {

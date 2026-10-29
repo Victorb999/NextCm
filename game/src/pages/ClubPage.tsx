@@ -7,7 +7,7 @@ import type { Fixture } from '../bindings/Fixture'
 import { ClubFixtureList, MatchInfo } from '../components/Fixtures'
 import FinancesPanel from '../components/FinancesPanel'
 import TransfersPanel from '../components/TransfersPanel'
-import { BottomBar, Empty, ErrorBox, Link, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, Link, PanelTitle, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
 import { money, shortListName } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
@@ -137,16 +137,17 @@ function financesLabel(cash: number | null) {
 function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
   const nav = useNav()
   const row = (label: string, value: ReactNode) => (
-    <div key={label} className="flex min-h-[26px] items-baseline gap-4">
-      <span className="w-60 shrink-0 font-title text-[21px] leading-tight text-white">{label}</span>
-      <span className="flex-1 text-[15px] text-cm-yellow">{value}</span>
+    <div key={label} className="flex min-h-[27px] items-baseline gap-4 px-3 py-1">
+      <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
+      <span className="flex-1 text-[14px] text-cm-yellow">{value}</span>
     </div>
   )
   const competition = c.division?.name
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-4 pb-3">
+    <div className="min-h-0 flex-1 overflow-auto pb-3">
       {finances}
-      <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Informação Geral</div>
+      <PanelTitle title="Informação Geral" />
+      <div className="cm-zebra">
       {row('País', c.nationId !== null && c.nation ? <Link onClick={() => nav.go({ kind: 'nation', id: c.nationId! })}>{c.nation}</Link> : '-')}
       {row('Estatuto', `${c.status ?? '-'}${competition ? ` (${competition})` : ''}`)}
       {row('Finanças', `${financesLabel(c.cash)} · saldo ${money(c.cash)}`)}
@@ -171,7 +172,9 @@ function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
             ))
           : '-',
       )}
-      <div className="mb-1 mt-3 inline-block border-b-2 border-cm-orange font-title text-[20px] font-bold text-cm-orange">Staff</div>
+      </div>
+      <PanelTitle title="Staff" />
+      <div className="cm-zebra">
       {c.staff.map((s) =>
         row(
           // "Sobrenome, Nome" -> "Nome Sobrenome", como na lista do CM
@@ -179,6 +182,7 @@ function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
           <Link onClick={() => nav.go({ kind: 'person', id: s.id })}>{s.job ?? '-'}</Link>,
         ),
       )}
+      </div>
     </div>
   )
 }

@@ -8,7 +8,7 @@ import type { StandingRow } from '../bindings/StandingRow'
 import { longDate, matchDate, pensText, shortDate } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
-import { Empty, Link } from './Screen'
+import { Empty, Link, PanelTitle } from './Screen'
 
 // Listas de jogos, o calendário do clube e o Próximo/Último Jogo, no estilo das telas do CM.
 
@@ -95,24 +95,28 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
   if (fixtures.length === 0) return <Empty>Sem jogos marcados.</Empty>
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center gap-1 px-1.5 pt-1.5">
-        <button className="cm-purple h-6 w-36" disabled>
-          {'<< Época'}
-        </button>
-        <button className="cm-purple h-6 w-36" disabled>
-          {'Época >>'}
-        </button>
-      </div>
-      <div className="shrink-0 py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Época {fixtures[0].season}</div>
-      <div className="min-h-0 flex-1 overflow-auto px-2 pb-2">
+      <PanelTitle
+        title={`Época ${fixtures[0].season}`}
+        right={
+          <>
+            <button className="cm-purple h-6 w-28" disabled>
+              {'<< Época'}
+            </button>
+            <button className="cm-purple h-6 w-28" disabled>
+              {'Época >>'}
+            </button>
+          </>
+        }
+      />
+      <div className="cm-zebra min-h-0 flex-1 overflow-auto">
         {fixtures.map((f) => {
           const home = f.home.id === clubId
           const opponent = home ? f.away : f.home
           return (
-            <div key={f.id} className="flex h-[25px] items-center gap-3">
+            <div key={f.id} className="flex h-[27px] items-center gap-3 px-3">
               <span className="cm-cell w-28 shrink-0 text-center text-[13px] text-white">{shortDate(f.date)}</span>
               <div className="min-w-0 flex-1 truncate">
-                <ClubName club={opponent} className="!text-[20px] leading-[26px]" />
+                <ClubName club={opponent} className="!text-[16px] font-semibold" />
               </div>
               <span className="w-6 shrink-0 text-center font-bold text-cm-magenta">{home ? 'C' : 'F'}</span>
               <span className="w-52 shrink-0 truncate text-cm-orange" title={f.label}>
@@ -131,9 +135,9 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-[24px] items-baseline gap-4">
-      <span className="w-60 shrink-0 font-title text-[20px] leading-tight text-white">{label}</span>
-      <div className="flex-1 text-[15px] text-cm-yellow">{children}</div>
+    <div className="flex min-h-[27px] items-baseline gap-4 px-3 py-1">
+      <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
+      <div className="flex-1 text-[14px] text-cm-yellow">{children}</div>
     </div>
   )
 }
@@ -173,22 +177,24 @@ export function MatchInfo({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center gap-1 px-1.5 pt-1.5">
-        <button className="cm-purple h-6 w-36" disabled={index <= 0} onClick={() => setIndex(index - 1)}>
-          {'<< Data'}
-        </button>
-        <button className="cm-purple h-6 w-36" disabled={index >= fixtures.length - 1} onClick={() => setIndex(index + 1)}>
-          {'Data >>'}
-        </button>
-      </div>
-      <div className="shrink-0 py-1.5 text-center font-title text-[22px] font-bold text-cm-yellow">
+      <PanelTitle
+        title={`${fixture.competition} · ${fixture.label}`}
+        right={
+          <>
+            <button className="cm-purple h-6 w-28" disabled={index <= 0} onClick={() => setIndex(index - 1)}>
+              {'<< Data'}
+            </button>
+            <button className="cm-purple h-6 w-28" disabled={index >= fixtures.length - 1} onClick={() => setIndex(index + 1)}>
+              {'Data >>'}
+            </button>
+          </>
+        }
+      />
+      <div className="shrink-0 py-2 text-center font-title text-[22px] font-bold text-cm-yellow">
         <ClubName club={them} className="!text-[22px] !text-cm-yellow" /> ({home ? 'Casa' : 'Fora'})
       </div>
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-2">
-        <div className="mb-2 inline-block border-b-2 border-cm-orange font-title text-[20px] font-bold text-cm-orange">
-          {fixture.competition} · {fixture.label}
-        </div>
-        <div className="space-y-0.5">
+      <div className="min-h-0 flex-1 overflow-auto pb-2">
+        <div className="cm-zebra">
           {played(fixture) && (
             <InfoRow label="Resultado">
               {fixture.home.shortName} {fixture.homeGoals}-{fixture.awayGoals} {fixture.away.shortName}
