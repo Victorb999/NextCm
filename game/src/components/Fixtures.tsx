@@ -8,7 +8,7 @@ import type { StandingRow } from '../bindings/StandingRow'
 import { longDate, matchDate, pensText, shortDate } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
-import { Link } from './Screen'
+import { Empty, Link } from './Screen'
 
 // Listas de jogos, o calendário do clube e o Próximo/Último Jogo, no estilo das telas do CM.
 
@@ -92,7 +92,7 @@ export function RoundGames({ fixtures, table, own }: { fixtures: Fixture[]; tabl
 
 /** Calendário do clube, como o do CM: data, adversário, C/F, competição e o resultado. */
 export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures: Fixture[] }) {
-  if (fixtures.length === 0) return <div className="p-6 text-center text-cm-magenta">Sem jogos marcados.</div>
+  if (fixtures.length === 0) return <Empty>Sem jogos marcados.</Empty>
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-1 px-1.5 pt-1.5">
@@ -164,7 +164,7 @@ export function MatchInfo({
     if (fixture) api.matchPreview(fixture.id).then(setPreview, () => setPreview(null))
   }, [fixture])
 
-  if (!fixture) return <div className="p-6 text-center text-cm-magenta">{empty}</div>
+  if (!fixture) return <Empty>{empty}</Empty>
   const home = fixture.home.id === clubId
   const us = home ? fixture.home : fixture.away
   const them = home ? fixture.away : fixture.home

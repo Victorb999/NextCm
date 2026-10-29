@@ -1,56 +1,42 @@
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import type { ClubRef } from '../bindings/ClubRef'
+import { initials } from '../format'
 
-/** Luminância aproximada de uma cor `#rrggbb` (0 = preto, 1 = branco). */
-function luminance(hex: string) {
-  const n = parseInt(hex.slice(1, 7), 16)
-  if (Number.isNaN(n)) return 0.5
-  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255
+/** As cores de um clube, com o cinzento de sempre quando o patch não as tem. */
+function clubColours(club: Pick<ClubRef, 'fg' | 'bg'>) {
+  return club.fg && club.bg ? { fg: club.fg, bg: club.bg } : { fg: '#ffffff', bg: '#3a3a3a' }
 }
 
-// Como no CM: letra clara ganha contorno preto; letra escura, sombra cinza
-const OUTLINE = '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 0 #000'
-const DROP = '2px 2px 0 rgba(0,0,0,0.3)'
-
-/** Faixa de título das telas do CM: caixa colorida com o nome grande centralizado. */
-export function TitleBand({ title, fg, bg }: { title: ReactNode; fg: string; bg: string }) {
-  return (
-    <div className="shrink-0 p-1.5 pb-1">
-      <div
-        className="flex h-14 items-center justify-center border-2 border-black font-title text-[30px] font-bold tracking-tight"
-        style={{ color: fg, background: bg, textShadow: luminance(fg) > 0.5 ? OUTLINE : DROP }}
-      >
-        {title}
-      </div>
-    </div>
-  )
-}
-
-/** Cabeçalho das telas no visual novo: emblema (ou ícone), etiqueta, título grande e algo à direita. */
+/** Cabeçalho de todas as telas: emblema do clube (ou ícone), etiqueta, título grande e algo à direita. */
 export function ScreenHeader({
   title,
   icon,
+  club,
   emblem,
   eyebrow,
   right,
 }: {
   title: ReactNode
   icon?: ReactNode
-  /** O emblema do clube: iniciais nas cores dele. */
+  /** O clube da tela: o emblema com as iniciais nas cores dele. */
+  club?: Pick<ClubRef, 'shortName' | 'fg' | 'bg'> | null
+  /** Um emblema à mão (sem clube). */
   emblem?: { text: string; fg: string; bg: string }
-  /** Linha pequena por cima do título (etiquetas, época). */
+  /** Linha pequena por cima do título (nome do clube ou do jogador, etiquetas, época). */
   eyebrow?: ReactNode
   right?: ReactNode
 }) {
+  const badge = emblem ?? (club ? { text: initials(club.shortName), ...clubColours(club) } : undefined)
   return (
-    <div className="mx-2.5 mt-2.5 flex shrink-0 items-center gap-3 rounded-md bg-[#1a1b21] px-4 py-2.5">
-      {emblem && (
+    <div className="m-2.5 flex shrink-0 items-center gap-3 rounded-md bg-[#1a1b21] px-4 py-2.5">
+      {badge && (
         <span
           className="flex size-11 shrink-0 items-center justify-center rounded font-title text-[18px] font-bold"
-          style={{ color: emblem.fg, background: emblem.bg }}
+          style={{ color: badge.fg, background: badge.bg }}
         >
-          {emblem.text}
+          {badge.text}
         </span>
       )}
       {icon && <span className="shrink-0 text-[#c8c8d0]">{icon}</span>}
@@ -61,6 +47,50 @@ export function ScreenHeader({
       <div className="ml-auto flex shrink-0 items-center gap-2">{right}</div>
     </div>
   )
+}
+
+/** Painel arredondado com título laranja em mono (o padrão das telas novas); `chip` é a etiqueta verde. */
+export function Panel({
+  title,
+  chip,
+  right,
+  children,
+  className = '',
+}: {
+  title?: ReactNode
+  chip?: ReactNode
+  right?: ReactNode
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={`flex min-h-0 flex-col overflow-hidden rounded-md bg-[#1a1b21] ${className}`}>
+      {title && <PanelTitle title={title} chip={chip} right={right} />}
+      {children}
+    </div>
+  )
+}
+
+/** A barra de título de um painel, para painéis montados de outra forma. */
+export function PanelTitle({ title, chip, right }: { title: ReactNode; chip?: ReactNode; right?: ReactNode }) {
+  return (
+    <div className="flex h-9 shrink-0 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold font-mono uppercase tracking-[0.12em] text-cm-orange">
+      {title}
+      {chip && <span className="rounded bg-[#0f3a2a] px-1.5 tracking-wider text-[#4edea3]">{chip}</span>}
+      <span className="ml-auto flex min-w-0 items-center gap-1.5 truncate normal-case tracking-normal">{right}</span>
+    </div>
+  )
+}
+
+/** Faixa vermelha de erro. */
+export function ErrorBox({ children, className = '' }: { children: ReactNode; className?: string }) {
+  if (!children) return null
+  return <div className={`rounded bg-red-900 px-2 py-1 text-white ${className}`}>{children}</div>
+}
+
+/** "Sem jogos marcados.", "Sem notícias."...: lista vazia, ao centro em magenta. */
+export function Empty({ children, className = 'p-6' }: { children: ReactNode; className?: string }) {
+  return <div className={`text-center text-cm-magenta ${className}`}>{children}</div>
 }
 
 export type Tab = { key: string; label: string; disabled?: boolean }

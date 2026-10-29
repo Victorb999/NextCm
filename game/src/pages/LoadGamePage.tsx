@@ -6,6 +6,7 @@ import Loading from '../components/Loading'
 import { cmDate } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
+import { ErrorBox } from '../components/Screen'
 
 const savedAt = (secs: number) => {
   if (!secs) return '-'
@@ -88,7 +89,7 @@ export default function LoadGamePage() {
           </div>
         }
       >
-        {error && <div className="mb-2 bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox className="mb-2">{error}</ErrorBox>
         {saves && saves.length === 0 && <div className="p-6 text-center text-cm-yellow">Nenhum jogo gravado.</div>}
         {saves && saves.length > 0 && (
           <table className="w-full border-collapse text-[14px]">

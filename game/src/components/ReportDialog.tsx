@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { ReportStaff } from '../bindings/ReportStaff'
 import { DialogFrame, Overlay } from './Dialog'
+import { Empty } from './Screen'
 
 // "Pedir Relatório Médico" / "Pedir Relatório Preparador Físico": escolher quem do staff faz o
 // relatório (amarelo = escolhido, roxo = não), como no CM. As mensagens chegam já.
@@ -62,7 +63,7 @@ export default function ReportDialog({
             Escolher Todos
           </button>
         </div>
-        {staff.length === 0 && !error && <div className="py-4 text-center text-cm-magenta">O clube não tem ninguém para este relatório.</div>}
+        {staff.length === 0 && !error && <Empty className="py-4">O clube não tem ninguém para este relatório.</Empty>}
         {staff.map((s) => {
           const on = chosen.has(s.id)
           return (

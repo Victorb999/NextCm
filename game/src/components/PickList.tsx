@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { Empty } from './Screen'
 
 export type PickItem = { id: number; label: string; detail?: ReactNode }
 export type PickGroup = { title?: ReactNode; items: PickItem[] }
@@ -49,7 +50,7 @@ export default function PickList({
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  if (flat.length === 0) return <div className="p-6 text-center text-cm-magenta">{empty}</div>
+  if (flat.length === 0) return <Empty>{empty}</Empty>
 
   let index = 0
   return (

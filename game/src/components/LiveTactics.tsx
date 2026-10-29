@@ -7,7 +7,7 @@ import type { TacticPlayer } from '../bindings/TacticPlayer'
 import { selectionOf, swap, useDragSwap, type Spot } from '../selection'
 import InstructionsDialog from './InstructionsDialog'
 import PlayerOrdersDialog from './PlayerOrdersDialog'
-import { BottomBar, PurpleMenu, Tabs, TitleBand } from './Screen'
+import { BottomBar, ErrorBox, PurpleMenu, ScreenHeader, Tabs } from './Screen'
 import { Pitch, Row } from './TacticsBoard'
 import { TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
 
@@ -104,13 +104,11 @@ export default function LiveTactics({
     return () => window.removeEventListener('keydown', onKey, true)
   })
 
-  const fg = team.club.fg ?? '#ffffff'
-  const bg = team.club.bg ?? '#3a3a3a'
   const label = (s: { player: { listName: string } | null; role: string }) => (s.player ? surname(s.player.listName) : s.role)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <TitleBand title={`Tácticas ${t?.clubName ?? team.club.name}`} fg={fg} bg={bg} />
+      <ScreenHeader club={team.club} eyebrow={t?.clubName ?? team.club.name} title="Tácticas" />
       <div className="flex shrink-0 items-center gap-1 px-1.5">
         <PurpleMenu
           label="Tácticas"
@@ -142,7 +140,7 @@ export default function LiveTactics({
           }}
         />
       </div>
-      {error && <div className="mx-1.5 mt-1.5 bg-red-900 px-2 py-1 text-white">{error}</div>}
+      <ErrorBox className="mx-1.5 mt-1.5">{error}</ErrorBox>
       {t ? (
         <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 gap-1.5">
           <div className="flex min-h-0 w-[50%] flex-col">

@@ -7,7 +7,7 @@ import type { Fixture } from '../bindings/Fixture'
 import { ClubFixtureList, MatchInfo } from '../components/Fixtures'
 import FinancesPanel from '../components/FinancesPanel'
 import TransfersPanel from '../components/TransfersPanel'
-import { BottomBar, Link, PurpleMenu, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, Link, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
 import { money, shortListName } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
@@ -305,7 +305,6 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  const colours = club?.club.fg && club?.club.bg ? { fg: club.club.fg, bg: club.club.bg } : { fg: '#ffffff', bg: '#3a3a3a' }
   const division = club?.division
 
   // Lugar de treinador vago: "Concorrer ao Lugar", como no CM
@@ -333,18 +332,21 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
 
   return (
     <div className="relative flex h-full flex-col">
-      <TitleBand title={club ? (view === 'reserves' ? `Reservas ${club.club.name}` : club.club.name) : ''} fg={colours.fg} bg={colours.bg} />
-      {vacancy?.club === id && (
-        <div className="absolute right-3 top-2.5 z-20 flex flex-col items-end gap-1">
-          {vacancy.text === null ? (
+      <ScreenHeader
+        club={club?.club}
+        eyebrow={view === 'reserves' ? 'Reservas' : undefined}
+        title={club?.club.name ?? ''}
+        right={
+          vacancy?.club === id &&
+          (vacancy.text === null ? (
             <button className="h-6 border border-black bg-[#ffd21f] px-3 text-[13px] font-bold text-black" onClick={() => void apply()}>
               Concorrer ao Lugar
             </button>
           ) : (
             <span className="bg-black/80 px-2 text-[13px] text-cm-yellow">{vacancy.text}</span>
-          )}
-        </div>
-      )}
+          ))
+        }
+      />
       <Tabs
         tabs={TABS.map((t) =>
           t.key === 'next' || t.key === 'fixtures' ? { ...t, disabled: fixtures.length === 0 } : t.key === 'transfers' ? { ...t, disabled: game.mode !== 'game' } : t,
@@ -395,7 +397,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
       )}
 
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox>{error}</ErrorBox>
         {club && tab === 'squad' && (
           <>
             <div className="shrink-0 py-1.5 text-center font-title text-xl font-bold text-cm-yellow">
@@ -441,7 +443,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
                   onToggle={mine && tactics && view === 'players' ? (e) => void toggle(e) : undefined}
                 />
               ) : (
-                <div className="p-6 text-center text-cm-magenta">Ninguém registado.</div>
+                <Empty>Ninguém registado.</Empty>
               )}
             </div>
           </>

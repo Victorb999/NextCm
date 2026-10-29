@@ -18,6 +18,7 @@ import {
   saveSettings,
   type Settings,
 } from '../settings'
+import { ErrorBox } from './Screen'
 
 const VERSION = '0.2 (Fase 2)'
 
@@ -302,7 +303,7 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
             </>
           )}
         </div>
-        {error && <div className="mx-4 -mt-1 mb-3 rounded bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox className="mx-4 -mt-1 mb-3">{error}</ErrorBox>
         <div className="flex shrink-0 justify-end gap-2 border-t border-[#2f6b52] p-3">
           <button className="h-9 w-32 rounded-[4px] border border-white/20 bg-black/30 font-semibold text-white hover:bg-black/50" onClick={onClose}>
             Cancelar

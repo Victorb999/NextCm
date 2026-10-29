@@ -8,7 +8,7 @@ import type { PersonSummary } from '../bindings/PersonSummary'
 import type { SearchResult } from '../bindings/SearchResult'
 import type { SearchSort } from '../bindings/SearchSort'
 import ScoutPanel from '../components/ScoutPanel'
-import { BottomBar, Link, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
+import { BottomBar, ErrorBox, Link, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
 import { money } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
@@ -266,7 +266,6 @@ export default function SearchPage({ active }: { active: boolean }) {
           )
         }
       />
-      <div className="mt-2.5" />
       <Tabs
         tabs={TABS.map((t) => (t.key.startsWith('scout') || t.key === 'shortlist' ? { ...t, disabled: !scouting } : t))}
         active={scout !== null ? `scout${scout}` : shortlist ? 'shortlist' : kind}
@@ -327,7 +326,7 @@ export default function SearchPage({ active }: { active: boolean }) {
       </div>
 
       <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox>{error}</ErrorBox>
         <div ref={tableRef} className={`min-h-0 flex-1 overflow-auto ${idle ? 'hidden' : ''}`}>
           <table className="w-full table-fixed border-collapse">
             <colgroup>

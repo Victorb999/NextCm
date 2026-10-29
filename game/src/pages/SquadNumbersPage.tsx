@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import type { NumberAssign } from '../bindings/NumberAssign'
 import type { SquadNumbers } from '../bindings/SquadNumbers'
-import { BottomBar, PurpleMenu, ScreenHeader } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, PurpleMenu, ScreenHeader } from '../components/Screen'
 import { initials, shortListName } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -170,7 +170,7 @@ export default function SquadNumbersPage() {
         title={club ? `Números Plantel ${club.shortName}` : 'Números Plantel'}
       />
       {saved && (
-        <div className="mx-2.5 mt-2.5 flex shrink-0 items-center gap-3 rounded-md border border-cm-yellow/60 bg-cm-yellow/[0.06] px-4 py-2 text-[13px] text-[#e3e1e9]">
+        <div className="mx-2.5 flex shrink-0 items-center gap-3 rounded-md border border-cm-yellow/60 bg-cm-yellow/[0.06] px-4 py-2 text-[13px] text-[#e3e1e9]">
           <span className="font-bold text-cm-yellow">i</span>
           {saved.preSeason ? 'Os números ficam fixos a partir do primeiro jogo oficial.' : 'Com a época a decorrer, só os jogadores sem número recebem um.'}
           <span className="text-[#55565f]">·</span>
@@ -191,7 +191,7 @@ export default function SquadNumbersPage() {
           Anular
         </button>
       </div>
-      {error && <div className="mx-2.5 mt-2.5 rounded bg-red-900 px-2 py-1 text-white">{error}</div>}
+      <ErrorBox className="mx-2.5 mt-2.5">{error}</ErrorBox>
       <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 gap-2.5">
         <div className="flex min-h-0 w-[46%] flex-col overflow-hidden rounded-md bg-[#1a1b21]">
           <div className="flex h-8 shrink-0 items-center gap-3 border-b border-cm-line bg-black/40 px-4 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#86869a]">
@@ -200,7 +200,7 @@ export default function SquadNumbersPage() {
             <span>Posição</span>
           </div>
           <div className="cm-zebra min-h-0 flex-1 overflow-auto">
-            {players.length === 0 && <div className="p-4 text-center text-cm-magenta">Todos os jogadores têm número.</div>}
+            {players.length === 0 && <Empty className="p-4">Todos os jogadores têm número.</Empty>}
             {players.map((p) => {
               const sel = p.id === selected
               return (

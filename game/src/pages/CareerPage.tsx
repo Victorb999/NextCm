@@ -1,7 +1,8 @@
+import { ScrollText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { CareerClub } from '../bindings/CareerClub'
-import { BottomBar, Link, TitleBand } from '../components/Screen'
+import { BottomBar, Empty, Link, ScreenHeader } from '../components/Screen'
 import { cmDate, money } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -17,7 +18,7 @@ export default function CareerPage() {
   }, [game.info?.date])
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={`Currículo de ${game.info?.managerName ?? ''}`} fg="#000000" bg="#f4f4f4" />
+      <ScreenHeader icon={<ScrollText size={22} />} eyebrow={game.info?.managerName} title="Currículo" />
       <div className="mx-1.5 mt-1.5 min-h-0 flex-1 space-y-2 overflow-auto border border-cm-line bg-cm-panel/70 p-3">
         {clubs.map((c, i) => (
           <div key={`${c.club.id}-${i}`} className="border border-cm-line bg-black/50 px-3 py-2">
@@ -45,7 +46,7 @@ export default function CareerPage() {
             </div>
           </div>
         ))}
-        {clubs.length === 0 && <div className="p-6 text-center text-cm-magenta">Sem clubes no currículo.</div>}
+        {clubs.length === 0 && <Empty>Sem clubes no currículo.</Empty>}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
     </div>

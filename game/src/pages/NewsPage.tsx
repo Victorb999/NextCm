@@ -1,10 +1,11 @@
+import { Newspaper } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import type { NewsLink } from '../bindings/NewsLink'
 import LinkedText from '../components/LinkedText'
 import type { NewsItem } from '../bindings/NewsItem'
 import type { OfferView } from '../bindings/OfferView'
-import { BottomBar, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, Empty, ScreenHeader, Tabs } from '../components/Screen'
 import { OfferButtons } from '../components/TransferTab'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -109,11 +110,11 @@ export default function NewsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={game.info ? `Notícias para ${game.info.managerName}` : 'Notícias'} fg="#000000" bg="#f4f4f4" />
+      <ScreenHeader icon={<Newspaper size={22} />} eyebrow={game.info?.managerName} title="Notícias" />
       <Tabs tabs={TABS} active={tab} onChange={changeTab} />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col">
         <div ref={listRef} className="h-[118px] shrink-0 overflow-auto border border-cm-line bg-black/60">
-          {shown.length === 0 && <div className="p-4 text-center text-cm-magenta">Sem notícias.</div>}
+          {shown.length === 0 && <Empty className="p-4">Sem notícias.</Empty>}
           {shown.map((n) => (
             <div
               key={n.id}

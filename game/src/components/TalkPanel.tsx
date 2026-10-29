@@ -1,8 +1,9 @@
+import { Megaphone } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { TalkReaction } from '../bindings/TalkReaction'
 import type { TalkView } from '../bindings/TalkView'
-import { BottomBar, TitleBand } from './Screen'
+import { BottomBar, ErrorBox, ScreenHeader } from './Screen'
 
 // Palestra (antes do jogo, ao intervalo, no fim e ao suplente que entra): o tom, a quem
 // (a equipa ou um jogador), a frase (com a sugestão do adjunto) e a reação de cada um.
@@ -59,9 +60,9 @@ export default function TalkPanel({ onClose }: { onClose: () => void }) {
   const teamDone = !!view?.done
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={view?.title ?? 'Palestra'} fg="#000000" bg="#f4f4f4" />
+      <ScreenHeader icon={<Megaphone size={22} />} title={view?.title ?? 'Palestra'} />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col gap-2 border border-cm-line bg-cm-panel/70 px-6 py-3">
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox>{error}</ErrorBox>
         {view && !reactions && (
           <>
             <div className="flex items-center gap-2">

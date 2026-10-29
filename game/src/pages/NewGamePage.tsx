@@ -12,6 +12,7 @@ import Loading from '../components/Loading'
 import PickList, { type PickGroup, type PickItem } from '../components/PickList'
 import { useGame } from '../game'
 import { useNav } from '../nav'
+import { ErrorBox } from '../components/Screen'
 
 /** "13.7.1990" -> "1990-07-13"; `null` se vazio, `undefined` se inválido. */
 function parseBirth(text: string): string | null | undefined {
@@ -195,7 +196,7 @@ export default function NewGamePage() {
               />
             </DialogRow>
             <DialogRow label="Nacionalidade">{nationSelect(form.nationId, (id) => set({ nationId: id }))}</DialogRow>
-            {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+            <ErrorBox>{error}</ErrorBox>
             <button type="submit" className="hidden" />
           </form>
         </DialogFrame>
@@ -222,7 +223,7 @@ export default function NewGamePage() {
         onOk={club ? () => void start(club) : undefined}
         okLabel={busy ? 'A criar o jogo…' : 'Começar'}
       >
-        {error && <div className="mb-2 bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox className="mb-2">{error}</ErrorBox>
         <div className="flex h-[52vh] flex-col bg-black/40">
           {nation && <PickList key={nation.id} groups={groups} onSelect={setClub} onOpen={(c) => void start(c)} empty="Nenhum clube com liga nesta nação." />}
         </div>

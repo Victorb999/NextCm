@@ -1,9 +1,10 @@
+import { Flag } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { NationProfile } from '../bindings/NationProfile'
 import PickList, { type PickGroup } from '../components/PickList'
-import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, ErrorBox, Link, ScreenHeader, Tabs } from '../components/Screen'
 import { continentPt } from '../continents'
 import { useEscBack, useNav } from '../nav'
 
@@ -68,10 +69,10 @@ export default function NationPage({ id }: { id: number }) {
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={nation?.name ?? ''} fg="#ffffff" bg="#1b6b2a" />
+      <ScreenHeader icon={<Flag size={22} />} title={nation?.name ?? ''} />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox>{error}</ErrorBox>
         {nation && tab === 'clubs' && (
           <PickList key="clubs" groups={clubGroups} onOpen={(c) => nav.go({ kind: 'club', id: c.id })} />
         )}

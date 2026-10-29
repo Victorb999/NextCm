@@ -1,8 +1,9 @@
+import { Landmark } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { BoardConfidence } from '../bindings/BoardConfidence'
 import type { BoardRequest } from '../bindings/BoardRequest'
-import { BottomBar, TitleBand } from '../components/Screen'
+import { BottomBar, ErrorBox, ScreenHeader } from '../components/Screen'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -53,8 +54,7 @@ function Meeting({ kind, onClose }: { kind: Kind; onClose: (answer: string | nul
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={game.info?.managerName ?? ''} fg="#000000" bg="#ffffff" />
-      <div className="py-2 text-center font-title text-[30px] font-bold text-cm-yellow">{meeting.title}</div>
+      <ScreenHeader icon={<Landmark size={22} />} eyebrow={game.info?.managerName} title={meeting.title} />
       <div className="mx-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-cm-panel/80 px-6 py-4">
         <div className="pb-3 font-title text-[20px] text-white">{meeting.prompt}</div>
         {requests.map((r) => (
@@ -79,7 +79,7 @@ function Meeting({ kind, onClose }: { kind: Kind; onClose: (answer: string | nul
               .join(' ')}
           </div>
         )}
-        {error && <div className="mt-2 bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox className="mt-2">{error}</ErrorBox>
       </div>
       <BottomBar left="Cancelar" right="Confirmar" onLeft={() => onClose(null)} onRight={chosen ? () => void confirm() : undefined} />
     </div>
@@ -114,12 +114,9 @@ export default function BoardPage() {
     )
   }
 
-  const fg = view?.club.fg ?? '#000000'
-  const bg = view?.club.bg ?? '#ffffff'
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={view?.club.name ?? ''} fg={fg} bg={bg} />
-      <div className="py-2 text-center font-title text-[30px] font-bold text-cm-yellow">Confiança da Direcção</div>
+      <ScreenHeader club={view?.club} eyebrow={view?.club.name} title="Confiança da Direcção" />
       <div className="flex shrink-0 gap-1 px-3">
         <button className="cm-purple h-6 w-40" onClick={() => setMeeting('board')}>
           Pedido à Direcção
@@ -129,7 +126,7 @@ export default function BoardPage() {
         </button>
       </div>
       <div className="mx-1.5 mt-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-cm-panel/80 px-4 py-3">
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox>{error}</ErrorBox>
         {answer && <p className="mb-5 font-title text-[20px] leading-snug text-cm-yellow">{answer}</p>}
         {view?.paragraphs.map((p) => (
           <p key={p} className="mb-5 font-title text-[22px] leading-snug text-white">

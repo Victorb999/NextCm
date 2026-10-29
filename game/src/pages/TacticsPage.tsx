@@ -1,6 +1,5 @@
 import { ArrowLeftRight, ChevronDown, History, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
 import type { ClubTactics } from '../bindings/ClubTactics'
@@ -8,7 +7,7 @@ import type { Selection } from '../bindings/Selection'
 import type { TacticPlayer } from '../bindings/TacticPlayer'
 import InstructionsDialog from '../components/InstructionsDialog'
 import PlayerOrdersDialog from '../components/PlayerOrdersDialog'
-import { BottomBar, Link, PurpleMenu } from '../components/Screen'
+import { BottomBar, ErrorBox, Link, PanelTitle, PurpleMenu } from '../components/Screen'
 import { Pitch, Row, RowHeader } from '../components/TacticsBoard'
 import { MENTALITY, PASSING, TACKLING, TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
 import { initials } from '../format'
@@ -197,7 +196,7 @@ export default function TacticsPage({ id }: { id: number }) {
           }
         />
       </div>
-      {error && <div className="mx-2.5 mt-2.5 rounded bg-red-900 px-2 py-1 text-white">{error}</div>}
+      <ErrorBox className="mx-2.5 mt-2.5">{error}</ErrorBox>
       {t && (
         <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 gap-2.5">
           {/* Onze, banco e resto do plantel numa coluna só, que rola */}
@@ -383,17 +382,6 @@ export default function TacticsPage({ id }: { id: number }) {
         />
       )}
       <BottomBar left="Cancelar" right="Ok" onLeft={() => void cancel()} onRight={() => nav.back()} />
-    </div>
-  )
-}
-
-/** Barra de título de um painel: nome em laranja, uma etiqueta verde e algo à direita. */
-function PanelTitle({ title, chip, right }: { title: string; chip?: string; right?: ReactNode }) {
-  return (
-    <div className="flex h-9 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold font-mono uppercase tracking-[0.12em] text-cm-orange">
-      {title}
-      {chip && <span className="rounded bg-[#0f3a2a] px-1.5 tracking-wider text-[#4edea3]">{chip}</span>}
-      <span className="ml-auto truncate text-[12px] normal-case tracking-normal">{right}</span>
     </div>
   )
 }

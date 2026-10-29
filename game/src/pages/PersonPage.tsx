@@ -6,7 +6,7 @@ import type { PersonProfile } from '../bindings/PersonProfile'
 import { DialogFrame, Overlay } from '../components/Dialog'
 import DisciplineDialog from '../components/DisciplineDialog'
 import ReportDialog from '../components/ReportDialog'
-import { BottomBar, Link, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, Link, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
 import type { TransferView } from '../bindings/TransferView'
 import TransferActions, { type TransferAction } from '../components/TransferActions'
 import TextDialog from '../components/TextDialog'
@@ -201,7 +201,7 @@ function Profile({ p }: { p: PersonProfile }) {
 /** Aba "Lesões & Castigos": só num jogo em curso, para jogadores de clubes vivos. */
 function Injuries({ p }: { p: PersonProfile }) {
   const st = p.status
-  if (!st) return <div className="p-6 text-center text-cm-magenta">Sem registos.</div>
+  if (!st) return <Empty>Sem registos.</Empty>
   const rows: [string, ReactNode][] = [
     ['Lesão', st.injury ?? 'Nenhuma'],
     ['Regresso previsto', st.injuryUntil ? cmDate(st.injuryUntil) : '-'],
@@ -266,7 +266,7 @@ function Contract({ p }: { p: PersonProfile }) {
 
 function History({ p }: { p: PersonProfile }) {
   const nav = useNav()
-  if (p.career.length === 0) return <div className="p-6 text-center text-cm-magenta">Sem histórico registado.</div>
+  if (p.career.length === 0) return <Empty>Sem histórico registado.</Empty>
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <PurpleTable
@@ -502,7 +502,6 @@ export default function PersonPage({ id }: { id: number }) {
           )
         }
       />
-      <div className="mt-2.5" />
       <Tabs
         tabs={TABS.map((t) =>
           t.key === 'injuries'
@@ -515,7 +514,7 @@ export default function PersonPage({ id }: { id: number }) {
         onChange={setTab}
       />
       <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col">
-        {error && <div className="mb-2.5 rounded bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox className="mb-2.5">{error}</ErrorBox>
         {notice && <div className="mb-2.5 rounded bg-[#0f3a2a] px-2 py-1 text-center text-cm-yellow">{notice}</div>}
         {person && tab === 'profile' && <Profile p={person} />}
         {person && tab === 'contract' && <Contract p={person} />}

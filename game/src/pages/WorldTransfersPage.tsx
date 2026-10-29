@@ -1,8 +1,9 @@
+import { ArrowLeftRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { TransferItem } from '../bindings/TransferItem'
 import type { WorldTransfers } from '../bindings/WorldTransfers'
-import { BottomBar, Link, TitleBand } from '../components/Screen'
+import { BottomBar, Empty, Link, ScreenHeader } from '../components/Screen'
 import { cmDate, money } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -43,7 +44,7 @@ export default function WorldTransfersPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title="Transferências" fg="#000000" bg="#f4f4f4" />
+      <ScreenHeader icon={<ArrowLeftRight size={22} />} title="Transferências" />
       <div className="flex shrink-0 items-center justify-center gap-3 py-1.5">
         <button className="cm-purple h-6 w-10" onClick={() => go(-1)}>
           &lt;&lt;
@@ -96,7 +97,7 @@ export default function WorldTransfersPage() {
             ))}
           </tbody>
         </table>
-        {data && data.items.length === 0 && <div className="p-6 text-center text-cm-magenta">Sem transferências neste mês.</div>}
+        {data && data.items.length === 0 && <Empty>Sem transferências neste mês.</Empty>}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
     </div>

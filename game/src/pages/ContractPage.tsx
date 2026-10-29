@@ -1,9 +1,10 @@
+import { FileText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { ContractReply } from '../bindings/ContractReply'
 import type { ContractTerms } from '../bindings/ContractTerms'
-import { BottomBar, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, ScreenHeader, Tabs } from '../components/Screen'
 import { currency, money, monthYear, moneyStep, wage as wageText, wagePeriod } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -31,8 +32,7 @@ function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: st
   const vetoed = terms.roles.some((r) => !r.allowed)
   return (
     <>
-      <TitleBand title={terms.name} fg="#000000" bg="#ffffff" />
-      <div className="py-2 text-center font-title text-[30px] font-bold text-cm-yellow">Definir Função No Clube</div>
+      <ScreenHeader icon={<FileText size={22} />} eyebrow={terms.name} title="Definir Função No Clube" />
       <div className="mx-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/70 px-10 py-4">
         <div className="pb-3 font-title text-[21px] text-white">Situação</div>
         {terms.roles.map((r) => (
@@ -142,8 +142,12 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
   const wants = `${terms.name} ${reply ? 'recusa: quer' : 'quer'} ${wageText(asks.wage, true)} até ${monthYear(end(asks.years))} mais um prémio de assinatura no valor de ${money(asks.bonus) || '€0'}.`
   return (
     <>
-      <TitleBand title={terms.club ? `${terms.name} (${terms.club.shortName})` : terms.name} fg="#000000" bg="#ffffff" />
-      <div className="py-2 text-center font-title text-[30px] font-bold text-cm-yellow">Propôr Contrato</div>
+      <ScreenHeader
+        club={terms.club}
+        icon={!terms.club && <FileText size={22} />}
+        eyebrow={terms.club ? `${terms.name} (${terms.club.shortName})` : terms.name}
+        title="Propôr Contrato"
+      />
       <Tabs
         tabs={[
           { key: 'basic', label: 'Básico' },

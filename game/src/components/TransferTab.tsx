@@ -8,7 +8,7 @@ import { useGame } from '../game'
 import { useNav } from '../nav'
 import { budgetText } from '../transferTerms'
 import { LoanDialog, TransferOfferDialog } from './DealDialogs'
-import { Link } from './Screen'
+import { Empty, Link } from './Screen'
 
 // Aba Transferência do perfil do jogador (jogo em curso), como no CM: disponibilidade, valor,
 // contrato, propostas, interessados e o futuro, com a proposta em curso e os botões dela. As
@@ -136,7 +136,7 @@ export default function TransferTab({ personId, version, onChanged }: { personId
     if (date) void load()
   }, [load, date, version])
 
-  if (!view) return error ? <div className="p-6 text-center text-cm-magenta">{error}</div> : null
+  if (!view) return error ? <Empty>{error}</Empty> : null
   const rows: [string, ReactNode][] = [
     ['Disponibilidade', view.availability],
     ['Valor', money(view.value) || '-'],

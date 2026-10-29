@@ -4,6 +4,7 @@ import type { SaveSummary } from '../bindings/SaveSummary'
 import { DialogFrame, Overlay } from '../components/Dialog'
 import { useGame } from '../game'
 import type { ManagerDialog } from './managerMenu'
+import { Empty } from '../components/Screen'
 
 // Os diálogos do menu do treinador: Gravar Jogo (com a lista de ficheiros e "Ficheiro Existe
 // — Substituir?"), Ir de Férias, Rescindir com Clube e Retirar-se.
@@ -86,7 +87,7 @@ export default function ManagerDialogs({
                     </span>
                   </div>
                 ))}
-                {saves.length === 0 && <div className="p-3 text-center text-cm-magenta">Sem jogos gravados.</div>}
+                {saves.length === 0 && <Empty className="p-3">Sem jogos gravados.</Empty>}
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <span className="font-title text-[18px] text-white">Nome</span>

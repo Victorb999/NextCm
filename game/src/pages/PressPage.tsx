@@ -1,7 +1,8 @@
+import { Mic } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { PressView } from '../bindings/PressView'
-import { BottomBar, TitleBand } from '../components/Screen'
+import { BottomBar, ErrorBox, ScreenHeader } from '../components/Screen'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -42,9 +43,9 @@ export default function PressPage({ id }: { id: number }) {
   const q = view && view.status === 'pending' && !result ? view.questions[answers.length] : null
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={view?.title ?? 'Conferência de Imprensa'} fg="#000000" bg="#f4f4f4" />
+      <ScreenHeader icon={<Mic size={22} />} title={view?.title ?? 'Conferência de Imprensa'} />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/70 px-6 py-4">
-        {error && <div className="mb-2 bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox className="mb-2">{error}</ErrorBox>
         {view && view.status !== 'pending' && !result && (
           <div className="font-title text-[19px] text-white">Esta conferência de imprensa já acabou.</div>
         )}

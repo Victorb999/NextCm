@@ -1,8 +1,9 @@
+import { Columns2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { PLAYER_ATTRIBUTES } from '../attributes'
 import type { PersonProfile } from '../bindings/PersonProfile'
-import { BottomBar, Link, TitleBand } from '../components/Screen'
+import { BottomBar, Link, ScreenHeader } from '../components/Screen'
 import { money } from '../format'
 import { useEscBack, useNav } from '../nav'
 
@@ -21,7 +22,7 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
     v == null ? 'text-[#777]' : other != null && v > other ? 'font-bold text-[#4cd964]' : 'text-cm-orange'
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title="Comparar Jogadores" fg="#000000" bg="#f4f4f4" />
+      <ScreenHeader icon={<Columns2 size={22} />} title="Comparar Jogadores" />
       {people && (
         <div className="mx-1.5 mt-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-cm-panel/70 px-6 py-2">
           <div className={`${ROW} pb-1 font-title text-[18px]`}>

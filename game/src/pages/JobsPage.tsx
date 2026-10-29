@@ -1,7 +1,8 @@
+import { Briefcase } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { JobsView } from '../bindings/JobsView'
-import { BottomBar, Link, PurpleMenu, TitleBand } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, Link, PurpleMenu, ScreenHeader } from '../components/Screen'
 import { useEscBack, useNav } from '../nav'
 
 // "Informação de Empregos" (menu do treinador), como no CM: por país, os lugares vagos ("Sem
@@ -38,8 +39,7 @@ export default function JobsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title="Informação de Empregos" fg="#ffffff" bg="#1a1a1a" />
-      <div className="py-2 text-center font-title text-[30px] font-bold text-cm-yellow">{view?.nation?.name ?? ''}</div>
+      <ScreenHeader icon={<Briefcase size={22} />} eyebrow={view?.nation?.name} title="Informação de Empregos" />
       <div className="flex shrink-0 items-center gap-1 px-3">
         <PurpleMenu
           label="Vêr"
@@ -50,9 +50,9 @@ export default function JobsPage() {
         {view?.unemployed && <span className="ml-3 text-cm-magenta">Está sem clube: concorra a um lugar vago.</span>}
       </div>
       <div className="mx-1.5 mt-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-cm-panel/80 px-4 py-2">
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox>{error}</ErrorBox>
         {notice && <div className="mb-1 text-cm-yellow">{notice}</div>}
-        {view && view.rows.length === 0 && <div className="py-6 text-center text-cm-magenta">Não há lugares vagos nem treinadores em risco neste país.</div>}
+        {view && view.rows.length === 0 && <Empty className="py-6">Não há lugares vagos nem treinadores em risco neste país.</Empty>}
         {view?.rows.map((r) => (
           <div key={r.club.id} className="flex h-[26px] items-center gap-3 font-title text-[19px]">
             <span className={`w-64 truncate ${r.vacant ? 'text-[#7b3fd1]' : 'text-white'}`}>{r.coach ?? 'Sem Treinador'}</span>

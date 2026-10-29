@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
-import { BottomBar, Link, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, Link, ScreenHeader, Tabs } from '../components/Screen'
 import { useEscBack, useNav } from '../nav'
 
 const TABS = [
@@ -16,7 +16,7 @@ const ordinal = (n: number) => `${n}º`
 
 function Competitions({ c }: { c: ClubProfile }) {
   const nav = useNav()
-  if (c.honours.length === 0) return <div className="p-6 text-center text-cm-magenta">Nenhum título registado.</div>
+  if (c.honours.length === 0) return <Empty>Nenhum título registado.</Empty>
   return (
     <div className="min-h-0 flex-1 overflow-auto px-2 pb-2">
       <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Títulos</div>
@@ -39,7 +39,7 @@ function Competitions({ c }: { c: ClubProfile }) {
 
 function Positions({ c }: { c: ClubProfile }) {
   const nav = useNav()
-  if (!c.lastDivision || !c.lastPosition) return <div className="p-6 text-center text-cm-magenta">Sem classificações registadas.</div>
+  if (!c.lastDivision || !c.lastPosition) return <Empty>Sem classificações registadas.</Empty>
   return (
     <div className="mx-auto mt-4 w-full max-w-2xl px-1.5">
       <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Recente</div>
@@ -67,14 +67,13 @@ export default function ClubHistoryPage({ id }: { id: number }) {
     api.getClub(id).then(setClub, (e) => setError(String(e)))
   }, [id])
 
-  const colours = club?.club.fg && club?.club.bg ? { fg: club.club.fg, bg: club.club.bg } : { fg: '#ffffff', bg: '#3a3a3a' }
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title={club ? `Historial ${club.club.shortName}` : ''} fg={colours.fg} bg={colours.bg} />
+      <ScreenHeader club={club?.club} eyebrow={club?.club.name} title="Historial" />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox>{error}</ErrorBox>
         {club && tab === 'competitions' && <Competitions c={club} />}
         {club && tab === 'positions' && <Positions c={club} />}
       </div>

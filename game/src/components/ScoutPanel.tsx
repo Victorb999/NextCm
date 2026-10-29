@@ -6,7 +6,7 @@ import type { ScoutList } from '../bindings/ScoutList'
 import { money } from '../format'
 import { useNav } from '../nav'
 import { DialogFrame, Overlay } from './Dialog'
-import { Link, PurpleMenu } from './Screen'
+import { ErrorBox, Link, PurpleMenu } from './Screen'
 
 // Aba "Olheiro #N" da Pesquisa Jogador & Staff: a tarefa do olheiro ("Designar Olheiro") e os
 // jogadores que ele já observou, com a recomendação em estrelas. As regras ficam no core.
@@ -115,7 +115,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
           {noScout ? 'O clube não tem um olheiro para esta aba.' : (list?.task ?? `${list?.scout ?? 'O olheiro'} está sem tarefa: use Designar Olheiro.`)}
         </div>
         <div className="shrink-0 py-1 text-center font-title text-xl font-bold text-cm-yellow">Olheiro #{slot}</div>
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox>{error}</ErrorBox>
         <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full table-fixed border-collapse">
             <colgroup>

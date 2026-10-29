@@ -1,8 +1,9 @@
+import { Globe } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import type { NationListItem } from '../bindings/NationListItem'
 import PickList from '../components/PickList'
-import { BottomBar, Tabs, TitleBand } from '../components/Screen'
+import { BottomBar, ErrorBox, ScreenHeader, Tabs } from '../components/Screen'
 import { CONTINENTS, rememberTab } from '../continents'
 import { useEscBack, useNav } from '../nav'
 
@@ -30,7 +31,7 @@ export default function NationsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBand title="Nações & Clubes" fg="#ffffff" bg="#1b6b2a" />
+      <ScreenHeader icon={<Globe size={22} />} title="Nações & Clubes" />
       <Tabs
         tabs={TABS}
         active={tab}
@@ -40,7 +41,7 @@ export default function NationsPage() {
         }}
       />
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
-        {error && <div className="bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox>{error}</ErrorBox>
         {all && <PickList key={tab} groups={[{ items }]} onOpen={(n) => nav.go({ kind: 'nation', id: n.id })} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

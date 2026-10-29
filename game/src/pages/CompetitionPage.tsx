@@ -10,7 +10,7 @@ import type { StandingRow } from '../bindings/StandingRow'
 import type { TableZone } from '../bindings/TableZone'
 import type { TieView } from '../bindings/TieView'
 import { FixtureRows, RoundGames } from '../components/Fixtures'
-import { BottomBar, Link, ScreenHeader, Tabs } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, Link, Panel, ScreenHeader, Tabs } from '../components/Screen'
 import { continentPt } from '../continents'
 import { matchDate } from '../format'
 import { useGame } from '../game'
@@ -23,21 +23,6 @@ const TABS = [
   { key: 'stats', label: 'Estatísticas', disabled: true },
   { key: 'history', label: 'Historial' },
 ]
-
-/** Painel arredondado com título laranja (o padrão das telas novas). */
-function Panel({ title, right, children, className = '' }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <div className={`flex min-h-0 flex-col overflow-hidden rounded-md bg-[#1a1b21] ${className}`}>
-      {title && (
-        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold font-mono uppercase tracking-[0.12em] text-cm-orange">
-          {title}
-          <span className="ml-auto flex items-center gap-1.5 normal-case tracking-normal">{right}</span>
-        </div>
-      )}
-      {children}
-    </div>
-  )
-}
 
 /** Cabeçalho de coluna roxo com letra amarela, como as tabelas do CM. */
 const TH = 'bg-[#3d1a73] px-2 text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow'
@@ -53,7 +38,7 @@ function ClubLink({ club }: { club: ClubRef | null }) {
 }
 
 function History({ c }: { c: CompetitionProfile }) {
-  if (c.history.length === 0) return <div className="p-6 text-center text-cm-magenta">Sem historial registado.</div>
+  if (c.history.length === 0) return <Empty>Sem historial registado.</Empty>
   const head = ['Ano', 'Campeão', 'Vice', '3º']
   return (
     <Panel title="Historial" className="flex-1">
@@ -387,7 +372,7 @@ function Calendar({ fixtures, table, own }: { fixtures: Fixture[]; table: Standi
 /** Resultados: jornadas já disputadas, da mais recente para a mais antiga. */
 function Results({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
   const rounds = byRound(fixtures.filter((f) => f.homeGoals !== null)).reverse()
-  if (rounds.length === 0) return <div className="p-6 text-center text-cm-magenta">Ainda não há resultados.</div>
+  if (rounds.length === 0) return <Empty>Ainda não há resultados.</Empty>
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">
       {rounds.map(([name, games]) => (
@@ -463,7 +448,6 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
         }
         title={comp?.name ?? ''}
       />
-      <div className="mt-2.5" />
       <Tabs
         tabs={TABS.map((t) => {
           if (t.key === 'table') return { ...t, disabled: !comp || (comp.clubs.length === 0 && stages.length === 0) }
@@ -475,7 +459,7 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
         onChange={setTab}
       />
       <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col">
-        {error && <div className="mb-2 rounded bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox className="mb-2">{error}</ErrorBox>
         {comp &&
           tab === 'table' &&
           (stages.length > 0 ? <Stages c={comp} stages={stages} fixtures={fixtures} own={own} /> : <Table c={comp} rows={[]} own={own} />)}

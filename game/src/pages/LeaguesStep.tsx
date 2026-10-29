@@ -2,6 +2,7 @@ import type { LeagueChoice } from '../bindings/LeagueChoice'
 import type { LeagueMode } from '../bindings/LeagueMode'
 import type { LeagueNation } from '../bindings/LeagueNation'
 import { DialogFrame, Overlay } from '../components/Dialog'
+import { ErrorBox } from '../components/Screen'
 
 // "Escolher Campeonato(s)", como no CM: cada nação Escolhida (joga-se com tudo e pode-se
 // treinar lá), de Fundo (só os resultados) ou fora do jogo.
@@ -78,7 +79,7 @@ export default function LeaguesStep({
           Escolhido: joga-se com tudo (mercado, plantéis, estatísticas) e pode treinar lá. Fundo: só os resultados. Fora: não entra no
           jogo. Menos ligas escolhidas tornam o Continuar Jogo mais rápido.
         </div>
-        {error && <div className="mt-2 bg-red-900 px-2 py-1 text-white">{error}</div>}
+        <ErrorBox className="mt-2">{error}</ErrorBox>
       </DialogFrame>
     </Overlay>
   )
