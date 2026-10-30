@@ -57,10 +57,11 @@ function newsDate(iso: string) {
 /** As notícias de uma aba, da mais recente (em cima) para a mais antiga, como o core as guarda. */
 const inOrder = (news: NewsItem[], tab: string) => news.filter((n) => inTab(n, tab))
 
-/** Onde a aba abre: na mais recente por ler, senão na mais recente (ou nesta, com `latest`). */
+/** Onde a aba abre: na mais antiga por ler (lê-se pela ordem em que chegaram), senão na
+ * mais recente (ou nesta, com `latest`). */
 function startAt(news: NewsItem[], tab: string, latest = false): number | null {
   const list = inOrder(news, tab)
-  return ((latest ? undefined : list.find((n) => !n.read)) ?? list[0])?.id ?? null
+  return ((latest ? undefined : list.findLast((n) => !n.read)) ?? list[0])?.id ?? null
 }
 
 /** "Notícias para <treinador>": lista em cima, texto da notícia em baixo. */
@@ -116,8 +117,8 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
   const currentLinks = links.id === currentId ? links.list : []
 
   const readNext = () => {
-    // A seguinte por ler, de cima para baixo
-    const next = shown.find((n) => !n.read && n.id !== current?.id)
+    // A seguinte por ler, pela ordem em que chegaram (de baixo para cima)
+    const next = shown.findLast((n) => !n.read && n.id !== current?.id)
     if (next) setSelected(next.id)
   }
 
