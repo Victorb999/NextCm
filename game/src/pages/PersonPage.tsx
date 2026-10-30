@@ -149,6 +149,11 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
                 )}
               </span>
             )}
+            {p?.ghost && (
+              <span className="shrink-0 rounded bg-[#2a1a45] px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[#b48cf0]">
+                Enchimento
+              </span>
+            )}
             {p && !pl && p.job && (
               <span className="shrink-0 rounded bg-[#0f3a2a] px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[#4edea3]">{p.job}</span>
             )}

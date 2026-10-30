@@ -25,4 +25,8 @@ condition: number | null, injured: boolean, suspended: boolean,
 /**
  * Na equipa de reservas (só no clube do treinador, num jogo em curso).
  */
-reserve: boolean, };
+reserve: boolean, 
+/**
+ * Jogador de enchimento (nome a roxo, como no CM).
+ */
+ghost: boolean, };

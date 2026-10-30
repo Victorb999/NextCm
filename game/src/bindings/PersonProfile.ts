@@ -22,6 +22,10 @@ seasons: Array<SeasonRecord>,
  */
 injuries: Array<InjuryLine>, suspensions: Array<SuspensionLine>, honours: Array<HonourLine>, 
 /**
+ * Jogador de enchimento: só joga pelo clube dele (nome a roxo, sem acções de mercado).
+ */
+ghost: boolean, 
+/**
  * Condição, moral, lesão e castigos num jogo em curso (só jogadores de clubes vivos).
  */
 status: PlayerStatus | null, 

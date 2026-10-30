@@ -39,7 +39,7 @@ const CRITERIA: { key: Criterion; label: string }[] = [
 ]
 
 /** Uma linha do plantel: [número] [lugar/Int] Nome ... posição */
-type Entry = { id: number; number: ReactNode; badge: ReactNode; name: string; detail: string; spot?: Spot }
+type Entry = { id: number; number: ReactNode; badge: ReactNode; name: string; detail: string; spot?: Spot; ghost?: boolean }
 
 type Bind = { 'data-spot': string; onMouseDown: (e: React.MouseEvent) => void }
 
@@ -94,7 +94,10 @@ function SquadGrid({
         >
           {e.badge || <span className="text-[#5a5a66]">-</span>}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
+        <span
+          className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${e.ghost ? 'text-[#9b6fe8]' : 'text-white'}`}
+          title={e.ghost ? 'Jogador de enchimento' : undefined}
+        >
           <Link onClick={() => onOpen(e)}>{e.name}</Link>
         </span>
         <span className={`w-28 shrink-0 truncate text-right font-mono text-[12.5px] ${i === selected ? 'text-white' : 'text-cm-yellow'}`}>{e.detail}</span>
@@ -309,6 +312,8 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
       ),
       name: shortListName(p.listName),
       detail: p.position,
+      // Jogador de enchimento: a roxo, como no CM
+      ghost: p.ghost,
       }
     })
   }, [club, view, criterion, tactics])

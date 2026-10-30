@@ -44,18 +44,25 @@ export default function WorldTransfersPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <ScreenHeader icon={<ArrowLeftRight size={22} />} title="Transferências" />
-      <div className="flex shrink-0 items-center justify-center gap-3 py-1.5">
-        <button className="cm-purple h-6 w-10" onClick={() => go(-1)}>
-          &lt;&lt;
-        </button>
-        <span className="w-48 text-center font-title text-[20px] font-bold text-cm-yellow">
-          {MONTHS[m - 1]} {y}
-        </span>
-        <button className="cm-purple h-6 w-10" onClick={() => go(1)}>
-          &gt;&gt;
-        </button>
-        <span className="text-[13px] text-white">{data ? `${data.total} negócios` : ''}</span>
+      <ScreenHeader
+        icon={<ArrowLeftRight size={22} />}
+        eyebrow={data ? `${data.total} negócios` : undefined}
+        title="Transferências"
+        right={
+          <>
+            <button className="cm-purple h-7 w-9 px-0" onClick={() => go(-1)}>
+              ◀
+            </button>
+            <span className="w-36 text-center font-title text-[17px] font-bold text-cm-yellow">
+              {MONTHS[m - 1]} {y}
+            </span>
+            <button className="cm-purple h-7 w-9 px-0" onClick={() => go(1)}>
+              ▶
+            </button>
+          </>
+        }
+      />
+      <div className="flex shrink-0 items-center justify-end gap-3 px-3 pb-1">
         {pages > 1 && (
           <span className="flex items-center gap-1 text-[13px] text-white">
             <button className="cm-purple h-5 w-6" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
@@ -68,12 +75,12 @@ export default function WorldTransfersPage() {
           </span>
         )}
       </div>
-      <div className="mx-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-black/60">
+      <div className="mx-2 mb-1 min-h-0 flex-1 overflow-auto rounded-md bg-[#1a1b21]">
         <table className="w-full table-fixed text-[14px]">
           <thead className="sticky top-0">
-            <tr className="h-6">
+            <tr className="h-7">
               {['Data', 'Jogador', 'De', 'Para', 'Valor'].map((h) => (
-                <th key={h} className="border-x border-black bg-cm-head px-2 text-left font-normal text-white">
+                <th key={h} className="bg-[#3d1a73] px-3 text-left font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow">
                   {h}
                 </th>
               ))}
@@ -81,7 +88,7 @@ export default function WorldTransfersPage() {
           </thead>
           <tbody>
             {data?.items.map((t, i) => (
-              <tr key={`${t.personId}-${i}`} className="h-[22px] border-b border-cm-line">
+              <tr key={`${t.personId}-${i}`} className="h-6">
                 <td className="px-2 text-white">{cmDate(t.date)}</td>
                 <td className="truncate px-2">
                   <Link onClick={() => nav.go({ kind: 'person', id: t.personId })}>{t.name}</Link>

@@ -4,7 +4,7 @@ import type { TransferItem } from '../bindings/TransferItem'
 import { money } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
-import { Link } from './Screen'
+import { Empty, Link, PanelTitle } from './Screen'
 
 // Transferências do clube nos últimos 12 meses, como a tela do CM: entradas em cima, saídas
 // em baixo; cada linha com a data, o jogador, o outro clube e o valor.
@@ -29,23 +29,25 @@ function List({ title, items, other }: { title: string; items: TransferItem[]; o
   const nav = useNav()
   return (
     <>
-      <div className="mb-1 mt-2 inline-block border-b-2 border-cm-orange font-title text-[20px] font-bold text-cm-orange">{title}</div>
-      {items.length === 0 && <div className="px-2 text-[15px] text-cm-magenta">Nenhuma.</div>}
-      {items.map((t, i) => {
-        const club = other(t)
-        return (
-          <div key={`${t.personId}-${t.date}-${i}`} className="flex h-[24px] items-center gap-3 border-b border-cm-line bg-black/40 px-2 text-[15px]">
-            <span className="w-28 shrink-0 text-white">{shortDate(t.date)}</span>
-            <span className="min-w-0 flex-1 truncate">
-              <Link onClick={() => nav.go({ kind: 'person', id: t.personId })}>{t.name}</Link>
-            </span>
-            <span className="w-56 shrink-0 truncate">
-              {club ? <Link onClick={() => nav.go({ kind: 'club', id: club.id })}>{club.shortName}</Link> : <span className="text-white">-</span>}
-            </span>
-            <span className="w-36 shrink-0 text-right tabular-nums text-cm-yellow">{feeText(t)}</span>
-          </div>
-        )
-      })}
+      <PanelTitle title={title} />
+      {items.length === 0 && <Empty className="py-2">Nenhuma.</Empty>}
+      <div className="cm-zebra">
+        {items.map((t, i) => {
+          const club = other(t)
+          return (
+            <div key={`${t.personId}-${t.date}-${i}`} className="flex h-6 items-center gap-3 px-4 text-[14px]">
+              <span className="w-28 shrink-0 text-white">{shortDate(t.date)}</span>
+              <span className="min-w-0 flex-1 truncate">
+                <Link onClick={() => nav.go({ kind: 'person', id: t.personId })}>{t.name}</Link>
+              </span>
+              <span className="w-56 shrink-0 truncate">
+                {club ? <Link onClick={() => nav.go({ kind: 'club', id: club.id })}>{club.shortName}</Link> : <span className="text-white">-</span>}
+              </span>
+              <span className="w-36 shrink-0 text-right tabular-nums text-cm-yellow">{feeText(t)}</span>
+            </div>
+          )
+        })}
+      </div>
     </>
   )
 }
@@ -64,9 +66,9 @@ export default function TransfersPanel({ clubId }: { clubId: number }) {
   const spent = incoming.reduce((s, t) => s + (t.kind === 'transfer' ? t.fee : 0), 0)
   const received = outgoing.reduce((s, t) => s + (t.kind === 'transfer' ? t.fee : 0), 0)
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-4 pb-3">
-      <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Transferências (últimos 12 meses)</div>
-      <div className="flex gap-8 px-2 text-[15px]">
+    <div className="min-h-0 flex-1 overflow-auto pb-3">
+      <div className="flex h-8 items-center gap-8 px-4 font-mono text-[12px] uppercase tracking-wider text-[#86869a]">
+        <span className="text-cm-orange">Últimos 12 meses</span>
         <span className="text-white">
           Gastos: <span className="text-cm-yellow">{money(spent) || '€0'}</span>
         </span>
