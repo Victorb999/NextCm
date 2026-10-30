@@ -11,6 +11,7 @@ import type { TrainingView } from './bindings/TrainingView'
 import type { WorldTransfers } from './bindings/WorldTransfers'
 import type { CareerClub } from './bindings/CareerClub'
 import type { LeagueNation } from './bindings/LeagueNation'
+import type { TalkLine } from './bindings/TalkLine'
 import type { TalkReaction } from './bindings/TalkReaction'
 import type { TalkView } from './bindings/TalkView'
 import type { PressView } from './bindings/PressView'
@@ -120,6 +121,7 @@ export const api = {
   talkView: () => call<TalkView>('talk_view'),
   /** `person` = null fala à equipa toda. */
   giveTalk: (key: string, tone: string, person: number | null) => call<TalkReaction[]>('give_talk', { key, tone, person }),
+  giveTalks: (tone: string, lines: TalkLine[]) => call<TalkReaction[]>('give_talks', { tone, lines }),
   retireManager: () => call<string>('retire_manager'),
   holiday: (days: number) => call<GameInfo>('holiday', { days }),
   managerCareer: () => call<CareerClub[]>('manager_career'),

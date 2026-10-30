@@ -58,6 +58,7 @@ powershell -File scripts/check.ps1 -Quick   # sem os testes do core
 cargo test -p nextcm-core --release          # testes (também regenera game/src/bindings)
 cargo run -p nextcm-core --release --bin sim -- 7568 epoca 1 20   # 20 épocas: médias de golos, cartões...
 npm --prefix game run check                  # só o front: tsc + oxlint
+powershell -File scripts/web.ps1             # jogar no navegador: ponte (1421) + Vite (5173), Ctrl+C fecha
 ```
 
 Antes de dar uma tarefa por acabada, corra `scripts/check.ps1`.

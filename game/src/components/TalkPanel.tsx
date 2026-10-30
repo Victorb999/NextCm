@@ -3,11 +3,14 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { TalkReaction } from '../bindings/TalkReaction'
 import type { TalkView } from '../bindings/TalkView'
+import { shortListName } from '../format'
 import { BottomBar, ErrorBox, Panel, ScreenHeader } from './Screen'
 
-// Palestra (antes do jogo, ao intervalo, no fim e ao suplente que entra): o tom, a quem
-// (a equipa ou um jogador), a frase (com a sugestão do adjunto) e a reação de cada um.
-// As regras estão no core.
+// Palestra (antes do jogo, ao intervalo, no fim e ao suplente que entra), como as Instruções
+// do FM08: a tabela do plantel (Nº, Jogador, Cond, Moral, Nota) com o que dizer a cada um;
+// quem segue a equipa ouve as Instruções Gerais, "Pedir ao Adjunto" põe todos na frase que
+// ele sugere, os suplentes por usar ficam apagados. Dar Palestra envia tudo de uma vez e
+// mostra a reação de cada um. As regras estão no core.
 
 const COLOURS: Record<string, string> = {
   Motivado: 'text-[#4cd964]',
@@ -26,28 +29,36 @@ function Choice({ selected, onClick, children }: { selected: boolean; onClick: (
   )
 }
 
+/** O que cada jogador ouve: 'team' = as Instruções Gerais, '' = nada, senão uma frase só dele. */
+type Said = Record<number, string>
+
 export default function TalkPanel({ onClose }: { onClose: () => void }) {
   const [view, setView] = useState<TalkView | null>(null)
   const [tone, setTone] = useState('assertive')
-  // null = a equipa toda
-  const [person, setPerson] = useState<number | null>(null)
+  // As Instruções Gerais (a frase da equipa) e o que cada um ouve
+  const [general, setGeneral] = useState('')
+  const [said, setSaid] = useState<Said>({})
   const [reactions, setReactions] = useState<TalkReaction[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const load = () =>
     api.talkView().then(
       (v) => {
         setView(v)
-        // Ao suplente fala-se a um de cada vez; à equipa depois de já ter falado, também
-        setPerson(!v.team || v.done ? Number(v.players[0]?.key ?? 0) || null : null)
+        // Antes de falar à equipa, todos seguem a sugestão do adjunto; depois, ninguém
+        setGeneral(v.suggested)
+        setSaid(Object.fromEntries(v.players.filter((p) => p.listens).map((p) => [p.id, v.done ? '' : 'team'])))
       },
       (e) => setError(String(e)),
     )
   useEffect(() => {
     void load()
   }, [])
-  const talk = async (key: string) => {
+  const lines = Object.entries(said)
+    .map(([person, key]) => ({ person: Number(person), key: key === 'team' ? general : key }))
+    .filter((l) => l.key)
+  const talk = async () => {
     try {
-      setReactions(await api.giveTalk(key, tone, person))
+      setReactions(await api.giveTalks(tone, lines))
       setError(null)
     } catch (e) {
       setError(String(e))
@@ -57,7 +68,15 @@ export default function TalkPanel({ onClose }: { onClose: () => void }) {
     setReactions(null)
     void load()
   }
-  const teamDone = !!view?.done
+  // "Pedir ao Adjunto": todos voltam às Instruções Gerais, com a frase que ele sugere
+  const askAssistant = () => {
+    if (!view) return
+    setGeneral(view.suggested)
+    setSaid((m) => Object.fromEntries(Object.keys(m).map((k) => [k, 'team'])))
+  }
+  const phrase = (key: string) => view?.options.find((o) => o.key === key)?.label ?? ''
+
+  const th = 'bg-[#3d1a73] px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow'
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader icon={<Megaphone size={22} />} title={view?.title ?? 'Palestra'} />
@@ -66,40 +85,82 @@ export default function TalkPanel({ onClose }: { onClose: () => void }) {
         {view && !reactions && (
           <>
             <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-[#1a1b21] px-4 py-2">
-              <span className="text-[14px] font-semibold text-white">A quem</span>
-              <select
-                value={person ?? ''}
-                onChange={(e) => setPerson(e.target.value ? Number(e.target.value) : null)}
-                className="cm-field h-7 min-w-64 rounded"
-              >
-                {view.team && !teamDone && <option value="">À equipa toda</option>}
-                {view.players.map((p) => (
-                  <option key={p.key} value={p.key}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-              <span className="ml-4 text-[14px] font-semibold text-white">Tom</span>
+              <span className="text-[14px] font-semibold text-white">Tom</span>
               {view.tones.map((t) => (
                 <Choice key={t.key} selected={tone === t.key} onClick={() => setTone(t.key)}>
                   {t.label}
                 </Choice>
               ))}
-              {view.team && teamDone && <span className="text-[13px] text-cm-magenta">Já falou à equipa: agora só a um jogador.</span>}
+              {view.team && view.done && <span className="text-[13px] text-cm-magenta">Já falou à equipa: agora só a quem ainda não ouviu.</span>}
             </div>
-            <Panel title="O que dizer" className="shrink-0">
-              <div className="cm-zebra">
-                {view.options.map((o) => (
-                  <button
-                    key={o.key}
-                    disabled={person === null && teamDone}
-                    className="flex min-h-9 w-full items-center gap-3 px-4 py-1 text-left text-[15px] text-white hover:!bg-cm-sel disabled:text-[#6c6c78]"
-                    onClick={() => void talk(o.key)}
-                  >
-                    <span className="flex-1">{o.label}</span>
-                    {o.key === view.suggested && <span className="shrink-0 font-mono text-[11px] uppercase tracking-wider text-cm-yellow">Sugestão do adjunto</span>}
+            <Panel
+              title="Instruções"
+              right={
+                <span className="flex items-center gap-1.5">
+                  <button className="cm-purple h-6 px-3" onClick={askAssistant}>
+                    Pedir ao Adjunto
                   </button>
-                ))}
+                  {/* Instruções Gerais: a frase de quem segue a equipa */}
+                  <select value={general} onChange={(e) => setGeneral(e.target.value)} className="cm-field h-6 w-60 rounded" aria-label="Instruções Gerais">
+                    {view.options.map((o) => (
+                      <option key={o.key} value={o.key}>
+                        Gerais: {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="cm-purple h-6 px-4" disabled={lines.length === 0} onClick={() => void talk()}>
+                    Dar Palestra
+                  </button>
+                </span>
+              }
+              className="min-h-0 flex-1"
+            >
+              <div className="min-h-0 flex-1 overflow-auto">
+                <table className="w-full table-fixed border-collapse text-[14px]">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="h-7">
+                      <th className={`${th} w-12 text-center`}>Nº</th>
+                      <th className={`${th} text-left`}>Jogador</th>
+                      <th className={`${th} w-20 text-center`}>Cond</th>
+                      <th className={`${th} w-28 text-center`}>Moral</th>
+                      <th className={`${th} w-16 text-center`}>Nota</th>
+                      <th className={`${th} w-80 text-center`}>Instruções</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {view.players.map((p) => (
+                      <tr key={p.id} className={`h-7 ${p.listens ? 'text-white' : 'text-[#6c6c78]'}`}>
+                        <td className="px-2 text-center">
+                          <span className={`inline-block w-8 rounded text-[12px] font-bold ${p.listens ? 'bg-[#2f6b52] text-white' : 'bg-white/5'}`}>
+                            {p.number ?? ''}
+                          </span>
+                        </td>
+                        <td className="truncate px-2 font-semibold">{shortListName(p.name)}</td>
+                        <td className="px-2 text-center tabular-nums">{p.condition}%</td>
+                        <td className="px-2 text-center">{p.morale}</td>
+                        <td className="px-2 text-center tabular-nums">{p.rating ?? '-'}</td>
+                        <td className="px-2 py-0.5">
+                          {p.listens && (
+                            <select
+                              value={said[p.id] ?? ''}
+                              onChange={(e) => setSaid((m) => ({ ...m, [p.id]: e.target.value }))}
+                              className="cm-field h-6 w-full rounded"
+                              aria-label={`Instruções para ${p.name}`}
+                            >
+                              <option value="team">Equipa ({phrase(general)})</option>
+                              {view.options.map((o) => (
+                                <option key={o.key} value={o.key}>
+                                  {o.label}
+                                </option>
+                              ))}
+                              <option value="">— Nada —</option>
+                            </select>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </Panel>
           </>
@@ -109,7 +170,7 @@ export default function TalkPanel({ onClose }: { onClose: () => void }) {
             title="Reacções"
             right={
               <button className="cm-purple h-6 px-3" onClick={again}>
-                Falar a um jogador
+                Falar a outro jogador
               </button>
             }
             className="min-h-0 flex-1"

@@ -8,7 +8,7 @@ import { selectionOf, swap, useDragSwap, type Spot } from '../selection'
 import InstructionsDialog from './InstructionsDialog'
 import PlayerOrdersDialog from './PlayerOrdersDialog'
 import { BottomBar, ErrorBox, PurpleMenu, ScreenHeader, Tabs } from './Screen'
-import { Pitch, Row } from './TacticsBoard'
+import { InstructionsSummary, Pitch, Row } from './TacticsBoard'
 import { TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
 
 /**
@@ -204,24 +204,28 @@ export default function LiveTactics({
               )}
             </div>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col">
-            <Tabs
-              tabs={[
-                { key: 'overview', label: 'Vista Geral' },
-                { key: 'with', label: 'Com Bola', disabled: true },
-                { key: 'without', label: 'Sem Bola', disabled: true },
-              ]}
-              active="overview"
-              onChange={() => {}}
-            />
-            <div className="mt-1 flex min-h-0 flex-1 flex-col">
-              <Pitch t={t} colours={colours} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
+          <div className="flex min-h-0 flex-1 gap-2">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <Tabs
+                tabs={[
+                  { key: 'overview', label: 'Vista Geral' },
+                  { key: 'with', label: 'Com Bola', disabled: true },
+                  { key: 'without', label: 'Sem Bola', disabled: true },
+                ]}
+                active="overview"
+                onChange={() => {}}
+              />
+              <div className="mt-1 flex min-h-0 flex-1 flex-col">
+                <Pitch t={t} colours={colours} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
+              </div>
+              <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
+                {editable
+                  ? 'Arraste para trocar (titular com suplente = substituição) ou para um lugar vazio · botão direito e arrastar faz a seta'
+                  : 'Só pode mexer na sua equipa.'}
+              </div>
             </div>
-            <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
-              {editable
-                ? 'Arraste para trocar (titular com suplente = substituição) ou para um lugar vazio · botão direito e arrastar faz a seta'
-                : 'Só pode mexer na sua equipa.'}
-            </div>
+            {/* As Instruções à Equipa à vista, como na tela de Tácticas; Editar abre o diálogo */}
+            <InstructionsSummary t={t} onEdit={editable ? () => setInstructions(true) : undefined} />
           </div>
         </div>
       ) : (

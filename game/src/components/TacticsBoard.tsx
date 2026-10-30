@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import type { ClubTactics } from '../bindings/ClubTactics'
 import type { TacticPlayer } from '../bindings/TacticPlayer'
 import type { Spot } from '../selection'
-import { conditionColour, fullName, outOfPosition, shortRole, surname, type Run } from '../tactics'
+import { MENTALITY, PASSING, TACKLING, conditionColour, fullName, outOfPosition, shortRole, surname, type Run } from '../tactics'
+import { PanelTitle } from './Screen'
 
 // Componentes da tela de Tácticas do CM, usados na tela de Tácticas e nas Tácticas a meio
 // do jogo (as funções e o hook da seta estão em ../tactics.ts).
@@ -252,6 +253,48 @@ export function Pitch({
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+/** Resumo das Instruções à Equipa ao lado do campo; Editar abre o diálogo de sempre. */
+export function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: () => void }) {
+  const i = t.instructions
+  const name = (id: number | null) => {
+    const p = t.starters.find((s) => s.player?.id === id)?.player
+    return p ? surname(p.listName) : 'Adjunto'
+  }
+  const items: [string, string, boolean][] = [
+    ['Mentalidade', MENTALITY.find(([k]) => k === i.mentality)?.[1] ?? '-', true],
+    ['Passe', PASSING.find(([k]) => k === i.passing)?.[1] ?? '-', true],
+    ['Desarme', TACKLING.find(([k]) => k === i.tackling)?.[1] ?? '-', true],
+    ['Pressão', i.pressing ? 'Sim' : 'Não', i.pressing],
+    ['Defesa em Linha', i.offsideTrap ? 'Sim' : 'Não', i.offsideTrap],
+    ['Contra-Ataque', i.counterAttack ? 'Sim' : 'Não', i.counterAttack],
+    ['Defesa Intensa', i.tightMarking ? 'Sim' : 'Não', i.tightMarking],
+    ['Penáltis', name(t.takers.penalty), false],
+    ['Livres', name(t.takers.freeKick), false],
+  ]
+  return (
+    <div className="flex w-[176px] shrink-0 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
+      <PanelTitle
+        title="Instruções"
+        right={
+          onEdit && (
+            <button onClick={onEdit} className="font-bold font-mono uppercase tracking-wider text-[#4edea3] hover:text-white">
+              Editar
+            </button>
+          )
+        }
+      />
+      <div className="flex min-h-0 flex-col gap-2 overflow-auto p-2.5">
+        {items.map(([label, value, on]) => (
+          <div key={label} className="min-w-0 rounded bg-[#1e1f25] px-2.5 py-1.5">
+            <div className="truncate text-[10px] font-bold font-mono uppercase tracking-wider text-[#86869a]">{label}</div>
+            <div className={`truncate font-semibold ${on ? 'text-[#4edea3]' : 'text-[#c8c8d0]'}`}>{value}</div>
+          </div>
+        ))}
       </div>
     </div>
   )

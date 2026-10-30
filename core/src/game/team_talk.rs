@@ -6,7 +6,7 @@
 //! motivador) acerta a reação; fala-se à equipa toda ou a um jogador, e ao suplente que
 //! acabou de entrar. Sem palestra (a CLI, o adjunto) o jogo é o mesmo: nada aqui gasta o RNG.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::Game;
@@ -27,6 +27,23 @@ pub struct TalkOption {
     pub label: String,
 }
 
+/// Um jogador na tabela da Palestra (como as Instruções do FM08).
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct TalkPlayer {
+    pub id: i32,
+    pub name: String,
+    pub number: Option<i32>,
+    pub condition: i32,
+    /// "Excelente" … "Péssima".
+    pub morale: String,
+    /// A nota no jogo até agora.
+    pub rating: Option<i32>,
+    /// Pode ouvir a palestra agora (em campo, ou o suplente que entrou, e ainda não ouviu).
+    pub listens: bool,
+}
+
 /// O painel "Palestra": o momento, as frases e os tons, a frase que o adjunto sugere, a
 /// quem se pode falar e se a palestra à equipa já foi dada.
 #[derive(Debug, Clone, Serialize, TS)]
@@ -39,11 +56,20 @@ pub struct TalkView {
     pub options: Vec<TalkOption>,
     pub tones: Vec<TalkOption>,
     pub suggested: String,
-    /// Os jogadores a quem se pode falar sozinhos (`key` = id).
-    pub players: Vec<TalkOption>,
+    /// O plantel no jogo: quem está em campo primeiro, depois os suplentes (apagados).
+    pub players: Vec<TalkPlayer>,
     /// À equipa toda (não no "sub").
     pub team: bool,
     pub done: bool,
+}
+
+/// Uma linha da palestra dada de uma vez: o que dizer a um jogador.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct TalkLine {
+    pub person: i32,
+    pub key: String,
 }
 
 /// A reação de um jogador.
@@ -277,13 +303,31 @@ impl Game {
             (_, _, 0) => "well_done",
             _ => "not_happy",
         };
-        let players = if moment == "sub" {
-            self.waiting_subs()?
+        let listeners: Vec<i32> = if moment == "sub" {
+            self.waiting_subs()?.into_iter().map(|p| p.0).collect()
         } else {
             let day = self.live.as_ref().expect("dia de jogo");
             let done = |id: i32| day.talks.contains(&format!("{moment}:{id}"));
-            day.games[day.user].1.talk_players().into_iter().filter(|(id, _)| !done(*id)).collect()
+            day.games[day.user].1.talk_players().into_iter().map(|p| p.0).filter(|id| !done(*id)).collect()
         };
+        // A tabela: em campo, quem já saiu e os suplentes, com a condição, a moral e a nota
+        let live = self.live_view()?;
+        let team = if live.user_side == Some(1) { &live.away } else { &live.home };
+        let players = team
+            .players
+            .iter()
+            .chain(&team.out)
+            .chain(&team.bench)
+            .map(|p| TalkPlayer {
+                id: p.id,
+                name: p.list_name.clone(),
+                number: p.squad_number,
+                condition: p.condition,
+                morale: crate::squad::morale_label(self.squads.state(p.id).morale).into(),
+                rating: p.rating,
+                listens: listeners.contains(&p.id),
+            })
+            .collect();
         let done = self.live.as_ref().is_some_and(|d| d.talks.iter().any(|t| t == moment));
         let opt = |(k, l): &(&str, &str)| TalkOption { key: (*k).into(), label: (*l).into() };
         Ok(TalkView {
@@ -292,7 +336,7 @@ impl Game {
             options: options.iter().map(opt).collect(),
             tones: TONES.iter().map(opt).collect(),
             suggested: suggested.into(),
-            players: players.into_iter().map(|(id, name)| TalkOption { key: id.to_string(), label: name }).collect(),
+            players,
             team: moment != "sub",
             done,
         })
@@ -363,6 +407,40 @@ impl Game {
     }
 }
 
+impl Game {
+    /// A palestra de uma vez, com uma frase para cada jogador (no ecrã, a linha da equipa
+    /// preenche todas); quem fica de fora não ouve nada. Valida tudo antes de mexer na moral.
+    pub fn give_talks(&mut self, tone_key: &str, lines: &[TalkLine]) -> Result<Vec<TalkReaction>> {
+        if lines.is_empty() {
+            return Err(Error::Invalid("Escolha o que dizer a pelo menos um jogador.".into()));
+        }
+        let view = self.talk_view()?;
+        if !view.tones.iter().any(|t| t.key == tone_key) {
+            return Err(Error::Invalid("Tom desconhecido.".into()));
+        }
+        for (i, l) in lines.iter().enumerate() {
+            if !view.options.iter().any(|o| o.key == l.key) {
+                return Err(Error::Invalid("Frase desconhecida.".into()));
+            }
+            if !view.players.iter().any(|p| p.id == l.person && p.listens) || lines[..i].iter().any(|x| x.person == l.person) {
+                return Err(Error::Invalid("Esse jogador não pode ouvir a palestra agora.".into()));
+            }
+        }
+        let mut out = Vec::new();
+        for l in lines {
+            out.extend(self.give_talk(&l.key, tone_key, Some(l.person))?);
+        }
+        // A palestra deste momento fica dada
+        if view.team
+            && let Some(day) = self.live.as_mut()
+            && !day.talks.contains(&view.moment)
+        {
+            day.talks.push(view.moment.clone());
+        }
+        Ok(out)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -393,12 +471,25 @@ mod tests {
         assert!(reactions.len() >= 11);
         assert!(g.give_talk(&view.suggested, "calm", None).is_err(), "uma palestra por momento");
         // A um jogador sozinho, depois da equipa
-        let one: i32 = view.players[0].key.parse().unwrap();
+        let one = view.players[0].id;
         assert_eq!(g.give_talk(&view.suggested, "motivating", Some(one)).unwrap().len(), 1);
         assert!(g.give_talk(&view.suggested, "motivating", Some(one)).is_err(), "uma vez a cada jogador");
         assert!(g.talk_view().unwrap().done);
         g.live_step(45).unwrap();
-        assert_eq!(g.talk_view().unwrap().moment, "half");
+        let view = g.talk_view().unwrap();
+        assert_eq!(view.moment, "half");
+        // Ao intervalo, de uma vez: uma frase a cada um (dois de fora); valida antes de aplicar
+        let ids: Vec<i32> = view.players.iter().filter(|p| p.listens).map(|p| p.id).collect();
+        assert_eq!(ids.len(), 11, "só quem está em campo");
+        assert!(view.players.len() > 11, "os suplentes aparecem, apagados");
+        let line = |person: i32, key: &str| TalkLine { person, key: key.into() };
+        assert!(g.give_talks("calm", &[line(ids[0], "inventada")]).is_err());
+        assert!(g.give_talks("calm", &[line(ids[0], &view.suggested), line(ids[0], &view.suggested)]).is_err(), "um de cada vez");
+        assert!(g.give_talk(&view.suggested, "calm", Some(ids[0])).is_ok(), "nada ficou dado");
+        let lines: Vec<TalkLine> = ids[1..ids.len() - 2].iter().map(|&id| line(id, &view.options[0].key)).collect();
+        assert_eq!(g.give_talks("assertive", &lines).unwrap().len(), lines.len());
+        let after = g.talk_view().unwrap();
+        assert!(after.done && after.players.iter().filter(|p| p.listens).count() == 2);
         g.live_step(60).unwrap();
         assert!(g.talk_view().map_or(true, |v| v.moment == "sub"), "a meio da segunda parte só ao suplente que entrou");
         drop(g);

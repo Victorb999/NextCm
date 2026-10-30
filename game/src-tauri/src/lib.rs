@@ -15,7 +15,7 @@ use nextcm_core::{
     TransferView, World,
 };
 use nextcm_core::{DealTerms, LoanTerms};
-use nextcm_core::{TalkReaction, TalkView};
+use nextcm_core::{TalkLine, TalkReaction, TalkView};
 use nextcm_core::{TrainingPlan, TrainingView};
 use tauri::{Manager, State};
 
@@ -124,6 +124,7 @@ session_command!(resign() -> String);
 session_command!(league_nations() -> Vec<LeagueNation>);
 session_command!(talk_view() -> TalkView);
 session_command!(give_talk(key: String, tone: String, person: Option<i32>) -> Vec<TalkReaction>);
+session_command!(give_talks(tone: String, lines: Vec<TalkLine>) -> Vec<TalkReaction>);
 session_command!(retire_manager() -> String);
 session_command!(holiday(days: i32) -> GameInfo);
 session_command!(manager_career() -> Vec<CareerClub>);
@@ -281,6 +282,7 @@ pub fn run() {
             league_nations,
             talk_view,
             give_talk,
+            give_talks,
             retire_manager,
             holiday,
             manager_career,

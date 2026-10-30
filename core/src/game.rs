@@ -74,7 +74,7 @@ pub use scout_tasks::{ScoutFind, ScoutList};
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
 pub use staff_reports::ReportStaff;
-pub use team_talk::{TalkOption, TalkReaction, TalkView};
+pub use team_talk::{TalkLine, TalkOption, TalkReaction, TalkView};
 pub use training::{TrainingPlan, TrainingView};
 
 /// Versão do formato do save; saves de outra versão são recusados até haver migração.

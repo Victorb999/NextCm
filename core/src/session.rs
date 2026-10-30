@@ -17,7 +17,7 @@ use crate::NewsLink;
 use crate::PressView;
 use crate::WorldTransfers;
 use crate::{DealTerms, LoanTerms};
-use crate::{TalkReaction, TalkView};
+use crate::{TalkLine, TalkReaction, TalkView};
 use crate::{TrainingPlan, TrainingView};
 
 pub struct Session {
@@ -200,6 +200,11 @@ impl Session {
     /// Dá a palestra; devolve a reação de cada jogador.
     pub fn give_talk(&mut self, key: String, tone: String, person: Option<i32>) -> Result<Vec<TalkReaction>> {
         self.game_mut()?.give_talk(&key, &tone, person)
+    }
+
+    /// A palestra de uma vez: uma frase para cada jogador.
+    pub fn give_talks(&mut self, tone: String, lines: Vec<TalkLine>) -> Result<Vec<TalkReaction>> {
+        self.game_mut()?.give_talks(&tone, &lines)
     }
 
     /// "Rescindir com Clube".

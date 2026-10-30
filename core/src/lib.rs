@@ -39,7 +39,7 @@ pub use game::{
 pub use game::{DealTerms, LoanTerms};
 pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use game::{PressQuestion, PressView};
-pub use game::{TalkOption, TalkReaction, TalkView};
+pub use game::{TalkLine, TalkOption, TalkReaction, TalkView};
 pub use game::{TrainingPlan, TrainingView};
 pub use league::{
     CHAMPIONS_LEAGUE, COPA_DO_BRASIL, EUROPA_LEAGUE, Fixture, LIBERTADORES, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, SERIE_D,

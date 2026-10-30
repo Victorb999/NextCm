@@ -575,6 +575,38 @@ fn variant(n: usize, minute: u8, id: i32) -> usize {
     (minute as usize * 31 + id.unsigned_abs() as usize * 7) % n
 }
 
+/// Uma cor "#rrggbb" em RGB.
+fn rgb(hex: Option<&str>) -> Option<[f64; 3]> {
+    let h = hex?.strip_prefix('#')?;
+    let v = |i: usize| u8::from_str_radix(h.get(i..i + 2)?, 16).ok().map(f64::from);
+    Some([v(0)?, v(2)?, v(4)?])
+}
+
+/// Duas cores que se confundem em campo (distância com o peso do olho a cada canal).
+fn clash(a: Option<&str>, b: Option<&str>) -> bool {
+    let (Some(a), Some(b)) = (rgb(a), rgb(b)) else { return false };
+    let d = 2.0 * (a[0] - b[0]).powi(2) + 4.0 * (a[1] - b[1]).powi(2) + 3.0 * (a[2] - b[2]).powi(2);
+    d.sqrt() < 200.0
+}
+
+/// O equipamento de quem joga fora: o alternativo quando o principal se confunde com o da
+/// casa; se o alternativo também se confundir, branco ou preto (o que mais contrastar).
+fn away_kit(world: &World, home: &ClubRef, mut away: ClubRef) -> Result<ClubRef> {
+    if !clash(home.bg.as_deref(), away.bg.as_deref()) {
+        return Ok(away);
+    }
+    let (fg, bg): (Option<String>, Option<String>) =
+        world.conn.query_row("SELECT away_fg, away_bg FROM clubs WHERE id = ?", [away.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    if bg.is_some() && !clash(home.bg.as_deref(), bg.as_deref()) {
+        (away.fg, away.bg) = (fg, bg);
+    } else if clash(home.bg.as_deref(), Some("#ffffff")) {
+        (away.fg, away.bg) = (Some("#ffffff".into()), Some("#111111".into()));
+    } else {
+        (away.fg, away.bg) = (Some("#111111".into()), Some("#ffffff".into()));
+    }
+    Ok(away)
+}
+
 impl LiveMatch {
     /// `user`: o lado do treinador; `user_ai`: o adjunto também faz as substituições dele.
     pub fn new(
@@ -589,7 +621,7 @@ impl LiveMatch {
         let ai = |side| user != Some(side) || user_ai;
         let teams = [
             Team::new(world, fixture.home.clone(), home, ai(0), &fixture.date)?,
-            Team::new(world, fixture.away.clone(), away, ai(1), &fixture.date)?,
+            Team::new(world, away_kit(world, &fixture.home, fixture.away.clone())?, away, ai(1), &fixture.date)?,
         ];
         let mut m = LiveMatch {
             fixture,
@@ -655,7 +687,12 @@ impl LiveMatch {
     /// Quem ouve a palestra no lado do treinador: os que estão (ou estiveram) em campo e o banco.
     pub fn talk_players(&self) -> Vec<(i32, String)> {
         let Some(side) = self.user else { return Vec::new() };
-        self.teams[side].players.iter().filter(|p| !p.red || self.finished()).map(|p| (p.info.id, p.prof.name.clone())).collect()
+        self.teams[side]
+            .players
+            .iter()
+            .filter(|p| p.entered.is_some() && (!p.red || self.finished()))
+            .map(|p| (p.info.id, p.prof.name.clone()))
+            .collect()
     }
 
     /// Os suplentes do treinador que entraram nos últimos `within` minutos (e ainda jogam).
@@ -1811,6 +1848,23 @@ mod tests {
     use rand_core::SeedableRng;
 
     use super::*;
+
+    #[test]
+    fn kits_that_clash() {
+        assert!(clash(Some("#c40000"), Some("#d00010")), "dois vermelhos");
+        assert!(!clash(Some("#c40000"), Some("#ffffff")));
+        assert!(!clash(Some("#0000c4"), Some("#c40000")));
+        assert!(!clash(None, Some("#ffffff")));
+        // Arsenal x Nottingham Forest: os dois de vermelho, o Forest joga com o alternativo
+        let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let w = World::open(&path).unwrap();
+        let id = |name: &str| -> i32 { w.conn.query_row("SELECT id FROM clubs WHERE short_name = ?", [name], |r| r.get(0)).unwrap() };
+        let home = w.club_ref(Some(id("Arsenal"))).unwrap().unwrap();
+        let forest = w.club_ref(Some(id("Nottm Forest"))).unwrap().unwrap();
+        assert!(clash(home.bg.as_deref(), forest.bg.as_deref()));
+        let kit = away_kit(&w, &home, forest).unwrap();
+        assert!(!clash(home.bg.as_deref(), kit.bg.as_deref()), "{:?}", kit.bg);
+    }
 
     #[test]
     fn day_form_spreads_with_low_consistency() {

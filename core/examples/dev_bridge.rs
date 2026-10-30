@@ -155,6 +155,11 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "resign" => out(serde_json::to_value(session.resign().map_err(e)?)),
         "league_nations" => out(serde_json::to_value(session.league_nations().map_err(e)?)),
         "talk_view" => out(serde_json::to_value(session.talk_view().map_err(e)?)),
+        "give_talks" => {
+            let tone: String = serde_json::from_value(args["tone"].clone()).map_err(|e| e.to_string())?;
+            let lines: Vec<nextcm_core::TalkLine> = serde_json::from_value(args["lines"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.give_talks(tone, lines).map_err(e)?))
+        }
         "give_talk" => {
             let key = args["key"].as_str().ok_or("falta key")?.to_string();
             let tone = args["tone"].as_str().unwrap_or("assertive").to_string();
