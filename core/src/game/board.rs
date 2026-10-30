@@ -39,9 +39,35 @@ const IDOL_FANS: i32 = 8;
 #[serde(rename_all = "camelCase")]
 pub struct BoardConfidence {
     pub club: ClubRef,
-    pub paragraphs: Vec<String>,
+    /// As frases da direção, como no CM, cada uma com o assunto e o nível.
+    pub lines: Vec<BoardLine>,
     /// Satisfação dos adeptos (0–100).
     pub fans: i32,
+    /// "lutar pelo título" e a divisão, o orçamento de transferências e a folha salarial.
+    pub goal: String,
+    pub division: Option<String>,
+    #[ts(type = "number")]
+    pub transfer_budget: i64,
+    #[ts(type = "number")]
+    pub wage_bill: i64,
+    #[ts(type = "number")]
+    pub wage_budget: i64,
+}
+
+/// Uma frase da Confiança da Direcção.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardLine {
+    /// "performance", "finances", "fans" ou "players".
+    pub kind: String,
+    /// "Desempenho da equipa", "Situação financeira"...
+    pub label: String,
+    pub text: String,
+    /// Nível de 0 a 100 (sem nível nos jogadores).
+    pub level: Option<i32>,
+    /// Os jogadores valiosos (para as ligações).
+    pub players: Vec<(i32, String)>,
 }
 
 /// A direção do clube do treinador (Finanças & Info).
@@ -202,15 +228,39 @@ impl Game {
             30..=49 => "Os adeptos começam a ficar impacientes.",
             _ => "Os adeptos estão descontentes e a pressão sobre o clube é grande.",
         };
-        let mut paragraphs =
-            vec![format!("A direcção {} {mood}.", club.name), format!("A situação financeira do clube é {money}."), supporters.to_string()];
-        let idols: Vec<String> = self.valuable_players()?.iter().map(|&id| self.person_name(id)).collect::<Result<_>>()?;
-        match idols.as_slice() {
-            [] => {}
-            [one] => paragraphs.push(format!("A direcção acredita que {one} é um elemento valioso do plantel.")),
-            [a, b, ..] => paragraphs.push(format!("A direcção acredita que {a} e {b} são elementos valiosos do plantel.")),
+        let line = |kind: &str, label: &str, text: String, level: Option<i32>| BoardLine {
+            kind: kind.into(),
+            label: label.into(),
+            text,
+            level,
+            players: Vec::new(),
+        };
+        // As finanças em 0–100: metade com saldo zero, cheio com meia época de receitas em caixa
+        let money_level = (50.0 + 100.0 * cash as f64 / base).clamp(0.0, 100.0) as i32;
+        let mut lines = vec![
+            line("performance", "Desempenho da equipa", format!("A direcção {} {mood}.", club.name), Some(confidence)),
+            line("finances", "Situação financeira", format!("A situação financeira do clube é {money}."), Some(money_level)),
+            line("fans", "Relação com os adeptos", supporters.to_string(), Some(fans)),
+        ];
+        let idols: Vec<(i32, String)> =
+            self.valuable_players()?.iter().map(|&id| Ok((id, self.person_name(id)?))).collect::<Result<_>>()?;
+        let text = match idols.as_slice() {
+            [] => None,
+            [(_, one)] => Some(format!("A direcção acredita que {one} é um elemento valioso do plantel.")),
+            [(_, a), (_, b), ..] => Some(format!("A direcção acredita que {a} e {b} são elementos valiosos do plantel.")),
+        };
+        if let Some(text) = text {
+            lines.push(BoardLine { players: idols, ..line("players", "Jogadores-chave", text, None) });
         }
-        Ok(BoardConfidence { club, paragraphs, fans })
+        let (_, goal, division) = expectation(&self.world, self.club_id)?;
+        let (transfer_budget, wage_budget): (i64, i64) =
+            self.world.conn.query_row("SELECT transfer_budget, wage_budget FROM board WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        let wage_bill: i64 = self.world.conn.query_row(
+            "SELECT COALESCE(SUM(wage), 0) FROM people WHERE club_id = ? AND is_player = 1",
+            [self.club_id],
+            |r| r.get(0),
+        )?;
+        Ok(BoardConfidence { club, lines, fans, goal: goal.into(), division, transfer_budget, wage_bill, wage_budget })
     }
 
     /// Os dois jogadores que a direção considera mais valiosos: os de maior valor no plantel.
@@ -491,8 +541,10 @@ mod tests {
 
         // Confiança da Direcção: os quatro parágrafos; vender um dos valiosos custa confiança e adeptos
         let view = g.board_confidence().unwrap();
-        assert_eq!(view.paragraphs.len(), 4, "{:?}", view.paragraphs);
-        assert!(view.paragraphs[0].contains(&view.club.name) && view.paragraphs[3].contains("valiosos"));
+        assert_eq!(view.lines.len(), 4, "{:?}", view.lines);
+        assert!(view.lines[0].text.contains(&view.club.name) && view.lines[3].text.contains("valiosos"));
+        assert_eq!(view.lines[3].players.len(), 2);
+        assert!(view.lines[..3].iter().all(|l| l.level.is_some_and(|v| (0..=100).contains(&v))));
         let idol = g.valuable_players().unwrap()[0];
         let before = g.board_view().unwrap().confidence;
         assert!(g.idol_sold(idol).unwrap().is_some());

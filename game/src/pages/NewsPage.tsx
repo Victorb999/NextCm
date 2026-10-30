@@ -5,7 +5,7 @@ import type { NewsLink } from '../bindings/NewsLink'
 import LinkedText from '../components/LinkedText'
 import type { NewsItem } from '../bindings/NewsItem'
 import type { OfferView } from '../bindings/OfferView'
-import { BottomBar, Empty, ScreenHeader, Tabs } from '../components/Screen'
+import { BottomBar, Empty, Panel, ScreenHeader, Tabs } from '../components/Screen'
 import { OfferButtons } from '../components/TransferTab'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -34,6 +34,18 @@ function inTab(n: NewsItem, tab: string) {
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+// A etiqueta de cada assunto na lista
+const KIND_LABEL: Record<string, [string, string]> = {
+  message: ['Mensagem', 'bg-[#2a2b32] text-[#c8c8d0]'],
+  competition: ['Competição', 'bg-[#0f2a3a] text-[#5bc0f0]'],
+  injury: ['Lesões', 'bg-[#3a1010] text-[#ff7070]'],
+  transfer: ['Transferências', 'bg-[#2a1a45] text-[#b48cf0]'],
+  deal: ['Negócio', 'bg-[#3a2508] text-cm-orange'],
+  contract: ['Contrato', 'bg-[#3a2508] text-cm-orange'],
+  press: ['Imprensa', 'bg-[#2a2b32] text-[#c8c8d0]'],
+  jobs: ['Empregos', 'bg-[#0f3a2a] text-[#4edea3]'],
+}
 
 /** "2025-07-01" -> "Ter 1 Jul", como na lista de notícias do CM. */
 function newsDate(iso: string) {
@@ -108,79 +120,101 @@ export default function NewsPage() {
     if (next) setSelected(next.id)
   }
 
+  const unread = news.filter((n) => !n.read).length
+  const count = (t: string) => news.filter((n) => inTab(n, t)).length
   return (
     <div className="flex h-full flex-col">
-      <ScreenHeader icon={<Newspaper size={22} />} eyebrow={game.info?.managerName} title="Notícias" />
-      <Tabs tabs={TABS} active={tab} onChange={changeTab} />
-      <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col">
-        <div ref={listRef} className="h-[118px] shrink-0 overflow-auto border border-cm-line bg-black/60">
-          {shown.length === 0 && <Empty className="p-4">Sem notícias.</Empty>}
-          {shown.map((n) => (
-            <div
-              key={n.id}
-              onMouseDown={() => setSelected(n.id)}
-              data-current={n.id === current?.id || undefined}
-              className={`flex h-[21px] items-center gap-3 px-2 text-[14px] ${n.id === current?.id ? 'bg-cm-sel' : ''}`}
-            >
-              <span className="w-24 shrink-0 bg-[#202020] px-1 text-white">{newsDate(n.date)}</span>
-              <span className={`truncate ${n.read ? 'text-white' : 'font-bold text-cm-yellow'}`}>{n.title}</span>
-              {n.awaiting && <span className="ml-auto shrink-0 pr-1 text-[13px] font-bold text-cm-magenta">Responder</span>}
-            </div>
-          ))}
-        </div>
-        <div className="flex h-8 shrink-0 items-center justify-end gap-2 py-1">
-          <button className="cm-purple h-6 w-40" disabled={!shown.some((n) => !n.read && n.id !== current?.id)} onClick={readNext}>
-            Ler Próxima
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-auto border border-cm-line bg-cm-panel/70 px-5 py-3">
-          {current && (
-            <>
-              <div className="pb-3 font-title text-[22px] font-bold text-cm-yellow">{current.title}</div>
-              <div className="whitespace-pre-line font-title text-[19px] leading-snug text-white">
-                <LinkedText text={current.body} links={currentLinks} />
-              </div>
-              {current.link?.startsWith('press:') && (
-                <div className="mt-4 flex gap-1 border-t border-cm-line pt-3">
-                  <button className="cm-purple h-7 w-48" onClick={() => nav.go({ kind: 'press', id: Number(current.link!.slice(6)) })}>
-                    Ir à Conferência
-                  </button>
+      <ScreenHeader
+        icon={<Newspaper size={22} />}
+        eyebrow={game.info?.managerName}
+        title="Notícias"
+        right={
+          <span className="rounded-md bg-black/30 px-3 py-1.5 font-mono text-[12px] uppercase tracking-wider text-[#86869a]">
+            Por ler: <b className={unread ? 'text-cm-yellow' : 'text-white'}>{unread}</b>
+          </span>
+        }
+      />
+      <Tabs tabs={TABS.map((t) => ({ ...t, label: `${t.label} (${count(t.key)})` }))} active={tab} onChange={changeTab} />
+      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col gap-2.5">
+        <Panel
+          title="Caixa de Mensagens"
+          right={
+            <button className="cm-purple h-6 w-32" disabled={!shown.some((n) => !n.read && n.id !== current?.id)} onClick={readNext}>
+              Ler Próxima
+            </button>
+          }
+          className="h-[205px] shrink-0"
+        >
+          <div ref={listRef} className="cm-zebra min-h-0 flex-1 overflow-auto">
+            {shown.length === 0 && <Empty className="p-4">Sem notícias.</Empty>}
+            {shown.map((n) => {
+              const [label, colour] = KIND_LABEL[n.kind] ?? KIND_LABEL.message
+              return (
+                <div
+                  key={n.id}
+                  onMouseDown={() => setSelected(n.id)}
+                  data-current={n.id === current?.id || undefined}
+                  className={`flex h-[27px] cursor-pointer items-center gap-3 px-3 text-[14px] ${n.id === current?.id ? '!bg-cm-sel' : ''}`}
+                >
+                  <span className="cm-cell w-24 shrink-0 text-center font-mono text-[12px] text-white">{newsDate(n.date)}</span>
+                  <span className={`min-w-0 flex-1 truncate ${n.read ? 'text-white' : 'font-bold text-cm-yellow'}`}>{n.title}</span>
+                  {n.awaiting && <span className="shrink-0 text-[13px] font-bold text-cm-magenta">Responder</span>}
+                  <span className={`w-28 shrink-0 rounded px-1.5 text-center font-mono text-[10.5px] font-bold uppercase tracking-wider ${colour}`}>{label}</span>
                 </div>
-              )}
-              {current.link === 'squadNumbers' && (
-                <div className="mt-4 border-t border-cm-line pt-3">
-                  <button
-                    className="cm-purple h-7 w-48"
-                    disabled={!game.info?.numbersOpen}
-                    title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-época'}
-                    onClick={() => nav.go({ kind: 'squadNumbers' })}
-                  >
-                    Definir Números
-                  </button>
+              )
+            })}
+          </div>
+        </Panel>
+        <Panel title={current ? newsDate(current.date) : 'Mensagem'} className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 overflow-auto px-5 py-3">
+            {current && (
+              <>
+                <div className="pb-3 font-title text-[22px] font-bold text-cm-yellow">{current.title}</div>
+                <div className="whitespace-pre-line text-[16px] leading-relaxed text-[#e3e1e9]">
+                  <LinkedText text={current.body} links={currentLinks} />
                 </div>
-              )}
-              {offer && (
-                <div className="mt-4 border-t border-cm-line pt-3">
-                  <OfferButtons
-                    offer={offer}
-                    onChange={(o) => {
-                      setOffer(o)
-                      api.listNews().then(setNews, () => {})
-                    }}
-                    onNegotiate={() => nav.go({ kind: 'contract', id: offer.personId })}
-                  />
-                  {offer.kind !== 'job' && (
-                    <button className="cm-purple mt-1 h-7 min-w-36" onClick={() => nav.go({ kind: 'person', id: offer.personId })}>
-                      Ver {offer.name}
+                {current.link?.startsWith('press:') && (
+                  <div className="mt-4 flex gap-1 border-t border-cm-line pt-3">
+                    <button className="cm-purple h-7 w-48" onClick={() => nav.go({ kind: 'press', id: Number(current.link!.slice(6)) })}>
+                      Ir à Conferência
                     </button>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                  </div>
+                )}
+                {current.link === 'squadNumbers' && (
+                  <div className="mt-4 border-t border-cm-line pt-3">
+                    <button
+                      className="cm-purple h-7 w-48"
+                      disabled={!game.info?.numbersOpen}
+                      title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-época'}
+                      onClick={() => nav.go({ kind: 'squadNumbers' })}
+                    >
+                      Definir Números
+                    </button>
+                  </div>
+                )}
+                {offer && (
+                  <div className="mt-4 border-t border-cm-line pt-3">
+                    <OfferButtons
+                      offer={offer}
+                      onChange={(o) => {
+                        setOffer(o)
+                        api.listNews().then(setNews, () => {})
+                      }}
+                      onNegotiate={() => nav.go({ kind: 'contract', id: offer.personId })}
+                    />
+                    {offer.kind !== 'job' && (
+                      <button className="cm-purple mt-1 h-7 min-w-36" onClick={() => nav.go({ kind: 'person', id: offer.personId })}>
+                        Ver {offer.name}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </Panel>
       </div>
-      <div className="mt-1.5">
+      <div className="mt-2.5">
         <Tabs
           tabs={[
             { key: 'press', label: 'Contratos e Imprensa' },

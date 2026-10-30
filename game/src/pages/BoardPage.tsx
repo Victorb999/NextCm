@@ -1,9 +1,12 @@
-import { Landmark } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Euro, Landmark, Star, Users, Zap } from 'lucide-react'
+import { Fragment, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { BoardConfidence } from '../bindings/BoardConfidence'
+import type { BoardLine } from '../bindings/BoardLine'
 import type { BoardRequest } from '../bindings/BoardRequest'
-import { BottomBar, ErrorBox, ScreenHeader } from '../components/Screen'
+import { BottomBar, ErrorBox, Link, Panel, ScreenHeader } from '../components/Screen'
+import { money, wage } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -55,34 +58,66 @@ function Meeting({ kind, onClose }: { kind: Kind; onClose: (answer: string | nul
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader icon={<Landmark size={22} />} eyebrow={game.info?.managerName} title={meeting.title} />
-      <div className="mx-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-cm-panel/80 px-6 py-4">
-        <div className="pb-3 font-title text-[20px] text-white">{meeting.prompt}</div>
-        {requests.map((r) => (
-          <button
-            key={r.key}
-            disabled={!r.available}
-            title={r.reason ?? undefined}
-            onClick={() => setChosen(r.key)}
-            className={`block py-0.5 pl-14 text-left font-title text-[20px] ${
-              !r.available ? 'cursor-default text-[#7b3fd1]' : chosen === r.key ? 'text-cm-yellow' : 'text-white hover:text-cm-yellow'
-            }`}
-          >
-            {r.label}
-          </button>
-        ))}
-        {reason && <div className="pt-3 text-cm-magenta">{reason}</div>}
-        {requests.some((r) => !r.available) && !reason && (
-          <div className="pt-4 text-[13px] text-[#9a7fd1]">
-            {requests
-              .filter((r) => !r.available)
-              .map((r) => `${r.label}: ${r.reason}`)
-              .join(' ')}
-          </div>
-        )}
-        <ErrorBox className="mt-2">{error}</ErrorBox>
-      </div>
+      <Panel title={meeting.prompt} className="mx-2.5 min-h-0 flex-1">
+        <div className="cm-zebra min-h-0 flex-1 overflow-auto">
+          {requests.map((r) => (
+            <button
+              key={r.key}
+              disabled={!r.available}
+              title={r.reason ?? undefined}
+              onClick={() => setChosen(r.key)}
+              className={`flex h-[34px] w-full items-center gap-3 px-4 text-left text-[16px] ${
+                !r.available
+                  ? 'cursor-default text-[#7b3fd1]'
+                  : chosen === r.key
+                    ? '!bg-cm-sel font-bold text-white'
+                    : 'text-white hover:text-cm-yellow'
+              }`}
+            >
+              <span className="min-w-0 flex-1 truncate">{r.label}</span>
+              {!r.available && r.reason && <span className="max-w-[55%] truncate text-[12px] text-[#9a7fd1]">{r.reason}</span>}
+            </button>
+          ))}
+        </div>
+        {reason && <div className="border-t border-cm-line px-4 py-2 text-cm-magenta">{reason}</div>}
+        <ErrorBox className="m-2">{error}</ErrorBox>
+      </Panel>
       <BottomBar left="Cancelar" right="Confirmar" onLeft={() => onClose(null)} onRight={chosen ? () => void confirm() : undefined} />
     </div>
+  )
+}
+
+const LINE_STYLE: Record<string, { icon: ReactNode; colour: string; bar: string }> = {
+  performance: { icon: <Star size={20} />, colour: 'text-[#4edea3]', bar: 'bg-[#10b981]' },
+  finances: { icon: <Euro size={20} />, colour: 'text-cm-orange', bar: 'bg-cm-orange' },
+  fans: { icon: <Users size={20} />, colour: 'text-[#5bc0f0]', bar: 'bg-[#1e9cf0]' },
+  players: { icon: <Zap size={20} />, colour: 'text-[#b48cf0]', bar: 'bg-[#7c3aed]' },
+}
+
+/** O texto da frase com os nomes dos jogadores como ligações. */
+function LineText({ line }: { line: BoardLine }) {
+  const nav = useNav()
+  if (!line.players.length) return <>{line.text}</>
+  const parts: ReactNode[] = []
+  let rest = line.text
+  for (const [id, name] of line.players) {
+    const at = rest.indexOf(name)
+    if (at < 0) continue
+    parts.push(rest.slice(0, at))
+    parts.push(
+      <Link key={id} className="font-bold text-cm-yellow" onClick={() => nav.go({ kind: 'person', id })}>
+        {name}
+      </Link>,
+    )
+    rest = rest.slice(at + name.length)
+  }
+  parts.push(rest)
+  return (
+    <>
+      {parts.map((p, i) => (
+        <Fragment key={i}>{p}</Fragment>
+      ))}
+    </>
   )
 }
 
@@ -116,23 +151,60 @@ export default function BoardPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <ScreenHeader club={view?.club} eyebrow={view?.club.name} title="Confiança da Direcção" />
-      <div className="flex shrink-0 gap-1 px-3">
-        <button className="cm-purple h-6 w-40" onClick={() => setMeeting('board')}>
-          Pedido à Direcção
-        </button>
-        <button className="cm-purple h-6 w-40" onClick={() => setMeeting('league')}>
-          Pedido à Liga
-        </button>
-      </div>
-      <div className="mx-1.5 mt-1.5 min-h-0 flex-1 overflow-auto border border-cm-line bg-cm-panel/80 px-4 py-3">
+      <ScreenHeader
+        club={view?.club}
+        eyebrow={<span className="text-cm-orange">{view ? `${view.club.name}${view.division ? ` · ${view.division}` : ''}` : ''}</span>}
+        title="Confiança da Direcção"
+        right={
+          <>
+            <button className="cm-purple h-8 px-4" onClick={() => setMeeting('board')}>
+              Pedido à Direcção
+            </button>
+            <button className="cm-purple h-8 px-4" onClick={() => setMeeting('league')}>
+              Pedido à Liga
+            </button>
+          </>
+        }
+      />
+      <div className="mx-2.5 flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">
         <ErrorBox>{error}</ErrorBox>
-        {answer && <p className="mb-5 font-title text-[20px] leading-snug text-cm-yellow">{answer}</p>}
-        {view?.paragraphs.map((p) => (
-          <p key={p} className="mb-5 font-title text-[22px] leading-snug text-white">
-            {p}
-          </p>
-        ))}
+        {answer && <div className="shrink-0 rounded-md bg-[#0f3a2a] px-4 py-2 text-[16px] text-cm-yellow">{answer}</div>}
+        <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
+          <div className="cm-zebra">
+            {view?.lines.map((l) => {
+              const st = LINE_STYLE[l.kind] ?? LINE_STYLE.performance
+              return (
+                <div key={l.kind} className="flex items-center gap-4 px-4 py-3">
+                  <span className={`flex size-10 shrink-0 items-center justify-center rounded bg-black/40 ${st.colour}`}>{st.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className={`font-mono text-[11px] font-bold uppercase tracking-[0.12em] ${st.colour}`}>{l.label}</div>
+                    <div className="text-[17px] leading-snug text-white">
+                      <LineText line={l} />
+                    </div>
+                    {l.level !== null && (
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-black/50">
+                        <div className={`h-full rounded ${st.bar}`} style={{ width: `${l.level}%` }} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+        {view && (
+          <div className="flex shrink-0 flex-wrap gap-x-6 gap-y-1 rounded-md bg-[#1a1b21] px-4 py-2 font-mono text-[12px] uppercase tracking-wider text-[#86869a]">
+            <span>
+              Expectativa: <b className="normal-case text-white">{view.goal.charAt(0).toUpperCase() + view.goal.slice(1)}</b>
+            </span>
+            <span>
+              Orçamento: <b className="text-[#4edea3]">{money(view.transferBudget) || '€0'}</b>
+            </span>
+            <span>
+              Massa salarial: <b className="normal-case text-white">{wage(view.wageBill)}</b> / {wage(view.wageBudget)}
+            </span>
+          </div>
+        )}
       </div>
       <BottomBar onLeft={nav.back} />
     </div>
