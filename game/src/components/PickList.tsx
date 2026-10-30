@@ -6,7 +6,7 @@ export type PickItem = { id: number; label: string; detail?: ReactNode }
 export type PickGroup = { title?: ReactNode; items: PickItem[] }
 
 /**
- * Lista em 2 colunas no estilo do CM (nomes grandes, detalhe em amarelo), com grupos.
+ * Lista em 2 colunas (nome e o detalhe numa etiqueta amarela), com grupos: nações, clubes, competições.
  * Clique seleciona, duplo clique/Enter abre; setas navegam (↑↓ pulam 2, ←→ 1).
  */
 export default function PickList({
@@ -59,9 +59,9 @@ export default function PickList({
         g.items.length === 0 ? null : (
           <div key={gi}>
             {g.title && (
-              <div className="pb-1 pt-2 text-center font-title text-lg font-bold text-cm-yellow">{g.title}</div>
+              <div className="pb-1 pt-3 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-cm-orange">{g.title}</div>
             )}
-            <div className="cm-zebra-2 grid grid-cols-2 gap-x-3">
+            <div className="cm-zebra-2 grid grid-cols-2 gap-x-3 overflow-hidden rounded">
               {g.items.map((item) => {
                 const i = index++
                 return (
@@ -70,11 +70,15 @@ export default function PickList({
                     data-row={i}
                     onMouseDown={() => setSelected(i)}
                     onDoubleClick={() => onOpen(item)}
-                    className={`flex h-6 items-center gap-2 px-2 ${i === selected ? 'bg-cm-sel' : 'bg-black/40'}`}
+                    className={`flex h-7 cursor-pointer items-center gap-2 px-3 ${i === selected ? '!bg-cm-sel' : ''}`}
                   >
-                    <span className="flex-1 truncate font-title text-[17px] text-white">{item.label}</span>
-                    {item.detail !== undefined && (
-                      <span className={`shrink-0 truncate ${i === selected ? 'text-white' : 'text-cm-yellow'}`}>
+                    <span className="flex-1 truncate text-[15px] font-semibold text-white">{item.label}</span>
+                    {item.detail !== undefined && item.detail !== '' && (
+                      <span
+                        className={`shrink-0 truncate rounded border px-1.5 font-mono text-[11px] font-bold ${
+                          i === selected ? 'border-white/60 text-white' : 'border-cm-yellow/40 text-cm-yellow'
+                        }`}
+                      >
                         {item.detail}
                       </span>
                     )}

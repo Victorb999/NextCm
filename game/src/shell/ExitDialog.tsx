@@ -18,19 +18,19 @@ export default function ExitDialog({ onCancel, notify }: { onCancel: () => void;
   return (
     <Overlay>
       <DialogFrame title="Sair para o Menu" width={520}>
-        <div className="py-3 text-center font-title text-[19px] text-white">
+        <div className="py-3 text-center text-[16px] leading-snug text-white">
           {unsaved ? 'Há alterações por gravar. Gravar o jogo antes de sair?' : 'Sair deste jogo?'}
         </div>
         <div className="flex gap-1 pb-1">
-          <button className="cm-purple h-9 flex-1 font-title text-lg" onClick={onCancel}>
+          <button className="cm-purple h-8 flex-1 font-title text-[16px]" onClick={onCancel}>
             Cancelar
           </button>
           {unsaved && (
-            <button className="cm-purple h-9 flex-1 font-title text-lg" onClick={() => void exit(false)}>
+            <button className="cm-purple h-8 flex-1 font-title text-[16px]" onClick={() => void exit(false)}>
               Sair sem Gravar
             </button>
           )}
-          <button className="cm-purple h-9 flex-1 font-title text-lg" onClick={() => void exit(unsaved)}>
+          <button className="cm-purple h-8 flex-1 font-title text-[16px]" onClick={() => void exit(unsaved)}>
             {unsaved ? 'Gravar e Sair' : 'Sair'}
           </button>
         </div>

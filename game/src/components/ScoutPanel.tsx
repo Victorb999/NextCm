@@ -6,7 +6,7 @@ import type { ScoutList } from '../bindings/ScoutList'
 import { money } from '../format'
 import { useNav } from '../nav'
 import { DialogFrame, Overlay } from './Dialog'
-import { ErrorBox, Link, PurpleMenu } from './Screen'
+import { ErrorBox, Link, PanelTitle, PurpleMenu } from './Screen'
 
 // Aba "Olheiro #N" da Pesquisa Jogador & Staff: a tarefa do olheiro ("Designar Olheiro") e os
 // jogadores que ele já observou, com a recomendação em estrelas. As regras ficam no core.
@@ -103,18 +103,22 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-1 px-1.5 pt-2">
+      <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
         <PurpleMenu label="Designar Olheiro" options={TASKS} disabled={noScout} onChange={assign} />
         <div className="flex-1" />
         <button className="cm-purple h-6 w-40" disabled={noScout || !list?.task} onClick={() => void run(api.clearScout(slot))}>
           Apagar
         </button>
       </div>
-      <div className="mx-1.5 mt-1 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21]">
-        <div className="shrink-0 px-2 pt-1 text-center text-cm-magenta">
-          {noScout ? 'O clube não tem um olheiro para esta aba.' : (list?.task ?? `${list?.scout ?? 'O olheiro'} está sem tarefa: use Designar Olheiro.`)}
-        </div>
-        <div className="shrink-0 py-1 text-center font-title text-xl font-bold text-cm-yellow">Olheiro #{slot}</div>
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21]">
+        <PanelTitle
+          title={`Olheiro #${slot}`}
+          right={
+            <span className="truncate text-[12px] text-cm-magenta">
+              {noScout ? 'O clube não tem um olheiro para esta aba.' : (list?.task ?? `${list?.scout ?? 'O olheiro'} está sem tarefa: use Designar Olheiro.`)}
+            </span>
+          }
+        />
         <ErrorBox>{error}</ErrorBox>
         <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full table-fixed border-collapse">
@@ -130,7 +134,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
             <thead className="sticky top-0 z-10">
               <tr className="h-6">
                 {['Rec', 'Inf', 'Nome', 'Clube', 'Base', 'Posição', 'Valor'].map((h) => (
-                  <th key={h} className={`border-x border-black bg-cm-head px-2 font-normal text-white ${['Nome', 'Clube', 'Base', 'Posição'].includes(h) ? 'text-left' : ''}`}>
+                  <th key={h} className={`bg-[#3d1a73] px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${['Nome', 'Clube', 'Base', 'Posição'].includes(h) ? 'text-left' : ''}`}>
                     {h}
                   </th>
                 ))}
@@ -138,8 +142,8 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
             </thead>
             <tbody>
               {list?.finds.map((f) => (
-                <tr key={f.id} className="h-[22px] border-b border-cm-line">
-                  <td className="bg-black/40 px-2 text-center text-cm-yellow">{'*'.repeat(f.stars)}</td>
+                <tr key={f.id} className="h-6 text-[14px]">
+                  <td className="px-2 text-center text-cm-yellow">{'*'.repeat(f.stars)}</td>
                   <td className="px-1 text-center">{f.injured && <span className="bg-[#b8560c] px-0.5 font-bold text-white">Les</span>}</td>
                   <td className="truncate px-2 text-white">
                     <Link onClick={() => nav.go({ kind: 'person', id: f.id })}>{f.listName}</Link>
@@ -149,13 +153,13 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
                   </td>
                   <td className="truncate px-2 text-cm-yellow">{f.base ?? '-'}</td>
                   <td className="truncate px-2 text-cm-orange">{f.position}</td>
-                  <td className="bg-black/40 px-2 text-right tabular-nums">{f.value === null ? '-' : money(f.value)}</td>
+                  <td className="px-2 text-right tabular-nums text-white">{f.value === null ? '-' : money(f.value)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="shrink-0 py-1.5 text-center font-title text-2xl font-bold text-cm-magenta">
+        <div className="shrink-0 border-t border-cm-line px-3 py-1.5 text-right font-mono text-[12px] uppercase tracking-wider text-cm-magenta">
           {(list?.finds.length ?? 0).toLocaleString('pt-BR')} jogadores encontrados
         </div>
       </div>
