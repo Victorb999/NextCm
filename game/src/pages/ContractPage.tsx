@@ -5,7 +5,7 @@ import { api } from '../api'
 import type { ContractReply } from '../bindings/ContractReply'
 import type { ContractTerms } from '../bindings/ContractTerms'
 import MoneySelect from '../components/MoneySelect'
-import { BottomBar, ErrorBox, Panel, ScreenHeader, Tabs } from '../components/Screen'
+import { BottomBar, ErrorBox, Link, Panel, ScreenHeader, Tabs } from '../components/Screen'
 import { money, monthYear, wage as wageText, wagePeriod } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -124,7 +124,11 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
       <ScreenHeader
         club={terms.club}
         icon={!terms.club && <FileText size={22} />}
-        eyebrow={terms.club ? `${terms.name} (${terms.club.shortName})` : terms.name}
+        eyebrow={
+          <Link onClick={() => nav.go({ kind: 'person', id: terms.personId })}>
+            {terms.club ? `${terms.name} (${terms.club.shortName})` : terms.name}
+          </Link>
+        }
         title="Propôr Contrato"
       />
       <Tabs

@@ -201,7 +201,8 @@ export function MatchInfo({
         <div className="cm-zebra">
           {played(fixture) && (
             <InfoRow label="Resultado">
-              {fixture.home.shortName} {fixture.homeGoals}-{fixture.awayGoals} {fixture.away.shortName}
+              <ClubName club={fixture.home} className="!text-[14px] !text-cm-yellow" /> {fixture.homeGoals}-{fixture.awayGoals}{' '}
+              <ClubName club={fixture.away} className="!text-[14px] !text-cm-yellow" />
               {pensText(fixture)}
             </InfoRow>
           )}

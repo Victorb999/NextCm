@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 
 // Peças dos diálogos verdes do CM (Definições do Jogo, Novo Jogo, Carregar Jogo...).
 
-export const GREEN_FIELD = 'repeating-linear-gradient(90deg, #0f5a16 0 70px, #126a1a 70px 140px)'
+/** Verde liso e escuro dos diálogos (sem as listras de relvado). */
+export const GREEN_FIELD = '#123f1a'
 
 /** Moldura: título preto, área verde e os botões Cancelar / Ok. */
 export function DialogFrame({
