@@ -168,10 +168,12 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
   const [index, setIndex] = useState(0)
   const season = played[Math.min(index, played.length - 1)]
 
-  const clubLink = (c: PersonProfile['club'], onLoan = false) => (
+  const clubLink = (c: PersonProfile['club'], onLoan = false, transfer: string | null = null) => (
     <span key="club" className="text-cm-magenta">
       {c ? <Link onClick={() => nav.go({ kind: 'club', id: c.id })}>{c.shortName}</Link> : '-'}
       {onLoan && <span className="text-cm-yellow"> (emp.)</span>}
+      {/* Como chegou ao clube nesta época (durante o jogo) */}
+      {transfer && <span className="text-[12px] text-[#c8c8d0]"> · {transfer}</span>}
     </span>
   )
 
@@ -219,7 +221,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
       <Table
         head={['Época', 'Clube', ...STAT_HEAD]}
         first={2}
-        rows={p.seasons.map((s) => [s.label, clubLink(s.club, s.onLoan), ...statCells(s.stats)])}
+        rows={p.seasons.map((s) => [s.label, clubLink(s.club, s.onLoan, s.transfer), ...statCells(s.stats)])}
         selected={season ? p.seasons.indexOf(season) : undefined}
         total={['Total', '', ...statCells(careerLine)]}
         onSelect={(i) => {

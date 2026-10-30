@@ -47,6 +47,82 @@ pub struct MatchSheet {
     pub away: Vec<SheetLine>,
 }
 
+/// Pontos fortes que o adjunto nota (atributo, frase) e os pontos fracos (atributo, o que
+/// tem de melhorar), para a frase do Perfil Geral.
+const STRENGTHS: [(&str, &str); 14] = [
+    ("pace", "rápido"),
+    ("dribbling", "forte no drible"),
+    ("finishing", "um finalizador perigoso"),
+    ("passing", "tem um passe de qualidade"),
+    ("vision", "vê o jogo como poucos"),
+    ("tackling", "forte no desarme"),
+    ("marking", "um marcador seguro"),
+    ("heading", "forte no jogo aéreo"),
+    ("crossing", "cruza muito bem"),
+    ("long_shots", "remata bem de longe"),
+    ("technique", "muito evoluído tecnicamente"),
+    ("stamina", "incansável"),
+    ("strength", "fisicamente muito forte"),
+    ("positioning", "sempre bem posicionado"),
+];
+const KEEPER_STRENGTHS: [(&str, &str); 4] = [
+    ("reflexes", "tem grandes reflexos"),
+    ("handling", "tem mãos seguras"),
+    ("one_on_ones", "forte no um contra um"),
+    ("positioning", "sempre bem posicionado entre os postes"),
+];
+const WEAKNESSES: [(&str, &str); 8] = [
+    ("pace", "a velocidade"),
+    ("stamina", "a resistência"),
+    ("passing", "o passe"),
+    ("tackling", "o desarme"),
+    ("heading", "o jogo aéreo"),
+    ("finishing", "a finalização"),
+    ("decisions", "as decisões"),
+    ("strength", "a força"),
+];
+/// Valor a partir do qual um atributo é um ponto forte, e até ao qual é um ponto fraco.
+const STRONG: i32 = 15;
+const WEAK: i32 = 8;
+
+/// A frase do adjunto no Perfil Geral, pelos atributos que o clube conhece e pela posição
+/// ("Rápido e forte no drible, joga sobretudo na direita."); nada sem atributos conhecidos.
+fn assistant_note(p: &PersonProfile) -> Option<String> {
+    let pl = p.player.as_ref()?;
+    let get = |k: &str| pl.attributes.get(k).copied().flatten();
+    let keeper = pl.positions.iter().any(|t| t.role == "GR");
+    let list: &[(&str, &str)] = if keeper { &KEEPER_STRENGTHS } else { &STRENGTHS };
+    let mut strong: Vec<(i32, &str)> = list.iter().filter_map(|(k, text)| get(k).filter(|v| *v >= STRONG).map(|v| (v, *text))).collect();
+    strong.sort_by_key(|s| std::cmp::Reverse(s.0));
+    if pl.attributes.values().filter(|v| v.is_some()).count() < 10 {
+        return None;
+    }
+    let mut out = match strong.as_slice() {
+        [] => "Um jogador sem nada que se destaque".to_string(),
+        [(_, a)] => capitalise(a),
+        [(_, a), (_, b), ..] => format!("{} e {b}", capitalise(a)),
+    };
+    // A posição em que mais joga, pelo lado
+    let side = pl.positions.iter().find(|t| t.natural).and_then(|t| t.side.as_deref()).map(|s| match s {
+        "D" => "na direita",
+        "E" => "na esquerda",
+        _ => "pelo meio",
+    });
+    if let (Some(side), false) = (side, keeper) {
+        out.push_str(&format!(", joga sobretudo {side}"));
+    }
+    if !keeper && let Some((_, what)) = WEAKNESSES.iter().filter_map(|(k, w)| get(k).filter(|v| *v <= WEAK).map(|v| (v, *w))).min() {
+        out.push_str(&format!("; tem de melhorar {what}"));
+    }
+    out.push('.');
+    Some(out)
+}
+
+fn capitalise(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+}
+
 /// Notas na Forma do perfil.
 const FORM_GAMES: usize = 5;
 
@@ -394,6 +470,7 @@ impl Game {
                     on_loan: on_loan && latest == Some((year, club)) && p.club.as_ref().is_some_and(|c| c.id == club),
                     stats: total.line(),
                     by_kind,
+                    transfer: None,
                 }
             })
             .collect();
@@ -419,6 +496,7 @@ impl Game {
                 on_loan: c.on_loan,
                 stats: StatLine { apps: c.apps, goals: c.goals, ..Default::default() },
                 by_kind: Vec::new(),
+                transfer: None,
             });
         }
         // A época em curso no clube atual aparece sempre, mesmo sem jogos (como no CM)
@@ -438,11 +516,33 @@ impl Game {
                         on_loan,
                         stats: StatLine::default(),
                         by_kind,
+                        transfer: None,
                     },
                 );
             }
         }
+        // Como chegou a cada clube durante o jogo: a transferência na linha da época
+        let moves: Vec<(i32, String, String, i64)> = self
+            .world
+            .conn
+            .prepare_cached("SELECT to_club, date, kind, fee FROM transfers WHERE person_id = ? AND to_club IS NOT NULL ORDER BY date")?
+            .query_map([p.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        for (club, day, kind, fee) in moves {
+            let Some(division) = self.division_of(club)? else { continue };
+            let year = regulation::season_of(division, &day);
+            let text = match kind.as_str() {
+                "loan" => "Empréstimo".to_string(),
+                "transfer" if fee > 0 => money_text(fee),
+                "return" => continue,
+                _ => "Livre".to_string(),
+            };
+            if let Some(s) = out.iter_mut().find(|s| s.year == year && s.club.as_ref().is_some_and(|c| c.id == club)) {
+                s.transfer = Some(text);
+            }
+        }
         p.seasons = out;
+        p.assistant_note = assistant_note(p);
         p.injuries = self
             .world
             .conn
@@ -582,6 +682,11 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_assistant_sums_up_a_player() {
+        assert_eq!(capitalise("rápido"), "Rápido");
+    }
+
+    #[test]
     fn form_nickname_and_release() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let dir = std::env::temp_dir().join(format!("nextcm-perfil-{}", std::process::id()));
@@ -607,6 +712,9 @@ mod tests {
         g.fill_record(&mut p).unwrap();
         assert_eq!(p.form.len(), 1);
         assert_eq!(p.season.iter().map(|s| s.apps).sum::<i32>(), 1);
+        // A frase do adjunto (um jogador do plantel: o clube conhece-o)
+        let note = p.assistant_note.clone().unwrap();
+        assert!(note.ends_with('.') && note.chars().next().unwrap().is_uppercase(), "{note}");
         // O Historial: a época com passes, cortes e nota (o jogo não foi visto: as contas à parte)
         let season = &p.seasons[0];
         assert_eq!(season.stats.apps, 1);

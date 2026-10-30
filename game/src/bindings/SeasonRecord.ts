@@ -13,4 +13,8 @@ label: string, year: number, club: ClubRef | null, onLoan: boolean, stats: StatL
 /**
  * Por tipo de competição (Liga, Taça, Continentais) e o total, só nas épocas do jogo.
  */
-byKind: Array<[string, StatLine]>, };
+byKind: Array<[string, StatLine]>, 
+/**
+ * Como chegou ao clube nesta época, durante o jogo ("€47M", "Livre", "Empréstimo").
+ */
+transfer: string | null, };

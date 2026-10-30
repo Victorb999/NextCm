@@ -56,6 +56,10 @@ season: Array<SeasonLine>, nickname: string | null,
  */
 note: string | null, 
 /**
+ * A frase do adjunto no Perfil Geral (num jogo em curso, pelo que o clube conhece).
+ */
+assistantNote: string | null, 
+/**
  * Do plantel do treinador: a indemnização para o dispensar.
  */
 releaseCost: number | null, };

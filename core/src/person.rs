@@ -138,6 +138,8 @@ pub struct PersonProfile {
     pub nickname: Option<String>,
     /// A nota do treinador sobre ele.
     pub note: Option<String>,
+    /// A frase do adjunto no Perfil Geral (num jogo em curso, pelo que o clube conhece).
+    pub assistant_note: Option<String>,
     /// Do plantel do treinador: a indemnização para o dispensar.
     #[ts(type = "number | null")]
     pub release_cost: Option<i64>,
@@ -189,6 +191,8 @@ pub struct SeasonRecord {
     pub stats: StatLine,
     /// Por tipo de competição (Liga, Taça, Continentais) e o total, só nas épocas do jogo.
     pub by_kind: Vec<(String, StatLine)>,
+    /// Como chegou ao clube nesta época, durante o jogo ("€47M", "Livre", "Empréstimo").
+    pub transfer: Option<String>,
 }
 
 /// Uma lesão no Historial.
@@ -370,6 +374,7 @@ impl World {
                         season: Vec::new(),
                         nickname: None,
                         note: None,
+                        assistant_note: None,
                         release_cost: None,
                     },
                     r.get::<_, Option<i32>>(10)?,

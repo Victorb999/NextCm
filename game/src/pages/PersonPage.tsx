@@ -282,6 +282,11 @@ function Profile({ p }: { p: PersonProfile }) {
               </div>
             </Panel>
           )}
+          {p.assistantNote && (
+            <Panel title="Relatório do Adjunto">
+              <div className="px-3 py-2 text-[13.5px] italic leading-snug text-white">“{p.assistantNote}”</div>
+            </Panel>
+          )}
           <Panel title="Situação">
             <InfoRows
               rows={[
