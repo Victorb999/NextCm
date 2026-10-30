@@ -129,7 +129,7 @@ A CLI mostra a classificação, golos por jogo, vitórias em casa, remates, cart
 | ✅ | **3.5 – 3.7** | Fim de época, mais competições no Brasil, as ligas estrangeiras e a Europa |
 | ✅ | **3.8 – 3.10** | Mercado e finanças, personalidade, olheiros e conhecimento |
 | ✅ | **3.11 – 3.14** | Direcção e Federação, empregos e imprensa, polimento, palestras |
-| ⏳ | **3.15** | Testes e ajustes: jogar épocas inteiras, fluxos, o visual novo das telas, início do jogo como no CM |
+| ✅ | **3.15** | Testes e ajustes: início do jogo como no CM, o visual novo das telas, perfil e historial do jogador |
 | ⏳ | **3.16** | Plantel completo (Vêr, Filtrar, reservas e clubes B) |
 | ⏳ | **3.17** | Treino |
 | ⏳ | **3.18** | Editor de jogos salvos |
