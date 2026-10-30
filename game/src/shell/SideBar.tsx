@@ -39,7 +39,7 @@ function SideButton({
       onClick={onClick}
       data-menu-anchor
       aria-current={active || undefined}
-      className={`cm-side-btn relative min-h-[44px] overflow-hidden ${className}`}
+      className={`cm-side-btn relative min-h-[44px] ${className}`}
     >
       <span className="shrink-0">{icon}</span>
       {children}
