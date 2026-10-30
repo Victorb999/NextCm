@@ -171,8 +171,11 @@ export function Pitch({
   bind,
   run,
   onRunStart,
+  colours,
 }: {
   t: ClubTactics
+  /** As cores do clube nos quadrados dos jogadores (o guarda-redes fica verde). */
+  colours?: { fg: string; bg: string }
   bind: (s: Spot, label: string) => Bind
   /** Seta a ser desenhada agora (botão direito em curso). */
   run: Run | null
@@ -230,9 +233,12 @@ export function Pitch({
                   s.role === 'GR'
                     ? 'bg-[#4edea3] text-[#06281b]'
                     : s.player
-                      ? 'bg-white text-[#141414]'
+                      ? colours
+                        ? 'ring-1 ring-black/40'
+                        : 'bg-white text-[#141414]'
                       : 'border-2 border-dashed border-white/50 text-white'
                 }`}
+                style={s.role !== 'GR' && s.player && colours ? { background: colours.bg, color: colours.fg } : undefined}
               >
                 {s.player?.squadNumber ?? ''}
               </span>

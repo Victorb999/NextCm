@@ -317,14 +317,37 @@ impl Game {
                 s.stats.goals += c.goals;
                 continue;
             }
+            // O rótulo pela divisão do clube ("2024/25" numa liga europeia)
+            let division = c.club.as_ref().map(|x| self.division_of(x.id)).transpose()?.flatten();
             out.push(SeasonRecord {
-                label: year.to_string(),
+                label: division.map_or(year.to_string(), |d| regulation::season_label(d, year)),
                 year,
                 club: c.club.clone(),
                 on_loan: c.on_loan,
                 stats: StatLine { apps: c.apps, goals: c.goals, ..Default::default() },
                 by_kind: Vec::new(),
             });
+        }
+        // A época em curso no clube atual aparece sempre, mesmo sem jogos (como no CM)
+        if let Some(club) = &p.club
+            && let Some(division) = self.division_of(club.id)?
+        {
+            let year = regulation::season_of(division, &self.date);
+            if !out.iter().any(|s| s.year == year && s.club.as_ref().is_some_and(|x| x.id == club.id)) {
+                let mut by_kind: Vec<(String, StatLine)> = KINDS.iter().map(|k| (k.to_string(), StatLine::default())).collect();
+                by_kind.push(("Jogos Oficiais".into(), StatLine::default()));
+                out.insert(
+                    0,
+                    SeasonRecord {
+                        label: regulation::season_label(division, year),
+                        year,
+                        club: Some(club.clone()),
+                        on_loan,
+                        stats: StatLine::default(),
+                        by_kind,
+                    },
+                );
+            }
         }
         p.seasons = out;
         p.injuries = self

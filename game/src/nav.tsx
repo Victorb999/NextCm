@@ -5,7 +5,8 @@ import type { ReactNode } from 'react'
 
 export type Screen =
   | { kind: 'search' }
-  | { kind: 'news' }
+  /** `latest`: abre na mensagem mais recente (a que uma acção acabou de deixar). */
+  | { kind: 'news'; latest?: boolean }
   | { kind: 'person'; id: number }
   | { kind: 'contract'; id: number }
   | { kind: 'squadNumbers' }

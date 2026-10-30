@@ -56,7 +56,13 @@ function Table({
   total?: ReactNode[]
 }) {
   return (
-    <table className="w-full border-collapse text-[13.5px]">
+    <table className="w-full table-fixed border-collapse text-[13.5px]">
+      {/* Os números em colunas estreitas à direita; as de texto ficam com o resto */}
+      <colgroup>
+        {head.map((_, i) => (
+          <col key={i} style={i < first ? (i === 0 && first > 1 ? { width: 92 } : undefined) : { width: 62 }} />
+        ))}
+      </colgroup>
       <thead className="sticky top-0 z-10">
         <tr className="h-7">
           {head.map((h, i) => (
@@ -66,7 +72,7 @@ function Table({
           ))}
         </tr>
       </thead>
-      <tbody>
+      <tbody className="cm-zebra">
         {rows.map((r, i) => (
           <tr
             key={i}
@@ -74,7 +80,7 @@ function Table({
             className={`h-[25px] ${onSelect ? 'cursor-pointer' : ''} ${i === selected ? '!bg-[#3a2a08]' : ''}`}
           >
             {r.map((c, j) => (
-              <td key={j} className={`px-2 tabular-nums ${j < first ? 'text-left text-white' : 'text-center text-cm-orange'}`}>
+              <td key={j} className={`truncate px-2 tabular-nums ${j < first ? 'text-left text-white' : 'text-center text-cm-orange'}`}>
                 {c}
               </td>
             ))}
@@ -193,6 +199,19 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
   const games = rated.reduce((t, s) => t + s.stats.apps, 0)
   const average = games ? rated.reduce((t, s) => t + (s.stats.rating ?? 0) * s.stats.apps, 0) / games : null
   const titles = p.honours.filter((h) => !h.text.startsWith('Finalista')).length
+  // A linha Total da carreira (só jogos, golos, assistências, HdJ e a nota média)
+  const careerLine: StatLine = {
+    apps: career.apps,
+    subs: p.seasons.reduce((t, s) => t + s.stats.subs, 0),
+    goals: career.goals,
+    assists: career.assists,
+    mom: p.seasons.reduce((t, s) => t + s.stats.mom, 0),
+    passPct: null,
+    tackles: null,
+    dribbles: null,
+    shotPct: null,
+    rating: average,
+  }
 
   let top: ReactNode
   if (view === 'career') {
@@ -202,6 +221,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
         first={2}
         rows={p.seasons.map((s) => [s.label, clubLink(s.club, s.onLoan), ...statCells(s.stats)])}
         selected={season ? p.seasons.indexOf(season) : undefined}
+        total={['Total', '', ...statCells(careerLine)]}
         onSelect={(i) => {
           const k = played.indexOf(p.seasons[i])
           if (k >= 0) setIndex(k)

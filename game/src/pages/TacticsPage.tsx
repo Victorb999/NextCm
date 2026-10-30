@@ -349,7 +349,7 @@ export default function TacticsPage({ id }: { id: number }) {
                 }
               />
               <div className="flex min-h-0 flex-1 flex-col p-3">
-                <Pitch t={t} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
+                <Pitch t={t} colours={colours} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
               </div>
             </div>
             <InstructionsSummary t={t} onEdit={editable ? () => setInstructions(true) : undefined} />

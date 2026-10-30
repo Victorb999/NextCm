@@ -64,8 +64,8 @@ export default function DisciplineDialog({
             >
               <span className={`size-3 shrink-0 rounded-full border ${reason === r.key ? 'border-cm-yellow bg-cm-yellow' : 'border-current'}`} />
               <span className="flex-1">{r.label}</span>
-              {/* Porque não se pode escolher (não aconteceu), como o roxo do CM */}
-              {!r.available && r.reason && <span className="text-[12px] text-[#8b6fc4]">{r.reason}</span>}
+              {/* Escolhe-se na mesma, mas não aconteceu: o aviso a roxo, como no CM */}
+              {r.reason && <span className="text-[12px] text-[#8b6fc4]">{r.reason}</span>}
             </button>
           ))}
         </div>

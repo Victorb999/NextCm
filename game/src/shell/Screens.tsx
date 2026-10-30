@@ -31,7 +31,7 @@ export default function Screens() {
       <div className={current.kind === 'search' ? 'h-full' : 'hidden'}>
         <SearchPage active={current.kind === 'search'} />
       </div>
-      {current.kind === 'news' && <NewsPage />}
+      {current.kind === 'news' && <NewsPage key={String(current.latest)} latest={current.latest} />}
       {current.kind === 'person' && <PersonPage key={current.id} id={current.id} />}
       {current.kind === 'contract' && <ContractPage key={current.id} id={current.id} />}
       {current.kind === 'squadNumbers' && <SquadNumbersPage />}

@@ -9,12 +9,10 @@ export type ManagerDialog = 'save' | 'holiday' | 'resign' | 'retire'
 export function managerMenu({
   info,
   go,
-  onExit,
   onDialog,
 }: {
   info: GameInfo
   go: (s: Screen) => void
-  onExit: () => void
   onDialog: (d: ManagerDialog) => void
 }): MenuNode[] {
   const club = info.club
@@ -38,8 +36,5 @@ export function managerMenu({
     { label: 'Ir de Férias', onSelect: () => onDialog('holiday') },
     ...(info.sacked ? [] : [{ label: 'Rescindir com Clube', onSelect: () => onDialog('resign') }]),
     { label: 'Retirar-se', onSelect: () => onDialog('retire') },
-    'separator',
-    { label: 'Gravar Jogo', onSelect: () => onDialog('save') },
-    { label: 'Sair para o Menu', onSelect: onExit },
   ]
 }

@@ -139,7 +139,7 @@ export default function BoardPage() {
         onClose={(a) => {
           setMeeting(null)
           // A resposta chega como mensagem: volta às Notícias, como no CM
-          if (a) nav.go({ kind: 'news' })
+          if (a) nav.go({ kind: 'news', latest: true })
         }}
       />
     )

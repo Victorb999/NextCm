@@ -10,29 +10,37 @@ function Panel({
   items,
   x,
   y,
+  back,
   onClose,
 }: {
   items: MenuNode[]
   x: number
   y: number
+  /** Num submenu, onde acaba o menu de cima pela esquerda: sem espaço à direita, abre para lá. */
+  back?: number
   onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [top, setTop] = useState(y)
-  const [open, setOpen] = useState<{ index: number; x: number; y: number } | null>(null)
+  const [left, setLeft] = useState(x)
+  const [open, setOpen] = useState<{ index: number; x: number; y: number; back: number } | null>(null)
 
-  // Sobe o painel para caber na janela (o CM faz o mesmo nos menus longos)
+  // Sobe o painel para caber na janela (o CM faz o mesmo nos menus longos) e, sem espaço à
+  // direita, abre-o para a esquerda (um menu do canto direito do ecrã)
   useLayoutEffect(() => {
     const h = ref.current?.offsetHeight ?? 0
+    const w = ref.current?.offsetWidth ?? 0
     setTop(Math.max(0, Math.min(y, window.innerHeight - h)))
-  }, [y, items])
+    const room = window.innerWidth - 4
+    setLeft(x + w <= room ? x : Math.max(0, back !== undefined ? back - w + 2 : room - w))
+  }, [x, y, back, items])
 
   const sub = open && items[open.index]
   return (
     <>
       <div
         ref={ref}
-        style={{ left: x, top }}
+        style={{ left, top }}
         className="cm-zebra fixed z-[70] max-h-screen min-w-[170px] overflow-y-auto rounded-md border border-[#10b981]/60 bg-[#0f241b] py-1 text-[14px] text-[#e3e1e9] shadow-[0_8px_24px_rgba(0,0,0,0.65)]"
       >
         {items.map((item, i) =>
@@ -44,7 +52,7 @@ function Panel({
               className={`${ROW} ${open?.index === i ? '!bg-[#1d4d3a] text-cm-yellow' : 'hover:!bg-[#1d4d3a] hover:text-cm-yellow'}`}
               onMouseEnter={(e) => {
                 const r = e.currentTarget.getBoundingClientRect()
-                setOpen(item.children ? { index: i, x: r.right - 2, y: r.top - 2 } : null)
+                setOpen(item.children ? { index: i, x: r.right - 2, y: r.top - 2, back: r.left } : null)
               }}
               onClick={() => {
                 if (item.onSelect) {
@@ -60,7 +68,7 @@ function Panel({
         )}
       </div>
       {sub && sub !== 'separator' && sub.children && (
-        <Panel key={open.index} items={sub.children} x={open.x} y={open.y} onClose={onClose} />
+        <Panel key={open.index} items={sub.children} x={open.x} y={open.y} back={open.back} onClose={onClose} />
       )}
     </>
   )

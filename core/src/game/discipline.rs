@@ -1,7 +1,8 @@
 //! Gestão do plantel (marco 3.12, passo 1): "Disciplinar Jogador" e elogiar ou criticar um
-//! jogador na imprensa, pelo menu Acção do perfil. As razões de um castigo só existem quando
-//! aconteceram (expulsões e más exibições ficam guardadas em `player_log` no fim de cada jogo);
-//! a reação depende da justiça do castigo e da personalidade. Regras no detalhe do 3.12.
+//! jogador na imprensa, pelo menu Acção do perfil. Todas as razões se podem escolher (decisão
+//! de 30/10), mas só são justas quando aconteceram (expulsões e más exibições ficam guardadas
+//! em `player_log` no fim de cada jogo); a reação depende da justiça do castigo e da
+//! personalidade. Regras no detalhe do 3.12.
 
 use rusqlite::params;
 use serde::Serialize;
@@ -16,7 +17,7 @@ use crate::{Error, Result, date};
 pub const ACTIONS: [(&str, i64); 3] =
     [("Aviso Oficial", 0), ("Multa de uma semana de salário", 1), ("Multa de duas semanas de salário", 2)];
 
-/// As razões do CM (a primeira está sempre disponível).
+/// As razões do CM ("Sem Razões" é sempre injusta).
 const REASONS: [(&str, &str); 5] = [
     ("none", "Sem Razões"),
     ("unprofessional", "Comportamento Pouco Profissional"),
@@ -100,25 +101,31 @@ impl Game {
         Ok(())
     }
 
-    /// Os castigos e as razões de "Disciplinar Jogador" (as que não aconteceram ficam apagadas).
+    /// Se a razão de um castigo aconteceu mesmo (senão o castigo é injusto).
+    fn reason_happened(&self, person: i32, key: &str) -> Result<bool> {
+        Ok(match key {
+            "none" => false,
+            "unprofessional" => {
+                self.world.conn.query_row("SELECT COUNT(*) FROM unhappy WHERE person_id = ?", [person], |r| r.get::<_, i64>(0))? > 0
+            }
+            "sent_off" => self.logged_since(person, &["sent_off", "violent"], RECENT_DAYS)?,
+            "violent" => self.logged_since(person, &["violent"], RECENT_DAYS)?,
+            _ => self.logged_since(person, &["poor"], RECENT_DAYS)?,
+        })
+    }
+
+    /// Os castigos e as razões de "Disciplinar Jogador": todas se escolhem; as que não
+    /// aconteceram levam o aviso de que o jogador vai achar o castigo injusto.
     pub fn discipline_options(&self, person: i32) -> Result<DisciplineOptions> {
         self.own_player(person)?;
-        let unhappy: bool =
-            self.world.conn.query_row("SELECT COUNT(*) FROM unhappy WHERE person_id = ?", [person], |r| r.get::<_, i64>(0))? > 0;
         let mut reasons = Vec::new();
         for (key, label) in REASONS {
-            let ok = match key {
-                "none" => true,
-                "unprofessional" => unhappy,
-                "sent_off" => self.logged_since(person, &["sent_off", "violent"], RECENT_DAYS)?,
-                "violent" => self.logged_since(person, &["violent"], RECENT_DAYS)?,
-                _ => self.logged_since(person, &["poor"], RECENT_DAYS)?,
-            };
+            let fair = self.reason_happened(person, key)?;
             reasons.push(BoardRequest {
                 key: key.into(),
                 label: label.into(),
-                available: ok,
-                reason: (!ok).then(|| "Não aconteceu nada que o justifique.".to_string()),
+                available: true,
+                reason: (!fair).then(|| "Não aconteceu: vai achar o castigo injusto.".to_string()),
             });
         }
         Ok(DisciplineOptions { actions: ACTIONS.iter().map(|a| a.0.to_string()).collect(), reasons })
@@ -126,11 +133,10 @@ impl Game {
 
     /// Aplica um castigo; devolve a reação do jogador (que chega também como mensagem).
     pub fn discipline(&mut self, person: i32, action: usize, reason: &str) -> Result<String> {
-        let options = self.discipline_options(person)?;
+        self.own_player(person)?;
         let (label, weeks) = *ACTIONS.get(action).ok_or_else(|| Error::Invalid("Castigo desconhecido.".into()))?;
-        let why = options.reasons.iter().find(|r| r.key == reason).ok_or_else(|| Error::Invalid("Razão desconhecida.".into()))?;
-        if !why.available {
-            return Err(Error::Invalid("Essa razão não se aplica a este jogador.".into()));
+        if !REASONS.iter().any(|r| r.0 == reason) {
+            return Err(Error::Invalid("Razão desconhecida.".into()));
         }
         if self.logged_since(person, &["discipline"], DISCIPLINE_DAYS)? {
             return Err(Error::Invalid("Já o castigou há poucos dias.".into()));
@@ -143,7 +149,7 @@ impl Game {
         if fine > 0 {
             self.book(self.club_id, "player_fines", fine)?;
         }
-        let fair = reason != "none";
+        let fair = self.reason_happened(person, reason)?;
         let (delta, reaction) = if !fair {
             self.add_unhappy(person, "unfair")?;
             (-4 - weeks as i32, format!("{name} não percebe o castigo e sente que foi tratado injustamente."))
@@ -246,16 +252,16 @@ mod tests {
         set(&g, pro, "professionalism = 18, temperament = 15, determination = 18, pressure = 15");
         set(&g, calm, "professionalism = 10, temperament = 12, determination = 10, pressure = 12");
 
-        // Sem nada para castigar, só "Sem Razões"
+        // Todas as razões se escolhem; sem nada para castigar, todas avisam que é injusto
         let opts = g.discipline_options(hot).unwrap();
         assert_eq!(opts.actions.len(), 3);
-        assert!(opts.reasons[0].available && opts.reasons.iter().skip(1).all(|r| !r.available));
-        assert!(g.discipline(hot, 0, "sent_off").is_err());
+        assert!(opts.reasons.iter().all(|r| r.available && r.reason.is_some()));
+        assert!(g.discipline(hot, 0, "inventada").is_err());
 
-        // Uma expulsão e uma má exibição no último jogo
+        // Uma expulsão e uma má exibição no último jogo: essas razões ficam justas
         g.log_match(&[hot, pro], &[(calm, 4.8)]).unwrap();
-        assert!(g.discipline_options(pro).unwrap().reasons.iter().find(|r| r.key == "sent_off").unwrap().available);
-        assert!(g.discipline_options(calm).unwrap().reasons.iter().find(|r| r.key == "poor").unwrap().available);
+        assert!(g.discipline_options(pro).unwrap().reasons.iter().find(|r| r.key == "sent_off").unwrap().reason.is_none());
+        assert!(g.discipline_options(calm).unwrap().reasons.iter().find(|r| r.key == "poor").unwrap().reason.is_none());
 
         // O profissional aceita e até motiva; o de cabeça quente revolta-se; a multa entra nas contas
         let morale = |g: &Game, id: i32| g.squads.state(id).morale;
@@ -272,10 +278,14 @@ mod tests {
         assert!(g.unhappy_reasons(hot).unwrap().iter().any(|r| r.contains("injustamente")));
         assert!(g.discipline(hot, 0, "none").is_err(), "um castigo de cada vez");
 
-        // Castigar sem razão revolta sempre
+        // Castigar sem razão, ou por uma que não aconteceu, revolta sempre
         let c0 = morale(&g, calm);
         g.discipline(calm, 0, "none").unwrap();
         assert!(morale(&g, calm) <= c0 - 4);
+        let o0 = morale(&g, other);
+        assert!(g.discipline(other, 0, "violent").unwrap().contains("injustamente"));
+        assert!(morale(&g, other) <= o0 - 4);
+        g.date = date::add_days(&g.date, PRESS_DAYS + 1).unwrap();
 
         // Imprensa: elogio sobe a moral; crítica ao determinado motiva, ao frágil abala
         let o0 = morale(&g, other);

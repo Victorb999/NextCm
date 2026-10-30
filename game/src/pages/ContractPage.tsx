@@ -190,7 +190,7 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
         left={over ? 'Atrás' : 'Cancelar'}
         right={reply?.accepted || reply?.pending ? 'Continuar' : 'Oferecer'}
         onLeft={nav.back}
-        onRight={reply?.accepted || reply?.pending ? () => nav.go({ kind: 'news' }) : over ? undefined : () => void offer()}
+        onRight={reply?.accepted || reply?.pending ? () => nav.go({ kind: 'news', latest: true }) : over ? undefined : () => void offer()}
       />
     </>
   )

@@ -24,7 +24,7 @@ const CONTINENTAL: [i32; 4] = [LIBERTADORES, SUL_AMERICANA, CHAMPIONS_LEAGUE, EU
 
 impl Game {
     /// Divisão de um clube (a liga das contas dele).
-    fn division_of(&self, club: i32) -> Result<Option<i32>> {
+    pub(super) fn division_of(&self, club: i32) -> Result<Option<i32>> {
         Ok(self
             .world
             .conn

@@ -54,17 +54,17 @@ function newsDate(iso: string) {
   return `${WEEKDAYS[wd]} ${d} ${MONTHS[m - 1]}`
 }
 
-/** As notícias de uma aba, da mais antiga para a mais recente (o core guarda-as ao contrário). */
-const inOrder = (news: NewsItem[], tab: string) => news.filter((n) => inTab(n, tab)).reverse()
+/** As notícias de uma aba, da mais recente (em cima) para a mais antiga, como o core as guarda. */
+const inOrder = (news: NewsItem[], tab: string) => news.filter((n) => inTab(n, tab))
 
-/** Onde a aba abre: na primeira por ler, senão na mais recente. */
-function startAt(news: NewsItem[], tab: string): number | null {
+/** Onde a aba abre: na mais recente por ler, senão na mais recente (ou nesta, com `latest`). */
+function startAt(news: NewsItem[], tab: string, latest = false): number | null {
   const list = inOrder(news, tab)
-  return (list.find((n) => !n.read) ?? list[list.length - 1])?.id ?? null
+  return ((latest ? undefined : list.find((n) => !n.read)) ?? list[0])?.id ?? null
 }
 
 /** "Notícias para <treinador>": lista em cima, texto da notícia em baixo. */
-export default function NewsPage() {
+export default function NewsPage({ latest }: { latest?: boolean }) {
   const game = useGame()
   const nav = useNav()
   useEscBack()
@@ -77,7 +77,7 @@ export default function NewsPage() {
   useEffect(() => {
     api.listNews().then((list) => {
       setNews(list)
-      setSelected((s) => s ?? startAt(list, tab))
+      setSelected((s) => s ?? startAt(list, tab, latest))
     }, () => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.info?.date, game.info?.unreadNews])
@@ -86,9 +86,9 @@ export default function NewsPage() {
     setSelected(startAt(news, t))
   }
 
-  // Da mais antiga para a mais recente (o core guarda-as ao contrário)
+  // A mais recente em cima
   const shown = useMemo(() => inOrder(news, tab), [news, tab])
-  const current = shown.find((n) => n.id === selected) ?? shown[shown.length - 1]
+  const current = shown.find((n) => n.id === selected) ?? shown[0]
   const listRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     listRef.current?.querySelector('[data-current]')?.scrollIntoView({ block: 'nearest' })
@@ -116,6 +116,7 @@ export default function NewsPage() {
   const currentLinks = links.id === currentId ? links.list : []
 
   const readNext = () => {
+    // A seguinte por ler, de cima para baixo
     const next = shown.find((n) => !n.read && n.id !== current?.id)
     if (next) setSelected(next.id)
   }

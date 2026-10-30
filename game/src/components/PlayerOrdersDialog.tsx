@@ -106,7 +106,8 @@ export default function PlayerOrdersDialog({
   return (
     <Overlay>
       <DialogFrame title={title} width={720} onCancel={onCancel} onOk={() => onOk(o)}>
-        <div className="space-y-0.5 py-1">
+        {/* Linhas em zebra, como as listas */}
+        <div className="cm-zebra py-1 [&>*]:rounded [&>*]:px-2">
           <DialogRow label="Passe">
             <Choices value={o.passing} options={PASSING} onChange={(passing) => set({ passing })} />
           </DialogRow>
@@ -138,11 +139,11 @@ export default function PlayerOrdersDialog({
           <DialogRow label="Marcação">
             <Choices value={o.marking} options={MARKING} onChange={(marking) => set({ marking })} />
           </DialogRow>
-          <div className="flex pt-1">
-            <button className="cm-purple h-6 w-40" onClick={() => setO(NO_ORDERS)}>
-              Como a Equipa
-            </button>
-          </div>
+        </div>
+        <div className="flex px-2 pb-1 pt-1">
+          <button className="cm-purple h-6 w-40" onClick={() => setO(NO_ORDERS)}>
+            Como a Equipa
+          </button>
         </div>
       </DialogFrame>
     </Overlay>

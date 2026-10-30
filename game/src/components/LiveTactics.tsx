@@ -29,6 +29,9 @@ export default function LiveTactics({
   onApplied: (v: LiveView) => void
 }) {
   const [t, setT] = useState<ClubTactics | null>(null)
+  // As cores do clube nos quadrados do campo
+  const teamClub = side === 0 ? view.home.club : view.away.club
+  const colours = teamClub.fg && teamClub.bg ? { fg: teamClub.fg, bg: teamClub.bg } : undefined
   const [error, setError] = useState<string | null>(null)
   const [instructions, setInstructions] = useState(false)
   const [ordersFor, setOrdersFor] = useState<TacticPlayer | null>(null)
@@ -212,7 +215,7 @@ export default function LiveTactics({
               onChange={() => {}}
             />
             <div className="mt-1 flex min-h-0 flex-1 flex-col">
-              <Pitch t={t} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
+              <Pitch t={t} colours={colours} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
             </div>
             <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
               {editable

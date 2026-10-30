@@ -11,7 +11,7 @@ import { useNav } from '../nav'
 import type { Screen } from '../nav'
 import { managerMenu } from './managerMenu'
 
-type Menu = { kind: 'competitions' | 'manager'; x: number; y: number }
+type Menu = { kind: 'competitions' | 'manager' | 'options'; x: number; y: number }
 type Section = 'manager' | 'competitions' | 'nations' | 'search'
 
 function SideButton({
@@ -176,7 +176,7 @@ export default function SideBar({
           x={menu.x}
           y={menu.y}
           onClose={closeMenu}
-          items={managerMenu({ info, go: nav.go, onExit, onDialog })}
+          items={managerMenu({ info, go: nav.go, onDialog })}
         />
       )}
       <SideButton icon={<Globe size={16} />} disabled={!browsing} active={marked('nations')} onClick={() => nav.go({ kind: 'nations' })}>
@@ -185,9 +185,24 @@ export default function SideBar({
       <SideButton icon={<Search size={16} />} disabled={!browsing} active={marked('search')} onClick={() => nav.go({ kind: 'search' })}>
         Procurar
       </SideButton>
-      <SideButton icon={<Settings size={16} />} onClick={onOptions} className="!text-cm-yellow">
+      {/* Num jogo, um menu com as Opções, Gravar Jogo e Sair para o Menu; fora dele, só as Opções */}
+      <SideButton icon={<Settings size={16} />} onClick={info ? toggle('options') : onOptions} className="relative !text-cm-yellow">
         Opções Jogo
+        {info && <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-white/40">▶</span>}
       </SideButton>
+      {menu?.kind === 'options' && info && (
+        <CascadeMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={closeMenu}
+          items={[
+            { label: 'Opções...', onSelect: onOptions },
+            'separator',
+            { label: 'Gravar Jogo', onSelect: () => onDialog('save') },
+            { label: 'Sair para o Menu', onSelect: onExit },
+          ]}
+        />
+      )}
     </aside>
   )
 }

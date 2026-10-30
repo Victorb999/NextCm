@@ -538,12 +538,15 @@ export default function PersonPage({ id }: { id: number }) {
   ]
   // As mensagens novas contam no "por ler"
   const refreshInfo = () => void api.gameInfo().then((info) => info && game.update(info))
+  // Uma acção que deixa uma mensagem volta às Notícias, como no CM (a mensagem nova abre lá)
+  const toNews = () => {
+    refreshInfo()
+    nav.go({ kind: 'news', latest: true })
+  }
   const comment = async (kind: 'praise' | 'criticise') => {
     try {
-      setNotice(await api.pressComment(id, kind))
-      setError(null)
-      refreshInfo()
-      await reload()
+      await api.pressComment(id, kind)
+      toNews()
     } catch (e) {
       setError(String(e))
     }
@@ -700,7 +703,7 @@ export default function PersonPage({ id }: { id: number }) {
             if (deal === 'price') {
               setTab('contract')
               void reload()
-            } else nav.go({ kind: 'news' })
+            } else nav.go({ kind: 'news', latest: true })
           }}
         />
       )}
@@ -730,14 +733,7 @@ export default function PersonPage({ id }: { id: number }) {
             onCancel={() => setRelease(null)}
             onOk={() => {
               setRelease(null)
-              void api.releasePlayer(id).then(
-                (t) => {
-                  setNotice(t)
-                  refreshInfo()
-                  void reload()
-                },
-                (e) => setError(String(e)),
-              )
+              void api.releasePlayer(id).then(toNews, (e) => setError(String(e)))
             }}
           >
             <div className="py-6 text-center font-title text-[19px] text-white">{release}</div>
@@ -749,11 +745,9 @@ export default function PersonPage({ id }: { id: number }) {
           personId={id}
           name={person.name}
           onClose={() => setDiscipline(false)}
-          onDone={(text) => {
+          onDone={() => {
             setDiscipline(false)
-            setNotice(text)
-            refreshInfo()
-            void reload()
+            toNews()
           }}
         />
       )}
@@ -763,11 +757,9 @@ export default function PersonPage({ id }: { id: number }) {
           personId={id}
           name={person.name}
           onClose={() => setReport(null)}
-          onDone={(text) => {
+          onDone={() => {
             setReport(null)
-            setNotice(text)
-            // As mensagens novas contam no "por ler"
-            void api.gameInfo().then((info) => info && game.update(info))
+            toNews()
           }}
         />
       )}

@@ -58,7 +58,8 @@ export default function InstructionsDialog({
   return (
     <Overlay>
       <DialogFrame title="Instruções à Equipa" width={620} onCancel={onCancel} onOk={() => onOk(i, k)}>
-        <div className="space-y-1 py-1">
+        {/* Linhas em zebra, como as listas */}
+        <div className="cm-zebra py-1 [&>*]:rounded [&>*]:px-2">
           <DialogRow label="Mentalidade">
             {MENTALITY.map(([k, label]) => (
               <Option key={k} selected={i.mentality === k} onClick={() => set({ mentality: k })}>
@@ -108,8 +109,8 @@ export default function InstructionsDialog({
               </select>
             </DialogRow>
           ))}
-          <div className="pt-1 text-[12px] text-[#bfe6c4]">Durante um jogo, as instruções mudam-se no botão Equipa da tela da partida.</div>
         </div>
+        <div className="px-2 pt-1 text-[12px] text-[#bfe6c4]">Durante um jogo, as instruções mudam-se no botão Equipa da tela da partida.</div>
       </DialogFrame>
     </Overlay>
   )

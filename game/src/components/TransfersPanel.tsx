@@ -27,27 +27,42 @@ function feeText(t: TransferItem) {
 
 function List({ title, items, other }: { title: string; items: TransferItem[]; other: (t: TransferItem) => TransferItem['from'] }) {
   const nav = useNav()
+  const th = 'bg-[#3d1a73] px-3 text-left font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow'
   return (
     <>
       <PanelTitle title={title} />
-      {items.length === 0 && <Empty className="py-2">Nenhuma.</Empty>}
-      <div className="cm-zebra">
-        {items.map((t, i) => {
-          const club = other(t)
-          return (
-            <div key={`${t.personId}-${t.date}-${i}`} className="flex h-6 items-center gap-3 px-4 text-[14px]">
-              <span className="w-28 shrink-0 text-white">{shortDate(t.date)}</span>
-              <span className="min-w-0 flex-1 truncate">
-                <Link onClick={() => nav.go({ kind: 'person', id: t.personId })}>{t.name}</Link>
-              </span>
-              <span className="w-56 shrink-0 truncate">
-                {club ? <Link onClick={() => nav.go({ kind: 'club', id: club.id })}>{club.shortName}</Link> : <span className="text-white">-</span>}
-              </span>
-              <span className="w-36 shrink-0 text-right tabular-nums text-cm-yellow">{feeText(t)}</span>
-            </div>
-          )
-        })}
-      </div>
+      {items.length === 0 ? (
+        <Empty className="py-2">Nenhuma.</Empty>
+      ) : (
+        // Como as Transferências do mundo: cabeçalho roxo e zebra
+        <table className="w-full table-fixed text-[14px]">
+          <thead>
+            <tr className="h-7">
+              <th className={`${th} w-32`}>Data</th>
+              <th className={th}>Jogador</th>
+              <th className={`${th} w-56`}>{title === 'Entradas' ? 'De' : 'Para'}</th>
+              <th className={`${th} w-36 !text-right`}>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((t, i) => {
+              const club = other(t)
+              return (
+                <tr key={`${t.personId}-${t.date}-${i}`} className="h-6">
+                  <td className="px-3 text-white">{shortDate(t.date)}</td>
+                  <td className="truncate px-3">
+                    <Link onClick={() => nav.go({ kind: 'person', id: t.personId })}>{t.name}</Link>
+                  </td>
+                  <td className="truncate px-3 text-cm-magenta">
+                    {club ? <Link onClick={() => nav.go({ kind: 'club', id: club.id })}>{club.shortName}</Link> : <span className="text-white">-</span>}
+                  </td>
+                  <td className="px-3 text-right font-bold tabular-nums text-cm-yellow">{feeText(t)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
     </>
   )
 }
@@ -70,10 +85,10 @@ export default function TransfersPanel({ clubId }: { clubId: number }) {
       <div className="flex h-8 items-center gap-8 px-4 font-mono text-[12px] uppercase tracking-wider text-[#86869a]">
         <span className="text-cm-orange">Últimos 12 meses</span>
         <span className="text-white">
-          Gastos: <span className="text-cm-yellow">{money(spent) || '€0'}</span>
+          Gastos: <span className="text-cm-yellow">{spent ? money(spent) : '€0'}</span>
         </span>
         <span className="text-white">
-          Receitas: <span className="text-cm-yellow">{money(received) || '€0'}</span>
+          Receitas: <span className="text-cm-yellow">{received ? money(received) : '€0'}</span>
         </span>
       </div>
       <List title="Entradas" items={incoming} other={(t) => t.from} />
