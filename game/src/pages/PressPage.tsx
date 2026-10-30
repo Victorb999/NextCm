@@ -2,7 +2,7 @@ import { Mic } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { PressView } from '../bindings/PressView'
-import { BottomBar, ErrorBox, ScreenHeader } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, Panel, ScreenHeader } from '../components/Screen'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -43,34 +43,45 @@ export default function PressPage({ id }: { id: number }) {
   const q = view && view.status === 'pending' && !result ? view.questions[answers.length] : null
   return (
     <div className="flex h-full flex-col">
-      <ScreenHeader icon={<Mic size={22} />} title={view?.title ?? 'Conferência de Imprensa'} />
-      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21] px-6 py-4">
-        <ErrorBox className="mb-2">{error}</ErrorBox>
-        {view && view.status !== 'pending' && !result && (
-          <div className="font-title text-[19px] text-white">Esta conferência de imprensa já acabou.</div>
-        )}
+      <ScreenHeader
+        icon={<Mic size={22} />}
+        eyebrow={q ? `Pergunta ${answers.length + 1} de ${view!.questions.length}` : undefined}
+        title={view?.title ?? 'Conferência de Imprensa'}
+        right={
+          q && (
+            <button className="cm-purple h-8 px-4" onClick={() => void finish(() => api.skipPress(id))}>
+              Mandar o Adjunto
+            </button>
+          )
+        }
+      />
+      <div className="mx-2 flex min-h-0 flex-1 flex-col gap-2">
+        <ErrorBox>{error}</ErrorBox>
+        {view && view.status !== 'pending' && !result && <Empty>Esta conferência de imprensa já acabou.</Empty>}
         {q && (
           <>
-            <div className="text-[15px] text-cm-magenta">
-              {view!.intro} Pergunta {answers.length + 1} de {view!.questions.length}
+            <div className="shrink-0 rounded-md bg-[#1a1b21] px-4 py-3">
+              <div className="text-[13px] text-cm-magenta">{view!.intro}</div>
+              <div className="pt-1 font-title text-[20px] font-bold leading-snug text-cm-yellow">{q.text}</div>
             </div>
-            <div className="py-4 font-title text-[24px] font-bold leading-snug text-cm-yellow">{q.text}</div>
-            <div className="flex flex-col gap-1.5">
-              {q.answers.map((a, i) => (
-                <button key={a} className="cm-purple min-h-9 px-4 py-1 text-left font-title text-[18px]" onClick={() => pick(i)}>
-                  {a}
-                </button>
-              ))}
-            </div>
-            <div className="mt-auto flex justify-end pt-4">
-              <button className="cm-purple h-8 w-56" onClick={() => void finish(() => api.skipPress(id))}>
-                Mandar o Adjunto
-              </button>
-            </div>
+            <Panel title="Resposta" className="shrink-0">
+              <div className="cm-zebra">
+                {q.answers.map((a, i) => (
+                  <button key={a} className="flex min-h-9 w-full items-center gap-3 px-4 py-1 text-left text-[15px] text-white hover:!bg-cm-sel" onClick={() => pick(i)}>
+                    <span className="w-5 shrink-0 font-mono text-[12px] font-bold text-cm-orange">{i + 1}.</span>
+                    {a}
+                  </button>
+                ))}
+              </div>
+            </Panel>
           </>
         )}
-        {view && !q && !result && view.status === 'pending' && <div className="font-title text-[19px] text-cm-magenta">A falar com os jornalistas…</div>}
-        {result && <div className="whitespace-pre-line font-title text-[19px] leading-snug text-white">{result}</div>}
+        {view && !q && !result && view.status === 'pending' && <Empty>A falar com os jornalistas…</Empty>}
+        {result && (
+          <Panel title="O que saiu na imprensa" className="shrink-0">
+            <div className="whitespace-pre-line px-4 py-3 text-[15px] leading-relaxed text-white">{result}</div>
+          </Panel>
+        )}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
     </div>

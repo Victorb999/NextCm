@@ -92,11 +92,11 @@ export default function LoadGamePage() {
         <ErrorBox className="mb-2">{error}</ErrorBox>
         {saves && saves.length === 0 && <div className="p-6 text-center text-cm-yellow">Nenhum jogo gravado.</div>}
         {saves && saves.length > 0 && (
-          <table className="w-full border-collapse text-[14px]">
+          <table className="w-full overflow-hidden rounded border-collapse bg-black/40 text-[14px]">
             <thead>
               <tr className="h-6">
                 {head.map((h) => (
-                  <th key={h} className="border border-black bg-cm-head px-2 text-left font-normal text-white">
+                  <th key={h} className="bg-[#3d1a73] px-3 text-left font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow">
                     {h}
                   </th>
                 ))}
@@ -108,13 +108,13 @@ export default function LoadGamePage() {
                   key={s.file}
                   onMouseDown={() => setSelected(i)}
                   onDoubleClick={() => void load(s)}
-                  className={`h-7 ${i === selected ? 'bg-cm-sel' : 'bg-black/50'}`}
+                  className={`h-7 cursor-pointer ${i === selected ? '[&>td]:!bg-cm-sel' : ''}`}
                 >
-                  <td className="px-2 font-bold text-white">{s.name}</td>
-                  <td className="px-2 text-cm-pink">{s.managerName}</td>
-                  <td className="px-2 text-cm-magenta">{s.clubName}</td>
-                  <td className="px-2 text-cm-yellow">{cmDate(s.date)}</td>
-                  <td className="px-2 text-[#aab3c4]">{savedAt(s.savedAt)}</td>
+                  <td className="px-3 font-bold text-white">{s.name}</td>
+                  <td className="px-3 text-cm-pink">{s.managerName}</td>
+                  <td className="px-3 text-cm-magenta">{s.clubName}</td>
+                  <td className="px-3 text-cm-yellow">{cmDate(s.date)}</td>
+                  <td className="px-3 text-[#aab3c4]">{savedAt(s.savedAt)}</td>
                 </tr>
               ))}
             </tbody>
