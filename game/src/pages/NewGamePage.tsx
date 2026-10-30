@@ -168,37 +168,60 @@ export default function NewGamePage() {
   if (step === 'manager') {
     return (
       <Overlay>
-        <DialogFrame title="Novo Jogo — Treinador" onCancel={() => setStep('start')} cancelLabel="Atrás" onOk={next} okLabel="Seguinte">
-          <form
-            className="space-y-2 py-1"
-            onSubmit={(e) => {
-              e.preventDefault()
-              next()
-            }}
-          >
-            <DialogRow label="Nome do Jogo">
-              <input className={FIELD} value={form.saveName} onChange={(e) => set({ saveName: e.target.value })} />
-            </DialogRow>
-            <DialogRow label="Nome">
-              <input autoFocus className={FIELD} value={form.firstName} onChange={(e) => set({ firstName: e.target.value })} />
-            </DialogRow>
-            <DialogRow label="Apelido">
-              <input className={FIELD} value={form.lastName} onChange={(e) => set({ lastName: e.target.value })} />
-            </DialogRow>
-            <DialogRow label="Data de Nascimento">
-              <input
-                className={FIELD}
-                placeholder="dd.mm.aaaa"
-                inputMode="numeric"
-                maxLength={10}
-                value={form.birth}
-                onChange={(e) => set({ birth: maskDate(e.target.value) })}
-              />
-            </DialogRow>
-            <DialogRow label="Nacionalidade">{nationSelect(form.nationId, (id) => set({ nationId: id }))}</DialogRow>
-            <ErrorBox>{error}</ErrorBox>
-            <button type="submit" className="hidden" />
-          </form>
+        <DialogFrame title="Novo Jogo — Treinador" width={860} onCancel={() => setStep('start')} cancelLabel="Atrás" onOk={next} okLabel="Seguinte">
+          <div className="flex gap-4">
+            <form
+              className="flex-1 space-y-2 py-1"
+              onSubmit={(e) => {
+                e.preventDefault()
+                next()
+              }}
+            >
+              <DialogRow label="Nome do Jogo">
+                <input className={FIELD} value={form.saveName} onChange={(e) => set({ saveName: e.target.value })} />
+              </DialogRow>
+              <DialogRow label="Nome">
+                <input autoFocus className={FIELD} value={form.firstName} onChange={(e) => set({ firstName: e.target.value })} />
+              </DialogRow>
+              <DialogRow label="Apelido">
+                <input className={FIELD} value={form.lastName} onChange={(e) => set({ lastName: e.target.value })} />
+              </DialogRow>
+              <DialogRow label="Data de Nascimento">
+                <input
+                  className={FIELD}
+                  placeholder="dd.mm.aaaa"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={form.birth}
+                  onChange={(e) => set({ birth: maskDate(e.target.value) })}
+                />
+              </DialogRow>
+              <DialogRow label="Nacionalidade">{nationSelect(form.nationId, (id) => set({ nationId: id }))}</DialogRow>
+              <ErrorBox>{error}</ErrorBox>
+              <button type="submit" className="hidden" />
+            </form>
+            {/* Resumo do que já foi escolhido, como na maqueta do Novo Treinador */}
+            <div className="w-60 shrink-0 self-start rounded bg-black/40 px-3 py-2 text-[13px]">
+              <div className="pb-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-cm-orange">Resumo</div>
+              <div className="flex justify-between gap-2 py-0.5">
+                <span className="text-[#bfe6c4]">Treinador</span>
+                <span className="truncate text-cm-yellow">{`${form.firstName} ${form.lastName}`.trim() || '-'}</span>
+              </div>
+              <div className="flex justify-between gap-2 py-0.5">
+                <span className="text-[#bfe6c4]">Nacionalidade</span>
+                <span className="truncate text-cm-yellow">{nations.find((n) => n.id === form.nationId)?.name ?? '-'}</span>
+              </div>
+              <div className="flex justify-between gap-2 py-0.5">
+                <span className="text-[#bfe6c4]">Época</span>
+                <span className="text-cm-yellow">{season === 'brazil' ? 'Brasil 2026' : 'Europa 26/27'}</span>
+              </div>
+              <div className="flex justify-between gap-2 py-0.5">
+                <span className="text-[#bfe6c4]">Ligas escolhidas</span>
+                <span className="text-cm-yellow">{playable.length}</span>
+              </div>
+              <div className="pt-2 text-[12px] leading-snug text-[#bfe6c4]">A seguir escolhe o clube, numa das ligas escolhidas.</div>
+            </div>
+          </div>
         </DialogFrame>
       </Overlay>
     )
