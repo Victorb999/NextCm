@@ -122,7 +122,10 @@ export function Row({
       </span>
       <span className={`flex min-w-0 flex-1 items-center gap-1.5 ${text}`}>
         {captain && <span className="shrink-0 rounded-[3px] bg-[#4a3300] px-1 text-[11px] font-bold leading-[16px] text-cm-yellow">C</span>}
-        <span className="truncate">{fullName(p.listName)}</span>
+        <span className="truncate">
+          {fullName(p.listName)}
+          {p.key && '*'}
+        </span>
         {ordered && (
           <span className="shrink-0 text-[11px] font-bold text-cm-magenta" title="Instruções individuais">
             I

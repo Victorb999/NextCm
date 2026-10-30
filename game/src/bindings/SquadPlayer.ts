@@ -29,4 +29,36 @@ reserve: boolean,
 /**
  * Jogador de enchimento (nome a roxo, como no CM).
  */
-ghost: boolean, };
+ghost: boolean, 
+/**
+ * Grupos de posição para o Filtrar: "GR", "D", "M", "A".
+ */
+lines: Array<string>, 
+/**
+ * Lados para o Filtrar: "E", "C", "D" (o guarda-redes conta como central).
+ */
+sides: Array<string>, wage: number | null, contractExpires: string | null, 
+/**
+ * Um dos três jogadores-chave do plantel (o `*` depois do nome, como no CM).
+ */
+key: boolean, 
+/**
+ * A sigla da coluna Inf: "Les", "Sus", "Emp", "Lst", "Des" ou "Int".
+ */
+info: string | null, 
+/**
+ * Emprestado por outro clube (nome a azul-claro).
+ */
+loaned: boolean, 
+/**
+ * Sem contrato (nome a roxo, "Livre" no valor).
+ */
+free: boolean, 
+/**
+ * Num jogo em curso: o resto do Vêr (Situação, Moral, Forma, a época e o valor).
+ */
+role: string | null, morale: string | null, form: Array<number>, clauses: Array<string>, value: number | null, apps: number, subs: number, goals: number, assists: number, mom: number, rating: number | null, 
+/**
+ * Lugar na ordem dos batedores de penáltis (1 = o primeiro); `None` no guarda-redes.
+ */
+penaltyOrder: number | null, };

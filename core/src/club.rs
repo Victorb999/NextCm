@@ -3,7 +3,7 @@ use serde::Serialize;
 use ts_rs::TS;
 
 use crate::person::ClubRef;
-use crate::search::position_label;
+use crate::search::{NATURAL_POSITION, position_label};
 use crate::{Error, Result, World};
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -47,6 +47,35 @@ pub struct SquadPlayer {
     pub reserve: bool,
     /// Jogador de enchimento (nome a roxo, como no CM).
     pub ghost: bool,
+    /// Grupos de posição para o Filtrar: "GR", "D", "M", "A".
+    pub lines: Vec<String>,
+    /// Lados para o Filtrar: "E", "C", "D" (o guarda-redes conta como central).
+    pub sides: Vec<String>,
+    pub wage: Option<i32>,
+    pub contract_expires: Option<String>,
+    /// Um dos três jogadores-chave do plantel (o `*` depois do nome, como no CM).
+    pub key: bool,
+    /// A sigla da coluna Inf: "Les", "Sus", "Emp", "Lst", "Des" ou "Int".
+    pub info: Option<String>,
+    /// Emprestado por outro clube (nome a azul-claro).
+    pub loaned: bool,
+    /// Sem contrato (nome a roxo, "Livre" no valor).
+    pub free: bool,
+    /// Num jogo em curso: o resto do Vêr (Situação, Moral, Forma, a época e o valor).
+    pub role: Option<String>,
+    pub morale: Option<String>,
+    pub form: Vec<f64>,
+    pub clauses: Vec<String>,
+    #[ts(type = "number | null")]
+    pub value: Option<i64>,
+    pub apps: i32,
+    pub subs: i32,
+    pub goals: i32,
+    pub assists: i32,
+    pub mom: i32,
+    pub rating: Option<f64>,
+    /// Lugar na ordem dos batedores de penáltis (1 = o primeiro); `None` no guarda-redes.
+    pub penalty_order: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -103,6 +132,46 @@ pub struct ClubProfile {
     pub staff: Vec<StaffMember>,
     /// Competições com título ou vice, as com mais títulos primeiro.
     pub honours: Vec<Honour>,
+    /// Clube de reservas ou juniores (U21, B, II, "(R)"): o clube principal.
+    pub parent: Option<ClubRef>,
+    /// No clube principal: os clubes de reservas e juniores ligados a ele.
+    pub affiliates: Vec<ClubRef>,
+}
+
+/// Sufixos do nome curto dos clubes de reservas e juniores, e os do nome completo.
+const SHORT_SUFFIXES: [&str; 9] = [" (R)", " II", " B", " U21", " U23", " U19", " U20", " U18", " U17"];
+const NAME_SUFFIXES: [&str; 12] =
+    [" U19", " U21", " U23", " U20", " B", " II", " Amateure", " Reserves", " Primavera", " Juniors", " Olympic", " Reservas"];
+
+/// Espaços repetidos do banco ("Botafogo  U21") contam como um.
+fn squash(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// O nome sem o sufixo de reservas, se o tiver.
+fn strip_suffix<'a>(name: &'a str, suffixes: &[&str]) -> Option<&'a str> {
+    suffixes.iter().find_map(|s| name.strip_suffix(s)).filter(|b| !b.is_empty())
+}
+
+/// Grupos de posição e lados (posição com 15 ou mais), para o Filtrar do plantel.
+fn lines_and_sides(p: &[Option<i32>; 12]) -> (Vec<String>, Vec<String>) {
+    let natural = |i: usize| p[i].unwrap_or(0) >= NATURAL_POSITION;
+    if natural(0) {
+        return (vec!["GR".into()], vec!["C".into()]);
+    }
+    // Ordem das colunas: gk, sweeper, defender, dm, m, am, attacker, wing_back, r, l, c, free
+    let mut lines = Vec::new();
+    if natural(1) || natural(2) || natural(7) {
+        lines.push("D".into());
+    }
+    if natural(3) || natural(4) || natural(5) {
+        lines.push("M".into());
+    }
+    if natural(6) {
+        lines.push("A".into());
+    }
+    let sides = [(9, "E"), (10, "C"), (8, "D")].into_iter().filter(|(i, _)| natural(*i)).map(|(_, s)| s.to_string()).collect();
+    (lines, sides)
 }
 
 /// Ordem dos bits de `people.positions` (GR=1, D=2, AL=4, MD=8, M=16, MA=32, A=64):
@@ -179,7 +248,8 @@ impl World {
                     p.positions, p.international_apps, pl.current_ability, pl.potential_ability,
                     pl.pos_goalkeeper, pl.pos_sweeper, pl.pos_defender, pl.pos_defensive_midfielder,
                     pl.pos_midfielder, pl.pos_attacking_midfielder, pl.pos_attacker, pl.pos_wing_back,
-                    pl.pos_right_side, pl.pos_left_side, pl.pos_central, pl.pos_free_role
+                    pl.pos_right_side, pl.pos_left_side, pl.pos_central, pl.pos_free_role,
+                    p.wage, p.contract_expires
              FROM people p
              JOIN players pl ON pl.person_id = p.id
              LEFT JOIN nations n ON n.id = p.nation_id
@@ -192,6 +262,7 @@ impl World {
                     *slot = r.get(10 + i)?;
                 }
                 let birth_date: Option<String> = r.get(3)?;
+                let (lines, sides) = lines_and_sides(&pos);
                 Ok(SquadPlayer {
                     id: r.get(0)?,
                     list_name: r.get(1)?,
@@ -209,6 +280,26 @@ impl World {
                     reserve: false,
                     ghost: false,
                     position: position_label(&pos),
+                    lines,
+                    sides,
+                    wage: r.get::<_, Option<i32>>(22)?.filter(|w| *w > 0),
+                    contract_expires: r.get(23)?,
+                    key: false,
+                    info: None,
+                    loaned: false,
+                    free: false,
+                    role: None,
+                    morale: None,
+                    form: Vec::new(),
+                    clauses: Vec::new(),
+                    value: None,
+                    apps: 0,
+                    subs: 0,
+                    goals: 0,
+                    assists: 0,
+                    mom: 0,
+                    rating: None,
+                    penalty_order: None,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -216,6 +307,9 @@ impl World {
         order.sort_by_key(|&i| (std::cmp::Reverse(players[i].current_ability.unwrap_or(0)), players[i].id));
         for (rank, i) in order.into_iter().enumerate() {
             players[i].ability_rank = rank as i32 + 1;
+            // Sem jogo: os três melhores pela habilidade (no jogo, pelo valor: `Game::fill_squad`)
+            players[i].key = rank < 3;
+            players[i].info = players[i].international.then(|| "Int".into());
         }
 
         let job_link = if is_national { "p.national_team_job" } else { "p.club_job" };
@@ -285,6 +379,8 @@ impl World {
         }
         honours.sort_by(|a, b| b.won.len().cmp(&a.won.len()).then(b.runner_up.len().cmp(&a.runner_up.len())));
 
+        let parent = if is_national { None } else { self.parent_club(&club, nation_id)? };
+        let affiliates = if is_national { Vec::new() } else { self.affiliates(&club, nation_id)? };
         Ok(ClubProfile {
             club,
             is_national_team: is_national,
@@ -310,7 +406,54 @@ impl World {
             players,
             staff,
             honours,
+            parent,
+            affiliates,
         })
+    }
+
+    /// O clube principal de um clube de reservas ou juniores: o nome sem o sufixo, na mesma nação.
+    fn parent_club(&self, club: &ClubRef, nation: Option<i32>) -> Result<Option<ClubRef>> {
+        let short = squash(&club.short_name);
+        let name = squash(&club.name);
+        let candidates = [(strip_suffix(&short, &SHORT_SUFFIXES), "short_name"), (strip_suffix(&name, &NAME_SUFFIXES), "name")];
+        for (base, column) in candidates {
+            let Some(base) = base else { continue };
+            let id: Option<i32> = self
+                .conn
+                .prepare_cached(&format!(
+                    "SELECT id FROM clubs WHERE nation_id IS ?1 AND id <> ?2 AND is_national_team = 0
+                     AND TRIM(REPLACE({column}, '  ', ' ')) = ?3 ORDER BY reputation DESC LIMIT 1"
+                ))?
+                .query_row(rusqlite::params![nation, club.id, base], |r| r.get(0))
+                .optional()?;
+            if let Some(id) = id {
+                return self.club_ref(Some(id));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Os clubes de reservas e juniores cujo clube principal é este.
+    fn affiliates(&self, club: &ClubRef, nation: Option<i32>) -> Result<Vec<ClubRef>> {
+        if strip_suffix(&squash(&club.short_name), &SHORT_SUFFIXES).is_some() {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<i32> = self
+            .conn
+            .prepare_cached(
+                "SELECT id FROM clubs WHERE nation_id IS ?1 AND id <> ?2 AND is_national_team = 0
+                 AND (short_name LIKE ?3 || ' %' OR name LIKE ?4 || ' %') ORDER BY short_name",
+            )?
+            .query_map(rusqlite::params![nation, club.id, squash(&club.short_name), squash(&club.name)], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut out = Vec::new();
+        for id in ids {
+            let Some(c) = self.club_ref(Some(id))? else { continue };
+            if self.parent_club(&c, nation)?.is_some_and(|p| p.id == club.id) {
+                out.push(c);
+            }
+        }
+        Ok(out)
     }
 }
 
@@ -338,5 +481,33 @@ mod tests {
         assert!(club.players.len() >= 20);
         assert!(club.players.iter().any(|p| p.id == yamal.id));
         assert!(club.staff.iter().any(|s| s.job_id == Some(5)), "tem treinador");
+        assert_eq!(club.players.iter().filter(|p| p.key).count(), 3);
+    }
+
+    #[test]
+    fn reserve_clubs_link_to_the_main_club() {
+        let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let w = World::open(&path).unwrap();
+        // Palmeiras U21 (7570) -> Palmeiras (7568); Alavés B (302) e Alavés (R) (301) -> Alavés
+        let u21 = w.get_club(7570).unwrap();
+        assert_eq!(u21.parent.as_ref().map(|c| c.id), Some(7568));
+        let palmeiras = w.get_club(7568).unwrap();
+        assert!(palmeiras.parent.is_none());
+        assert!(palmeiras.affiliates.iter().any(|c| c.id == 7570));
+        let alaves = w.get_club(302).unwrap().parent.unwrap();
+        assert_eq!(w.get_club(301).unwrap().parent.map(|c| c.id), Some(alaves.id));
+        // "Botafogo  U21", com o espaço duplo do banco
+        assert!(w.get_club(1674).unwrap().parent.is_some());
+    }
+
+    #[test]
+    fn lines_and_sides_for_the_filter() {
+        let mut p = [Some(1); 12];
+        p[2] = Some(20);
+        p[7] = Some(15);
+        p[9] = Some(20);
+        assert_eq!(lines_and_sides(&p), (vec!["D".to_string()], vec!["E".to_string()]));
+        p[0] = Some(20);
+        assert_eq!(lines_and_sides(&p).0, ["GR"]);
     }
 }

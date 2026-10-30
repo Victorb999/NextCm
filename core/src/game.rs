@@ -41,6 +41,7 @@ mod scout_tasks;
 mod scouting;
 mod season;
 mod shortlist;
+mod squad_view;
 mod staff_reports;
 mod start_loans;
 mod team_talk;
@@ -1494,6 +1495,7 @@ impl Game {
             _ => self.world.auto_tactics(club, Some(&state), Instructions::default())?,
         };
         t.editable = club == self.club_id;
+        self.mark_key_players(&mut t)?;
         Ok(t)
     }
 
@@ -1506,6 +1508,7 @@ impl Game {
             self.world.tactics_from_selection(self.club_id, sel, Some(&state))?
         };
         t.editable = true;
+        self.mark_key_players(&mut t)?;
         Ok(t)
     }
 
@@ -2781,6 +2784,37 @@ mod tests {
         g.live_finish().unwrap();
         // Quem entrou jogou (cansou-se um pouco); quem saiu também conta como tendo jogado
         assert!(g.squads.state(inn).condition < 100);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn squad_views_after_a_match() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (mut g, dir) = until_kickoff(&world, "squad-views", 5, true, false);
+        g.live_step(90).unwrap();
+        g.live_finish().unwrap();
+        let mut c = g.world().get_club(7568).unwrap();
+        g.fill_squad(&mut c).unwrap();
+        // Três jogadores-chave; os dois valiosos da direção estão entre eles
+        let keys: Vec<i32> = c.players.iter().filter(|p| p.key).map(|p| p.id).collect();
+        assert_eq!(keys.len(), 3);
+        assert!(g.valuable_players().unwrap().iter().all(|v| keys.contains(v)));
+        // Quem jogou tem forma, jogos e nota; todos têm situação e moral
+        let played: Vec<_> = c.players.iter().filter(|p| p.apps > 0).collect();
+        assert!(played.len() >= 11, "{}", played.len());
+        assert!(played.iter().all(|p| p.form.len() == 1 && p.rating.is_some()));
+        assert!(c.players.iter().all(|p| p.role.is_some() && p.morale.is_some()));
+        // Penáltis: uma ordem sem guarda-redes, a começar no 1
+        assert!(c.players.iter().any(|p| p.penalty_order == Some(1)));
+        assert!(c.players.iter().filter(|p| p.lines.iter().any(|l| l == "GR")).all(|p| p.penalty_order.is_none()));
+        // Na lista de transferências: "Lst" e Dispensável
+        let p = c.players.iter().find(|p| !p.injured && !p.suspended && !p.loaned).unwrap().id;
+        g.set_listing(p, true, false, None).unwrap();
+        let mut c = g.world().get_club(7568).unwrap();
+        g.fill_squad(&mut c).unwrap();
+        let p = c.players.iter().find(|x| x.id == p).unwrap();
+        assert_eq!((p.info.as_deref(), p.role.as_deref()), (Some("Lst"), Some("Dispensável")));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

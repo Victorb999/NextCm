@@ -263,23 +263,9 @@ impl Game {
         Ok(BoardConfidence { club, lines, fans, goal: goal.into(), division, transfer_budget, wage_bill, wage_budget })
     }
 
-    /// Os dois jogadores que a direção considera mais valiosos: os de maior valor no plantel.
+    /// Os dois jogadores que a direção considera mais valiosos: os dois primeiros jogadores-chave.
     pub(super) fn valuable_players(&self) -> Result<Vec<i32>> {
-        let ids: Vec<i32> = self
-            .world
-            .conn
-            .prepare_cached(
-                "SELECT p.id FROM people p WHERE p.club_id = ? AND p.is_player = 1
-                 AND p.id NOT IN (SELECT person_id FROM loans WHERE parent_id <> ?) ORDER BY p.id",
-            )?
-            .query_map([self.club_id, self.club_id], |r| r.get(0))?
-            .collect::<rusqlite::Result<_>>()?;
-        let mut valued: Vec<(i64, i32)> = Vec::with_capacity(ids.len());
-        for id in ids {
-            valued.push((self.world.market_value_of(id, &self.date)?.unwrap_or(0), id));
-        }
-        valued.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-        Ok(valued.into_iter().take(2).map(|v| v.1).collect())
+        Ok(self.key_players(self.club_id)?.into_iter().take(2).collect())
     }
 
     /// Antes de vender um jogador: se for dos valiosos, a direção e os adeptos não gostam.

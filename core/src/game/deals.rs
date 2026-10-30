@@ -137,7 +137,7 @@ pub const SQUAD_ROLES: [(&str, &str, i32); 6] = [
     ("youngster", "Este jogador é um jovem com valor", 3),
 ];
 /// Idades máximas das funções de jovem (acima, a direção veta).
-const PROSPECT_AGE: i32 = 21;
+pub(super) const PROSPECT_AGE: i32 = 21;
 const YOUNGSTER_AGE: i32 = 23;
 /// Prémio de assinatura pedido, em semanas de salário (um livre pede muito mais).
 const BONUS_WEEKS: f64 = 10.0;

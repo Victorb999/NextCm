@@ -81,19 +81,11 @@ impl Session {
         Ok(p)
     }
 
-    /// Clube com a condição e os indisponíveis do plantel no jogo em curso.
+    /// Clube com o estado do plantel no jogo em curso (condição, contrato, forma, Inf...).
     pub fn get_club(&self, id: i32) -> Result<ClubProfile> {
         let mut c = self.db().get_club(id)?;
         if let Some(g) = &self.game {
-            for p in &mut c.players {
-                p.ghost = g.is_ghost(p.id);
-                if let Some(st) = g.player_status(p.id) {
-                    p.condition = Some(st.condition);
-                    p.injured = st.injury.is_some();
-                    p.suspended = st.suspended > 0;
-                    p.reserve = st.reserve;
-                }
-            }
+            g.fill_squad(&mut c)?;
         }
         Ok(c)
     }

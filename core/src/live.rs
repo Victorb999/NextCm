@@ -133,6 +133,12 @@ fn load_profile(world: &World, id: i32, date: &str) -> Result<Profile> {
     })?)
 }
 
+/// Jeito para bater penáltis, como o adjunto escolhe no jogo (`Team::taker`).
+pub(crate) fn penalty_skill(world: &World, id: i32, date: &str) -> Result<f64> {
+    let p = load_profile(world, id, date)?;
+    Ok(p.finishing + p.nerve)
+}
+
 #[derive(Debug, Clone)]
 struct MatchPlayer {
     info: TacticPlayer,

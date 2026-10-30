@@ -480,6 +480,8 @@ pub struct TacticPlayer {
     pub morale: Option<i32>,
     pub injured: bool,
     pub suspended: bool,
+    /// Jogador-chave do plantel (o `*` depois do nome); só num jogo em curso.
+    pub key: bool,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -596,6 +598,7 @@ impl Candidate {
             morale: self.in_game.then_some(self.state.morale),
             injured: self.state.injured,
             suspended: self.state.suspended,
+            key: false,
         }
     }
 }

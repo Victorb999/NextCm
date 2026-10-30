@@ -181,6 +181,29 @@ impl Game {
         Ok(())
     }
 
+    /// Primeiro dia da época do clube (civil ou europeia), para as estatísticas da época.
+    pub(super) fn season_start(&self, club: Option<i32>) -> Result<String> {
+        let kind = club.map(|c| self.kind_of(c)).transpose()?.unwrap_or(SeasonKind::European);
+        let year: i32 = self.date[0..4].parse().unwrap_or(0);
+        Ok(match kind {
+            SeasonKind::Calendar => format!("{year}-01-01"),
+            SeasonKind::European if &self.date[5..] >= "07-01" => format!("{year}-07-01"),
+            SeasonKind::European => format!("{}-07-01", year - 1),
+        })
+    }
+
+    /// As últimas notas de um jogador (a Forma), da mais antiga à mais recente.
+    pub(super) fn form_of(&self, person: i32) -> Result<Vec<f64>> {
+        let mut form: Vec<f64> = self
+            .world
+            .conn
+            .prepare_cached("SELECT rating FROM player_matches WHERE person_id = ? ORDER BY date DESC, fixture DESC LIMIT ?")?
+            .query_map(params![person, FORM_GAMES as i64], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        form.reverse();
+        Ok(form)
+    }
+
     /// Forma, estatísticas da época, alcunha, nota e o custo de dispensar (jogador do treinador).
     pub fn fill_record(&self, p: &mut PersonProfile) -> Result<()> {
         p.nickname = self.world.conn.query_row("SELECT nickname FROM nicknames WHERE person_id = ?", [p.id], |r| r.get(0)).optional()?;
@@ -191,21 +214,8 @@ impl Game {
         if p.player.is_none() {
             return Ok(());
         }
-        p.form = self
-            .world
-            .conn
-            .prepare_cached("SELECT rating FROM player_matches WHERE person_id = ? ORDER BY date DESC, fixture DESC LIMIT ?")?
-            .query_map(params![p.id, FORM_GAMES as i64], |r| r.get(0))?
-            .collect::<rusqlite::Result<_>>()?;
-        p.form.reverse();
-        // A época do clube onde joga (civil ou europeia)
-        let kind = p.club.as_ref().map(|c| self.kind_of(c.id)).transpose()?.unwrap_or(SeasonKind::European);
-        let year: i32 = self.date[0..4].parse().unwrap_or(0);
-        let start = match kind {
-            SeasonKind::Calendar => format!("{year}-01-01"),
-            SeasonKind::European if &self.date[5..] >= "07-01" => format!("{year}-07-01"),
-            SeasonKind::European => format!("{}-07-01", year - 1),
-        };
+        p.form = self.form_of(p.id)?;
+        let start = self.season_start(p.club.as_ref().map(|c| c.id))?;
         let rows: Vec<(i32, i32, i32, i32, f64)> = self
             .world
             .conn

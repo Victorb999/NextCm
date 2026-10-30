@@ -25,4 +25,12 @@ status: string | null, reputation: number | null, cash: number | null, rivals: A
 /**
  * Competições com título ou vice, as com mais títulos primeiro.
  */
-honours: Array<Honour>, };
+honours: Array<Honour>, 
+/**
+ * Clube de reservas ou juniores (U21, B, II, "(R)"): o clube principal.
+ */
+parent: ClubRef | null, 
+/**
+ * No clube principal: os clubes de reservas e juniores ligados a ele.
+ */
+affiliates: Array<ClubRef>, };

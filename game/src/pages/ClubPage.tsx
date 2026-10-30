@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
+import type { ClubListItem } from '../bindings/ClubListItem'
 import type { ClubProfile } from '../bindings/ClubProfile'
 import type { ClubTactics } from '../bindings/ClubTactics'
 import type { Fixture } from '../bindings/Fixture'
+import type { SquadPlayer } from '../bindings/SquadPlayer'
+import CascadeMenu, { type MenuNode } from '../components/CascadeMenu'
 import { ClubFixtureList, MatchInfo } from '../components/Fixtures'
 import FinancesPanel from '../components/FinancesPanel'
+import SquadTable, { InfBadge } from '../components/SquadTable'
 import TransfersPanel from '../components/TransfersPanel'
-import { BottomBar, Empty, ErrorBox, Link, PanelTitle, PurpleMenu, ScreenHeader, Tabs } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, Link, PanelTitle, PurpleMenu, ScreenHeader, Tabs, type MenuOption } from '../components/Screen'
 import { money, shortListName } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import { BENCH, selectionOf, spotOf, swap, useDragSwap, type Spot } from '../selection'
+import { VIEW_TITLE, nameClass, squadName, type SquadView } from '../squad'
 
 const TABS = [
   { key: 'squad', label: 'Plantel' },
@@ -21,14 +26,49 @@ const TABS = [
   { key: 'info', label: 'Finanças & Info' },
 ]
 
-type View = 'players' | 'reserves' | 'staff'
+type View = SquadView | 'staff'
 type Criterion = 'position' | 'name' | 'number' | 'age' | 'ability'
 
-const VIEWS: { key: View; label: string }[] = [
-  { key: 'players', label: 'Jogadores' },
-  { key: 'reserves', label: 'Reservas' },
+// O Vêr do CM; Mais Dados, Atributos e Outros esperam por prints
+const VIEWS: MenuOption<View>[] = [
+  { key: 'traditional', label: 'Tradicional' },
+  { key: 'contract', label: 'Contrato' },
+  { key: 'selection', label: 'Selecção' },
+  { key: 'stats', label: 'Estatísticas' },
+  { key: 'penalties', label: 'Marcadores Penalties' },
+  'separator',
   { key: 'staff', label: 'Staff' },
 ]
+
+/** O Filtrar: posição, lado, disponibilidade e (nas reservas) incluir os séniores. */
+type Filter = { line: string; side: string; avail: '' | 'yes' | 'no'; seniors: boolean }
+const NO_FILTER: Filter = { line: '', side: '', avail: '', seniors: false }
+
+const FILTER_OPTIONS: MenuOption<string>[] = [
+  { key: 'line:', label: 'Todas Posições' },
+  { key: 'line:GR', label: 'Guarda-Redes' },
+  { key: 'line:D', label: 'Defesas' },
+  { key: 'line:M', label: 'Médios' },
+  { key: 'line:A', label: 'Atacantes' },
+  'separator',
+  { key: 'side:', label: 'Todos Lados' },
+  { key: 'side:E', label: 'Lado Esquerdo' },
+  { key: 'side:C', label: 'Central' },
+  { key: 'side:D', label: 'Lado Direito' },
+  'separator',
+  { key: 'avail:yes', label: 'Disponíveis' },
+  { key: 'avail:no', label: 'Indisponíveis' },
+]
+
+function passes(p: SquadPlayer, f: Filter) {
+  const out = p.injured || p.suspended
+  return (
+    (!f.line || p.lines.includes(f.line)) &&
+    (!f.side || p.sides.includes(f.side)) &&
+    (f.avail !== 'yes' || !out) &&
+    (f.avail !== 'no' || out)
+  )
+}
 
 const CRITERIA: { key: Criterion; label: string }[] = [
   { key: 'position', label: 'Posição' },
@@ -39,7 +79,7 @@ const CRITERIA: { key: Criterion; label: string }[] = [
 ]
 
 /** Uma linha do plantel: [número] [lugar/Int] Nome ... posição */
-type Entry = { id: number; number: ReactNode; badge: ReactNode; name: string; detail: string; spot?: Spot; ghost?: boolean }
+type Entry = { id: number; number: ReactNode; badge: ReactNode; name: string; detail: string; spot?: Spot; player?: SquadPlayer }
 
 type Bind = { 'data-spot': string; onMouseDown: (e: React.MouseEvent) => void }
 
@@ -94,9 +134,14 @@ function SquadGrid({
         >
           {e.badge || <span className="text-[#5a5a66]">-</span>}
         </span>
+        {e.player && (
+          <span className="w-9 shrink-0 text-center font-mono text-[12px]">
+            <InfBadge info={e.player.info} />
+          </span>
+        )}
         <span
-          className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${e.ghost ? 'text-[#9b6fe8]' : 'text-white'}`}
-          title={e.ghost ? 'Jogador de enchimento' : undefined}
+          className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${e.player ? nameClass(e.player) : 'text-white'}`}
+          title={e.player?.ghost ? 'Jogador de enchimento' : e.player?.loaned ? 'Emprestado' : e.player?.free ? 'Sem contrato' : undefined}
         >
           <Link onClick={() => onOpen(e)}>{e.name}</Link>
         </span>
@@ -108,6 +153,7 @@ function SquadGrid({
     <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-cm-line bg-black/30 px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#86869a]">
       <span className="w-8 text-center">Nº</span>
       <span className="w-10 text-center">Esc</span>
+      {entries[0]?.player && <span className="w-9 text-center">Inf</span>}
       <span className="flex-1">Jogador</span>
       <span className="w-28 text-right">Posição</span>
     </div>
@@ -207,12 +253,16 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('squad')
-  const [view, setView] = useState<View>(reserves ? 'reserves' : 'players')
+  const [view, setView] = useState<View>('traditional')
+  const [filter, setFilter] = useState<Filter>(NO_FILTER)
   const [criterion, setCriterion] = useState<Criterion>('position')
   const [selected, setSelected] = useState(0)
   const [tactics, setTactics] = useState<ClubTactics | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const mine = game.mode === 'game' && game.info?.club.id === id
+  // O menu do clube (▸ na faixa) e os clubes da divisão, pedidos ao abri-lo
+  const [clubMenu, setClubMenu] = useState<{ x: number; y: number } | null>(null)
+  const [divisionClubs, setDivisionClubs] = useState<ClubListItem[] | null>(null)
 
   useEffect(() => {
     api.getClub(id).then(setClub, (e) => setError(String(e)))
@@ -279,61 +329,64 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
   const nextMatch = fixtures.find((f) => f.homeGoals === null)
   const lastMatch = fixtures.filter((f) => f.homeGoals !== null).at(-1)
 
-  const entries: Entry[] = useMemo(() => {
+  // Os jogadores da vista: plantel principal ou reservas (com os séniores, se pedido), filtrados e ordenados
+  const players: SquadPlayer[] = useMemo(() => {
     if (!club) return []
-    if (view === 'staff') {
-      return club.staff.map((s) => ({ id: s.id, number: '', badge: '', name: shortListName(s.listName), detail: s.job ?? '' }))
-    }
-    // A equipa de reservas (só no clube do treinador) fica numa vista à parte
-    const players = club.players.filter((p) => p.reserve === (view === 'reserves'))
+    const list = club.players.filter((p) => (reserves ? p.reserve || filter.seniors : !p.reserve) && passes(p, filter))
     const name = (a: { listName: string }, b: { listName: string }) => a.listName.localeCompare(b.listName)
-    if (criterion === 'position') players.sort((a, b) => a.positionOrder - b.positionOrder || name(a, b))
-    if (criterion === 'name') players.sort(name)
-    if (criterion === 'number') players.sort((a, b) => byNullsLast(a.squadNumber, b.squadNumber) || name(a, b))
-    if (criterion === 'age') players.sort((a, b) => byNullsLast(a.age, b.age) || name(a, b))
-    if (criterion === 'ability') players.sort((a, b) => a.abilityRank - b.abilityRank)
-    const sel = tactics && selectionOf(tactics)
-    return players.map((p) => {
-      const spot = sel ? spotOf(sel, p.id) : undefined
-      // Casa na equipa (GR, DD... e SB1–SB7 nos suplentes); senão Les/Sus/Int como no CM
-      const place =
-        spot?.kind === 'starter' ? shortRole(tactics!.starters[spot.index].role) : spot?.kind === 'bench' ? `SB${spot.index + 1}` : null
-      return {
-      id: p.id,
-      spot,
-      number: criterion === 'age' ? (p.age ?? '') : (p.squadNumber ?? ''),
-      // Num jogo em curso, os indisponíveis aparecem como no CM: "Les" / "Sus"
-      badge: p.injured ? (
-        <span className="bg-[#b8560c] px-0.5 font-bold text-white">Les</span>
-      ) : p.suspended ? (
-        <span className="bg-[#9c0000] px-0.5 font-bold text-white">Sus</span>
-      ) : (
-        (place ?? '')
-      ),
-      name: shortListName(p.listName),
-      detail: p.position,
-      // Jogador de enchimento: a roxo, como no CM
-      ghost: p.ghost,
-      }
-    })
-  }, [club, view, criterion, tactics])
+    if (criterion === 'position') list.sort((a, b) => a.positionOrder - b.positionOrder || name(a, b))
+    if (criterion === 'name') list.sort(name)
+    if (criterion === 'number') list.sort((a, b) => byNullsLast(a.squadNumber, b.squadNumber) || name(a, b))
+    if (criterion === 'age') list.sort((a, b) => byNullsLast(a.age, b.age) || name(a, b))
+    if (criterion === 'ability') list.sort((a, b) => a.abilityRank - b.abilityRank)
+    if (view === 'penalties') list.sort((a, b) => byNullsLast(a.penaltyOrder, b.penaltyOrder))
+    return list
+  }, [club, reserves, filter, criterion, view])
 
-  const open = (e: Entry | undefined) => e && nav.go({ kind: 'person', id: e.id })
+  const sel = tactics && selectionOf(tactics)
+  // Casa na equipa (GR, DD... e SB1–SB7 nos suplentes)
+  const placeOf = (pid: number) => {
+    const spot = sel ? spotOf(sel, pid) : undefined
+    return spot?.kind === 'starter' ? shortRole(tactics!.starters[spot.index].role) : spot?.kind === 'bench' ? `SB${spot.index + 1}` : null
+  }
+
+  const entries: Entry[] = !club
+    ? []
+    : view === 'staff'
+      ? club.staff.map((s) => ({ id: s.id, number: '', badge: '', name: shortListName(s.listName), detail: s.job ?? '' }))
+      : players.map((p) => ({
+      id: p.id,
+      spot: sel ? spotOf(sel, p.id) : undefined,
+      number: criterion === 'age' ? (p.age ?? '') : (p.squadNumber ?? ''),
+      badge: placeOf(p.id) ?? '',
+      name: squadName(p),
+      detail: p.position,
+      player: p,
+    }))
+
+  const table = view !== 'traditional' && view !== 'staff'
+  // Casas da equipa, Limpar Equipa e pôr/tirar: só no plantel principal, na vista Tradicional
+  const teamView = !reserves && view === 'traditional'
+  const rowCount = table ? players.length : entries.length
+
+  const open = (e: { id: number } | undefined) => e && nav.go({ kind: 'person', id: e.id })
 
   // Teclado: setas andam na grade de 2 colunas, Enter abre, Esc/Backspace voltam
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey) return
-      const step = { ArrowUp: -2, ArrowDown: 2, ArrowLeft: -1, ArrowRight: 1 }[e.key]
+      // Nas tabelas do Vêr, uma coluna só
+      const steps: Record<string, number> = table ? { ArrowUp: -1, ArrowDown: 1 } : { ArrowUp: -2, ArrowDown: 2, ArrowLeft: -1, ArrowRight: 1 }
+      const step = steps[e.key]
       if (step !== undefined && tab === 'squad') {
         e.preventDefault()
         setSelected((s) => {
-          const next = Math.max(0, Math.min(entries.length - 1, s + step))
+          const next = Math.max(0, Math.min(rowCount - 1, s + step))
           gridRef.current?.querySelector(`[data-row="${next}"]`)?.scrollIntoView({ block: 'nearest' })
           return next
         })
       } else if (e.key === 'Enter' && tab === 'squad') {
-        open(entries[selected])
+        open(table ? players[selected] : entries[selected])
       } else if (e.key === 'Escape' || e.key === 'Backspace') {
         nav.back()
       }
@@ -367,6 +420,53 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
     }
   }
 
+  // Menu do clube, como o ▸ da faixa do CM: reservas/principal, os clubes ligados, a divisão e a nação
+  const openClubMenu = (e: React.MouseEvent) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    setClubMenu(clubMenu ? null : { x: r.left, y: r.bottom + 2 })
+    if (division && !divisionClubs) api.getCompetition(division.id).then((c) => setDivisionClubs(c.clubs), () => setDivisionClubs([]))
+  }
+  const clubMenuItems = (): MenuNode[] => {
+    if (!club) return []
+    const items: MenuNode[] = []
+    if (mine && !reserves) items.push({ label: 'Plantel de Reservas', onSelect: () => nav.go({ kind: 'club', id, reserves: true }) })
+    if (reserves) items.push({ label: 'Plantel Principal', onSelect: () => nav.go({ kind: 'club', id }) })
+    if (club.parent) items.push({ label: 'Equipa Principal', onSelect: () => nav.go({ kind: 'club', id: club.parent!.id }) })
+    for (const a of club.affiliates) items.push({ label: a.shortName, onSelect: () => nav.go({ kind: 'club', id: a.id }) })
+    const others = (divisionClubs ?? [])
+      .filter((c) => c.club.id !== id)
+      .sort((a, b) => a.club.shortName.localeCompare(b.club.shortName))
+      .map((c) => ({ label: c.club.shortName, onSelect: () => nav.go({ kind: 'club', id: c.club.id }) }))
+    if (division) {
+      if (items.length) items.push('separator')
+      items.push({ label: division.name, children: others.length ? others : undefined, onSelect: () => nav.go({ kind: 'competition', id: division.id }) })
+    }
+    if (club.nationId !== null && club.nation) items.push({ label: club.nation, onSelect: () => nav.go({ kind: 'nation', id: club.nationId! }) })
+    return items
+  }
+
+  const filterOptions: MenuOption<string>[] = reserves ? [...FILTER_OPTIONS, 'separator', { key: 'seniors', label: 'Incluir Séniores' }] : FILTER_OPTIONS
+  const filterChecked = (key: string) => {
+    if (key === 'seniors') return filter.seniors
+    const [group, value] = key.split(':')
+    return group === 'line' ? filter.line === value : group === 'side' ? filter.side === value : filter.avail === value
+  }
+  const changeFilter = (key: string) => {
+    const [group, value] = key.split(':')
+    setFilter((f) =>
+      key === 'seniors'
+        ? { ...f, seniors: !f.seniors }
+        : group === 'line'
+          ? { ...f, line: value }
+          : group === 'side'
+            ? { ...f, side: value }
+            : // Disponíveis / Indisponíveis: um clique marca, outro desmarca
+              { ...f, avail: f.avail === value ? '' : (value as Filter['avail']) },
+    )
+    setSelected(0)
+  }
+  const filtered = filter.line || filter.side || filter.avail
+
   return (
     <div className="relative flex h-full flex-col">
       <ScreenHeader
@@ -375,11 +475,11 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
           club && (
             <>
               <span className="text-cm-orange">{club.division?.name ?? club.status ?? ''}</span>
-              {view === 'reserves' && <span className="rounded bg-[#0f3a2a] px-1.5 text-[#4edea3]">Reservas</span>}
+              {reserves && <span className="rounded bg-[#0f3a2a] px-1.5 text-[#4edea3]">Reservas</span>}
             </>
           )
         }
-        title={club?.club.name ?? ''}
+        title={club ? (reserves ? `Reservas ${club.club.name}` : club.club.name) : ''}
         right={
           <>
             {club?.stadium && (
@@ -401,6 +501,17 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
               ) : (
                 <span className="rounded bg-black/60 px-2 py-1 text-[13px] text-cm-yellow">{vacancy.text}</span>
               ))}
+            {club && (
+              <button
+                data-menu-anchor
+                className="cm-purple flex h-8 w-9 items-center justify-center text-[13px]"
+                title="Menu do clube"
+                aria-expanded={!!clubMenu}
+                onClick={openClubMenu}
+              >
+                ▸
+              </button>
+            )}
           </>
         }
       />
@@ -416,7 +527,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
         <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
           <PurpleMenu
             label="Vêr"
-            options={mine ? VIEWS : VIEWS.filter((v) => v.key !== 'reserves')}
+            options={VIEWS}
             value={view}
             onChange={(v) => {
               setView(v)
@@ -435,7 +546,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
           />
           <div className="flex-1" />
           {mine && (
-            <button className="cm-purple h-6 w-40" disabled={!tactics || view !== 'players'} onClick={() => void clearTeam()}>
+            <button className="cm-purple h-6 w-40" disabled={!tactics || !teamView} onClick={() => void clearTeam()}>
               Limpar Equipa
             </button>
           )}
@@ -449,7 +560,14 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
               Números
             </button>
           )}
-          <PurpleMenu label="Filtrar" options={[]} disabled />
+          <PurpleMenu
+            label={filtered || filter.seniors ? 'Filtrar ✓' : 'Filtrar'}
+            options={filterOptions}
+            checked={filterChecked}
+            onChange={changeFilter}
+            disabled={view === 'staff'}
+            align="right"
+          />
         </div>
       )}
 
@@ -460,9 +578,9 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
             {/* Casas da equipa: arraste um jogador para uma casa (ou para outro jogador) para mudar o lugar */}
             <div className="mb-2 flex shrink-0 flex-wrap items-center gap-0.5 rounded-md bg-[#1a1b21] px-3 py-1.5">
               <span className="mr-2 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-cm-orange">
-                {view === 'staff' ? 'Staff' : CRITERIA.find((c) => c.key === criterion)!.label}
+                {view === 'staff' ? 'Staff' : view === 'traditional' ? CRITERIA.find((c) => c.key === criterion)!.label : VIEW_TITLE[view]}
               </span>
-              {mine && tactics && view === 'players' && (
+              {mine && tactics && teamView && (
               <>
                 {tactics.starters.map((s, i) => {
                   const b = drag.bind({ kind: 'starter', index: i }, shortRole(s.role))
@@ -492,17 +610,25 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
               )}
             </div>
             <div ref={gridRef} className="min-h-0 flex-1 overflow-auto">
-              {entries.length ? (
+              {table && players.length ? (
+                <SquadTable
+                  view={view}
+                  rows={players.map((p) => ({ p, place: placeOf(p.id) }))}
+                  selected={selected}
+                  onSelect={setSelected}
+                  onOpen={(pid) => open({ id: pid })}
+                />
+              ) : !table && entries.length ? (
                 <SquadGrid
                   entries={entries}
                   selected={selected}
                   onSelect={setSelected}
                   onOpen={open}
-                  bind={mine && tactics ? drag.bind : undefined}
-                  onToggle={mine && tactics && view === 'players' ? (e) => void toggle(e) : undefined}
+                  bind={mine && tactics && !reserves ? drag.bind : undefined}
+                  onToggle={mine && tactics && teamView ? (e) => void toggle(e) : undefined}
                 />
               ) : (
-                <Empty>Ninguém registado.</Empty>
+                <Empty>{filtered ? 'Nenhum jogador com este filtro.' : 'Ninguém registado.'}</Empty>
               )}
             </div>
           </>
@@ -529,13 +655,17 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
             { key: 'tactics', label: 'Tácticas' },
             { key: 'training', label: 'Treino', disabled: true },
             { key: 'last', label: 'Último Jogo', disabled: !lastMatch },
-            { key: 'division', label: division?.shortName ?? '-', disabled: !division },
+            // Num clube de reservas ou juniores, o atalho leva à Equipa Principal
+            club?.parent
+              ? { key: 'parent', label: 'Equipa Principal' }
+              : { key: 'division', label: division?.shortName ?? '-', disabled: !division },
             { key: 'history', label: 'Historial' },
           ]}
           active={tab === 'last' ? 'last' : ''}
           onChange={(k) => {
             if (k === 'last') setTab('last')
             if (k === 'division' && division) nav.go({ kind: 'competition', id: division.id })
+            if (k === 'parent' && club?.parent) nav.go({ kind: 'club', id: club.parent.id })
             if (k === 'tactics') nav.go({ kind: 'tactics', id })
             if (k === 'history') nav.go({ kind: 'clubHistory', id })
           }}
@@ -543,6 +673,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
       {drag.ghost}
+      {clubMenu && <CascadeMenu x={clubMenu.x} y={clubMenu.y} items={clubMenuItems()} onClose={() => setClubMenu(null)} />}
     </div>
   )
 }

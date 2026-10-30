@@ -12,4 +12,8 @@ fit: number | null,
 /**
  * Condição (0–100) e moral (1–20) num jogo em curso.
  */
-condition: number | null, morale: number | null, injured: boolean, suspended: boolean, };
+condition: number | null, morale: number | null, injured: boolean, suspended: boolean, 
+/**
+ * Jogador-chave do plantel (o `*` depois do nome); só num jogo em curso.
+ */
+key: boolean, };

@@ -156,10 +156,13 @@ export function PurpleMenu<T extends string>({
   align = 'left',
   trigger,
   buttonClass,
+  checked,
 }: {
   label: string
   options: MenuOption<T>[]
   value?: T
+  /** Várias marcas ao mesmo tempo (um ✓ por grupo, como o Filtrar do plantel), no lugar de `value`. */
+  checked?: (key: T) => boolean
   onChange?: (key: T) => void
   disabled?: boolean
   /** Lado por onde a lista abre; "right" para botões encostados à direita do ecrã. */
@@ -213,19 +216,24 @@ export function PurpleMenu<T extends string>({
             o === 'separator' ? (
               <div key={`s${i}`} className="mx-2 my-1 border-t border-[#2f6b52]" />
             ) : (
-              <button
-                key={o.key}
-                onClick={() => {
-                  onChange?.(o.key)
-                  setOpen(false)
-                }}
-                className={`flex h-6 w-full items-center gap-2 px-3 text-left hover:!bg-[#1d4d3a] hover:text-cm-yellow ${
-                  o.key === value ? 'font-bold text-cm-yellow' : 'text-[#e3e1e9]'
-                }`}
-              >
-                <span className="w-3 shrink-0 text-[11px]">{o.key === value ? '✓' : ''}</span>
-                {o.label}
-              </button>
+              (() => {
+                const on = checked ? checked(o.key) : o.key === value
+                return (
+                  <button
+                    key={o.key}
+                    onClick={() => {
+                      onChange?.(o.key)
+                      setOpen(false)
+                    }}
+                    className={`flex h-6 w-full items-center gap-2 px-3 text-left hover:!bg-[#1d4d3a] hover:text-cm-yellow ${
+                      on ? 'font-bold text-cm-yellow' : 'text-[#e3e1e9]'
+                    }`}
+                  >
+                    <span className="w-3 shrink-0 text-[11px]">{on ? '✓' : ''}</span>
+                    {o.label}
+                  </button>
+                )
+              })()
             ),
           )}
         </div>
