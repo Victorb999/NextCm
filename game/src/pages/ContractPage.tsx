@@ -2,8 +2,10 @@ import { FileText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
+import type { ContractExtras } from '../bindings/ContractExtras'
 import type { ContractReply } from '../bindings/ContractReply'
 import type { ContractTerms } from '../bindings/ContractTerms'
+import ContractExtrasPanel from '../components/ContractExtrasPanel'
 import MoneySelect from '../components/MoneySelect'
 import { BottomBar, ErrorBox, Link, Panel, ScreenHeader, Tabs } from '../components/Screen'
 import { money, monthYear, wage as wageText, wagePeriod } from '../format'
@@ -97,6 +99,11 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
   const [w, setW] = useState(terms.wage)
   const [bonus, setBonus] = useState(terms.bonus)
   const [years, setYears] = useState(terms.years)
+  const [tab, setTab] = useState<'basic' | 'bonuses' | 'clauses'>('basic')
+  // Prémios e cláusulas: a contraproposta em curso, senão o que ele exige
+  const blank = (e: ContractExtras) =>
+    !e.goalBonus && !e.assistBonus && !e.cleanSheetBonus && e.minFee === null && !e.relegation && !e.nonPromotion && !e.managerJob
+  const [extras, setExtras] = useState<ContractExtras>(blank(terms.extras) ? terms.asks : terms.extras)
   const [reply, setReply] = useState<ContractReply | null>(null)
   const [error, setError] = useState<string | null>(null)
   // O que ele pede agora (muda com a resposta)
@@ -106,7 +113,7 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
   const offer = async () => {
     try {
       // O − / + no período das Definições deixa casas decimais: o core recebe euros inteiros
-      const r = await api.negotiate(terms.personId, terms.role, Math.round(w), Math.round(bonus), years)
+      const r = await api.negotiate(terms.personId, terms.role, Math.round(w), Math.round(bonus), years, extras)
       setReply(r)
       setError(null)
       const info = await api.gameInfo()
@@ -134,11 +141,11 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
       <Tabs
         tabs={[
           { key: 'basic', label: 'Básico' },
-          { key: 'bonuses', label: 'Prémios', disabled: true },
-          { key: 'clauses', label: 'Cláusulas', disabled: true },
+          { key: 'bonuses', label: blank(terms.asks) ? 'Prémios' : 'Prémios *' },
+          { key: 'clauses', label: 'Cláusulas' },
         ]}
-        active="basic"
-        onChange={() => {}}
+        active={tab}
+        onChange={(k) => setTab(k as typeof tab)}
       />
       <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
         <Panel title="Situação" className="shrink-0">
@@ -160,6 +167,10 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
             </div>
           </div>
         </Panel>
+        {tab !== 'basic' && (
+          <ContractExtrasPanel tab={tab} value={extras} asks={terms.asks} suggested={terms.suggested} disabled={over} onChange={setExtras} />
+        )}
+        {tab === 'basic' && (
         <Panel title="Proposta" className="shrink-0">
           <div className="cm-zebra">
             <TermRow label="Função" value={ROLE_SHORT[terms.role] ?? terms.role} onPlus={over ? undefined : onRole} />
@@ -184,6 +195,7 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
             <TermRow label="Tornar proposta pública" value="Não" />
           </div>
         </Panel>
+        )}
         <ErrorBox>{error}</ErrorBox>
       </div>
       <BottomBar

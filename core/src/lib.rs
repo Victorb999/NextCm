@@ -27,7 +27,9 @@ pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, Con
 pub use engine::{TeamStrength, expected_goals};
 pub use finance::{ClubFinances, FinanceLine, SeasonBooks};
 pub use game::CareerClub;
+pub use game::ContractExtras;
 pub use game::LineupCheck;
+pub use game::MatchSheet;
 pub use game::NewsLink;
 pub use game::WorldTransfers;
 pub use game::{

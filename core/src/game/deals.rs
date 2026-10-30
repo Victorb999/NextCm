@@ -11,6 +11,7 @@ use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use ts_rs::TS;
 
+use super::contract_extras::ContractExtras;
 use super::market::{
     MIN_ROLE, contract_until, contract_years, leaves_europe, leaving_europe, loan_until, money_text, role_of, window_open,
 };
@@ -198,6 +199,11 @@ pub struct ContractTerms {
     pub budget: i64,
     #[ts(type = "number")]
     pub max_wage: i64,
+    /// Prémios e cláusulas: o que ele exige (o "*" do CM), os valores sugeridos para o resto
+    /// e os da proposta em curso (a contraproposta, se houver).
+    pub asks: ContractExtras,
+    pub suggested: ContractExtras,
+    pub extras: ContractExtras,
 }
 
 /// Resposta do jogador a uma proposta de contrato.
@@ -811,8 +817,8 @@ impl Game {
                 Vec::new(),
             ),
             (true, "confirm") => (
-                format!("{name} chegou a acordo com o {} ({terms}). Confirme a transferência até {until}.", buyer.short_name),
-                vec![action("confirm", "Confirmar Transferência"), action("reject", "Cancelar Negócio")],
+                format!("Vender {name} ao {} por {terms}? Confirme até {until}.", buyer.short_name),
+                vec![action("confirm", "Confirmar"), action("reject", "Cancelar Negócio")],
             ),
             (_, "done") => ("Negócio concluído.".into(), Vec::new()),
             (_, "rejected") => ("Proposta recusada.".into(), Vec::new()),
@@ -1066,6 +1072,9 @@ impl Game {
                     self.post_news(format!("{name} desiludido"), text, Some(id));
                 }
             }
+            (true, "pending" | "countered", "reject" | "counter") if self.clause_paid(&o)? => {
+                return Err(Error::Invalid("A cláusula de venda foi paga: o clube não pode recusar.".into()));
+            }
             (true, "pending" | "countered", "reject") => {
                 self.set_status(id, "rejected", None)?;
                 if let Some(text) = self.letdown(&o)? {
@@ -1136,9 +1145,14 @@ impl Game {
 
     /// Venda (ou empréstimo) de um jogador do treinador ao clube que propôs; devolve o
     /// título e o texto da mensagem.
+    /// A proposta paga a cláusula de venda do contrato do jogador.
+    fn clause_paid(&self, o: &Offer) -> Result<bool> {
+        Ok(o.kind == "transfer" && self.contract_extras(o.person)?.and_then(|e| e.min_fee).is_some_and(|fee| o.fee >= fee))
+    }
+
     /// Venda aceite pelo treinador: o comprador negoceia com o jogador uns dias. Devolve a data
     /// da resposta.
-    fn start_sale_talks(&mut self, o: &Offer) -> Result<String> {
+    pub(super) fn start_sale_talks(&mut self, o: &Offer) -> Result<String> {
         let days = 2 + (self.deal_rng(o.person, 0x7A1C).next_u32() % (SALE_TALK_DAYS + 1)) as i32;
         let until = date::add_days(&self.date, days).unwrap_or_default();
         self.set_status(o.id, "talks", Some(&until))?;
@@ -1169,14 +1183,23 @@ impl Game {
                 self.offer_news(fresh, next_id, format!("{name} recusa o {buyer}"), body, o.id);
                 continue;
             }
+            if self.clause_paid(&o)? {
+                let (title, body) = self.complete_sale(&o, o.fee)?;
+                self.offer_news(fresh, next_id, title, body, o.id);
+                continue;
+            }
             let until = date::add_days(&today, SALE_CONFIRM_DAYS).unwrap_or_default();
             self.set_status(o.id, "confirm", Some(&until))?;
+            // Como no CM: o comprador "prepara-se para comprar" e falta a confirmação do treinador
             let body = format!(
-                "{name} chegou a acordo com o {buyer} sobre o contrato. Confirme a transferência ({}) até {}.",
+                "O negócio da transferência no valor de {} que corresponde à mudança de {name} {} para {buyer} pode agora ser concretizado.
+
+Confirme até {}.",
                 self.terms_text(&o.deal_terms())?,
+                self.club(self.club_id).short_name,
                 cm_date(&until)
             );
-            self.offer_news(fresh, next_id, format!("{name} acorda com o {buyer}"), body, o.id);
+            self.offer_news(fresh, next_id, format!("{buyer} prepara-se para comprar {name}"), body, o.id);
         }
         for o in self.offers_where("seller = ?1 AND status = 'confirm' AND answer_on < ?2", params![self.club_id, today])? {
             self.set_status(o.id, "collapsed", None)?;
@@ -1278,6 +1301,7 @@ impl Game {
         let precontract = matches!(party, Party::Precontract);
         let free = matches!(party, Party::Free(_) | Party::Precontract);
         let d = self.demand(person, &f, chosen, renewal, free)?;
+        let (asks, suggested) = self.extras_demand(person, &f, d.wage)?;
         let ends = (1..=5).map(|y| self.contract_end(&f, renewal || precontract, y)).collect::<Result<Vec<_>>>()?;
         let fee = if let Party::Transfer(o) = &party { o.fee } else { 0 };
         Ok(ContractTerms {
@@ -1303,6 +1327,9 @@ impl Game {
             cash: self.cash_of(self.club_id)?,
             budget: self.transfer_budget()?,
             max_wage: self.board_view()?.max_wage,
+            asks,
+            suggested,
+            extras: if self.open_contract(person)?.is_some() { self.talk_extras(person)? } else { ContractExtras::default() },
         })
     }
 
@@ -1378,6 +1405,7 @@ impl Game {
             let body = format!("O pedido de {name} para sair ficou sem resposta: ele sente que não o deixam sair.");
             self.offer_news(fresh, next_id, format!("{name} frustrado"), body, o.id);
         }
+        self.release_clause_offers(fresh, next_id)?;
         self.sale_talks_day(fresh, next_id)?;
         self.contract_replies(fresh, next_id)?;
         self.precontracts_due(fresh, next_id)?;
@@ -1826,9 +1854,9 @@ mod tests {
             g.contract_replies(&mut fresh, &mut id).unwrap();
             fresh
         };
-        let reply = g.negotiate(buy, &t.role, 100, 0, t.years).unwrap();
+        let reply = g.negotiate(buy, &t.role, 100, 0, t.years, &ContractExtras::default()).unwrap();
         assert!(reply.pending && !reply.accepted && !reply.over, "{}", reply.text);
-        assert!(g.negotiate(buy, &t.role, 100, 0, t.years).is_err(), "uma proposta de cada vez");
+        assert!(g.negotiate(buy, &t.role, 100, 0, t.years, &ContractExtras::default()).is_err(), "uma proposta de cada vez");
         assert!(next_day(&mut g).iter().any(|n| n.title.starts_with("Contraproposta")));
         let offer = g.open_contract(buy).unwrap().unwrap();
         assert_eq!(offer.status, "countered");
@@ -1854,11 +1882,11 @@ mod tests {
         ).unwrap();
         let role = g.contract_terms(mine, None).unwrap().role;
         for k in 0..3 {
-            g.negotiate(mine, &role, 100, 0, 2).unwrap();
+            g.negotiate(mine, &role, 100, 0, 2, &ContractExtras::default()).unwrap();
             let news = next_day(&mut g);
             assert_eq!(news.iter().any(|n| n.title.contains("rompe")), k == 2);
         }
-        assert!(g.negotiate(mine, &role, 10_000_000, 0, 2).is_err());
+        assert!(g.negotiate(mine, &role, 10_000_000, 0, 2, &ContractExtras::default()).is_err());
         assert!(!g.transfer_view(mine).unwrap().can_renew);
         let other = g.world.conn.query_row(
             "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ? AND p.is_player = 1 AND p.id <> ? AND p.id <> ? ORDER BY pl.current_ability DESC LIMIT 1",
@@ -1871,7 +1899,7 @@ mod tests {
         assert!(t.renewal && t.roles.iter().filter(|r| !r.allowed).all(|r| r.youth));
         let wage = t.wage * 95 / 100;
         let bonus = t.bonus + (t.wage - wage) * 52 * t.years as i64 + 10_000;
-        assert!(g.negotiate(other, &t.role, wage, bonus, t.years).unwrap().pending);
+        assert!(g.negotiate(other, &t.role, wage, bonus, t.years, &t.asks).unwrap().pending);
         assert!(next_day(&mut g).iter().any(|n| n.title.contains("aceita o contrato")));
         let offer = g.open_contract(other).unwrap().unwrap();
         assert_eq!(offer.status, "agreed");
@@ -1925,7 +1953,7 @@ mod tests {
         g.world.conn.execute("UPDATE people SET contract_expires = ? WHERE id = ?", params![expiry, pre]).unwrap();
         let t = g.contract_terms(pre, None).unwrap();
         assert!(t.precontract && t.fee == 0);
-        g.negotiate(pre, &t.role, t.wage, t.bonus, t.years).unwrap();
+        g.negotiate(pre, &t.role, t.wage, t.bonus, t.years, &t.asks).unwrap();
         // Com outras propostas pode demorar até 5 dias; tira-se o rival para o teste ser certo
         g.world.conn.execute("UPDATE contract_talks SET rival = NULL, rival_wage = NULL WHERE person_id = ?", [pre]).unwrap();
         for _ in 0..6 {
@@ -1955,7 +1983,7 @@ mod tests {
             )
             .unwrap();
         let t = g.contract_terms(free, None).unwrap();
-        g.negotiate(free, &t.role, t.wage, t.bonus, t.years).unwrap();
+        g.negotiate(free, &t.role, t.wage, t.bonus, t.years, &t.asks).unwrap();
         let rival: i32 = g
             .world
             .conn

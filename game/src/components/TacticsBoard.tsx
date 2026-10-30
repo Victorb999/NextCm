@@ -25,11 +25,12 @@ const COL = {
   place: 'w-12 shrink-0',
   pos: 'w-28 shrink-0 truncate',
   cond: 'w-12 shrink-0 text-right',
+  rating: 'w-10 shrink-0 text-right',
   stat: 'w-12 shrink-0 text-center',
 }
 
 /** Cabeçalho das colunas da lista (onze, banco, resto do plantel). */
-export function RowHeader({ place, action }: { place: string; action?: string }) {
+export function RowHeader({ place, action, rating }: { place: string; action?: string; rating?: boolean }) {
   return (
     <div className="flex h-7 items-center gap-2 bg-black/40 px-3 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#86869a]">
       <span className={COL.num}>Nº</span>
@@ -37,6 +38,7 @@ export function RowHeader({ place, action }: { place: string; action?: string })
       <span className="flex-1">Jogador</span>
       <span className={COL.pos}>Posição</span>
       <span className={COL.cond}>Cond</span>
+      {rating && <span className={COL.rating}>Nota</span>}
       <span className={COL.stat}>Est</span>
       {action !== undefined && <span className="w-[84px] shrink-0 text-right">{action}</span>}
     </div>
@@ -55,6 +57,8 @@ export function Row({
   captain,
   action,
   highlight,
+  rating,
+  note,
 }: {
   p: TacticPlayer
   kind: 'starter' | 'bench' | 'reserve'
@@ -74,6 +78,10 @@ export function Row({
   action?: ReactNode
   /** "wait": o jogador escolhido para a troca; "pick": pode ser o outro da troca. */
   highlight?: 'wait' | 'pick'
+  /** A meio do jogo: a nota na partida (a coluna só aparece quando vem). */
+  rating?: number | null
+  /** Um aviso curto depois do nome ("sai no Ok"). */
+  note?: ReactNode
 }) {
   const text = kind === 'reserve' ? 'text-[#9a9aa6]' : 'text-white'
   const toggle =
@@ -132,9 +140,11 @@ export function Row({
             I
           </span>
         )}
+        {note && <span className="shrink-0 text-[11px] font-bold text-[#ff6060]">{note}</span>}
       </span>
       <span className={`${COL.pos} text-[13px] text-[#c8c8d0]`}>{p.position}</span>
       <span className={`${COL.cond} font-semibold tabular-nums ${conditionColour(p.condition)}`}>{p.condition ?? 100}%</span>
+      {rating !== undefined && <span className={`${COL.rating} font-semibold tabular-nums text-cm-yellow`}>{rating ?? '-'}</span>}
       <span className={COL.stat}>
         {p.injured || p.suspended ? (
           <span className="rounded-[3px] bg-[#9c0000] px-1.5 text-[11px] font-bold text-white">{p.injured ? 'Les' : 'Sus'}</span>

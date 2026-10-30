@@ -10,11 +10,14 @@ import type { LiveView } from '../bindings/LiveView'
 import type { StandingRow } from '../bindings/StandingRow'
 import { initials, longDate, shortListName } from '../format'
 import { useGame } from '../game'
+import { liveLineup } from '../matchLineup'
+import { useNav } from '../nav'
 import { MATCH_SPEEDS, getSettings, saveSettings, useSettings } from '../settings'
 import { conditionColour } from '../tactics'
 import LiveTactics from './LiveTactics'
 import TalkPanel from './TalkPanel'
-import { BottomBar, Panel, ScreenHeader } from './Screen'
+import MatchLineups from './MatchLineups'
+import { BottomBar, Link, Panel, ScreenHeader } from './Screen'
 
 const clubStyle = (c: ClubRef) => (c.fg && c.bg ? { color: c.fg, background: c.bg } : { color: '#fff', background: '#3a3a3a' })
 
@@ -83,8 +86,12 @@ function DayList({
     const r = table.find((r) => r.club.id === id)
     return r && r.played > 0 ? `${r.position}º` : ''
   }
+  const nav = useNav()
+  // Os clubes são ligações; com resultado, o placar abre a ficha da partida (esconde o dia de jogo, como qualquer navegação)
   const name = (c: ClubRef, align: string) => (
-    <span className={`flex-1 truncate text-[17px] font-semibold ${align} ${c.id === own ? 'text-cm-yellow' : 'text-white'}`}>{c.shortName}</span>
+    <span className={`flex-1 truncate text-[17px] font-semibold ${align} ${c.id === own ? 'text-cm-yellow' : 'text-white'}`}>
+      <Link onClick={() => nav.go({ kind: 'club', id: c.id })}>{c.shortName}</Link>
+    </span>
   )
   return (
     <div className="cm-backdrop absolute inset-0 z-50 flex flex-col">
@@ -103,9 +110,17 @@ function DayList({
             <div key={f.id} className="flex h-[32px] items-center gap-3 px-4">
               <span className="cm-cell w-11 shrink-0 text-center font-mono text-[12px] leading-[22px] text-white">{pos(f.home.id)}</span>
               {name(f.home, 'text-right')}
-              <span className="w-16 shrink-0 rounded bg-black/40 text-center font-mono text-[17px] font-bold leading-[26px] text-cm-magenta">
-                {scores && f.homeGoals !== null ? `${f.homeGoals}:${f.awayGoals}` : 'v'}
-              </span>
+              {scores && f.homeGoals !== null ? (
+                <button
+                  onClick={() => nav.go({ kind: 'match', id: f.id })}
+                  title="Ver a ficha da partida"
+                  className="w-16 shrink-0 rounded bg-black/40 text-center font-mono text-[17px] font-bold leading-[26px] text-cm-magenta hover:bg-cm-sel hover:text-white"
+                >
+                  {f.homeGoals}:{f.awayGoals}
+                </button>
+              ) : (
+                <span className="w-16 shrink-0 rounded bg-black/40 text-center font-mono text-[17px] font-bold leading-[26px] text-cm-magenta">v</span>
+              )}
               {name(f.away, 'text-left')}
               <span className="cm-cell w-11 shrink-0 text-center font-mono text-[12px] leading-[22px] text-white">{pos(f.away.id)}</span>
             </div>
@@ -469,29 +484,14 @@ function TeamData({ team }: { team: LiveTeam }) {
   )
 }
 
+/** "Classificações Jogadores": as duas listas como no CM (quem saiu fica no lugar, quem entrou em baixo). */
 function Ratings({ view, motm }: { view: LiveView; motm: number | null }) {
-  const col = (team: LiveTeam) => (
-    <div className="min-w-0 flex-1">
-      <div className="mb-1 flex h-8 items-center justify-center border border-black font-title text-[18px] font-bold" style={clubStyle(team.club)}>
-        {team.club.shortName}
-      </div>
-      {[...team.players, ...team.out].map((p) => (
-        <div key={p.id} className={`flex h-[21px] items-center gap-2 text-[13px] ${p.id === motm ? 'border border-cm-yellow bg-cm-yellow/15' : ''}`}>
-          <span className="w-10 shrink-0 text-cm-orange">{p.role?.replace(' ', '') ?? ''}</span>
-          <span className={`min-w-0 flex-1 truncate ${p.id === motm ? 'font-bold text-cm-yellow' : 'text-white'}`}>
-            {fullName(p)}
-            {p.id === motm && <span className="ml-2 text-[11px] uppercase">Melhor em campo</span>}
-          </span>
-          <span className="w-6 shrink-0 text-right font-bold text-cm-magenta">{p.rating ?? '-'}</span>
-        </div>
-      ))}
-    </div>
-  )
   return (
-    <div className="flex gap-6 p-3">
-      {col(view.home)}
-      {col(view.away)}
-    </div>
+    <MatchLineups
+      home={{ club: view.home.club, entries: liveLineup(view.home) }}
+      away={{ club: view.away.club, entries: liveLineup(view.away) }}
+      motm={motm}
+    />
   )
 }
 

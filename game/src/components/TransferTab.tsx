@@ -8,6 +8,7 @@ import { useGame } from '../game'
 import { useNav } from '../nav'
 import { budgetText } from '../transferTerms'
 import { LoanDialog, TransferOfferDialog } from './DealDialogs'
+import { GREEN_FIELD, Overlay } from './Dialog'
 import { Empty, Link } from './Screen'
 
 // Painel Mercado da aba Contrato & Transferência do perfil (jogo em curso), como no CM:
@@ -27,6 +28,9 @@ export function OfferButtons({
   const game = useGame()
   const [error, setError] = useState<string | null>(null)
   const [counter, setCounter] = useState(false)
+  // A venda à espera do treinador: "Confirmar" abre a pergunta do CM (Não / Adiar / Sim)
+  const [confirmSale, setConfirmSale] = useState(false)
+  const selling = offer.incoming && offer.status === 'confirm'
   // "Nova Proposta" / "Novo Pedido": a aba do jogador dá o valor e o orçamento
   const [again, setAgain] = useState<TransferView | null>(null)
   const done = async (o: OfferView) => {
@@ -60,7 +64,8 @@ export function OfferButtons({
     }
   }
   const click = (key: string) => {
-    if (key === 'counter') setCounter(true)
+    if (selling && key === 'confirm') setConfirmSale(true)
+    else if (key === 'counter') setCounter(true)
     else if (key === 'negotiate') onNegotiate()
     else if (key === 'offer') api.transferView(offer.personId).then(setAgain, (e) => setError(String(e)))
     else void answer(key)
@@ -70,7 +75,7 @@ export function OfferButtons({
       <div className="font-title text-[19px] text-white">{offer.text}</div>
       {offer.actions.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
-          {offer.actions.map((a) => (
+          {offer.actions.filter((a) => !selling || a.key === 'confirm').map((a) => (
             <button
               key={a.key}
               className="cm-purple h-7 min-w-36"
@@ -82,6 +87,29 @@ export function OfferButtons({
         </div>
       )}
       {error && <div className="mt-1 text-[15px] font-bold text-[#ff5050]">{error}</div>}
+      {confirmSale && (
+        <Overlay>
+          <div className="flex w-[640px] max-w-full flex-col border-2 border-[#1d4a20] bg-[#0b3a10] p-2 shadow-[4px_4px_0_rgba(0,0,0,0.6)]">
+            <div className="flex h-12 items-center justify-center border-2 border-[#333] bg-black font-title text-2xl text-white">
+              Confirmar Proposta Transferência
+            </div>
+            <div className="mt-1.5 border-2 border-[#1d3a1f] px-3 py-8 text-center font-title text-[19px] text-white" style={{ background: GREEN_FIELD }}>
+              Vender {offer.name} ao {offer.buyer.shortName} por {money(offer.fee)}?
+            </div>
+            <div className="mt-2 flex gap-1">
+              <button className="cm-purple h-9 flex-1 font-title text-xl" onClick={() => (setConfirmSale(false), void answer('reject'))}>
+                Não
+              </button>
+              <button className="cm-purple h-9 flex-1 font-title text-xl" title="Decidir depois (até ao prazo)" onClick={() => setConfirmSale(false)}>
+                Adiar
+              </button>
+              <button className="cm-purple h-9 flex-1 font-title text-xl" onClick={() => (setConfirmSale(false), void answer('confirm'))}>
+                Sim
+              </button>
+            </div>
+          </div>
+        </Overlay>
+      )}
       {counter && (
         <TransferOfferDialog
           title="Pedir Mais"

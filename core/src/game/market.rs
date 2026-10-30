@@ -40,6 +40,8 @@ const SENIOR_AGE: i32 = 21;
 const MAX_DEALS: usize = 3;
 /// Empréstimos de jovens por clube numa janela.
 const MAX_LOANS_OUT: usize = 2;
+/// O clube que recebe um emprestado: até isto de reputação abaixo do que empresta.
+const LOAN_REP_GAP: i32 = 4000;
 /// Parte do saldo que um clube gasta numa janela, e o teto da folha sobre as receitas.
 const BUDGET_SHARE: f64 = 0.5;
 /// Dívida (saldo negativo sobre as receitas de uma época) a partir da qual um clube da IA vende
@@ -728,7 +730,8 @@ impl Game {
     }
 
     /// Empréstimo de um jovem (até 21 anos, fora dos 18 melhores) de um clube grande a um mais
-    /// pequeno que precise da posição e em que ele jogue.
+    /// pequeno que precise da posição e em que ele jogue: do mesmo país e, se nenhum servir, do
+    /// mesmo continente (nunca o Man Utd ao Ituano), e não muito abaixo em reputação.
     fn ai_loan_out(
         &mut self,
         club: i32,
@@ -753,30 +756,43 @@ impl Game {
         let player = youth[(rng.next_u64() % youth.len() as u64) as usize];
         // Quem recebe: um clube gerido mais pequeno, com a janela aberta, plantel curto e onde ele jogue
         let md = self.date[5..].to_string();
-        let borrowers: Vec<(i32, i32, Option<i32>)> = self
+        let (nation, continent): (Option<i32>, Option<i32>) = self.world.conn.query_row(
+            "SELECT c.nation_id, n.continent_id FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id WHERE c.id = ?",
+            [club],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        let borrowers: Vec<(i32, Option<i32>, Option<i32>, Option<i32>)> = self
             .world
             .conn
             .prepare_cached(&format!(
-                "SELECT id, COALESCE(reputation, 0), division_id FROM clubs WHERE division_id IN ({}) AND reputation < ? AND id <> ? ORDER BY id",
+                "SELECT c.id, c.division_id, c.nation_id, n.continent_id FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id
+                 WHERE c.division_id IN ({}) AND c.reputation < ? AND c.reputation >= ? AND c.id <> ? ORDER BY c.id",
                 self.managed_ids()
             ))?
-            .query_map(params![rep - 1000, self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .query_map(params![rep - 1000, rep - LOAN_REP_GAP, self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
             .collect::<rusqlite::Result<_>>()?;
-        let mut fits: Vec<(i32, SeasonKind)> = Vec::new();
-        for (b, _, division) in borrowers {
+        // Os que servem, primeiro no mesmo país (0) e depois no mesmo continente (1)
+        let mut fits: Vec<(usize, i32, SeasonKind)> = Vec::new();
+        for (b, division, b_nation, b_continent) in borrowers {
+            let tier = if b_nation.is_some() && b_nation == nation {
+                0
+            } else if b_continent.is_some() && b_continent == continent {
+                1
+            } else {
+                continue;
+            };
             let kind = self.club_kind(division);
             if !window_open(kind, &md) {
                 continue;
             }
             let (squad, count, _, level) = market.shape(b);
             if squad < 28 && player.ca + 10 >= level && count[player.role] < MIN_ROLE[player.role] + 3 {
-                fits.push((b, kind));
+                fits.push((tier, b, kind));
             }
         }
-        if fits.is_empty() {
-            return Ok(None);
-        }
-        let (to, kind) = fits[(rng.next_u64() % fits.len() as u64) as usize];
+        let Some(best) = fits.iter().map(|f| f.0).min() else { return Ok(None) };
+        fits.retain(|f| f.0 == best);
+        let (_, to, kind) = fits[(rng.next_u64() % fits.len() as u64) as usize];
         let until = loan_until(kind, &self.date);
         self.world
             .conn
@@ -1103,6 +1119,19 @@ mod tests {
                 .unwrap();
             assert_eq!(club, last.0, "jogador {id}");
         }
+        // Os empréstimos da IA ficam no continente de quem empresta (nunca o Man Utd ao Ituano)
+        let crossed: i64 = g
+            .world
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM transfers t JOIN clubs a ON a.id = t.from_club JOIN clubs b ON b.id = t.to_club
+                 JOIN nations na ON na.id = a.nation_id JOIN nations nb ON nb.id = b.nation_id
+                 WHERE t.kind = 'loan' AND t.date > '2025-07-01' AND na.continent_id <> nb.continent_id",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(crossed, 0, "empréstimos para outro continente");
         // Quem acabou de chegar não volta a ser vendido na mesma janela
         let flips: i64 = g
             .world

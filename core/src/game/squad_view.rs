@@ -118,6 +118,10 @@ impl Game {
             if conn.query_row("SELECT 1 FROM apps_bonus WHERE person_id = ?", [p.id], |_| Ok(())).optional()?.is_some() {
                 clauses.push("Prémio por jogos".into());
             }
+            // Os prémios e cláusulas do contrato (só nos contratos do treinador)
+            if let Some(e) = self.contract_extras(p.id)? {
+                clauses.extend(e.labels());
+            }
             p.clauses = clauses;
             p.value = if p.free { None } else { self.world.market_value_of(p.id, &self.date)? };
             p.form = self.form_of(p.id)?;

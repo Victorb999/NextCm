@@ -11,8 +11,10 @@ use crate::{
 };
 
 use crate::CareerClub;
+use crate::ContractExtras;
 use crate::LeagueNation;
 use crate::LineupCheck;
+use crate::MatchSheet;
 use crate::NewsLink;
 use crate::PressView;
 use crate::WorldTransfers;
@@ -364,6 +366,11 @@ impl Session {
         self.game_mut()?.set_squad_numbers(&numbers)
     }
 
+    /// A ficha de uma partida jogada.
+    pub fn match_sheet(&self, id: i32) -> Result<MatchSheet> {
+        self.game()?.match_sheet(id)
+    }
+
     /// A tela "<Clube> - Treinos".
     pub fn training_view(&self) -> Result<TrainingView> {
         self.game()?.training_view()
@@ -461,9 +468,9 @@ impl Session {
     }
 
     /// Proposta de contrato (renovação ou contratação).
-    pub fn negotiate(&mut self, id: i32, role: String, wage: i64, bonus: i64, years: i32) -> Result<ContractReply> {
+    pub fn negotiate(&mut self, id: i32, role: String, wage: i64, bonus: i64, years: i32, extras: ContractExtras) -> Result<ContractReply> {
         let g = self.game_mut()?;
-        let r = g.negotiate(id, &role, wage, bonus, years)?;
+        let r = g.negotiate(id, &role, wage, bonus, years, &extras)?;
         g.set_shortlist(id, true)?;
         Ok(r)
     }

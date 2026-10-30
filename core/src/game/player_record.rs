@@ -4,6 +4,8 @@
 //! do resto do contrato, como no CM.
 
 use rusqlite::{OptionalExtension, params};
+use serde::Serialize;
+use ts_rs::TS;
 
 use std::collections::BTreeMap;
 
@@ -14,6 +16,36 @@ use crate::person::{HonourLine, InjuryLine, PersonProfile, SeasonLine, SeasonRec
 use crate::regulation::{self, SeasonKind, StageKind};
 use crate::squad::Event;
 use crate::{Error, Result, date};
+
+/// Um jogador na ficha da partida (as "Classificações Jogadores" do CM).
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SheetLine {
+    pub id: i32,
+    pub name: String,
+    pub number: Option<i32>,
+    pub rating: f64,
+    pub goals: i32,
+    pub assists: i32,
+    /// Homem do jogo.
+    pub mom: bool,
+    /// Minuto em que entrou (0 = titular) e em que saiu; `None` em jogos de antes do save 34.
+    pub on: Option<i32>,
+    pub off: Option<i32>,
+    pub yellow: bool,
+    pub red: bool,
+}
+
+/// A ficha de uma partida jogada: os dois lados, titulares primeiro e depois quem entrou.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchSheet {
+    pub fixture: crate::Fixture,
+    pub home: Vec<SheetLine>,
+    pub away: Vec<SheetLine>,
+}
 
 /// Notas na Forma do perfil.
 const FORM_GAMES: usize = 5;
@@ -106,10 +138,15 @@ impl Game {
     /// cortes, dribles, remates); o homem do jogo é a melhor nota dos dois lados.
     pub(super) fn record_match(&self, fixture: i32, competition: i32, clubs: [i32; 2], lines: [Vec<PlayerLine>; 2]) -> Result<()> {
         let mom = lines.iter().flatten().max_by(|a, b| a.rating.total_cmp(&b.rating)).map(|l| l.id);
+        // Os prémios por golo, assistência e jogo sem sofrer golos dos contratos do treinador
+        for side in 0..2 {
+            let conceded: u32 = lines[1 - side].iter().map(|l| l.goals as u32).sum();
+            self.pay_match_bonuses(clubs[side], &lines[side], conceded)?;
+        }
         let mut insert = self.world.conn.prepare_cached(
             "INSERT INTO player_matches (person_id, fixture, date, competition, club, rating, goals, assists, sub, mom,
-                                         passes, passes_ok, tackles, dribbles, shots, on_target)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                         passes, passes_ok, tackles, dribbles, shots, on_target, minute_on, minute_off, cards)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )?;
         for (side, players) in lines.iter().enumerate() {
             for l in players {
@@ -129,11 +166,67 @@ impl Game {
                     l.stats.tackles,
                     l.stats.dribbles,
                     l.stats.shots,
-                    l.stats.on_target
+                    l.stats.on_target,
+                    l.on,
+                    l.off,
+                    if l.red { 2 } else { l.yellow as i32 }
                 ])?;
             }
         }
         Ok(())
+    }
+
+    /// A ficha de uma partida jogada, pelos jogos gravados de cada jogador.
+    pub fn match_sheet(&self, fixture: i32) -> Result<MatchSheet> {
+        let m = self.matches.iter().find(|m| m.id == fixture).ok_or_else(|| Error::NotFound(format!("jogo {fixture}")))?;
+        if m.result.is_none() {
+            return Err(Error::Invalid("Este jogo ainda não se jogou.".into()));
+        }
+        type Row = (i32, i32, String, Option<i32>, f64, i32, i32, bool, Option<i32>, Option<i32>, i32, bool);
+        let rows: Vec<Row> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT m.person_id, m.club, COALESCE((SELECT nickname FROM nicknames n WHERE n.person_id = p.id), p.list_name),
+                        pl.squad_number, m.rating, m.goals, m.assists, m.mom, m.minute_on, m.minute_off, m.cards, m.sub
+                 FROM player_matches m JOIN people p ON p.id = m.person_id LEFT JOIN players pl ON pl.person_id = p.id
+                 WHERE m.fixture = ? ORDER BY m.sub, m.rowid",
+            )?
+            .query_map([fixture], |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                    r.get(8)?,
+                    r.get(9)?,
+                    r.get(10)?,
+                    r.get(11)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<_>>()?;
+        let (mut home, mut away) = (Vec::new(), Vec::new());
+        for (id, club, name, number, rating, goals, assists, mom, on, off, cards, sub) in rows {
+            let line = SheetLine {
+                id,
+                name,
+                number,
+                rating,
+                goals,
+                assists,
+                mom,
+                on: on.or((!sub).then_some(0)),
+                off,
+                yellow: cards == 1,
+                red: cards == 2,
+            };
+            if club == m.home_id { home.push(line) } else { away.push(line) }
+        }
+        Ok(MatchSheet { fixture: self.fixture(m), home, away })
     }
 
     /// Lesões e suspensões de um jogo para o Historial dos jogadores.

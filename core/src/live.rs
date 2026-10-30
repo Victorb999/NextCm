@@ -1505,6 +1505,10 @@ impl LiveMatch {
                     assists: p.assists,
                     sub: p.entered != Some(0),
                     stats: p.stats,
+                    on: p.entered.unwrap_or(0),
+                    off: p.left,
+                    yellow: p.yellow,
+                    red: p.red,
                 }
             })
             .collect()
@@ -1726,6 +1730,11 @@ pub struct PlayerLine {
     /// Entrou do banco.
     pub sub: bool,
     pub stats: PlayerStats,
+    /// Minuto em que entrou (0 = titular) e em que saiu; cartões.
+    pub on: u8,
+    pub off: Option<u8>,
+    pub yellow: bool,
+    pub red: bool,
 }
 
 impl LiveMatch {

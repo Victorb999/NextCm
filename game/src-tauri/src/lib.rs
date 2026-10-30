@@ -2,8 +2,10 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::CareerClub;
+use nextcm_core::ContractExtras;
 use nextcm_core::LeagueNation;
 use nextcm_core::LineupCheck;
+use nextcm_core::MatchSheet;
 use nextcm_core::NewsLink;
 use nextcm_core::PressView;
 use nextcm_core::WorldTransfers;
@@ -105,6 +107,7 @@ session_command!(squad_numbers() -> SquadNumbers);
 session_command!(auto_squad_numbers(numbers: Vec<NumberAssign>) -> Vec<NumberAssign>);
 session_command!(set_squad_numbers(numbers: Vec<NumberAssign>) -> SquadNumbers);
 session_command!(training_view() -> TrainingView);
+session_command!(match_sheet(id: i32) -> MatchSheet);
 session_command!(set_training(plan: TrainingPlan) -> TrainingView);
 session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
@@ -131,7 +134,7 @@ session_command!(manager_career() -> Vec<CareerClub>);
 session_command!(save_as(name: String, overwrite: bool) -> GameInfo);
 session_command!(ask_terms(id: i32, terms: DealTerms) -> OfferView);
 session_command!(contract_terms(id: i32, role: Option<String>) -> ContractTerms);
-session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: i32) -> ContractReply);
+session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: i32, extras: ContractExtras) -> ContractReply);
 session_command!(set_listing(id: i32, transfer: bool, loan: bool, asking: Option<i64>) -> TransferView);
 session_command!(offer_view(id: i32) -> OfferView);
 session_command!(answer_offer(id: i32, key: String, fee: Option<i64>) -> OfferView);
@@ -263,6 +266,7 @@ pub fn run() {
             auto_squad_numbers,
             set_squad_numbers,
             training_view,
+            match_sheet,
             set_training,
             transfer_view,
             make_offer,

@@ -8,7 +8,7 @@ import { selectionOf, swap, useDragSwap, type Spot } from '../selection'
 import InstructionsDialog from './InstructionsDialog'
 import PlayerOrdersDialog from './PlayerOrdersDialog'
 import { BottomBar, ErrorBox, PurpleMenu, ScreenHeader, Tabs } from './Screen'
-import { InstructionsSummary, Pitch, Row } from './TacticsBoard'
+import { InstructionsSummary, Pitch, Row, RowHeader } from './TacticsBoard'
 import { TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
 
 /**
@@ -29,6 +29,9 @@ export default function LiveTactics({
   onApplied: (v: LiveView) => void
 }) {
   const [t, setT] = useState<ClubTactics | null>(null)
+  // A nota de cada um na partida (em campo, no banco e quem já saiu)
+  const live = side === 0 ? view.home : view.away
+  const ratings = new Map([...live.players, ...live.bench, ...live.out].map((p) => [p.id, p.rating]))
   // As cores do clube nos quadrados do campo
   const teamClub = side === 0 ? view.home.club : view.away.club
   const colours = teamClub.fg && teamClub.bg ? { fg: teamClub.fg, bg: teamClub.bg } : undefined
@@ -151,7 +154,8 @@ export default function LiveTactics({
               {t.formation}
               {t.custom && '*'}
             </div>
-            <div className="min-h-0 flex-1 overflow-auto bg-black/50 py-1">
+            <div className="min-h-0 flex-1 overflow-auto bg-black/50 pb-1">
+              <RowHeader place="Pos" rating />
               {t.starters.map((s, i) => {
                 const spot: Spot = { kind: 'starter', index: i }
                 return s.player ? (
@@ -164,6 +168,7 @@ export default function LiveTactics({
                     onOrders={editable ? () => setOrdersFor(s.player!) : undefined}
                     ordered={t.orders.some((o) => o.personId === s.player!.id)}
                     captain={t.takers.captain === s.player.id}
+                    rating={ratings.get(s.player.id) ?? null}
                   />
                 ) : (
                   <div key={`s${i}`} {...drag.bind(spot, s.role)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
@@ -178,14 +183,24 @@ export default function LiveTactics({
                 // Quem estava em campo e foi para o banco nesta tela sai de vez no Ok (antes do apito volta ao banco)
                 const leaving = view.minute > 0 && !!original?.on.includes(p.id)
                 return leaving ? (
-                  <div key={`b${p.id}`} className="relative">
-                    <Row p={p} kind="reserve" place="Sai" bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))} />
-                    <span className="pointer-events-none absolute right-[4.5rem] top-0 text-[11px] font-bold leading-[19px] text-[#ff6060]">
-                      sai no Ok
-                    </span>
-                  </div>
+                  <Row
+                    key={`b${p.id}`}
+                    p={p}
+                    kind="reserve"
+                    place="Sai"
+                    bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))}
+                    rating={ratings.get(p.id) ?? null}
+                    note="sai no Ok"
+                  />
                 ) : (
-                  <Row key={`b${p.id}`} p={p} kind="bench" place={`SB${i + 1}`} bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))} />
+                  <Row
+                    key={`b${p.id}`}
+                    p={p}
+                    kind="bench"
+                    place={`SB${i + 1}`}
+                    bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))}
+                    rating={ratings.get(p.id) ?? null}
+                  />
                 )
               })}
               {/* Quem já saiu não pode voltar: só aparece, sem se poder arrastar */}

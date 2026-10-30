@@ -1,11 +1,13 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import type { BoardConfidence } from './bindings/BoardConfidence'
+import type { ContractExtras } from './bindings/ContractExtras'
 import type { BoardRequest } from './bindings/BoardRequest'
 import type { BoardView } from './bindings/BoardView'
 import type { DealTerms } from './bindings/DealTerms'
 import type { DisciplineOptions } from './bindings/DisciplineOptions'
 import type { LineupCheck } from './bindings/LineupCheck'
 import type { LoanTerms } from './bindings/LoanTerms'
+import type { MatchSheet } from './bindings/MatchSheet'
 import type { TrainingPlan } from './bindings/TrainingPlan'
 import type { TrainingView } from './bindings/TrainingView'
 import type { WorldTransfers } from './bindings/WorldTransfers'
@@ -140,6 +142,7 @@ export const api = {
   autoSquadNumbers: (numbers: NumberAssign[]) => call<NumberAssign[]>('auto_squad_numbers', { numbers }),
   setSquadNumbers: (numbers: NumberAssign[]) => call<SquadNumbers>('set_squad_numbers', { numbers }),
   trainingView: () => call<TrainingView>('training_view'),
+  matchSheet: (id: number) => call<MatchSheet>('match_sheet', { id }),
   setTraining: (plan: TrainingPlan) => call<TrainingView>('set_training', { plan }),
   /** A direção do clube do treinador: expectativa, confiança e orçamentos. */
   boardView: () => call<BoardView>('board_view'),
@@ -175,8 +178,8 @@ export const api = {
   /** Funções no clube e o que o jogador pede pela função escolhida (sem ela, pela que espera). */
   contractTerms: (id: number, role: string | null) => call<ContractTerms>('contract_terms', { id, role }),
   /** Proposta de contrato: renovação ou contratação depois de o clube aceitar. */
-  negotiate: (id: number, role: string, wage: number, bonus: number, years: number) =>
-    call<ContractReply>('negotiate', { id, role, wage, bonus, years }),
+  negotiate: (id: number, role: string, wage: number, bonus: number, years: number, extras: ContractExtras) =>
+    call<ContractReply>('negotiate', { id, role, wage, bonus, years, extras }),
   setListing: (id: number, transfer: boolean, loan: boolean, asking: number | null) =>
     call<TransferView>('set_listing', { id, transfer, loan, asking }),
   offerView: (id: number) => call<OfferView>('offer_view', { id }),

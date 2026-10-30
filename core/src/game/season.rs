@@ -89,11 +89,22 @@ impl Game {
                 self.contracts(fresh, next_id, &today, false)?;
                 self.clean_selection()?;
             }
-            "06-10" => self.end_of_season(SeasonKind::European, fresh, next_id)?,
+            "06-10" => self.season_end_with_clauses(SeasonKind::European, fresh, next_id)?,
             "07-01" => self.new_season(SeasonKind::European, fresh, next_id)?,
-            "12-20" => self.end_of_season(SeasonKind::Calendar, fresh, next_id)?,
+            "12-20" => self.season_end_with_clauses(SeasonKind::Calendar, fresh, next_id)?,
             "01-01" => self.new_season(SeasonKind::Calendar, fresh, next_id)?,
             _ => {}
+        }
+        Ok(())
+    }
+
+    /// O fim de época e, se for a do clube do treinador, as cláusulas de dispensa dos contratos.
+    fn season_end_with_clauses(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        let mine = !self.sacked() && self.kind_of(self.club_id)? == kind;
+        let before = self.division_of(self.club_id)?;
+        self.end_of_season(kind, fresh, next_id)?;
+        if mine {
+            self.release_by_clauses(before, fresh, next_id)?;
         }
         Ok(())
     }

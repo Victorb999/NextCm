@@ -6,7 +6,7 @@
 //! pára antes de o jogar: os outros jogos do dia já estão decididos, e o do treinador corre
 //! aos bocados pela tela da partida (`live_*`) até [`Game::live_finish`] fechar o dia.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use rand_chacha::ChaCha8Rng;
@@ -19,6 +19,7 @@ use crate::engine;
 mod board;
 mod board_meeting;
 mod competitions;
+mod contract_extras;
 mod contracts;
 mod deals;
 mod discipline;
@@ -58,6 +59,7 @@ use crate::{Error, Result, World, date};
 pub use board::{BoardConfidence, BoardView};
 pub use board_meeting::BoardRequest;
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
+pub use contract_extras::ContractExtras;
 pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, TransferView};
 pub use discipline::DisciplineOptions;
 pub use jobs::{JobNation, JobRow, JobsView};
@@ -69,6 +71,7 @@ pub use market_view::WorldTransfers;
 pub use negotiation::{DealTerms, LoanTerms};
 pub use news_links::NewsLink;
 pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
+pub use player_record::MatchSheet;
 pub use press::{PressQuestion, PressView};
 pub use scout_tasks::{ScoutFind, ScoutList};
 pub use season::DivisionStats;
@@ -114,7 +117,9 @@ pub use training::{TrainingPlan, TrainingView};
 /// 29: os clubes do treinador (`manager_history`), para o Currículo.
 /// 30: as ligas escolhidas ao começar (`league_modes`: jogável, de fundo ou fora).
 /// 33: o treino (`training_programs`, `training_players`), marco 3.17.
-pub const SAVE_VERSION: i32 = 33;
+/// 34: os prémios e cláusulas dos contratos (`contract_talks.extras`, `contract_extras`) e os
+/// minutos e cartões de cada jogo (`player_matches`), para a ficha da partida.
+pub const SAVE_VERSION: i32 = 34;
 
 /// Os jogadores de enchimento (save 32): criados para completar os plantéis dos clubes
 /// pequenos, só jogam pelo clube deles (sem mercado, contratos nem olheiros), como os do CM.
@@ -664,6 +669,7 @@ impl Game {
             tx.execute_batch(HISTORY_SCHEMA)?;
             tx.execute_batch(GHOSTS_SCHEMA)?;
             tx.execute_batch(training::TRAINING_SCHEMA)?;
+            tx.execute_batch(contract_extras::EXTRAS_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -979,6 +985,11 @@ impl Game {
             world.conn.execute_batch(training::TRAINING_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 33", [])?;
             version = 33;
+        }
+        if version == 33 {
+            world.conn.execute_batch(contract_extras::EXTRAS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 34", [])?;
+            version = 34;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -1942,16 +1953,26 @@ impl Game {
     }
 
     /// As competições com jogos acabados hoje, das de mais reputação para as de menos (para
-    /// os resultados do dia depois do jogo do treinador, como os "Resultados da Noite" do CM).
+    /// os resultados do dia depois do jogo do treinador, como os "Resultados da Noite" do CM):
+    /// só as em que o clube do treinador joga e as do país onde ele treina.
     pub fn day_competitions(&self) -> Result<Vec<i32>> {
         let mut comps: Vec<i32> =
             self.matches.iter().filter(|m| m.date == self.date && m.result.is_some()).map(|m| m.competition_id).collect();
         comps.sort_unstable();
         comps.dedup();
+        let involved: HashSet<i32> =
+            self.matches.iter().filter(|m| m.home_id == self.club_id || m.away_id == self.club_id).map(|m| m.competition_id).collect();
+        let nation: Option<i32> = self.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0))?;
         let mut ranked: Vec<(i32, i32)> = Vec::new();
         for c in comps {
-            let rep: i32 =
-                self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM competitions WHERE id = ?", [c], |r| r.get(0)).unwrap_or(0);
+            let (rep, comp_nation): (i32, Option<i32>) = self
+                .world
+                .conn
+                .query_row("SELECT COALESCE(reputation, 0), nation_id FROM competitions WHERE id = ?", [c], |r| Ok((r.get(0)?, r.get(1)?)))
+                .unwrap_or((0, None));
+            if !involved.contains(&c) && (comp_nation.is_none() || comp_nation != nation) {
+                continue;
+            }
             ranked.push((-rep, c));
         }
         ranked.sort_unstable();
@@ -2883,6 +2904,25 @@ mod tests {
         let (mut g, dir) = until_kickoff(&world, "squad-views", 5, true, false);
         g.live_step(90).unwrap();
         g.live_finish().unwrap();
+        // A ficha da partida: os titulares com minuto 0, quem entrou depois, e quem saiu
+        let id = g.matches.iter().find(|m| m.result.is_some() && (m.home_id == 7568 || m.away_id == 7568)).unwrap().id;
+        let sheet = g.match_sheet(id).unwrap();
+        for side in [&sheet.home, &sheet.away] {
+            assert!(side.iter().filter(|l| l.on == Some(0)).count() == 11, "{side:?}");
+            assert!(
+                side.iter().filter(|l| l.on.is_some_and(|m| m > 0)).all(|l| side.iter().any(|x| x.off == l.on)),
+                "quem entra, entra no lugar de alguém"
+            );
+        }
+        assert!(g.match_sheet(g.matches.iter().find(|m| m.result.is_none()).unwrap().id).is_err());
+        // Os resultados do dia: só as competições do Palmeiras e as do Brasil
+        let comps = g.day_competitions().unwrap();
+        assert!(!comps.is_empty());
+        for c in comps {
+            let nation: Option<i32> = g.world.conn.query_row("SELECT nation_id FROM competitions WHERE id = ?", [c], |r| r.get(0)).unwrap();
+            let played = g.matches.iter().any(|m| m.competition_id == c && (m.home_id == 7568 || m.away_id == 7568));
+            assert!(played || nation == Some(27), "competição {c} fora do Brasil");
+        }
         let mut c = g.world().get_club(7568).unwrap();
         g.fill_squad(&mut c).unwrap();
         // Três jogadores-chave; os dois valiosos da direção estão entre eles
@@ -3124,7 +3164,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

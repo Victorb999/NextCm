@@ -18,6 +18,7 @@ import SearchPage from '../pages/SearchPage'
 import SquadNumbersPage from '../pages/SquadNumbersPage'
 import TacticsPage from '../pages/TacticsPage'
 import TrainingPage from '../pages/TrainingPage'
+import MatchSheetPage from '../pages/MatchSheetPage'
 import { useHistoryKeys } from './useHistoryKeys'
 
 /** A tela atual do histórico de navegação (`nav.current`). */
@@ -36,6 +37,7 @@ export default function Screens() {
       {current.kind === 'contract' && <ContractPage key={current.id} id={current.id} />}
       {current.kind === 'squadNumbers' && <SquadNumbersPage />}
       {current.kind === 'training' && <TrainingPage />}
+      {current.kind === 'match' && <MatchSheetPage key={current.id} id={current.id} />}
       {current.kind === 'board' && <BoardPage />}
       {current.kind === 'jobs' && <JobsPage />}
       {current.kind === 'press' && <PressPage key={current.id} id={current.id} />}

@@ -83,6 +83,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
                 out(serde_json::to_value(session.set_squad_numbers(numbers).map_err(e)?))
             }
         }
+        "match_sheet" => out(serde_json::to_value(session.match_sheet(id()?).map_err(e)?)),
         "training_view" => out(serde_json::to_value(session.training_view().map_err(e)?)),
         "set_training" => {
             let plan: nextcm_core::TrainingPlan = serde_json::from_value(args["plan"].clone()).map_err(|e| e.to_string())?;
@@ -194,7 +195,8 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let role = args["role"].as_str().ok_or("falta role")?.to_string();
             let (wage, bonus) = (args["wage"].as_i64().ok_or("falta wage")?, args["bonus"].as_i64().unwrap_or(0));
             let years = args["years"].as_i64().ok_or("falta years")? as i32;
-            out(serde_json::to_value(session.negotiate(id()?, role, wage, bonus, years).map_err(e)?))
+            let extras: nextcm_core::ContractExtras = serde_json::from_value(args["extras"].clone()).unwrap_or_default();
+            out(serde_json::to_value(session.negotiate(id()?, role, wage, bonus, years, extras).map_err(e)?))
         }
         "set_listing" => {
             let (transfer, loan) = (args["transfer"].as_bool().unwrap_or(false), args["loan"].as_bool().unwrap_or(false));

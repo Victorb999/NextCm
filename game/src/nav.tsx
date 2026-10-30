@@ -11,6 +11,7 @@ export type Screen =
   | { kind: 'contract'; id: number }
   | { kind: 'squadNumbers' }
   | { kind: 'training' }
+  | { kind: 'match'; id: number }
   | { kind: 'board' }
   | { kind: 'jobs' }
   | { kind: 'press'; id: number }

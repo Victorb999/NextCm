@@ -9,6 +9,7 @@ use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use rusqlite::{OptionalExtension, params};
 
+use super::contract_extras::ContractExtras;
 use super::deals::Facts;
 use super::deals::{COOLDOWN_DAYS, ContractReply, Offer, Party, TRIES, round_wage};
 use super::market::money_text;
@@ -95,7 +96,15 @@ impl Game {
     /// Proposta de contrato: função, salário semanal, prémio de assinatura e anos. Os limites
     /// da direção e as recusas de princípio (descer de clube, sair da Europa) são já; a
     /// resposta do jogador chega amanhã.
-    pub fn negotiate(&mut self, person: i32, role: &str, wage: i64, bonus: i64, years: i32) -> Result<ContractReply> {
+    pub fn negotiate(
+        &mut self,
+        person: i32,
+        role: &str,
+        wage: i64,
+        bonus: i64,
+        years: i32,
+        extras: &ContractExtras,
+    ) -> Result<ContractReply> {
         if !(1..=5).contains(&years) {
             return Err(Error::Invalid("Contratos de 1 a 5 anos.".into()));
         }
@@ -158,6 +167,7 @@ impl Game {
                 rival.map(|r| r.1)
             ],
         )?;
+        self.set_talk_extras(person, extras)?;
         self.unsaved = true;
         let text = match rival {
             Some(_) => format!(
@@ -229,7 +239,13 @@ impl Game {
             let d = self.demand(o.person, &f, role_i, matches!(party, Party::Renewal), free)?;
             let wanted = d.wage as f64 * (1.0 + 0.04 * (t.years - d.years).abs() as f64);
             let weeks = 52.0 * t.years as f64;
-            let enough = t.wage as f64 >= 0.9 * wanted && t.wage as f64 * weeks + t.bonus as f64 >= wanted * weeks + d.bonus as f64;
+            // Os prémios e as cláusulas que ele exige têm de estar na proposta
+            let offered = self.talk_extras(o.person)?;
+            let (asks, _) = self.extras_demand(o.person, &f, d.wage)?;
+            let missing = offered.missing(&asks);
+            let enough = t.wage as f64 >= 0.9 * wanted
+                && t.wage as f64 * weeks + t.bonus as f64 >= wanted * weeks + d.bonus as f64
+                && missing.is_empty();
             let deadline = date::add_days(&self.date, CONFIRM_DAYS).unwrap_or_default();
             // Com outra proposta na mão, escolhe a melhor (o contrato todo, pesado pela reputação)
             if let Some((rival, rival_wage)) = t.rival {
@@ -273,12 +289,21 @@ impl Game {
             } else {
                 // A contraproposta: o que ele quer
                 let (w, b, y) = (round_wage(wanted), d.bonus, d.years);
+                // Quem só pede prémios ou cláusulas fica com o salário que lhe ofereceram
+                let (w, b, y) =
+                    if t.wage as f64 >= 0.9 * wanted && t.wage as f64 * weeks + t.bonus as f64 >= wanted * weeks + d.bonus as f64 {
+                        (t.wage, t.bonus, t.years)
+                    } else {
+                        (w, b, y)
+                    };
                 self.world
                     .conn
                     .execute("UPDATE contract_talks SET wage = ?, bonus = ?, years = ? WHERE person_id = ?", params![w, b, y, o.person])?;
+                self.set_talk_extras(o.person, &offered.with_asks(&asks))?;
                 self.set_status(o.id, "countered", Some(&deadline))?;
+                let demands = if missing.is_empty() { String::new() } else { format!(" Exige também: {}.", missing.join(", ")) };
                 let body = format!(
-                    "{name} recusou a proposta e pede {} por semana, um prémio de {} e {} ano(s) de contrato.\n\nResponda até {}.",
+                    "{name} recusou a proposta e pede {} por semana, um prémio de {} e {} ano(s) de contrato.{demands}\n\nResponda até {}.",
                     money_text(w),
                     money_text(b),
                     y,
@@ -435,6 +460,7 @@ impl Game {
         self.world.conn.execute("DELETE FROM talks WHERE person_id = ?", [o.person])?;
         self.world.conn.execute("INSERT OR REPLACE INTO squad_roles (person_id, role) VALUES (?, ?)", params![o.person, t.role])?;
         if !matches!(party, Party::Precontract) {
+            self.sign_extras(o.person)?;
             self.world.conn.execute("DELETE FROM contract_talks WHERE person_id = ?", [o.person])?;
         }
         self.remove_unhappy(o.person, "contract")?;
@@ -468,6 +494,7 @@ impl Game {
             let from: Option<i32> = self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [o.person], |r| r.get(0))?;
             let kind = self.kind_of(self.club_id)?;
             self.execute_move(o.person, from, Some(self.club_id), 0, t.wage, t.years, "free", kind)?;
+            self.sign_extras(o.person)?;
             // O fim do contrato combinado no pré-contrato
             let until: Option<String> =
                 self.world.conn.query_row("SELECT ends FROM contract_talks WHERE person_id = ?", [o.person], |r| r.get(0))?;
