@@ -157,8 +157,10 @@ pub struct RoleOption {
     pub label: String,
     /// Função de jovem (o "+" roxo do CM).
     pub youth: bool,
-    /// Vetada pela direção pela idade do jogador.
+    /// Vetada pela direção (pela idade do jogador ou pelos valores envolvidos).
     pub allowed: bool,
+    /// O texto do veto ("Vetado pela direcção devido à idade do jogador"...).
+    pub veto: Option<String>,
 }
 
 /// A tela "Propôr Contrato": o que o jogador quer pela função escolhida.
@@ -722,6 +724,28 @@ impl Game {
         Ok((availability, Some(future)))
     }
 
+    /// O veto da direção a uma função: pela idade (as de jovem) ou pelos valores envolvidos
+    /// (o salário que ele pediria passa o que a direção autoriza).
+    pub(super) fn role_veto(&self, person: i32, f: &Facts, role: usize, renewal: bool, free: bool) -> Result<Option<String>> {
+        if !Self::role_allowed(role, f.age) {
+            return Ok(Some("Vetado pela direcção devido à idade do jogador".into()));
+        }
+        if self.demand(person, f, role, renewal, free)?.wage > self.board_view()?.max_wage {
+            return Ok(Some("Vetado pela direcção devido aos valores envolvidos".into()));
+        }
+        Ok(None)
+    }
+
+    /// A mensagem da proposta ganha uma linha com o que o treinador fez, como no CM ("Juventus
+    /// fez uma proposta de contrato.").
+    pub(super) fn note_action(&mut self, offer: i32, what: &str) {
+        let club = self.club(self.club_id).short_name;
+        if let Some(n) = self.news.iter_mut().filter(|n| n.offer_id == Some(offer)).max_by_key(|n| n.id) {
+            n.body = format!("{}\n\n{club} {what}.", n.body.trim_end());
+            self.unsaved = true;
+        }
+    }
+
     /// Uma proposta com o texto e os botões da situação.
     pub fn offer_view(&self, id: i32) -> Result<OfferView> {
         let o = self.offer(id)?;
@@ -951,6 +975,7 @@ impl Game {
                             "UPDATE offers SET status = 'pending', rounds = rounds + 1, answer_on = ? WHERE id = ?",
                             params![reply, c.id],
                         )?;
+                        self.note_action(c.id, "fez uma nova proposta");
                         c.id
                     }
                     None => {
@@ -1088,6 +1113,17 @@ impl Game {
             }
             _ => return Err(Error::Invalid("Esta proposta já não aceita essa resposta.".into())),
         }
+        let what = match (incoming, key) {
+            (_, "withdraw") => "desistiu do negócio",
+            (true, "accept") => "aceitou a proposta",
+            (true, "reject") => "recusou a proposta",
+            (true, "confirm") => "confirmou a transferência",
+            (false, _) => "aceitou as condições",
+            _ => "",
+        };
+        if !what.is_empty() {
+            self.note_action(id, what);
+        }
         self.unsaved = true;
         self.offer_view(id)
     }
@@ -1145,6 +1181,36 @@ impl Game {
 
     /// Venda (ou empréstimo) de um jogador do treinador ao clube que propôs; devolve o
     /// título e o texto da mensagem.
+    /// "Prazo limite para transferências" e a "Actualização da confiança da Direcção".
+    pub(super) fn window_closed_news(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        let nation: String = self.world.conn.query_row(
+            "SELECT COALESCE(n.name, '') FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id WHERE c.id = ?",
+            [self.club_id],
+            |r| r.get(0),
+        )?;
+        let body = format!("O prazo de transferências para os clubes de {nation} esgotou-se.");
+        self.offer_news_plain(fresh, next_id, "Prazo limite para transferências".into(), body);
+        let b = self.board_confidence()?;
+        let body = b.lines.iter().map(|l| l.text.clone()).collect::<Vec<_>>().join("\n\n");
+        self.offer_news_plain(fresh, next_id, "Actualização da confiança da Direcção".into(), body);
+        Ok(())
+    }
+
+    fn offer_news_plain(&self, fresh: &mut Vec<NewsItem>, next_id: &mut i32, title: String, body: String) {
+        fresh.push(NewsItem {
+            id: *next_id,
+            date: self.date.clone(),
+            kind: "message".into(),
+            title,
+            body,
+            read: false,
+            offer_id: None,
+            link: None,
+            awaiting: false,
+        });
+        *next_id += 1;
+    }
+
     /// A proposta paga a cláusula de venda do contrato do jogador.
     fn clause_paid(&self, o: &Offer) -> Result<bool> {
         Ok(o.kind == "transfer" && self.contract_extras(o.person)?.and_then(|e| e.min_fee).is_some_and(|fee| o.fee >= fee))
@@ -1315,8 +1381,11 @@ Confirme até {}.",
             roles: SQUAD_ROLES
                 .iter()
                 .enumerate()
-                .map(|(i, r)| RoleOption { key: r.0.into(), label: r.1.into(), youth: i >= 4, allowed: Self::role_allowed(i, f.age) })
-                .collect(),
+                .map(|(i, r)| {
+                    let veto = self.role_veto(person, &f, i, renewal, free)?;
+                    Ok(RoleOption { key: r.0.into(), label: r.1.into(), youth: i >= 4, allowed: veto.is_none(), veto })
+                })
+                .collect::<Result<_>>()?,
             role: SQUAD_ROLES[chosen].0.into(),
             expected_role: SQUAD_ROLES[expected].0.into(),
             wage: d.wage,
@@ -1425,6 +1494,14 @@ Confirme até {}.",
         let any_window = [SeasonKind::European, SeasonKind::Calendar].iter().any(|&k| window_open(k, &today[5..]));
         if any_window && matches!(date::weekday(&today), Some(1 | 4)) {
             self.ai_bids(fresh, next_id)?;
+        }
+        // A janela do país do treinador fechou ontem: o prazo e a confiança da direção (como no CM)
+        if !self.sacked() {
+            let kind = self.kind_of(self.club_id)?;
+            let yesterday = date::add_days(&today, -1).unwrap_or_default();
+            if window_open(kind, &yesterday[5..]) && !window_open(kind, &today[5..]) {
+                self.window_closed_news(fresh, next_id)?;
+            }
         }
         // Aviso dos contratos a acabar, dois meses antes de cada fim de contratos
         match &today[5..] {
@@ -1606,6 +1683,7 @@ Confirme até {}.",
             params![offered, reply, rounds, id],
         )?;
         self.set_terms(id, &asked, &o.loan_terms())?;
+        self.note_action(id, "pediu mais");
         self.unsaved = true;
         self.offer_view(id)
     }
@@ -1865,6 +1943,18 @@ mod tests {
         let cash = g.cash_of(PALMEIRAS).unwrap();
         assert_eq!(g.answer_offer(offer.id, "accept", None).unwrap().status, "done");
         assert_eq!(g.facts(buy).unwrap().unwrap().club, Some(PALMEIRAS));
+        // Como no CM: a mensagem ganha o que o treinador fez, e a contratação "firma acordo"
+        let mut n = g.news_item(99_999, "deal", "Proposta".into(), "Texto.".into());
+        n.offer_id = Some(offer.id);
+        g.news.insert(0, n);
+        g.note_action(offer.id, "fez uma nova proposta");
+        assert_eq!(
+            g.news[0].body,
+            "Texto.
+
+Palmeiras fez uma nova proposta."
+        );
+        assert!(g.news().iter().any(|n| n.title.contains("firma acordo com")));
         assert_eq!(g.cash_of(PALMEIRAS).unwrap(), cash - ask - t.bonus);
 
         // A contraproposta do clube vale o que ele pede; aceitar as condições passa ao contrato

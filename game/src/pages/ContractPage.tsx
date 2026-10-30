@@ -28,11 +28,12 @@ const ROLE_SHORT: Record<string, string> = {
 
 const SALARY_LABEL: Record<string, string> = { week: 'Salário Semanal', month: 'Salário Mensal', year: 'Salário Anual' }
 
-/** "Este jogador é ..." — a lista de funções, com as vetadas pela idade a roxo. */
+/** "Este jogador é ..." — a lista de funções, com as vetadas a roxo (pela idade ou pelos valores)
+ * e o "*" na que ele espera. */
 function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: string) => void }) {
   const nav = useNav()
   const [selected, setSelected] = useState<string | null>(null)
-  const vetoed = terms.roles.some((r) => !r.allowed)
+  const vetoes = [...new Set(terms.roles.flatMap((r) => (r.veto ? [r.veto] : [])))]
   return (
     <>
       <ScreenHeader icon={<FileText size={22} />} eyebrow={terms.name} title="Definir Função No Clube" />
@@ -48,11 +49,16 @@ function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: st
               !r.allowed ? 'text-cm-purplelight' : r.key === selected ? 'text-cm-yellow' : 'text-white hover:text-cm-yellow'
             }`}
           >
-            {r.youth && '+ '}
+            {r.veto ? '+ ' : r.key === terms.expectedRole ? '* ' : ''}
             {r.label}
           </button>
         ))}
-        {vetoed && <div className="mt-8 font-title text-[21px] text-white">+ Vetado pela direcção devido à idade do jogador</div>}
+        <div className="mt-8 space-y-1 font-title text-[19px] text-white">
+          {vetoes.map((v) => (
+            <div key={v}>+ {v}</div>
+          ))}
+          <div>* Esperado pelo jogador</div>
+        </div>
       </div>
       <BottomBar right="Escolher" onLeft={nav.back} onRight={selected ? () => onPick(selected) : undefined} />
     </>

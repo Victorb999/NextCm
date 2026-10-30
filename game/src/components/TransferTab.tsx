@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { OfferView } from '../bindings/OfferView'
@@ -20,17 +21,27 @@ export function OfferButtons({
   offer,
   onChange,
   onNegotiate,
+  actionsTarget,
 }: {
   offer: OfferView
   onChange: (o: OfferView) => void
   onNegotiate: () => void
+  /** Os botões noutro sítio (a barra da lista das Notícias, como no CM). */
+  actionsTarget?: HTMLElement | null
 }) {
   const game = useGame()
   const [error, setError] = useState<string | null>(null)
   const [counter, setCounter] = useState(false)
-  // A venda à espera do treinador: "Confirmar" abre a pergunta do CM (Não / Adiar / Sim)
+  // A venda ou a compra à espera do treinador: "Confirmar" abre a pergunta do CM (Não / Adiar / Sim)
   const [confirmSale, setConfirmSale] = useState(false)
   const selling = offer.incoming && offer.status === 'confirm'
+  const buying = offer.kind === 'contract' && offer.status === 'agreed' && offer.seller?.id !== offer.buyer.id
+  const asking = selling || buying
+  const question = selling
+    ? `Vender ${offer.name} ao ${offer.buyer.shortName} por ${money(offer.fee)}?`
+    : offer.fee > 0
+      ? `Contratar ${offer.name} por ${money(offer.fee)}?`
+      : `Contratar ${offer.name} a custo zero?`
   // "Nova Proposta" / "Novo Pedido": a aba do jogador dá o valor e o orçamento
   const [again, setAgain] = useState<TransferView | null>(null)
   const done = async (o: OfferView) => {
@@ -63,8 +74,9 @@ export function OfferButtons({
       setError(String(e))
     }
   }
+  const portal = (node: ReactNode) => (actionsTarget ? createPortal(node, actionsTarget) : node)
   const click = (key: string) => {
-    if (selling && key === 'confirm') setConfirmSale(true)
+    if (asking && key === 'confirm') setConfirmSale(true)
     else if (key === 'counter') setCounter(true)
     else if (key === 'negotiate') onNegotiate()
     else if (key === 'offer') api.transferView(offer.personId).then(setAgain, (e) => setError(String(e)))
@@ -73,18 +85,18 @@ export function OfferButtons({
   return (
     <div>
       <div className="font-title text-[19px] text-white">{offer.text}</div>
-      {offer.actions.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {offer.actions.filter((a) => !selling || a.key === 'confirm').map((a) => (
+      {offer.actions.length > 0 && portal(
+        <div className={actionsTarget ? 'flex gap-1' : 'mt-2 flex flex-wrap gap-1'}>
+          {offer.actions.filter((a) => !asking || a.key === 'confirm').map((a) => (
             <button
               key={a.key}
-              className="cm-purple h-7 min-w-36"
+              className={actionsTarget ? 'cm-purple h-6 min-w-32 px-3' : 'cm-purple h-7 min-w-36'}
               onClick={() => click(a.key)}
             >
               {a.label}
             </button>
           ))}
-        </div>
+        </div>,
       )}
       {error && <div className="mt-1 text-[15px] font-bold text-[#ff5050]">{error}</div>}
       {confirmSale && (
@@ -94,10 +106,10 @@ export function OfferButtons({
               Confirmar Proposta Transferência
             </div>
             <div className="mt-1.5 border-2 border-[#1d3a1f] px-3 py-8 text-center font-title text-[19px] text-white" style={{ background: GREEN_FIELD }}>
-              Vender {offer.name} ao {offer.buyer.shortName} por {money(offer.fee)}?
+              {question}
             </div>
             <div className="mt-2 flex gap-1">
-              <button className="cm-purple h-9 flex-1 font-title text-xl" onClick={() => (setConfirmSale(false), void answer('reject'))}>
+              <button className="cm-purple h-9 flex-1 font-title text-xl" onClick={() => (setConfirmSale(false), void answer(selling ? 'reject' : 'withdraw'))}>
                 Não
               </button>
               <button className="cm-purple h-9 flex-1 font-title text-xl" title="Decidir depois (até ao prazo)" onClick={() => setConfirmSale(false)}>

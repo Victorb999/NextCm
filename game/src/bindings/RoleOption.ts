@@ -9,6 +9,10 @@ export type RoleOption = { key: string, label: string,
  */
 youth: boolean, 
 /**
- * Vetada pela direção pela idade do jogador.
+ * Vetada pela direção (pela idade do jogador ou pelos valores envolvidos).
  */
-allowed: boolean, };
+allowed: boolean, 
+/**
+ * O texto do veto ("Vetado pela direcção devido à idade do jogador"...).
+ */
+veto: string | null, };

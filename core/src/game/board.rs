@@ -282,7 +282,7 @@ impl Game {
     }
 
     /// Satisfação dos adeptos, de 0 a 100.
-    fn change_fans(&self, delta: i32) -> Result<()> {
+    pub(super) fn change_fans(&self, delta: i32) -> Result<()> {
         self.world.conn.execute("UPDATE board SET fans = MIN(100, MAX(0, fans + ?)) WHERE id = 1", [delta])?;
         Ok(())
     }

@@ -411,6 +411,12 @@ mod tests {
         let club: Option<i32> = g.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [scorer], |r| r.get(0)).unwrap();
         assert_eq!(club, None);
         assert!(fresh.iter().any(|n| n.title.contains("sai pela cláusula")));
+        // O fecho da janela: o prazo e a confiança da direção
+        let mut closed = Vec::new();
+        g.window_closed_news(&mut closed, &mut next).unwrap();
+        assert_eq!(closed[0].title, "Prazo limite para transferências");
+        assert!(closed[0].body.contains("Brazil"));
+        assert!(closed[1].title.starts_with("Actualização") && closed[1].body.contains("direcção"));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

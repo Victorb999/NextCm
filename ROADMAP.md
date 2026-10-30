@@ -196,6 +196,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 3.13 — Polimento: o fluxo do CM pela gravação](docs/roadmap/3.13-polimento.md)
 - [Marco 3.14 — Palestras](docs/roadmap/3.14-palestras.md)
 - [Marco 3.15 — Testes e ajustes](docs/roadmap/3.15-testes-e-ajustes.md)
+- [Ajuste 3.15b — Fluxo do último dia da janela (vídeo de 30/10)](docs/roadmap/3.15b-fluxo-do-fim-da-janela.md)
 - [Marco 3.16 — Plantel completo (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.16-plantel-completo.md)
 - [Marco 3.17 — Treino (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.17-treino.md)
 - [Marco 3.18 — Editor de jogos salvos (por detalhar)](docs/roadmap/3.18-editor-de-saves.md)
