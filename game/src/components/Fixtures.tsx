@@ -64,31 +64,35 @@ export function RoundGames({ fixtures, table, own }: { fixtures: Fixture[]; tabl
   const name = (c: ClubRef, align: string) => (
     <Link
       onClick={() => nav.go({ kind: 'club', id: c.id })}
-      className={`block truncate font-title text-[21px] leading-[28px] ${align} ${c.id === own ? 'text-cm-yellow' : 'text-white'}`}
+      className={`block truncate text-[15px] font-semibold ${align} ${c.id === own ? 'text-cm-yellow' : 'text-white'}`}
     >
       {c.shortName}
     </Link>
   )
+  // A posição só depois da 1ª jornada (antes fica sem casa)
+  const cell = (id: number) => {
+    const p = pos(id)
+    return p ? <span className="cm-cell w-10 shrink-0 text-center font-mono text-[12px] leading-[20px] text-white">{p}</span> : <span className="w-10 shrink-0" />
+  }
   return (
-    <div className="space-y-0.5">
+    <div className="cm-zebra">
       {fixtures.map((f) => (
-        <div key={f.id} className="flex h-[30px] items-center gap-3 px-2">
-          <span className="cm-cell h-[22px] w-11 shrink-0 text-center text-[13px] leading-[20px] text-white">{pos(f.home.id)}</span>
-          <div className="min-w-0 flex-1">{name(f.home, 'text-left')}</div>
-          <span className="w-16 shrink-0 text-center font-title text-[20px] font-bold leading-none text-cm-magenta">
+        <div key={f.id} className="flex h-7 items-center gap-3 px-3">
+          {cell(f.home.id)}
+          <div className="min-w-0 flex-1">{name(f.home, 'text-right')}</div>
+          <span className="w-16 shrink-0 text-center font-mono text-[15px] font-bold leading-none text-cm-magenta">
             {played(f) ? <span className="text-cm-yellow">{`${f.homeGoals} - ${f.awayGoals}`}</span> : 'v'}
             {played(f) && f.homePens !== null && (
-              <span className="block font-sans text-[11px] font-normal text-cm-orange">{`${f.homePens}-${f.awayPens} g.p.`}</span>
+              <span className="block font-sans text-[10px] font-normal text-cm-orange">{`${f.homePens}-${f.awayPens} g.p.`}</span>
             )}
           </span>
           <div className="min-w-0 flex-1">{name(f.away, 'text-left')}</div>
-          <span className="cm-cell h-[22px] w-11 shrink-0 text-center text-[13px] leading-[20px] text-white">{pos(f.away.id)}</span>
+          {cell(f.away.id)}
         </div>
       ))}
     </div>
   )
 }
-
 
 /** Calendário do clube, como o do CM: data, adversário, C/F, competição e o resultado. */
 export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures: Fixture[] }) {
@@ -113,7 +117,7 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
           const home = f.home.id === clubId
           const opponent = home ? f.away : f.home
           return (
-            <div key={f.id} className="flex h-[27px] items-center gap-3 px-3">
+            <div key={f.id} className="flex h-6 items-center gap-3 px-3">
               <span className="cm-cell w-28 shrink-0 text-center text-[13px] text-white">{shortDate(f.date)}</span>
               <div className="min-w-0 flex-1 truncate">
                 <ClubName club={opponent} className="!text-[16px] font-semibold" />
@@ -135,7 +139,7 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-[27px] items-baseline gap-4 px-3 py-1">
+    <div className="flex min-h-6 items-baseline gap-4 px-3 py-1">
       <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
       <div className="flex-1 text-[14px] text-cm-yellow">{children}</div>
     </div>

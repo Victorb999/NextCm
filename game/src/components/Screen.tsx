@@ -1,10 +1,8 @@
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import type { ClubRef } from '../bindings/ClubRef'
 import { initials } from '../format'
-import { useTopActions } from './topActions'
 
 /** As cores de um clube, com o cinzento de sempre quando o patch não as tem. */
 function clubColours(club: Pick<ClubRef, 'fg' | 'bg'>) {
@@ -32,10 +30,10 @@ export function ScreenHeader({
 }) {
   const badge = emblem ?? (club ? { text: initials(club.shortName), ...clubColours(club) } : undefined)
   return (
-    <div className="m-2.5 flex shrink-0 items-center gap-3 rounded-md bg-[#1a1b21] px-4 py-2.5">
+    <div className="m-2 flex shrink-0 items-center gap-3 rounded-md bg-[#1a1b21] px-3 py-1.5">
       {badge && (
         <span
-          className="flex size-11 shrink-0 items-center justify-center rounded font-title text-[18px] font-bold"
+          className="flex size-9 shrink-0 items-center justify-center rounded font-title text-[15px] font-bold"
           style={{ color: badge.fg, background: badge.bg }}
         >
           {badge.text}
@@ -44,14 +42,15 @@ export function ScreenHeader({
       {icon && <span className="shrink-0 text-[#c8c8d0]">{icon}</span>}
       <div className="min-w-0">
         {eyebrow && <div className="flex items-center gap-2 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#c8c8d0]">{eyebrow}</div>}
-        <div className="truncate font-title text-[24px] font-bold leading-tight text-white">{title}</div>
+        <div className="truncate font-title text-[20px] font-bold leading-tight text-white">{title}</div>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-2">{right}</div>
     </div>
   )
 }
 
-/** Painel arredondado com título laranja em mono (o padrão das telas novas); `chip` é a etiqueta verde. */
+/** Painel arredondado com título laranja em mono (o padrão das telas novas); `chip` é a etiqueta verde.
+ * Sem `overflow-hidden`: os menus do título (Vêr) abrem por cima do resto. */
 export function Panel({
   title,
   chip,
@@ -66,7 +65,7 @@ export function Panel({
   className?: string
 }) {
   return (
-    <div className={`flex min-h-0 flex-col overflow-hidden rounded-md bg-[#1a1b21] ${className}`}>
+    <div className={`flex min-h-0 flex-col rounded-md bg-[#1a1b21] ${className}`}>
       {title && <PanelTitle title={title} chip={chip} right={right} />}
       {children}
     </div>
@@ -76,7 +75,7 @@ export function Panel({
 /** A barra de título de um painel, para painéis montados de outra forma. */
 export function PanelTitle({ title, chip, right }: { title: ReactNode; chip?: ReactNode; right?: ReactNode }) {
   return (
-    <div className="flex h-9 shrink-0 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold font-mono uppercase tracking-[0.12em] text-cm-orange">
+    <div className="flex h-8 shrink-0 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold font-mono uppercase tracking-[0.12em] text-cm-orange">
       {title}
       {chip && <span className="rounded bg-[#0f3a2a] px-1.5 tracking-wider text-[#4edea3]">{chip}</span>}
       <span className="ml-auto flex min-w-0 items-center gap-1.5 truncate normal-case tracking-normal">{right}</span>
@@ -100,7 +99,7 @@ export type Tab = { key: string; label: string; disabled?: boolean }
 /** Linha de abas do CM: escuras, a selecionada com borda amarela. */
 export function Tabs({ tabs, active, onChange }: { tabs: Tab[]; active: string; onChange: (key: string) => void }) {
   return (
-    <div className="flex shrink-0 gap-1.5 px-2.5" role="tablist">
+    <div className="flex shrink-0 gap-1.5 px-2" role="tablist">
       {tabs.map((t) => (
         <button
           key={t.key}
@@ -117,43 +116,20 @@ export function Tabs({ tabs, active, onChange }: { tabs: Tab[]; active: string; 
   )
 }
 
-/** Os botões da tela (Atrás / Seguinte, Cancelar / Ok): vão para a barra de cima, ao lado do
- * Continuar Jogo (`#top-actions`); fora do jogo, sem a barra, ficam em baixo como no CM. */
+/** Barra inferior roxa com Atrás / Seguinte (ou Cancelar / Ok). */
 export function BottomBar({
   left = 'Atrás',
   right = 'Seguinte',
   onLeft,
   onRight,
-  active = true,
 }: {
   left?: ReactNode
   right?: ReactNode
   onLeft?: () => void
   onRight?: () => void
-  /** Uma tela montada mas escondida (a Pesquisa) não mostra os botões. */
+  /** Uma tela montada mas escondida (a Pesquisa): não importa, a barra fica com ela. */
   active?: boolean
 }) {
-  // A barra de cima já está no ecrã quando a tela abre
-  const [target] = useState(() => document.getElementById('top-actions'))
-  const shown = useTopActions(!!target && active)
-  if (target) {
-    return (
-      <>
-        <div className="h-2.5 shrink-0" />
-        {shown && createPortal(
-          <>
-            <button className="cm-purple h-8 min-w-24 px-4 font-title text-[15px]" disabled={!onLeft} onClick={onLeft}>
-              {left}
-            </button>
-            <button className="cm-purple h-8 min-w-24 px-4 font-title text-[15px]" disabled={!onRight} onClick={onRight}>
-              {right}
-            </button>
-          </>,
-          target,
-        )}
-      </>
-    )
-  }
   return (
     <div className="flex h-[50px] shrink-0 gap-1.5 px-2.5 pb-2.5 pt-1.5">
       <button className="cm-purple flex-[2] font-title text-lg" disabled={!onLeft} onClick={onLeft}>
@@ -243,7 +219,7 @@ export function PurpleMenu<T extends string>({
                   onChange?.(o.key)
                   setOpen(false)
                 }}
-                className={`flex h-[26px] w-full items-center gap-2 px-3 text-left hover:!bg-[#1d4d3a] hover:text-cm-yellow ${
+                className={`flex h-6 w-full items-center gap-2 px-3 text-left hover:!bg-[#1d4d3a] hover:text-cm-yellow ${
                   o.key === value ? 'font-bold text-cm-yellow' : 'text-[#e3e1e9]'
                 }`}
               >

@@ -275,7 +275,7 @@ export default function SearchPage({ active }: { active: boolean }) {
       {scout === null && (
         <>
 
-      <div className="mx-2.5 mt-2.5 flex h-11 shrink-0 items-center gap-2 rounded-md bg-cm-purple px-2">
+      <div className="mx-2 mt-2 flex h-11 shrink-0 items-center gap-2 rounded-md bg-cm-purple px-2">
         <button className={barButton} onClick={() => setDialog(true)}>
           Filtros <ChevronDown size={14} />
         </button>
@@ -325,7 +325,7 @@ export default function SearchPage({ active }: { active: boolean }) {
         </div>
       </div>
 
-      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
         <ErrorBox>{error}</ErrorBox>
         <div ref={tableRef} className={`min-h-0 flex-1 overflow-auto ${idle ? 'hidden' : ''}`}>
           <table className="w-full table-fixed border-collapse">
@@ -378,7 +378,7 @@ export default function SearchPage({ active }: { active: boolean }) {
         </>
       )}
       {scouting && (
-        <div className="mt-2.5">
+        <div className="mt-2">
           <Tabs tabs={MORE_SCOUTS} active={scout !== null ? `scout${scout}` : ''} onChange={pickTab} />
         </div>
       )}

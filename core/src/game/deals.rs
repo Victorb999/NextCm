@@ -585,6 +585,7 @@ impl Game {
     /// A aba Transferência do perfil de um jogador.
     pub fn transfer_view(&self, person: i32) -> Result<TransferView> {
         let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só os jogadores se transferem.".into()))?;
+        let ghost = self.is_ghost(person);
         let loan = self.loan_of(person)?;
         let loaned_in = loan.as_ref().is_some_and(|l| l.0 != self.club_id) && f.club == Some(self.club_id);
         let mine = f.club == Some(self.club_id) && !loaned_in;
@@ -659,8 +660,8 @@ impl Game {
             cash: self.cash_of(self.club_id)?,
             budget: if mine { self.transfer_budget()? } else { self.budget_for(person)?.0 },
             budget_note: if mine { None } else { self.budget_for(person)?.1 },
-            can_offer: f.club != Some(self.club_id) && !busy && bored.is_none() && self.loan_of(person)?.is_none(),
-            can_loan: f.club.is_some() && f.club != Some(self.club_id) && !busy && window && self.loan_of(person)?.is_none(),
+            can_offer: !ghost && f.club != Some(self.club_id) && !busy && bored.is_none() && self.loan_of(person)?.is_none(),
+            can_loan: !ghost && f.club.is_some() && f.club != Some(self.club_id) && !busy && window && self.loan_of(person)?.is_none(),
             can_renew: mine && blocked.is_none() && !busy,
             option_fee: option.map_or(0, |o| o.1),
             can_option: option.is_some() && !busy && window,
@@ -682,7 +683,9 @@ impl Game {
         let days_left = f.expires.as_deref().and_then(date::parse).zip(date::parse(&self.date)).map(|(e, t)| e - t);
         let (rank, _) = self.squad_rank(club, person, f.role)?;
         let loan = self.loan_of(person)?.filter(|l| Some(l.0) != f.club);
+        let ghost = self.is_ghost(person);
         let availability = match listing {
+            _ if ghost => "Jogador de enchimento: não está no mercado".into(),
             _ if loan.is_some() => format!("Emprestado pelo {}", self.club(loan.as_ref().map_or(0, |l| l.0)).short_name),
             Some((true, _, Some(ask))) => format!("Na lista de transferências ({})", money_text(ask)),
             Some((true, _, None)) => "Na lista de transferências".into(),

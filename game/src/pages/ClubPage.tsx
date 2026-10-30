@@ -77,7 +77,7 @@ function SquadGrid({
         onMouseDown={drag?.onMouseDown}
         onClick={() => onSelect(i)}
         onDoubleClick={() => onOpen(e)}
-        className={`flex h-[26px] items-center gap-1.5 px-2 ${i === selected ? '!bg-cm-sel' : ''} ${drag ? 'cursor-grab' : ''}`}
+        className={`flex h-6 items-center gap-1.5 px-2 ${i === selected ? '!bg-cm-sel' : ''} ${drag ? 'cursor-grab' : ''}`}
       >
         <span
           onMouseDown={stop}
@@ -116,7 +116,7 @@ function SquadGrid({
     </div>
   )
   return (
-    <div className="flex items-start gap-2.5">
+    <div className="flex items-start gap-2">
       {column(0)}
       {column(1)}
     </div>
@@ -137,7 +137,7 @@ function financesLabel(cash: number | null) {
 function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
   const nav = useNav()
   const row = (label: string, value: ReactNode) => (
-    <div key={label} className="flex min-h-[27px] items-baseline gap-4 px-3 py-1">
+    <div key={label} className="flex min-h-6 items-baseline gap-4 px-3 py-1">
       <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
       <span className="flex-1 text-[14px] text-cm-yellow">{value}</span>
     </div>
@@ -174,14 +174,24 @@ function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
       )}
       </div>
       <PanelTitle title="Staff" />
+      {/* Uma linha por função, com os nomes (ligações para o perfil) */}
       <div className="cm-zebra">
-      {c.staff.map((s) =>
-        row(
-          // "Sobrenome, Nome" -> "Nome Sobrenome", como na lista do CM
-          s.listName.includes(', ') ? s.listName.split(', ').reverse().join(' ') : s.listName,
-          <Link onClick={() => nav.go({ kind: 'person', id: s.id })}>{s.job ?? '-'}</Link>,
-        ),
-      )}
+        {[...new Set(c.staff.map((s) => s.job ?? '-'))].map((job) =>
+          row(
+            job,
+            c.staff
+              .filter((s) => (s.job ?? '-') === job)
+              .map((s, i) => (
+                <span key={s.id}>
+                  {i > 0 && ', '}
+                  <Link onClick={() => nav.go({ kind: 'person', id: s.id })}>
+                    {/* "Sobrenome, Nome" -> "Nome Sobrenome", como na lista do CM */}
+                    {s.listName.includes(', ') ? s.listName.split(', ').reverse().join(' ') : s.listName}
+                  </Link>
+                </span>
+              )),
+          ),
+        )}
       </div>
     </div>
   )
@@ -398,7 +408,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
       />
 
       {tab === 'squad' && (
-        <div className="mx-2.5 mt-2.5 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
+        <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
           <PurpleMenu
             label="Vêr"
             options={mine ? VIEWS : VIEWS.filter((v) => v.key !== 'reserves')}
@@ -438,12 +448,12 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
         </div>
       )}
 
-      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col">
         <ErrorBox className="mb-2">{error}</ErrorBox>
         {club && tab === 'squad' && (
           <>
             {/* Casas da equipa: arraste um jogador para uma casa (ou para outro jogador) para mudar o lugar */}
-            <div className="mb-2.5 flex shrink-0 flex-wrap items-center gap-0.5 rounded-md bg-[#1a1b21] px-3 py-1.5">
+            <div className="mb-2 flex shrink-0 flex-wrap items-center gap-0.5 rounded-md bg-[#1a1b21] px-3 py-1.5">
               <span className="mr-2 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-cm-orange">
                 {view === 'staff' ? 'Staff' : CRITERIA.find((c) => c.key === criterion)!.label}
               </span>
@@ -508,7 +518,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
       </div>
 
       {/* Atalhos inferiores do CM; o Treino chega no marco 3.3 */}
-      <div className="mt-2.5">
+      <div className="mt-2">
         <Tabs
           tabs={[
             { key: 'tactics', label: 'Tácticas' },

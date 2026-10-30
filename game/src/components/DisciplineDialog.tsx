@@ -38,31 +38,37 @@ export default function DisciplineDialog({
   return (
     <Overlay>
       <DialogFrame title="Disciplinar Jogador" width={620} cancelLabel="Cancelar" okLabel="Confirmar" onCancel={onClose} onOk={() => void confirm()}>
-        <div className="pb-4 font-title text-[19px] text-white">Especifique os detalhes da acção disciplinar sobre {name}</div>
-        <div className="flex items-center gap-3 pb-4 pl-4 font-title text-[19px] text-white">
-          <span className="w-56">Acção disciplinar:</span>
-          <button className="h-6 w-6 bg-black text-white disabled:text-[#555]" disabled={action === 0} onClick={() => setAction(action - 1)}>
+        <div className="pb-3 text-[15px] text-white">Especifique os detalhes da acção disciplinar sobre {name}.</div>
+        <div className="flex items-center gap-2 pb-3">
+          <span className="w-44 text-[15px] font-semibold text-white">Acção disciplinar</span>
+          <button className="cm-purple h-7 w-8 px-0" disabled={action === 0} onClick={() => setAction(action - 1)}>
             −
           </button>
-          <span className="w-80 text-center text-cm-yellow">{options?.actions[action] ?? ''}</span>
-          <button className="h-6 w-6 bg-black text-white disabled:text-[#555]" disabled={action >= last} onClick={() => setAction(action + 1)}>
+          <span className="flex h-7 flex-1 items-center justify-center rounded bg-black/50 text-[15px] font-bold text-cm-yellow">
+            {options?.actions[action] ?? ''}
+          </span>
+          <button className="cm-purple h-7 w-8 px-0" disabled={action >= last} onClick={() => setAction(action + 1)}>
             +
           </button>
         </div>
-        <div className="pb-2 pl-4 font-title text-[19px] text-white">Razão Para Acção Disciplinar</div>
-        {options?.reasons.map((r) => (
-          <button
-            key={r.key}
-            disabled={!r.available}
-            title={r.reason ?? undefined}
-            onClick={() => setReason(r.key)}
-            className={`block py-0.5 pl-12 text-left font-title text-[19px] ${
-              !r.available ? 'cursor-default text-[#7b3fd1]' : reason === r.key ? 'text-cm-yellow' : 'text-white hover:text-cm-yellow'
-            }`}
-          >
-            {r.label}
-          </button>
-        ))}
+        <div className="pb-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-cm-orange">Razão para a acção disciplinar</div>
+        <div className="cm-zebra overflow-hidden rounded bg-black/30">
+          {options?.reasons.map((r) => (
+            <button
+              key={r.key}
+              disabled={!r.available}
+              onClick={() => setReason(r.key)}
+              className={`flex min-h-7 w-full items-center gap-2 px-3 text-left text-[14px] ${
+                !r.available ? 'cursor-default text-[#8b6fc4]' : reason === r.key ? '!bg-cm-sel font-bold text-white' : 'text-white hover:text-cm-yellow'
+              }`}
+            >
+              <span className={`size-3 shrink-0 rounded-full border ${reason === r.key ? 'border-cm-yellow bg-cm-yellow' : 'border-current'}`} />
+              <span className="flex-1">{r.label}</span>
+              {/* Porque não se pode escolher (não aconteceu), como o roxo do CM */}
+              {!r.available && r.reason && <span className="text-[12px] text-[#8b6fc4]">{r.reason}</span>}
+            </button>
+          ))}
+        </div>
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
       </DialogFrame>
     </Overlay>

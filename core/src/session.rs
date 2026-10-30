@@ -86,6 +86,7 @@ impl Session {
         let mut c = self.db().get_club(id)?;
         if let Some(g) = &self.game {
             for p in &mut c.players {
+                p.ghost = g.is_ghost(p.id);
                 if let Some(st) = g.player_status(p.id) {
                     p.condition = Some(st.condition);
                     p.injured = st.injury.is_some();

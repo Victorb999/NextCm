@@ -2,7 +2,7 @@ import { ScrollText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { CareerClub } from '../bindings/CareerClub'
-import { BottomBar, Empty, Link, ScreenHeader } from '../components/Screen'
+import { BottomBar, Empty, Link, Panel, ScreenHeader } from '../components/Screen'
 import { cmDate, money } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -19,35 +19,47 @@ export default function CareerPage() {
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader icon={<ScrollText size={22} />} eyebrow={game.info?.managerName} title="Currículo" />
-      <div className="mx-1.5 mt-1.5 min-h-0 flex-1 space-y-2 overflow-auto border border-cm-line bg-cm-panel/70 p-3">
-        {clubs.map((c, i) => (
-          <div key={`${c.club.id}-${i}`} className="border border-cm-line bg-black/50 px-3 py-2">
-            <div className="flex items-baseline justify-between">
-              <Link className="font-title text-[20px] font-bold text-cm-yellow" onClick={() => nav.go({ kind: 'club', id: c.club.id })}>
-                {c.club.name}
-              </Link>
-              <span className="text-[14px] text-white">
-                {cmDate(c.joined)} – {c.left ? cmDate(c.left) : 'actual'}
-              </span>
-            </div>
-            <div className="mt-1 grid grid-cols-3 gap-2 text-[15px]">
-              <span className="text-white">
-                Compras: <b className="text-cm-orange">{c.purchases}</b> ({money(c.spent) || '€0'})
-              </span>
-              <span className="text-white">
-                Vendas: <b className="text-cm-orange">{c.sales}</b> ({money(c.received) || '€0'})
-              </span>
-              <span className="text-white">
-                Dispensas: <b className="text-cm-orange">{c.releases}</b>
-              </span>
-            </div>
-            <div className="mt-1 text-[15px] text-white">
-              Títulos: <span className="text-cm-yellow">{c.titles.length ? c.titles.join(', ') : 'Nenhum'}</span>
-            </div>
-          </div>
-        ))}
-        {clubs.length === 0 && <Empty>Sem clubes no currículo.</Empty>}
-      </div>
+      <Panel title="Clubes" className="mx-2 mb-1 min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-auto">
+          {clubs.length === 0 ? (
+            <Empty>Sem clubes no currículo.</Empty>
+          ) : (
+            <table className="w-full border-collapse text-[14px]">
+              <thead className="sticky top-0">
+                <tr className="h-7">
+                  {['Clube', 'Período', 'Compras', 'Vendas', 'Dispensas', 'Títulos'].map((h, i) => (
+                    <th key={h} className={`bg-[#3d1a73] px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 || i === 5 ? 'text-left' : 'text-center'}`}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {clubs.map((c, i) => (
+                  <tr key={`${c.club.id}-${i}`} className="h-7">
+                    <td className="px-3">
+                      <Link className="font-semibold text-cm-yellow" onClick={() => nav.go({ kind: 'club', id: c.club.id })}>
+                        {c.club.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 text-center text-white">
+                      {cmDate(c.joined)} – {c.left ? cmDate(c.left) : 'actual'}
+                    </td>
+                    <td className="px-3 text-center tabular-nums text-cm-orange">
+                      {c.purchases} <span className="text-[#86869a]">({money(c.spent) || '€0'})</span>
+                    </td>
+                    <td className="px-3 text-center tabular-nums text-cm-orange">
+                      {c.sales} <span className="text-[#86869a]">({money(c.received) || '€0'})</span>
+                    </td>
+                    <td className="px-3 text-center tabular-nums text-cm-orange">{c.releases}</td>
+                    <td className="px-3 text-cm-yellow">{c.titles.length ? c.titles.join(', ') : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Panel>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
     </div>
   )

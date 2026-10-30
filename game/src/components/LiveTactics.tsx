@@ -140,9 +140,9 @@ export default function LiveTactics({
           }}
         />
       </div>
-      <ErrorBox className="mx-1.5 mt-1.5">{error}</ErrorBox>
+      <ErrorBox className="mx-2 mt-2">{error}</ErrorBox>
       {t ? (
-        <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 gap-1.5">
+        <div className="mx-2 mt-2 flex min-h-0 flex-1 gap-1.5">
           <div className="flex min-h-0 w-[50%] flex-col">
             <div className="flex h-10 shrink-0 items-center justify-center bg-black/70 font-title text-[20px] font-bold text-cm-yellow">
               {t.formation}

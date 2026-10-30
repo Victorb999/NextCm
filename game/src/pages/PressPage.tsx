@@ -44,7 +44,7 @@ export default function PressPage({ id }: { id: number }) {
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader icon={<Mic size={22} />} title={view?.title ?? 'Conferência de Imprensa'} />
-      <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/70 px-6 py-4">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21] px-6 py-4">
         <ErrorBox className="mb-2">{error}</ErrorBox>
         {view && view.status !== 'pending' && !result && (
           <div className="font-title text-[19px] text-white">Esta conferência de imprensa já acabou.</div>

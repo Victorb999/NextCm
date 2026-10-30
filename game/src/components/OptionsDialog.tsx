@@ -8,7 +8,6 @@ import {
   FONTS,
   MATCH_SPEEDS,
   RESOLUTIONS,
-  SIDE_PRESETS,
   TEXT_FONTS,
   WAGES,
   applyResolution,
@@ -53,7 +52,7 @@ function Option({ selected, onClick, disabled, children }: { selected: boolean; 
   )
 }
 
-/** Valor com a setinha do CM: clique avança, clique direito volta. */
+/** Uma lista de opções (select), mais fácil do que a setinha do CM. */
 function Cycle<T extends string>({
   options,
   value,
@@ -65,24 +64,19 @@ function Cycle<T extends string>({
   onChange?: (v: T) => void
   disabled?: boolean
 }) {
-  const i = Math.max(0, options.findIndex((o) => o.key === value))
-  const step = (d: number) => onChange?.(options[(i + d + options.length) % options.length].key)
   return (
-    <div className="flex h-8 w-72 items-center justify-between rounded-[4px] border border-[#2f6b52] bg-[#0b1a14] pl-3 pr-1">
-      <span className="font-bold text-cm-yellow">{options[i].label}</span>
-      <button
-        disabled={disabled}
-        onClick={() => step(1)}
-        onContextMenu={(e) => {
-          e.preventDefault()
-          step(-1)
-        }}
-        className="flex h-6 w-6 items-center justify-center rounded-[3px] bg-black/50 text-[10px] text-white hover:bg-black"
-        aria-label="Mudar"
-      >
-        ◀
-      </button>
-    </div>
+    <select
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange?.(e.target.value as T)}
+      className="h-8 w-72 rounded-[4px] border border-[#2f6b52] bg-[#0b1a14] px-2 font-bold text-cm-yellow outline-none focus:border-cm-yellow disabled:text-[#6b7a72]"
+    >
+      {options.map((o) => (
+        <option key={o.key} value={o.key}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   )
 }
 
@@ -129,7 +123,6 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const customSide = !SIDE_PRESETS.some((p) => p.colour === s.sideColour)
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
@@ -208,30 +201,6 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
               </Row>
               <Row label="Letra do Texto">
                 <Cycle options={TEXT_FONTS} value={s.textFont} onChange={(textFont) => set({ textFont })} />
-              </Row>
-              <Row label="Coluna Lateral">
-                {SIDE_PRESETS.map((p) => (
-                  <button
-                    key={p.colour}
-                    title={p.label}
-                    aria-pressed={s.sideColour === p.colour}
-                    onClick={() => set({ sideColour: p.colour })}
-                    className={`h-6 w-9 border-2 ${s.sideColour === p.colour ? 'border-cm-yellow' : 'border-black'}`}
-                    style={{ background: p.colour }}
-                  />
-                ))}
-                <label
-                  title="Escolher outra cor"
-                  className={`flex h-6 cursor-pointer items-center gap-1 border-2 px-1 text-[12px] ${customSide ? 'border-cm-yellow text-cm-yellow' : 'border-black text-cm-green'}`}
-                >
-                  <input
-                    type="color"
-                    value={s.sideColour}
-                    onChange={(e) => set({ sideColour: e.target.value })}
-                    className="h-4 w-6 cursor-pointer border-0 bg-transparent p-0"
-                  />
-                  Outra
-                </label>
               </Row>
               <Row label="Fundo">
                 <Option selected={s.background === 'default'} onClick={() => set({ background: 'default' })}>

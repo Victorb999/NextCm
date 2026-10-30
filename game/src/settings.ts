@@ -216,7 +216,8 @@ export function shade(hex: string, t: number) {
 /** Variáveis CSS do tema, fundo e modo de ecrã. */
 export function applySettings(s: Settings) {
   const root = document.documentElement.style
-  const base = /^#[0-9a-f]{6}$/i.test(s.sideColour) ? s.sideColour : DEFAULT_SETTINGS.sideColour
+  // A cor da coluna já não se escolhe (virão temas pré-definidos): fica a de sempre
+  const base = DEFAULT_SETTINGS.sideColour
   root.setProperty('--cm-side', base)
   root.setProperty('--cm-side-top', shade(base, 0.12))
   root.setProperty('--cm-sidebtn', shade(base, -0.17))

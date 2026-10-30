@@ -57,8 +57,12 @@ const TABS = [
 
 const DEFAULT_COLOURS = { fg: '#ffffff', bg: '#3a3a3a' }
 
+/** A cor de um atributo pela faixa, como no CM: fraco, razoável, bom, excelente. */
 function valueColor(v: number) {
-  return v >= 16 ? 'text-[#ff4433]' : 'text-cm-orange'
+  if (v >= 16) return 'text-[#ff3b3b]'
+  if (v >= 11) return 'text-cm-orange'
+  if (v >= 6) return 'text-[#f5e663]'
+  return 'text-[#8f8fa0]'
 }
 
 /** Grade de 3 colunas "Nome .... valor", como no perfil do CM. */
@@ -66,11 +70,11 @@ function AttributeGrid({ items }: { items: { label: string; value: ReactNode; co
   const perColumn = Math.ceil(items.length / 3)
   const columns = [0, 1, 2].map((c) => items.slice(c * perColumn, (c + 1) * perColumn))
   return (
-    <div className="grid shrink-0 grid-cols-3 gap-2.5">
+    <div className="grid shrink-0 grid-cols-3 gap-2">
       {columns.map((col, c) => (
         <div key={c} className="cm-zebra overflow-hidden rounded-md bg-[#1a1b21]">
           {col.map((it) => (
-            <div key={it.label} className="flex h-[27px] items-center justify-between px-3">
+            <div key={it.label} className="flex h-6 items-center justify-between px-3">
               <span className="text-[14.5px] text-[#e3e1e9]">{it.label}</span>
               <span className={`text-[14.5px] font-bold tabular-nums ${it.color ?? 'text-cm-orange'}`}>{it.value}</span>
             </div>
@@ -122,18 +126,18 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
   const born = p?.birthDate ? cmDate(p.birthDate) : p?.birthYear ? String(p.birthYear) : '?'
   const dot = <span className="text-[#5a5a66]"> · </span>
   return (
-    <div className="m-2.5 shrink-0 rounded-md bg-[#1a1b21] px-4 pb-2 pt-3">
+    <div className="m-2 shrink-0 rounded-md bg-[#1a1b21] px-3 pb-1.5 pt-2">
       <div className="flex items-start gap-3">
         <div
-          className="flex size-[52px] shrink-0 flex-col items-center justify-center rounded border border-black/40 leading-none"
+          className="flex size-[44px] shrink-0 flex-col items-center justify-center rounded border border-black/40 leading-none"
           style={{ color: colours.fg, background: colours.bg }}
           title={club?.name}
         >
-          <span className="font-title text-[26px] font-bold">{pl?.squadNumber ?? '-'}</span>
+          <span className="font-title text-[22px] font-bold">{pl?.squadNumber ?? '-'}</span>
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate font-title text-[26px] font-bold uppercase leading-tight text-white">{p?.name ?? ''}</span>
+            <span className="truncate font-title text-[22px] font-bold uppercase leading-tight text-white">{p?.name ?? ''}</span>
             {p && (
               <span className="shrink-0 rounded px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider" style={{ color: colours.fg, background: colours.bg }}>
                 {club ? (
@@ -172,7 +176,7 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
         <div className="shrink-0">{action}</div>
       </div>
       {pl && (
-        <div className="mt-2 flex h-8 items-center gap-2 rounded bg-black/30 px-3">
+        <div className="mt-1.5 flex h-7 items-center gap-2 rounded bg-black/30 px-3">
           <span className="truncate font-title text-[16px] font-bold text-[#4edea3]">{pl.positionLong || '-'}</span>
           <span className="ml-auto flex shrink-0 gap-1">
             {pl.positions.map((t) => (
@@ -190,7 +194,7 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
           </span>
         </div>
       )}
-      <div className="mt-2">{tabs}</div>
+      <div className="mt-1.5">{tabs}</div>
     </div>
   )
 }
@@ -227,7 +231,7 @@ function InfoRows({ rows }: { rows: [string, ReactNode][] }) {
   return (
     <div className="cm-zebra">
       {rows.map(([k, v]) => (
-        <div key={k} className="flex h-[26px] items-center justify-between gap-2 px-3 text-[13.5px]">
+        <div key={k} className="flex h-6 items-center justify-between gap-2 px-3 text-[13.5px]">
           <span className="text-[#c8c8d0]">{k}</span>
           <span className="truncate font-bold text-cm-yellow">{v}</span>
         </div>
@@ -260,12 +264,12 @@ function Profile({ p }: { p: PersonProfile }) {
   const rating = total.apps ? p.season.reduce((t, s) => t + s.rating * s.apps, 0) / total.apps : 0
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto pb-1">
-      <div className="flex shrink-0 gap-2.5">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto pb-1">
+      <div className="flex shrink-0 gap-2">
         <div className="min-w-0 flex-1">
           <AttributeGrid items={items} />
         </div>
-        <div className="flex w-[250px] shrink-0 flex-col gap-2.5">
+        <div className="flex w-[250px] shrink-0 flex-col gap-2">
           {pl && (
             <Panel title="Posições">
               <div className="p-2">
@@ -359,7 +363,7 @@ function Injuries({ p }: { p: PersonProfile }) {
     ['Cartões amarelos', `${st.yellows} (suspensão ao 3º)`],
   ]
   return (
-    <div className="flex min-h-0 flex-1 items-start gap-2.5 overflow-auto pb-1">
+    <div className="flex min-h-0 flex-1 items-start gap-2 overflow-auto pb-1">
       <Panel title="Condição Física" chip={st.injury ? undefined : 'Apto para jogar'} className="min-w-0 flex-1">
         <InfoRows rows={health} />
       </Panel>
@@ -643,18 +647,18 @@ export default function PersonPage({ id }: { id: number }) {
           />
         }
       />
-      <div className="mx-2.5 flex min-h-0 flex-1 flex-col">
-        <ErrorBox className="mb-2.5">{error}</ErrorBox>
-        {notice && <div className="mb-2.5 rounded bg-[#0f3a2a] px-2 py-1 text-center text-cm-yellow">{notice}</div>}
+      <div className="mx-2 flex min-h-0 flex-1 flex-col">
+        <ErrorBox className="mb-2">{error}</ErrorBox>
+        {notice && <div className="mb-2 rounded bg-[#0f3a2a] px-2 py-1 text-center text-cm-yellow">{notice}</div>}
         {person && tab === 'profile' && <Profile p={person} />}
         {person && tab === 'contract' && (
-          <div className="flex min-h-0 flex-1 items-start gap-2.5 overflow-auto pb-1">
+          <div className="flex min-h-0 flex-1 items-start gap-2 overflow-auto pb-1">
             <Panel title="Contrato" className="w-[42%] shrink-0">
               <Contract p={person} />
               {game.mode === 'game' && buttonRow(contractButtons)}
             </Panel>
             {game.mode === 'game' && person.player && (
-              <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <Panel title="Mercado">
                   <TransferTab personId={id} version={version} onChanged={() => void reload()} />
                   {buttonRow(marketButtons)}
@@ -663,7 +667,7 @@ export default function PersonPage({ id }: { id: number }) {
                   <Panel title="Estado de Espírito" chip="Insatisfeito">
                     <div className="cm-zebra">
                       {person.status.unhappy.map((u) => (
-                        <div key={u} className="flex min-h-[26px] items-center px-3 text-[13.5px] text-cm-orange">
+                        <div key={u} className="flex min-h-6 items-center px-3 text-[13.5px] text-cm-orange">
                           {u}.
                         </div>
                       ))}
@@ -687,8 +691,11 @@ export default function PersonPage({ id }: { id: number }) {
           onDone={(v) => {
             setDeal(null)
             setMarket(v)
-            setTab('contract')
-            void reload()
+            // Uma proposta enviada volta às Notícias, como no CM (a resposta chega lá); o preço pedido fica aqui
+            if (deal === 'price') {
+              setTab('contract')
+              void reload()
+            } else nav.go({ kind: 'news' })
           }}
         />
       )}

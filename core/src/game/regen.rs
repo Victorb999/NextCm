@@ -161,6 +161,11 @@ impl Game {
     /// Completa até 18 jogadores (2 GR, 6 D, 6 M e 4 A no mínimo) os plantéis dos clubes que
     /// jogam nesta época. O nível vem da reputação do clube: o CA médio dos 11 melhores no
     /// patch é ≈ 74,6 + 0,0101 × reputação.
+    /// Jogador de enchimento (criado para completar um plantel pequeno).
+    pub fn is_ghost(&self, person: i32) -> bool {
+        self.world.conn.query_row("SELECT 1 FROM ghosts WHERE person_id = ?", [person], |_| Ok(())).is_ok()
+    }
+
     pub(super) fn complete_squads(&mut self) -> Result<usize> {
         let year = self.season();
         let mut clubs: Vec<i32> =
@@ -202,7 +207,8 @@ impl Game {
                     position,
                     contract_until: format!("{}-12-31", year + 1),
                 };
-                if self.create_player(&mut factory, &p, &mut rng)?.is_some() {
+                if let Some((id, _)) = self.create_player(&mut factory, &p, &mut rng)? {
+                    self.world.conn.execute("INSERT OR IGNORE INTO ghosts (person_id) VALUES (?)", [id])?;
                     created += 1;
                 }
             }
@@ -427,5 +433,22 @@ mod tests {
         drop((g, again));
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_dir_all(&dir2);
+    }
+
+    #[test]
+    fn filler_players_are_ghosts() {
+        let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (g, dir) = create(&path, "fantasmas", 4);
+        let ghost: Option<i32> = g.world.conn.query_row("SELECT person_id FROM ghosts LIMIT 1", [], |r| r.get(0)).ok();
+        let ghost = ghost.expect("os plantéis pequenos têm jogadores de enchimento");
+        assert!(g.is_ghost(ghost));
+        // Não se compram nem se emprestam, e o perfil não deixa propor contrato
+        let view = g.transfer_view(ghost).unwrap();
+        assert!(!view.can_offer && !view.can_loan);
+        let mut p = g.world.get_person(ghost).unwrap();
+        g.mask_profile(&mut p).unwrap();
+        assert!(p.ghost && !p.can_contract);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

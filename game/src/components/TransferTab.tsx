@@ -170,7 +170,7 @@ export default function TransferTab({ personId, version, onChanged }: { personId
     <div>
       <div className="cm-zebra">
         {rows.map(([k, v]) => (
-          <div key={k} className="flex min-h-[26px] items-center justify-between gap-4 px-3 text-[13.5px]">
+          <div key={k} className="flex min-h-6 items-center justify-between gap-4 px-3 text-[13.5px]">
             <span className="shrink-0 text-[#c8c8d0]">{k}</span>
             <span className="text-right font-bold text-cm-yellow">{v}</span>
           </div>

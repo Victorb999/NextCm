@@ -34,11 +34,11 @@ function Info({ n }: { n: NationProfile }) {
     ['Clubes sem liga', n.otherClubs],
   ]
   return (
-    <div className="mx-auto mt-4 w-full max-w-2xl px-1.5">
+    <div className="cm-zebra">
       {rows.map(([k, v]) => (
-        <div key={k} className="flex h-8 items-center justify-between border-b border-cm-line bg-black/50 px-3 text-[15px]">
-          <span className="text-white">{k}</span>
-          <span className="font-bold text-cm-yellow">{v}</span>
+        <div key={k} className="flex h-7 items-center gap-4 px-4 text-[14px]">
+          <span className="w-56 font-semibold text-white">{k}</span>
+          <span className="text-cm-yellow">{v}</span>
         </div>
       ))}
     </div>
@@ -71,7 +71,7 @@ export default function NationPage({ id }: { id: number }) {
     <div className="flex h-full flex-col">
       <ScreenHeader icon={<Flag size={22} />} title={nation?.name ?? ''} />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
-      <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21]">
         <ErrorBox>{error}</ErrorBox>
         {nation && tab === 'clubs' && (
           <PickList key="clubs" groups={clubGroups} onOpen={(c) => nav.go({ kind: 'club', id: c.id })} />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
-import { BottomBar, Empty, ErrorBox, Link, ScreenHeader, Tabs } from '../components/Screen'
+import { BottomBar, Empty, ErrorBox, Link, PanelTitle, ScreenHeader, Tabs } from '../components/Screen'
 import { useEscBack, useNav } from '../nav'
 
 const TABS = [
@@ -18,21 +18,23 @@ function Competitions({ c }: { c: ClubProfile }) {
   const nav = useNav()
   if (c.honours.length === 0) return <Empty>Nenhum título registado.</Empty>
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-2 pb-2">
-      <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Títulos</div>
-      {c.honours.map((h) => (
-        <div key={h.competition.id} className="mb-1 border-b border-cm-line bg-black/40 px-2 py-1">
-          <div className="flex items-center gap-2">
-            <Link onClick={() => nav.go({ kind: 'competition', id: h.competition.id })} className="flex-1 truncate font-title text-[17px] text-white">
-              {h.competition.name}
-            </Link>
-            {h.won.length > 0 && <span className="font-bold text-cm-yellow">{h.won.length}× campeão</span>}
-            {h.runnerUp.length > 0 && <span className="text-[#aab3c4]">{h.runnerUp.length}× vice</span>}
+    <div className="min-h-0 flex-1 overflow-auto">
+      <PanelTitle title="Títulos" />
+      <div className="cm-zebra">
+        {c.honours.map((h) => (
+          <div key={h.competition.id} className="px-4 py-1.5">
+            <div className="flex items-center gap-2">
+              <Link onClick={() => nav.go({ kind: 'competition', id: h.competition.id })} className="flex-1 truncate text-[15px] font-semibold text-white">
+                {h.competition.name}
+              </Link>
+              {h.won.length > 0 && <span className="font-bold text-cm-yellow">{h.won.length}× campeão</span>}
+              {h.runnerUp.length > 0 && <span className="text-[#aab3c4]">{h.runnerUp.length}× vice</span>}
+            </div>
+            {h.won.length > 0 && <div className="text-[13px] text-cm-yellow">Campeão: {h.won.join(', ')}</div>}
+            {h.runnerUp.length > 0 && <div className="text-[13px] text-[#aab3c4]">Vice: {h.runnerUp.join(', ')}</div>}
           </div>
-          {h.won.length > 0 && <div className="text-[13px] text-cm-yellow">Campeão: {h.won.join(', ')}</div>}
-          {h.runnerUp.length > 0 && <div className="text-[13px] text-[#aab3c4]">Vice: {h.runnerUp.join(', ')}</div>}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
@@ -41,9 +43,9 @@ function Positions({ c }: { c: ClubProfile }) {
   const nav = useNav()
   if (!c.lastDivision || !c.lastPosition) return <Empty>Sem classificações registadas.</Empty>
   return (
-    <div className="mx-auto mt-4 w-full max-w-2xl px-1.5">
-      <div className="py-1.5 text-center font-title text-xl font-bold text-cm-yellow">Recente</div>
-      <div className="flex h-8 items-center gap-3 border-b border-cm-line bg-black/50 px-3 text-[15px]">
+    <div>
+      <PanelTitle title="Recente" />
+      <div className="flex h-7 items-center gap-3 px-4 text-[14px]">
         {/* O patch guarda só a posição "anterior", sem dizer de que ano */}
         <span className="w-32 text-white">Época anterior</span>
         <Link onClick={() => nav.go({ kind: 'competition', id: c.lastDivision!.id })} className="flex-1 text-cm-yellow">
@@ -72,7 +74,7 @@ export default function ClubHistoryPage({ id }: { id: number }) {
     <div className="flex h-full flex-col">
       <ScreenHeader club={club?.club} eyebrow={club?.club.name} title="Historial" />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
-      <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21]">
         <ErrorBox>{error}</ErrorBox>
         {club && tab === 'competitions' && <Competitions c={club} />}
         {club && tab === 'positions' && <Positions c={club} />}

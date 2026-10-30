@@ -91,6 +91,24 @@ export function moneyStep(v: number): number {
   return [1, 2, 5, 10].map((m) => m * p).find((s) => s >= target) ?? p * 10
 }
 
+/** Os valores redondos das listas de dinheiro (na moeda mostrada): 0, 100, 150, 200, 250... 1 bilião. */
+export const MONEY_LADDER: number[] = [0].concat(
+  ...[2, 3, 4, 5, 6, 7, 8].map((e) => [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5].map((m) => m * 10 ** e)),
+  [1e9],
+)
+
+/** As opções da lista à volta de `v`: de um vigésimo a vinte vezes, com o próprio `v`. */
+export function moneyOptions(v: number): number[] {
+  const near = MONEY_LADDER.filter((x) => (v <= 0 ? x <= 1_000_000 : x >= v / 20 && x <= v * 20))
+  return [...new Set([0, ...near, v])].sort((a, b) => a - b)
+}
+
+/** O valor redondo seguinte (dir = 1) ou anterior (dir = -1). */
+export function moneyNext(v: number, dir: 1 | -1): number {
+  if (dir > 0) return MONEY_LADDER.find((x) => x > v) ?? v
+  return [...MONEY_LADDER].reverse().find((x) => x < v) ?? 0
+}
+
 /** "Palmeiras" -> "PA", "Real Madrid" -> "RM": o emblema do clube (placar, Tácticas). */
 export function initials(name: string): string {
   const words = name.split(/\s+/).filter((w) => /^\p{Lu}/u.test(w))

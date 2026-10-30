@@ -61,7 +61,7 @@ export default function TalkPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader icon={<Megaphone size={22} />} title={view?.title ?? 'Palestra'} />
-      <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col gap-2 border border-cm-line bg-cm-panel/70 px-6 py-3">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col gap-2 rounded-md bg-[#1a1b21] px-6 py-3">
         <ErrorBox>{error}</ErrorBox>
         {view && !reactions && (
           <>

@@ -58,7 +58,7 @@ function Meeting({ kind, onClose }: { kind: Kind; onClose: (answer: string | nul
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader icon={<Landmark size={22} />} eyebrow={game.info?.managerName} title={meeting.title} />
-      <Panel title={meeting.prompt} className="mx-2.5 min-h-0 flex-1">
+      <Panel title={meeting.prompt} className="mx-2 min-h-0 flex-1">
         <div className="cm-zebra min-h-0 flex-1 overflow-auto">
           {requests.map((r) => (
             <button
@@ -126,10 +126,8 @@ export default function BoardPage() {
   useEscBack()
   const [view, setView] = useState<BoardConfidence | null>(null)
   const [meeting, setMeeting] = useState<Kind | null>(null)
-  const [answer, setAnswer] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const load = () => api.boardConfidence().then(setView, (e) => setError(String(e)))
   useEffect(() => {
     api.boardConfidence().then(setView, (e) => setError(String(e)))
   }, [])
@@ -140,10 +138,8 @@ export default function BoardPage() {
         kind={meeting}
         onClose={(a) => {
           setMeeting(null)
-          if (a) {
-            setAnswer(a)
-            void load()
-          }
+          // A resposta chega como mensagem: volta às Notícias, como no CM
+          if (a) nav.go({ kind: 'news' })
         }}
       />
     )
@@ -166,9 +162,8 @@ export default function BoardPage() {
           </>
         }
       />
-      <div className="mx-2.5 flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">
+      <div className="mx-2 flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
         <ErrorBox>{error}</ErrorBox>
-        {answer && <div className="shrink-0 rounded-md bg-[#0f3a2a] px-4 py-2 text-[16px] text-cm-yellow">{answer}</div>}
         <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
           <div className="cm-zebra">
             {view?.lines.map((l) => {

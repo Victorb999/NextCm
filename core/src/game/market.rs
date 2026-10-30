@@ -310,7 +310,7 @@ impl Game {
                  LEFT JOIN clubs c ON c.id = p.club_id LEFT JOIN competitions k ON k.id = c.division_id
                  LEFT JOIN nations cn ON cn.id = c.nation_id
                  WHERE p.is_player = 1 AND (p.club_id IS NOT NULL OR pl.current_ability >= 50)
-                   AND p.id NOT IN (SELECT person_id FROM retired)
+                   AND p.id NOT IN (SELECT person_id FROM retired) AND p.id NOT IN (SELECT person_id FROM ghosts)
                  ORDER BY pl.person_id",
             )?
             .query_map([], |r| {

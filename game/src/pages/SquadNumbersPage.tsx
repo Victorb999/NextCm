@@ -170,7 +170,7 @@ export default function SquadNumbersPage() {
         title={club ? `Números Plantel ${club.shortName}` : 'Números Plantel'}
       />
       {saved && (
-        <div className="mx-2.5 flex shrink-0 items-center gap-3 rounded-md border border-cm-yellow/60 bg-cm-yellow/[0.06] px-4 py-2 text-[13px] text-[#e3e1e9]">
+        <div className="mx-2 flex shrink-0 items-center gap-3 rounded-md border border-cm-yellow/60 bg-cm-yellow/[0.06] px-4 py-2 text-[13px] text-[#e3e1e9]">
           <span className="font-bold text-cm-yellow">i</span>
           {saved.preSeason ? 'Os números ficam fixos a partir do primeiro jogo oficial.' : 'Com a época a decorrer, só os jogadores sem número recebem um.'}
           <span className="text-[#55565f]">·</span>
@@ -180,7 +180,7 @@ export default function SquadNumbersPage() {
           {missing > 0 && <span className="ml-auto rounded bg-cm-sel px-2 py-0.5 text-[12px] font-bold text-white">Sem número: {missing}</span>}
         </div>
       )}
-      <div className="mx-2.5 mt-2.5 flex shrink-0 items-center gap-1.5">
+      <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5">
         <PurpleMenu label="Vêr" options={VIEWS} value={view} onChange={setView} />
         <PurpleMenu label="Critério" options={CRITERIA} value={criterion} onChange={setCriterion} />
         <div className="flex-1" />
@@ -191,8 +191,8 @@ export default function SquadNumbersPage() {
           Anular
         </button>
       </div>
-      <ErrorBox className="mx-2.5 mt-2.5">{error}</ErrorBox>
-      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 gap-2.5">
+      <ErrorBox className="mx-2 mt-2">{error}</ErrorBox>
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 gap-2">
         <div className="flex min-h-0 w-[46%] flex-col overflow-hidden rounded-md bg-[#1a1b21]">
           <div className="flex h-8 shrink-0 items-center gap-3 border-b border-cm-line bg-black/40 px-4 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#86869a]">
             <span className="w-9 text-center">Nº</span>

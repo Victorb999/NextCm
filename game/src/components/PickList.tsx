@@ -70,7 +70,7 @@ export default function PickList({
                     data-row={i}
                     onMouseDown={() => setSelected(i)}
                     onDoubleClick={() => onOpen(item)}
-                    className={`flex h-[26px] items-center gap-2 px-2 ${i === selected ? 'bg-cm-sel' : 'bg-black/40'}`}
+                    className={`flex h-6 items-center gap-2 px-2 ${i === selected ? 'bg-cm-sel' : 'bg-black/40'}`}
                   >
                     <span className="flex-1 truncate font-title text-[17px] text-white">{item.label}</span>
                     {item.detail !== undefined && (

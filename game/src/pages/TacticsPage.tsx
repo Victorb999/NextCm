@@ -122,7 +122,7 @@ export default function TacticsPage({ id }: { id: number }) {
   return (
     <div className="flex h-full flex-col">
       {/* Cabeçalho: o nome da táctica abre o menu Tácticas; as vistas; Vêr, Último Jogo e Editar */}
-      <div className="mx-2.5 mt-2.5 flex shrink-0 items-center gap-3 rounded-md bg-[#1a1b21] px-3 py-2.5">
+      <div className="mx-2 mt-2 flex shrink-0 items-center gap-3 rounded-md bg-[#1a1b21] px-3 py-2.5">
         <PurpleMenu
           label="Tácticas"
           options={TACTICS_MENU}
@@ -132,7 +132,7 @@ export default function TacticsPage({ id }: { id: number }) {
             if (k === 'instructions') setInstructions(true)
             else if (t) void apply({ ...selectionOf(t), formation: Number(k), positions: [], auto: false })
           }}
-          buttonClass="flex items-center gap-2.5 rounded-md py-1 pl-1 pr-2.5 text-left hover:bg-white/[0.06] disabled:hover:bg-transparent"
+          buttonClass="flex items-center gap-2 rounded-md py-1 pl-1 pr-2.5 text-left hover:bg-white/[0.06] disabled:hover:bg-transparent"
           trigger={
             <>
               <span
@@ -196,11 +196,11 @@ export default function TacticsPage({ id }: { id: number }) {
           }
         />
       </div>
-      <ErrorBox className="mx-2.5 mt-2.5">{error}</ErrorBox>
+      <ErrorBox className="mx-2 mt-2">{error}</ErrorBox>
       {t && (
-        <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 gap-2.5">
+        <div className="mx-2 mt-2 flex min-h-0 flex-1 gap-2">
           {/* Onze, banco e resto do plantel numa coluna só, que rola */}
-          <div className="flex min-h-0 w-[54%] flex-col gap-2.5 overflow-auto">
+          <div className="flex min-h-0 w-[54%] flex-col gap-2 overflow-auto">
             <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
               <PanelTitle
                 title="Onze Titular"
@@ -332,7 +332,7 @@ export default function TacticsPage({ id }: { id: number }) {
             )}
           </div>
           {/* O campo com toda a altura e, ao lado, o resumo das instruções */}
-          <div className="flex min-h-0 min-w-0 flex-1 gap-2.5">
+          <div className="flex min-h-0 min-w-0 flex-1 gap-2">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
               <PanelTitle
                 title="Quadro Táctico"

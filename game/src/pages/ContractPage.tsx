@@ -4,8 +4,9 @@ import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { ContractReply } from '../bindings/ContractReply'
 import type { ContractTerms } from '../bindings/ContractTerms'
-import { BottomBar, ScreenHeader, Tabs } from '../components/Screen'
-import { currency, money, monthYear, moneyStep, wage as wageText, wagePeriod } from '../format'
+import MoneySelect from '../components/MoneySelect'
+import { BottomBar, ErrorBox, Panel, ScreenHeader, Tabs } from '../components/Screen'
+import { money, monthYear, wage as wageText, wagePeriod } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -33,7 +34,7 @@ function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: st
   return (
     <>
       <ScreenHeader icon={<FileText size={22} />} eyebrow={terms.name} title="Definir Função No Clube" />
-      <div className="mx-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/70 px-10 py-4">
+      <div className="mx-1.5 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21] px-10 py-4">
         <div className="pb-3 font-title text-[21px] text-white">Situação</div>
         {terms.roles.map((r) => (
           <button
@@ -70,42 +71,22 @@ function TermRow({
   onPlus?: () => void
   onEqual?: () => void
 }) {
-  const btn = (text: string, on?: () => void) =>
+  const btn = (text: string, on?: () => void, title?: string) =>
     on ? (
-      <button className="cm-chip h-6 w-7 text-[15px]" onClick={on}>
+      <button className="cm-purple h-7 w-8 px-0" title={title} onClick={on}>
         {text}
       </button>
     ) : (
-      <span className="w-7" />
+      <span className="w-8" />
     )
   return (
-    <div className="flex h-[30px] items-center gap-2 font-title text-[20px]">
-      <span className="w-72 shrink-0 text-white">{label}</span>
+    <div className="flex h-9 items-center gap-1 px-4">
+      <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
       {btn('−', onMinus)}
-      <span className="w-48 text-center text-white">{value}</span>
+      <span className="flex min-w-52 justify-center text-[15px] text-cm-yellow">{value}</span>
       {btn('+', onPlus)}
-      {btn('=', onEqual)}
+      {btn('=', onEqual, 'O que ele pede')}
     </div>
-  )
-}
-
-/** Campo de dinheiro sem moldura (na moeda das Definições); `value` em euros × `factor`. */
-function MoneyInput({ value, factor, onChange }: { value: number; factor: number; onChange: (eur: number) => void }) {
-  const c = currency()
-  const shown = Math.round(value * factor * c.rate)
-  const [draft, setDraft] = useState<string | null>(null)
-  return (
-    <input
-      value={draft ?? `${c.symbol}${shown.toLocaleString('pt-BR')}`}
-      onFocus={() => setDraft(String(shown))}
-      onChange={(e) => {
-        const digits = e.target.value.replace(/\D/g, '')
-        setDraft(digits)
-        if (digits) onChange(Math.round(Number(digits) / factor / c.rate))
-      }}
-      onBlur={() => setDraft(null)}
-      className="w-full bg-transparent text-center text-white outline-none focus:bg-black/60"
-    />
   )
 }
 
@@ -113,7 +94,6 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
   const nav = useNav()
   const game = useGame()
   const period = wagePeriod()
-  const c = currency()
   const [w, setW] = useState(terms.wage)
   const [bonus, setBonus] = useState(terms.bonus)
   const [years, setYears] = useState(terms.years)
@@ -122,7 +102,6 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
   // O que ele pede agora (muda com a resposta)
   const asks = reply && !reply.accepted ? reply : terms
   const end = (y: number) => terms.ends[y - 1] ?? ''
-  const step = (eur: number, factor: number) => moneyStep(eur * factor * c.rate) / factor / c.rate
 
   const offer = async () => {
     try {
@@ -157,55 +136,57 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
         active="basic"
         onChange={() => {}}
       />
-      <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col overflow-auto border border-cm-line bg-cm-panel/70 px-5 py-3">
-        <div className={`font-title text-[21px] leading-snug ${reply?.accepted ? 'text-cm-yellow' : 'text-white'}`}>
-          {reply && (reply.accepted || over) ? reply.text : wants}
-        </div>
-        <div className="mt-3 font-title text-[19px] text-white">
-          {terms.renewal
-            ? `Contrato actual: ${wageText(terms.currentWage, true)} até ${monthYear(terms.currentExpires ?? '')}.`
-            : terms.precontract
-              ? `Pré-contrato: o contrato dele acaba a ${monthYear(terms.currentExpires ?? '')} e chega livre nessa data.`
-              : terms.fee
-                ? `Transferência acordada: ${money(terms.fee)}.`
-                : 'Jogador livre.'}
-        </div>
-        <div className="mt-1 font-title text-[19px] text-white">
-          A sua direcção autoriza salários até {wageText(terms.maxWage, true)} e transferências até {money(terms.budget) || '€0'}.
-        </div>
-        <div className="mt-5 pl-6">
-          <TermRow label="Função" value={ROLE_SHORT[terms.role] ?? terms.role} onPlus={over ? undefined : onRole} />
-          <TermRow
-            label={SALARY_LABEL[period.key] ?? 'Salário'}
-            value={<MoneyInput value={w} factor={period.factor} onChange={setW} />}
-            onMinus={() => setW((v) => Math.max(0, v - step(v, period.factor)))}
-            onPlus={() => setW((v) => v + step(v, period.factor))}
-            onEqual={() => setW(asks.wage)}
-          />
-          <TermRow
-            label="Prémio Assinatura"
-            value={<MoneyInput value={bonus} factor={1} onChange={setBonus} />}
-            onMinus={() => setBonus((v) => Math.max(0, v - step(v, 1)))}
-            onPlus={() => setBonus((v) => v + step(Math.max(v, 10_000), 1))}
-            onEqual={() => setBonus(asks.bonus)}
-          />
-          <TermRow
-            label="Final Contrato"
-            value={monthYear(end(years))}
-            onMinus={years > 1 ? () => setYears(years - 1) : undefined}
-            onPlus={years < 5 ? () => setYears(years + 1) : undefined}
-            onEqual={() => setYears(asks.years)}
-          />
-          <TermRow label="Tipo de Contrato" value="Tempo Inteiro" />
-          <TermRow label="Tornar proposta pública" value="Não" />
-        </div>
-        {error && <div className="mt-3 font-title text-[19px] font-bold text-[#ff5050]">{error}</div>}
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
+        <Panel title="Situação" className="shrink-0">
+          <div className="px-4 py-2">
+            <div className={`text-[16px] leading-snug ${reply?.accepted ? 'text-cm-yellow' : 'text-white'}`}>
+              {reply && (reply.accepted || over) ? reply.text : wants}
+            </div>
+            <div className="mt-2 text-[14px] text-[#c8c8d0]">
+              {terms.renewal
+                ? `Contrato actual: ${wageText(terms.currentWage, true)} até ${monthYear(terms.currentExpires ?? '')}.`
+                : terms.precontract
+                  ? `Pré-contrato: o contrato dele acaba a ${monthYear(terms.currentExpires ?? '')} e chega livre nessa data.`
+                  : terms.fee
+                    ? `Transferência acordada: ${money(terms.fee)}.`
+                    : 'Jogador livre.'}
+            </div>
+            <div className="mt-1 text-[14px] text-[#c8c8d0]">
+              A sua direcção autoriza salários até {wageText(terms.maxWage, true)} e transferências até {money(terms.budget) || '€0'}.
+            </div>
+          </div>
+        </Panel>
+        <Panel title="Proposta" className="shrink-0">
+          <div className="cm-zebra">
+            <TermRow label="Função" value={ROLE_SHORT[terms.role] ?? terms.role} onPlus={over ? undefined : onRole} />
+            <TermRow
+              label={SALARY_LABEL[period.key] ?? 'Salário'}
+              value={<MoneySelect value={w} factor={period.factor} onChange={setW} />}
+              onEqual={() => setW(asks.wage)}
+            />
+            <TermRow
+              label="Prémio Assinatura"
+              value={<MoneySelect value={bonus} onChange={setBonus} />}
+              onEqual={() => setBonus(asks.bonus)}
+            />
+            <TermRow
+              label="Final Contrato"
+              value={monthYear(end(years))}
+              onMinus={years > 1 ? () => setYears(years - 1) : undefined}
+              onPlus={years < 5 ? () => setYears(years + 1) : undefined}
+              onEqual={() => setYears(asks.years)}
+            />
+            <TermRow label="Tipo de Contrato" value="Tempo Inteiro" />
+            <TermRow label="Tornar proposta pública" value="Não" />
+          </div>
+        </Panel>
+        <ErrorBox>{error}</ErrorBox>
       </div>
       <BottomBar
         left={over ? 'Atrás' : 'Cancelar'}
         right={reply?.accepted || reply?.pending ? 'Continuar' : 'Oferecer'}
         onLeft={nav.back}
-        onRight={reply?.accepted || reply?.pending ? nav.back : over ? undefined : () => void offer()}
+        onRight={reply?.accepted || reply?.pending ? () => nav.go({ kind: 'news' }) : over ? undefined : () => void offer()}
       />
     </>
   )

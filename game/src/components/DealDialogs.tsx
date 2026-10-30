@@ -1,42 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { DealTerms } from '../bindings/DealTerms'
 import type { LoanTerms } from '../bindings/LoanTerms'
-import { currency, money, moneyStep } from '../format'
+import { currency, money } from '../format'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
+import MoneySelect from './MoneySelect'
 
 // Diálogo verde do mercado: a proposta a um clube (ou o "Pedir Mais", o preço pedido). O
 // valor entra na moeda das Definições; o core recebe sempre euros.
-
-/** Campo de dinheiro com − / +; `value` em euros (multiplicado por `factor` para mostrar). */
-function MoneyField({ value, onChange, factor = 1 }: { value: number; onChange: (eur: number) => void; factor?: number }) {
-  const c = currency()
-  const shown = Math.round(value * factor * c.rate)
-  // O que está a ser escrito (enquanto o campo tem o foco)
-  const [draft, setDraft] = useState<string | null>(null)
-  const set = (v: number) => onChange(Math.max(0, Math.round(v / factor / c.rate)))
-  const step = moneyStep(shown)
-  return (
-    <div className="flex items-center gap-1">
-      <button className="cm-purple h-7 w-8" onClick={() => (setDraft(null), set(shown - step))}>
-        −
-      </button>
-      <span className="text-[17px] text-white">{c.symbol}</span>
-      <input
-        value={draft ?? shown.toLocaleString('pt-BR')}
-        onChange={(e) => {
-          const digits = e.target.value.replace(/\D/g, '')
-          setDraft(digits)
-          if (digits) set(Number(digits))
-        }}
-        onBlur={() => setDraft(null)}
-        className="h-7 w-36 border border-[#1d3a1f] bg-black px-2 text-right text-[16px] tabular-nums text-cm-yellow outline-none"
-      />
-      <button className="cm-purple h-7 w-8" onClick={() => (setDraft(null), set(shown + step))}>
-        +
-      </button>
-    </div>
-  )
-}
 
 /** Esc cancela e Enter confirma, por cima do resto da tela. */
 function useDialogKeys(onCancel: () => void, onOk: () => void) {
@@ -92,7 +62,7 @@ export function FeeDialog({
           <span className="text-[17px] text-cm-yellow">{money(value)}</span>
         </DialogRow>
         <DialogRow label={feeLabel}>
-          <MoneyField value={fee} onChange={setFee} />
+          <MoneySelect value={fee} onChange={setFee} />
         </DialogRow>
         {note && <div className="pt-2 text-[15px] text-white">{note}</div>}
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
@@ -216,7 +186,7 @@ export function TransferOfferDialog({
           {budgetText}
         </div>
         <DialogRow wide label="Valor Transferência">
-          <MoneyField value={t.fee} onChange={(fee) => set({ fee })} />
+          <MoneySelect value={t.fee} onChange={(fee) => set({ fee })} />
           <Presets onPick={(fee) => set({ fee })} />
           <button className="cm-purple h-7 w-8" title="O valor do jogador" onClick={() => set({ fee: value })}>
             =
@@ -229,7 +199,7 @@ export function TransferOfferDialog({
           <Choice value={t.sellOn} options={SELL_ON} onChange={(sellOn) => set({ sellOn })} />
         </DialogRow>
         <DialogRow wide label="Valor após jogos">
-          <MoneyField value={t.appsBonus} onChange={(appsBonus) => set({ appsBonus })} />
+          <MoneySelect value={t.appsBonus} onChange={(appsBonus) => set({ appsBonus })} />
           <Presets onPick={(appsBonus) => set({ appsBonus })} />
           <Choice value={t.appsNeeded || 10} options={GAMES} onChange={(appsNeeded) => set({ appsNeeded })} />
         </DialogRow>
@@ -316,10 +286,10 @@ export function LoanDialog({
           <Choice value={t.wageShare} options={WAGE_SHARE} onChange={(wageShare) => set({ wageShare })} />
         </DialogRow>
         <DialogRow wide label="Taxa Mensal">
-          <MoneyField value={t.monthlyFee} onChange={(monthlyFee) => set({ monthlyFee })} />
+          <MoneySelect value={t.monthlyFee} onChange={(monthlyFee) => set({ monthlyFee })} />
         </DialogRow>
         <DialogRow wide label="Opção de Compra">
-          <MoneyField value={t.optionFee} onChange={(optionFee) => set({ optionFee })} />
+          <MoneySelect value={t.optionFee} onChange={(optionFee) => set({ optionFee })} />
         </DialogRow>
         <div className="pt-2 text-[15px] text-white">
           Sem opção de compra, deixe o valor a zero. O {club} responde dentro de alguns dias.

@@ -124,7 +124,8 @@ impl Game {
         let k = self.knowledge(p.id)?;
         p.knowledge = Some(k);
         p.shortlisted = self.in_shortlist(p.id)?;
-        p.can_contract = p.player.is_some() && !self.sacked() && self.contract_party(p.id).is_ok();
+        p.ghost = self.is_ghost(p.id);
+        p.can_contract = p.player.is_some() && !p.ghost && !self.sacked() && self.contract_party(p.id).is_ok();
         p.report_on = self.world.conn.query_row("SELECT ready_on FROM scouting WHERE person_id = ?", [p.id], |r| r.get(0)).optional()?;
         if let Some(pl) = &mut p.player {
             match k {

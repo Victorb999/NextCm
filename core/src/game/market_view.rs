@@ -49,9 +49,13 @@ impl Game {
         let listed = set("SELECT person_id FROM transfer_list WHERE transfer = 1")?;
         let requested = set("SELECT person_id FROM transfer_list WHERE requested = 1")?;
         let loans = set("SELECT person_id FROM loans")?;
+        let ghosts = set("SELECT person_id FROM ghosts")?;
         for p in items.iter_mut() {
             let st = self.squads.states.get(&p.id);
             let mut tags = Vec::new();
+            if ghosts.contains(&p.id) {
+                tags.push("Ench");
+            }
             if offers.contains(&p.id) {
                 tags.push("Pro");
             }

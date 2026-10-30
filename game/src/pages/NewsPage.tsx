@@ -135,7 +135,7 @@ export default function NewsPage() {
         }
       />
       <Tabs tabs={TABS.map((t) => ({ ...t, label: `${t.label} (${count(t.key)})` }))} active={tab} onChange={changeTab} />
-      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col gap-2.5">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col gap-2">
         <Panel
           title="Caixa de Mensagens"
           right={
@@ -154,7 +154,7 @@ export default function NewsPage() {
                   key={n.id}
                   onMouseDown={() => setSelected(n.id)}
                   data-current={n.id === current?.id || undefined}
-                  className={`flex h-[27px] cursor-pointer items-center gap-3 px-3 text-[14px] ${n.id === current?.id ? '!bg-cm-sel' : ''}`}
+                  className={`flex h-6 cursor-pointer items-center gap-3 px-3 text-[14px] ${n.id === current?.id ? '!bg-cm-sel' : ''}`}
                 >
                   <span className="cm-cell w-24 shrink-0 text-center font-mono text-[12px] text-white">{newsDate(n.date)}</span>
                   <span className={`min-w-0 flex-1 truncate ${n.read ? 'text-white' : 'font-bold text-cm-yellow'}`}>{n.title}</span>
@@ -214,7 +214,7 @@ export default function NewsPage() {
           </div>
         </Panel>
       </div>
-      <div className="mt-2.5">
+      <div className="mt-2">
         <Tabs
           tabs={[
             { key: 'press', label: 'Contratos e Imprensa' },

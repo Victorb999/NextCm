@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 export type MenuNode = { label: string; onSelect?: () => void; children?: MenuNode[] } | 'separator'
 
-const ROW = 'flex h-[26px] w-full items-center justify-between gap-4 whitespace-nowrap px-3 text-left'
+const ROW = 'flex h-6 w-full items-center justify-between gap-4 whitespace-nowrap px-3 text-left'
 
 function Panel({
   items,

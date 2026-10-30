@@ -306,7 +306,7 @@ function Stages({ c, stages, fixtures, own }: { c: CompetitionProfile; stages: S
   const [index, setIndex] = useState(stages.length - 1)
   const stage = stages[Math.min(index, stages.length - 1)]
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       {stages.length > 1 && (
         <div className="flex shrink-0 justify-center gap-1.5">
           {stages.map((st, i) => (
@@ -317,10 +317,10 @@ function Stages({ c, stages, fixtures, own }: { c: CompetitionProfile; stages: S
         </div>
       )}
       {stage.kind === 'league' && (
-        <div className="flex min-h-0 flex-1 gap-2.5">
+        <div className="flex min-h-0 flex-1 gap-2">
           <Table c={c} rows={stage.tables[0]?.rows ?? []} own={own} title={stages.length > 1 ? stage.name : 'Classificação Geral'} />
           {(fixtures.length > 0 || c.zones.length > 0) && (
-            <div className="flex min-h-0 w-[360px] shrink-0 flex-col gap-2.5">
+            <div className="flex min-h-0 w-[360px] shrink-0 flex-col gap-2">
               {fixtures.length > 0 && <RoundPanel fixtures={fixtures} own={own} />}
               {c.zones.length > 0 && (
                 <Panel title="Zonas" className="shrink-0">
@@ -332,14 +332,14 @@ function Stages({ c, stages, fixtures, own }: { c: CompetitionProfile; stages: S
         </div>
       )}
       {stage.kind === 'groups' && (
-        <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2.5 overflow-auto">
+        <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2 overflow-auto">
           {stage.tables.map((t) => (
             <GroupBox key={t.name} name={t.name} rows={t.rows} own={own} />
           ))}
         </div>
       )}
       {stage.kind === 'knockout' && (
-        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
           {[...stage.rounds].reverse().map((r) => (
             <Panel key={r.name} title={r.name} className="shrink-0">
               <div className="cm-zebra">
@@ -374,7 +374,7 @@ function Results({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
   const rounds = byRound(fixtures.filter((f) => f.homeGoals !== null)).reverse()
   if (rounds.length === 0) return <Empty>Ainda não há resultados.</Empty>
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
       {rounds.map(([name, games]) => (
         <Panel key={name} title={name} className="shrink-0">
           <FixtureRows fixtures={games} own={own} />
@@ -458,7 +458,7 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
         active={tab}
         onChange={setTab}
       />
-      <div className="mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col">
         <ErrorBox className="mb-2">{error}</ErrorBox>
         {comp &&
           tab === 'table' &&

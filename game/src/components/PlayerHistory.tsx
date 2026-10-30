@@ -241,7 +241,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2.5 pb-1">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 pb-1">
       <Panel
         title={VIEWS.find((v) => v.key === view)!.label}
         right={<PurpleMenu label="Vêr" align="right" options={VIEWS} value={view} onChange={setView} />}
@@ -250,7 +250,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
         <div className="min-h-0 flex-1 overflow-auto">{top}</div>
       </Panel>
       {season && (
-        <div className="flex shrink-0 gap-2.5">
+        <div className="flex shrink-0 gap-2">
           <Panel
             title={`${season.label} ${season.club?.shortName ?? ''}`}
             right={

@@ -110,7 +110,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
           Apagar
         </button>
       </div>
-      <div className="mx-1.5 mt-1 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/85">
+      <div className="mx-1.5 mt-1 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21]">
         <div className="shrink-0 px-2 pt-1 text-center text-cm-magenta">
           {noScout ? 'O clube não tem um olheiro para esta aba.' : (list?.task ?? `${list?.scout ?? 'O olheiro'} está sem tarefa: use Designar Olheiro.`)}
         </div>

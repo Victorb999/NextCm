@@ -118,6 +118,8 @@ pub struct PersonProfile {
     pub injuries: Vec<InjuryLine>,
     pub suspensions: Vec<SuspensionLine>,
     pub honours: Vec<HonourLine>,
+    /// Jogador de enchimento: só joga pelo clube dele (nome a roxo, sem acções de mercado).
+    pub ghost: bool,
     /// Condição, moral, lesão e castigos num jogo em curso (só jogadores de clubes vivos).
     pub status: Option<crate::squad::PlayerStatus>,
     /// Num jogo em curso: o que o clube do treinador sabe dele (os atributos que não sabe vêm
@@ -358,6 +360,7 @@ impl World {
                         injuries: Vec::new(),
                         suspensions: Vec::new(),
                         honours: Vec::new(),
+                        ghost: false,
                         status: None,
                         knowledge: None,
                         report_on: None,

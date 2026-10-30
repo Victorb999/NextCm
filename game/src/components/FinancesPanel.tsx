@@ -16,13 +16,13 @@ function Column({ title, lines, total }: { title: string; lines: SeasonBooks['in
       <PanelTitle title={title} />
       <div className="cm-zebra">
         {lines.map((l) => (
-          <div key={l.label} className="flex h-[26px] items-center justify-between px-3 text-[14px]">
+          <div key={l.label} className="flex h-6 items-center justify-between px-3 text-[14px]">
             <span className="text-white">{l.label}</span>
             <span className="tabular-nums text-cm-yellow">{l.amount ? money(l.amount) : '-'}</span>
           </div>
         ))}
       </div>
-      <div className="flex h-[27px] items-center justify-between bg-[#1d4d3a]/50 px-3 text-[14px] font-bold">
+      <div className="flex h-6 items-center justify-between bg-[#1d4d3a]/50 px-3 text-[14px] font-bold">
         <span className="text-[#4edea3]">Total</span>
         <span className="tabular-nums text-cm-yellow">{money(total)}</span>
       </div>
@@ -47,7 +47,7 @@ export default function FinancesPanel({ clubId }: { clubId: number }) {
   const books = last && data.lastSeason ? data.lastSeason : data.thisSeason
   const result = books.totalIncome - books.totalExpenses
   const row = (label: string, value: string, red = false) => (
-    <div className="flex min-h-[27px] items-baseline gap-4 px-3 py-1">
+    <div className="flex min-h-6 items-baseline gap-4 px-3 py-1">
       <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
       <span className={`flex-1 text-[14px] ${red ? 'text-[#ff5050]' : 'text-cm-yellow'}`}>{value}</span>
     </div>
@@ -77,7 +77,7 @@ export default function FinancesPanel({ clubId }: { clubId: number }) {
         </button>
         <span className="ml-2 font-mono text-[13px] font-bold uppercase tracking-wider text-cm-orange">Época {books.season}</span>
       </div>
-      <div className="mt-2 flex gap-2.5 px-3">
+      <div className="mt-2 flex gap-2 px-3">
         <Column title="Receitas" lines={books.income} total={books.totalIncome} />
         <Column title="Despesas" lines={books.expenses} total={books.totalExpenses} />
       </div>

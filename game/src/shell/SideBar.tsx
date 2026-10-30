@@ -39,7 +39,7 @@ function SideButton({
       onClick={onClick}
       data-menu-anchor
       aria-current={active || undefined}
-      className={`cm-side-btn min-h-[44px] ${className}`}
+      className={`cm-side-btn min-h-[44px] overflow-hidden ${className}`}
     >
       <span className="shrink-0">{icon}</span>
       {children}
@@ -155,7 +155,7 @@ export default function SideBar({
         </SideButton>
       )}
       <SideButton icon={<Trophy size={16} />} disabled={!browsing} active={marked('competitions')} onClick={toggle('competitions')}>
-        Competições
+        <span className="min-w-0 truncate">Competições</span>
         <span className="ml-auto shrink-0 text-[10px] text-white/40">▶</span>
       </SideButton>
       {menu?.kind === 'competitions' && comps && (

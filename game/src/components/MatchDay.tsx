@@ -15,7 +15,6 @@ import { conditionColour } from '../tactics'
 import LiveTactics from './LiveTactics'
 import TalkPanel from './TalkPanel'
 import { BottomBar, Panel, ScreenHeader } from './Screen'
-import { useTopActions } from './topActions'
 
 const clubStyle = (c: ClubRef) => (c.fg && c.bg ? { color: c.fg, background: c.bg } : { color: '#fff', background: '#3a3a3a' })
 
@@ -98,7 +97,7 @@ function DayList({
         eyebrow={fixture.competition}
         title={`${title} · ${fixture.label}`}
       />
-      <Panel title={`${games.length} jogos`} className="mx-2.5 min-h-0 flex-1">
+      <Panel title={`${games.length} jogos`} className="mx-2 min-h-0 flex-1">
         <div className="cm-zebra min-h-0 flex-1 overflow-auto">
           {games.map((f) => (
             <div key={f.id} className="flex h-[32px] items-center gap-3 px-4">
@@ -353,7 +352,7 @@ function Stats({ view }: { view: LiveView }) {
   return (
     <div className="px-2 py-1.5">
       {rows.map(([label, x, y, colour]) => (
-        <div key={label} className="flex h-[27px] items-center gap-1">
+        <div key={label} className="flex h-6 items-center gap-1">
           <span className="flex h-[25px] w-24 shrink-0 items-center justify-center bg-[#1a1a1a] font-title text-[18px] text-cm-magenta">{x}</span>
           <span className={`flex-1 text-center font-title text-[20px] ${colour ?? 'text-[#e8e8e8]'}`}>{label}</span>
           <span className="flex h-[25px] w-24 shrink-0 items-center justify-center bg-[#1a1a1a] font-title text-[18px] text-cm-magenta">{y}</span>
@@ -950,9 +949,6 @@ export default function MatchDay({
     activeRef.current = active
   })
   const [phase, setPhase] = useState<'list' | 'play' | 'results'>('list')
-  // Durante a partida, os botões da tela que ficou por baixo saem da barra de cima (nas listas
-  // do dia, o Seguinte delas aparece lá)
-  useTopActions(active && phase === 'play')
   const [results, setResults] = useState<{ games: Fixture[]; table: StandingRow[] } | null>(null)
   // Depois dos resultados da competição do treinador, os das outras que jogaram hoje
   const [others, setOthers] = useState<number[]>([])

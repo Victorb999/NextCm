@@ -40,7 +40,7 @@ export default function NationsPage() {
           rememberTab('nations', t)
         }}
       />
-      <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col border border-cm-line bg-cm-panel/80">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21]">
         <ErrorBox>{error}</ErrorBox>
         {all && <PickList key={tab} groups={[{ items }]} onOpen={(n) => nav.go({ kind: 'nation', id: n.id })} />}
       </div>
