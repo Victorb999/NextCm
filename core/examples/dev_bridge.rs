@@ -83,6 +83,11 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
                 out(serde_json::to_value(session.set_squad_numbers(numbers).map_err(e)?))
             }
         }
+        "training_view" => out(serde_json::to_value(session.training_view().map_err(e)?)),
+        "set_training" => {
+            let plan: nextcm_core::TrainingPlan = serde_json::from_value(args["plan"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.set_training(plan).map_err(e)?))
+        }
         "board_view" => out(serde_json::to_value(session.board_view().map_err(e)?)),
         "board_confidence" => out(serde_json::to_value(session.board_confidence().map_err(e)?)),
         "board_requests" => out(serde_json::to_value(session.board_requests().map_err(e)?)),

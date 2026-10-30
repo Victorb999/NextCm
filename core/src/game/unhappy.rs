@@ -9,7 +9,7 @@ use super::{Game, NewsItem, age_on};
 use crate::{Result, date, personality};
 
 /// Motivos de insatisfação: chave gravada em `unhappy.reason` e o texto do CM.
-pub const REASONS: [(&str, &str); 7] = [
+pub const REASONS: [(&str, &str); 8] = [
     ("starter", "Sente que deve ser titular"),
     ("contract", "Quer negociar um novo contrato"),
     ("bigger", "Quer mudar para um clube maior"),
@@ -17,6 +17,7 @@ pub const REASONS: [(&str, &str); 7] = [
     ("homesick", "Tem saudades de casa"),
     ("unfair", "Sente que foi tratado injustamente"),
     ("manager", "Perdeu a confiança no treinador"),
+    ("training", "Infeliz com o treino"),
 ];
 
 /// Jogos seguidos sem jogar (podendo) para um dos 11 melhores se sentir titular a mais.
@@ -182,6 +183,14 @@ impl Game {
                 }
             } else {
                 self.remove_unhappy(p.id, "homesick")?;
+            }
+            // O programa de treino (marco 3.17)
+            if self.training_grievance(p.id)? {
+                if self.add_unhappy(p.id, "training")? {
+                    new.push("training");
+                }
+            } else {
+                self.remove_unhappy(p.id, "training")?;
             }
             // Já está na lista: deixam-no sair
             if p.listed {

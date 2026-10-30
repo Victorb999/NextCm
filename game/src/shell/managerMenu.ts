@@ -24,6 +24,7 @@ export function managerMenu({
     // Só na pré-época ou com jogadores sem número (regra no core)
     ...(info.numbersOpen ? [{ label: 'Números Plantel', onSelect: () => go({ kind: 'squadNumbers' }) }] : []),
     { label: 'Tácticas', onSelect: () => go({ kind: 'tactics', id: club.id }) },
+    { label: 'Treinos', onSelect: () => go({ kind: 'training' }) },
     { label: 'Historial', onSelect: () => go({ kind: 'clubHistory', id: club.id }) },
     'separator',
     { label: info.unreadNews ? `Notícias (${info.unreadNews})` : 'Notícias', onSelect: () => go({ kind: 'news' }) },

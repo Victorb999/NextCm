@@ -16,6 +16,7 @@ use nextcm_core::{
 };
 use nextcm_core::{DealTerms, LoanTerms};
 use nextcm_core::{TalkReaction, TalkView};
+use nextcm_core::{TrainingPlan, TrainingView};
 use tauri::{Manager, State};
 
 /// Mundo base e jogo aberto. `rusqlite::Connection` não é `Sync`, daí o Mutex.
@@ -103,6 +104,8 @@ session_command!(league_request(key: String) -> String);
 session_command!(squad_numbers() -> SquadNumbers);
 session_command!(auto_squad_numbers(numbers: Vec<NumberAssign>) -> Vec<NumberAssign>);
 session_command!(set_squad_numbers(numbers: Vec<NumberAssign>) -> SquadNumbers);
+session_command!(training_view() -> TrainingView);
+session_command!(set_training(plan: TrainingPlan) -> TrainingView);
 session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
 session_command!(ask_loan(id: i32, terms: LoanTerms) -> TransferView);
@@ -258,6 +261,8 @@ pub fn run() {
             squad_numbers,
             auto_squad_numbers,
             set_squad_numbers,
+            training_view,
+            set_training,
             transfer_view,
             make_offer,
             ask_loan,

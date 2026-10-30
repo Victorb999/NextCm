@@ -196,6 +196,28 @@ impl Squads {
         self.states.get(&id).cloned().unwrap_or_default()
     }
 
+    /// O treino do dia: mais ou menos condição, entre 0 e 100 (marco 3.17).
+    pub fn train(&mut self, id: i32, delta: i32) {
+        let s = self.state_mut(id);
+        if s.injury.is_none() {
+            s.condition = (s.condition + delta).clamp(0, 100);
+        }
+    }
+
+    /// Uma lesão no treino, ligeira: devolve o nome e a duração em dias.
+    pub fn training_injury(&mut self, id: i32, today: &str, rng: &mut impl RngCore) -> Option<(String, i32)> {
+        let days = 3 + (uniform(rng) * 19.0) as i32;
+        let injury = pick(&LIGHT, rng).to_string();
+        let until = date::add_days(today, days)?;
+        let s = self.state_mut(id);
+        if s.injury.is_some() {
+            return None;
+        }
+        s.injury = Some(injury.clone());
+        s.injury_until = Some(until);
+        Some((injury, days))
+    }
+
     fn state_mut(&mut self, id: i32) -> &mut PlayerState {
         self.states.entry(id).or_default()
     }

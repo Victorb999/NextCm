@@ -79,6 +79,7 @@ impl Game {
     pub(super) fn calendar_events(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         if self.date.ends_with("-01") {
             self.develop()?;
+            self.learn_positions()?;
         }
         match &self.date[5..] {
             "03-01" => self.youth_intake(fresh, next_id)?,
@@ -694,6 +695,8 @@ impl Game {
             .prepare(&sql)?
             .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?)))?
             .collect::<rusqlite::Result<_>>()?;
+        // O treino do plantel do treinador (os outros clubes treinam "à média")
+        let training = self.training_effects()?;
         let mut set_player =
             self.world.conn.prepare("UPDATE players SET current_ability = ?, potential_ability = ? WHERE person_id = ?")?;
         let mut set_person = self.world.conn.prepare("UPDATE people SET ability = ? WHERE id = ?")?;
@@ -732,6 +735,9 @@ impl Game {
                 yearly *= 0.6 + 0.8 * share;
                 let mind = (det.unwrap_or(10) + prof.unwrap_or(10)) as f64 / 2.0;
                 yearly *= 0.8 + 0.4 * (mind - 1.0) / 19.0;
+            }
+            if let Some(t) = training.get(&id) {
+                yearly *= if yearly > 0.0 { t.growth } else { t.decline };
             }
             let monthly = yearly / 12.0 + (uniform(&mut rng) - 0.5) * 0.4;
             let step = monthly.floor() as i32 + (uniform(&mut rng) < monthly - monthly.floor()) as i32;

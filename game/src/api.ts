@@ -6,6 +6,8 @@ import type { DealTerms } from './bindings/DealTerms'
 import type { DisciplineOptions } from './bindings/DisciplineOptions'
 import type { LineupCheck } from './bindings/LineupCheck'
 import type { LoanTerms } from './bindings/LoanTerms'
+import type { TrainingPlan } from './bindings/TrainingPlan'
+import type { TrainingView } from './bindings/TrainingView'
 import type { WorldTransfers } from './bindings/WorldTransfers'
 import type { CareerClub } from './bindings/CareerClub'
 import type { LeagueNation } from './bindings/LeagueNation'
@@ -135,6 +137,8 @@ export const api = {
   /** O botão Auto: números para quem não tem (sem gravar). */
   autoSquadNumbers: (numbers: NumberAssign[]) => call<NumberAssign[]>('auto_squad_numbers', { numbers }),
   setSquadNumbers: (numbers: NumberAssign[]) => call<SquadNumbers>('set_squad_numbers', { numbers }),
+  trainingView: () => call<TrainingView>('training_view'),
+  setTraining: (plan: TrainingPlan) => call<TrainingView>('set_training', { plan }),
   /** A direção do clube do treinador: expectativa, confiança e orçamentos. */
   boardView: () => call<BoardView>('board_view'),
   boardConfidence: () => call<BoardConfidence>('board_confidence'),

@@ -258,7 +258,7 @@ impl Game {
         )?;
         self.world.conn.execute_batch(
             "DELETE FROM contract_talks; DELETE FROM unhappy; DELETE FROM scout_tasks; DELETE FROM scout_finds; DELETE FROM scouting;
-             DELETE FROM talks; DELETE FROM squad_roles;",
+             DELETE FROM talks; DELETE FROM squad_roles; DELETE FROM training_players;",
         )?;
         self.world.conn.execute("DELETE FROM vacancies WHERE club_id = ?", [club])?;
         self.world.conn.execute("DELETE FROM ai_boards WHERE club_id = ?", [club])?;

@@ -7,12 +7,14 @@
 //! engine. Com mais de uma época (seeds seguidas), mostra a média de pontos e de posição.
 //! Marco 3.4: também os números dos lances (remates, cantos, faltas, cartões,
 //! substituições e lesões por equipa e jogo).
+//! Marco 3.17: `sim -- <clube> treino <seed> [dias]` joga o mesmo ano com todos os programas
+//! a Nenhum, Médio e Intensivo e compara a evolução do CA, a condição e as lesões no treino.
 
 use std::collections::HashMap;
 use std::path::Path;
 use std::time::Instant;
 
-use nextcm_core::{Game, NewGame, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, StandingRow, World, regulation};
+use nextcm_core::{Game, NewGame, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, StandingRow, TrainingPlan, World, regulation};
 
 /// `sim -- <clube> carreira <seed> <épocas>`: um só jogo por várias épocas seguidas (marco 3.5).
 fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
@@ -110,8 +112,78 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// `sim -- <clube> treino <seed> [dias]`: o mesmo jogo com os programas todos a uma intensidade.
+fn training(world: &Path, club_id: i32, seed: i64, days: u32) {
+    for (level, label) in [(0, "Nenhum"), (2, "Médio"), (3, "Intensivo")] {
+        let dir = std::env::temp_dir().join(format!("nextcm-treino-{}-{level}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = NewGame {
+            save_name: "treino".into(),
+            first_name: "Treinador".into(),
+            last_name: "Sim".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id,
+            leagues: Vec::new(),
+            start: Default::default(),
+        };
+        let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
+        let view = game.training_view().expect("treino");
+        let programs = view
+            .programs
+            .into_iter()
+            .map(|mut p| {
+                (p.fitness, p.tactics, p.shooting, p.technique) = (level, level, level, level);
+                p.goalkeeping = if p.name == "GK" { level } else { 0 };
+                p
+            })
+            .collect();
+        game.set_training(&TrainingPlan { programs, players: Vec::new() }).expect("programas");
+        let ca = |game: &Game| -> HashMap<i32, i32> {
+            let club = game.world().get_club(club_id).expect("clube");
+            club.players.iter().map(|p| (p.id, p.current_ability.unwrap_or(0))).collect()
+        };
+        let before = ca(&game);
+        let news = game.news().len();
+        let (mut condition, mut counted) = (0i64, 0i64);
+        for _ in 0..days {
+            game.advance_day().expect("falhou ao avançar o dia");
+            if let Ok(t) = game.club_tactics(club_id) {
+                for s in t.starters.iter().filter_map(|s| s.player.as_ref()) {
+                    condition += s.condition.unwrap_or(100) as i64;
+                    counted += 1;
+                }
+            }
+        }
+        let after = ca(&game);
+        let kept: Vec<i32> = before.keys().filter(|id| after.contains_key(id)).copied().collect();
+        let young: Vec<i32> = kept.iter().filter(|id| before[id] < 120).copied().collect();
+        let avg = |ids: &[i32]| ids.iter().map(|id| (after[id] - before[id]) as f64).sum::<f64>() / ids.len().max(1) as f64;
+        let injuries = game.news()[..game.news().len() - news].iter().filter(|n| n.title.ends_with("lesionado no treino")).count();
+        println!(
+            "{label:<10} CA {:+.1} em média ({} jogadores; {:+.1} nos {} com CA < 120), condição do onze {:.0}%, {injuries} lesões no treino",
+            avg(&kept),
+            kept.len(),
+            avg(&young),
+            young.len(),
+            condition as f64 / counted.max(1) as f64
+        );
+        drop(game);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(2).map(String::as_str) == Some("treino") {
+        let world = World::locate(&std::env::current_dir().unwrap())
+            .or_else(|| World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))))
+            .expect("data/world.sqlite não encontrado");
+        let club_id = args.get(1).and_then(|a| a.parse().ok()).unwrap_or(7568);
+        let seed = args.get(3).and_then(|a| a.parse().ok()).unwrap_or(1);
+        let days = args.get(4).and_then(|a| a.parse().ok()).unwrap_or(365);
+        return training(&world, club_id, seed, days);
+    }
     if args.get(2).map(String::as_str) == Some("carreira") {
         let world = World::locate(&std::env::current_dir().unwrap())
             .or_else(|| World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))))

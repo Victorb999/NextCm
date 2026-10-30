@@ -21,7 +21,7 @@ const COLUMNS: Record<Exclude<SquadView, 'traditional'>, Column[]> = {
     { label: 'Situação', width: 'w-28', cell: (p) => p.role ?? '-' },
     { label: 'Salário Base', width: 'w-28', align: 'right', cell: (p) => (p.free ? '-' : wage(p.wage) || '-') },
     { label: 'Termo Contrato', width: 'w-32', align: 'center', cell: (p) => (p.free ? '-' : cmDate(p.contractExpires)) },
-    { label: 'Cláusulas', width: 'w-40', cell: (p) => (p.clauses.length ? p.clauses.join(', ') : '-') },
+    { label: 'Cláusulas', width: 'w-32', cell: (p) => (p.clauses.length ? p.clauses.join(', ') : '-') },
     { label: 'Valor', width: 'w-28', align: 'right', cell: (p) => (p.free ? 'Livre' : money(p.value)) },
   ],
   selection: [
@@ -80,7 +80,7 @@ export default function SquadTable({
       <div className={`flex h-7 items-center gap-2 border-b border-cm-line bg-black/30 px-2 ${head}`}>
         <span className="w-10 text-center">Esc</span>
         <span className="w-10 text-center">Inf</span>
-        <span className="min-w-0 flex-1">Nome</span>
+        <span className="min-w-28 flex-1">Nome</span>
         {columns.map((c) => (
           <span key={c.label} className={`${c.width} shrink-0 ${ALIGN[c.align ?? 'left']}`}>
             {c.label}
@@ -102,7 +102,7 @@ export default function SquadTable({
             <span className="w-10 shrink-0 text-center font-mono text-[12px]">
               <InfBadge info={p.info} />
             </span>
-            <span className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${nameClass(p)}`}>
+            <span className={`min-w-28 flex-1 truncate text-[15px] font-semibold ${nameClass(p)}`}>
               <Link onClick={() => onOpen(p.id)}>{squadName(p)}</Link>
             </span>
             {columns.map((c) => (

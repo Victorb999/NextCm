@@ -18,6 +18,7 @@ use crate::PressView;
 use crate::WorldTransfers;
 use crate::{DealTerms, LoanTerms};
 use crate::{TalkReaction, TalkView};
+use crate::{TrainingPlan, TrainingView};
 
 pub struct Session {
     world_path: PathBuf,
@@ -356,6 +357,16 @@ impl Session {
     /// Grava os números escolhidos pelo treinador.
     pub fn set_squad_numbers(&mut self, numbers: Vec<NumberAssign>) -> Result<SquadNumbers> {
         self.game_mut()?.set_squad_numbers(&numbers)
+    }
+
+    /// A tela "<Clube> - Treinos".
+    pub fn training_view(&self) -> Result<TrainingView> {
+        self.game()?.training_view()
+    }
+
+    /// O Ok da tela de Treinos: programas e o programa de cada jogador.
+    pub fn set_training(&mut self, plan: TrainingPlan) -> Result<TrainingView> {
+        self.game_mut()?.set_training(&plan)
     }
 
     /// A direção do clube do treinador: expectativa, confiança e orçamentos.

@@ -45,6 +45,7 @@ mod squad_view;
 mod staff_reports;
 mod start_loans;
 mod team_talk;
+mod training;
 mod unhappy;
 use crate::league::{self, Fixture, Match, StandingRow};
 use crate::live::{LiveMatch, LiveView, Occasion, TeamStats};
@@ -74,6 +75,7 @@ pub use season::DivisionStats;
 pub(crate) use season::age_on;
 pub use staff_reports::ReportStaff;
 pub use team_talk::{TalkOption, TalkReaction, TalkView};
+pub use training::{TrainingPlan, TrainingView};
 
 /// Versão do formato do save; saves de outra versão são recusados até haver migração.
 /// 2: tabela `fixtures` (marco 3.2). 3: estado dos jogadores e a escolha da equipa (3.3).
@@ -111,7 +113,8 @@ pub use team_talk::{TalkOption, TalkReaction, TalkView};
 /// 28: o capitão (`selection.captain`), marco 3.13.
 /// 29: os clubes do treinador (`manager_history`), para o Currículo.
 /// 30: as ligas escolhidas ao começar (`league_modes`: jogável, de fundo ou fora).
-pub const SAVE_VERSION: i32 = 32;
+/// 33: o treino (`training_programs`, `training_players`), marco 3.17.
+pub const SAVE_VERSION: i32 = 33;
 
 /// Os jogadores de enchimento (save 32): criados para completar os plantéis dos clubes
 /// pequenos, só jogam pelo clube deles (sem mercado, contratos nem olheiros), como os do CM.
@@ -660,6 +663,7 @@ impl Game {
             tx.execute_batch(LEAGUES_SCHEMA)?;
             tx.execute_batch(HISTORY_SCHEMA)?;
             tx.execute_batch(GHOSTS_SCHEMA)?;
+            tx.execute_batch(training::TRAINING_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -970,6 +974,11 @@ impl Game {
             world.conn.execute_batch(GHOSTS_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 32", [])?;
             version = 32;
+        }
+        if version == 32 {
+            world.conn.execute_batch(training::TRAINING_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 33", [])?;
+            version = 33;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -1286,6 +1295,10 @@ impl Game {
                 ));
                 next_id += 1;
             }
+        }
+        // O treino do dia (condição e lesões) no plantel do treinador
+        if !unemployed {
+            self.training_day(&mut fresh, &mut next_id)?;
         }
         // Evolução do CA, juniores, fim de época e nova época
         self.calendar_events(&mut fresh, &mut next_id)?;
@@ -2405,6 +2418,7 @@ mod tests {
     use super::*;
     use crate::engine::TeamStrength;
     use crate::league::SERIE_A;
+    use training::{ProgramAssign, TrainingPlan, TrainingProgram};
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("nextcm-test-{name}-{}", std::process::id()));
@@ -2789,6 +2803,81 @@ mod tests {
     }
 
     #[test]
+    fn training_programs_and_their_effects() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("training");
+        let palmeiras = 7568;
+        let mut g = Game::create(&world, &dir, &new_game(palmeiras), 4).unwrap();
+        // Os programas do patch e todos com um programa (os guarda-redes no GK)
+        let v = g.training_view().unwrap();
+        assert_eq!(v.programs.len(), 9);
+        assert_eq!(v.assign.len(), v.players.len());
+        let gk = v.programs.iter().find(|p| p.name == "GK").unwrap().id;
+        let keeper = v.players.iter().find(|p| p.lines.iter().any(|l| l == "GR")).unwrap().id;
+        assert!(v.assign.iter().any(|a| a.person == keeper && a.program == gk));
+
+        // Intensidade fora de 0–3 é recusada
+        let mut bad = TrainingPlan { programs: v.programs.clone(), players: Vec::new() };
+        bad.programs[0].fitness = 4;
+        assert!(g.set_training(&bad).is_err());
+
+        // Um programa novo: intensivo e a aprender a jogar a avançado; um defesa vai para ele
+        let defender = v.players.iter().find(|p| p.lines == ["D"] && p.age.is_some_and(|a| a <= 28)).unwrap().id;
+        let mut programs = v.programs.clone();
+        programs.push(TrainingProgram {
+            id: 0,
+            name: "Avançados novos".into(),
+            fitness: 3,
+            tactics: 3,
+            shooting: 3,
+            technique: 3,
+            goalkeeping: 0,
+            new_position: Some("A".into()),
+            new_side: None,
+        });
+        let idle = programs.iter().find(|p| p.name == "Nenhum").unwrap().id;
+        let other = v.players.iter().find(|p| p.id != defender && p.id != keeper).unwrap().id;
+        let plan = TrainingPlan {
+            programs,
+            players: vec![ProgramAssign { person: defender, program: 0 }, ProgramAssign { person: other, program: idle }],
+        };
+        let v = g.set_training(&plan).unwrap();
+        let new_id = v.programs.iter().find(|p| p.name == "Avançados novos").unwrap().id;
+        assert!(v.assign.iter().any(|a| a.person == defender && a.program == new_id));
+
+        // Mais evolução com treino intensivo do que sem treino
+        let effects = g.training_effects().unwrap();
+        assert!(
+            effects[&defender].growth > 1.0 && effects[&other].growth < 0.7,
+            "{} {}",
+            effects[&defender].growth,
+            effects[&other].growth
+        );
+        assert!(effects[&defender].decline < effects[&other].decline);
+
+        // Em meses aprende a posição nova
+        let rating = |g: &Game| -> i32 {
+            g.world.conn.query_row("SELECT COALESCE(pos_attacker, 1) FROM players WHERE person_id = ?", [defender], |r| r.get(0)).unwrap()
+        };
+        let before = rating(&g);
+        assert!(before < 15);
+        for _ in 0..10 {
+            g.learn_positions().unwrap();
+        }
+        assert!(rating(&g) >= 15, "{before} -> {}", rating(&g));
+
+        // Treino físico intensivo cansa; sem treino, recupera
+        g.squads.states.entry(defender).or_default().condition = 90;
+        g.squads.states.entry(other).or_default().condition = 90;
+        let (mut fresh, mut id) = (Vec::new(), 1);
+        g.training_day(&mut fresh, &mut id).unwrap();
+        assert!(g.squads.state(defender).condition <= 89 || g.squads.state(defender).injury.is_some());
+        assert_eq!(g.squads.state(other).condition, 91);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn squad_views_after_a_match() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let (mut g, dir) = until_kickoff(&world, "squad-views", 5, true, false);
@@ -3035,7 +3124,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

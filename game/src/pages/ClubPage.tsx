@@ -16,7 +16,7 @@ import { money, shortListName } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import { BENCH, selectionOf, spotOf, swap, useDragSwap, type Spot } from '../selection'
-import { VIEW_TITLE, nameClass, squadName, type SquadView } from '../squad'
+import { FILTER_OPTIONS, NO_FILTER, VIEW_TITLE, nameClass, passes, squadName, type Filter, type SquadView } from '../squad'
 
 const TABS = [
   { key: 'squad', label: 'Plantel' },
@@ -39,36 +39,6 @@ const VIEWS: MenuOption<View>[] = [
   'separator',
   { key: 'staff', label: 'Staff' },
 ]
-
-/** O Filtrar: posição, lado, disponibilidade e (nas reservas) incluir os séniores. */
-type Filter = { line: string; side: string; avail: '' | 'yes' | 'no'; seniors: boolean }
-const NO_FILTER: Filter = { line: '', side: '', avail: '', seniors: false }
-
-const FILTER_OPTIONS: MenuOption<string>[] = [
-  { key: 'line:', label: 'Todas Posições' },
-  { key: 'line:GR', label: 'Guarda-Redes' },
-  { key: 'line:D', label: 'Defesas' },
-  { key: 'line:M', label: 'Médios' },
-  { key: 'line:A', label: 'Atacantes' },
-  'separator',
-  { key: 'side:', label: 'Todos Lados' },
-  { key: 'side:E', label: 'Lado Esquerdo' },
-  { key: 'side:C', label: 'Central' },
-  { key: 'side:D', label: 'Lado Direito' },
-  'separator',
-  { key: 'avail:yes', label: 'Disponíveis' },
-  { key: 'avail:no', label: 'Indisponíveis' },
-]
-
-function passes(p: SquadPlayer, f: Filter) {
-  const out = p.injured || p.suspended
-  return (
-    (!f.line || p.lines.includes(f.line)) &&
-    (!f.side || p.sides.includes(f.side)) &&
-    (f.avail !== 'yes' || !out) &&
-    (f.avail !== 'no' || out)
-  )
-}
 
 const CRITERIA: { key: Criterion; label: string }[] = [
   { key: 'position', label: 'Posição' },
@@ -648,12 +618,12 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
         )}
       </div>
 
-      {/* Atalhos inferiores do CM; o Treino chega no marco 3.3 */}
+      {/* Atalhos inferiores do CM; o Treino só no clube do treinador */}
       <div className="mt-2">
         <Tabs
           tabs={[
             { key: 'tactics', label: 'Tácticas' },
-            { key: 'training', label: 'Treino', disabled: true },
+            { key: 'training', label: 'Treino', disabled: !mine },
             { key: 'last', label: 'Último Jogo', disabled: !lastMatch },
             // Num clube de reservas ou juniores, o atalho leva à Equipa Principal
             club?.parent
@@ -667,6 +637,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
             if (k === 'division' && division) nav.go({ kind: 'competition', id: division.id })
             if (k === 'parent' && club?.parent) nav.go({ kind: 'club', id: club.parent.id })
             if (k === 'tactics') nav.go({ kind: 'tactics', id })
+            if (k === 'training') nav.go({ kind: 'training' })
             if (k === 'history') nav.go({ kind: 'clubHistory', id })
           }}
         />
