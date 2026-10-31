@@ -55,7 +55,8 @@ pub struct SquadPlayer {
     pub contract_expires: Option<String>,
     /// Um dos três jogadores-chave do plantel (o `*` depois do nome, como no CM).
     pub key: bool,
-    /// A sigla da coluna Inf: "Les", "Sus", "Emp", "Lst", "Des" ou "Int".
+    /// A sigla da coluna Inf: "Les", "Sus", "Emp", "Lst" ou "Des" ("Int", fora na selecção,
+    /// quando houver convocatórias).
     pub info: Option<String>,
     /// Emprestado por outro clube (nome a azul-claro).
     pub loaned: bool,
@@ -309,7 +310,6 @@ impl World {
             players[i].ability_rank = rank as i32 + 1;
             // Sem jogo: os três melhores pela habilidade (no jogo, pelo valor: `Game::fill_squad`)
             players[i].key = rank < 3;
-            players[i].info = players[i].international.then(|| "Int".into());
         }
 
         let job_link = if is_national { "p.national_team_job" } else { "p.club_job" };

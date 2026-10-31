@@ -1,4 +1,4 @@
-import { ArrowLeftRight, ChevronDown, History, Pencil } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
@@ -6,7 +6,9 @@ import type { ClubTactics } from '../bindings/ClubTactics'
 import type { Selection } from '../bindings/Selection'
 import type { TacticPlayer } from '../bindings/TacticPlayer'
 import InstructionsDialog from '../components/InstructionsDialog'
+import LoadTacticDialog from '../components/LoadTacticDialog'
 import PlayerOrdersDialog from '../components/PlayerOrdersDialog'
+import TextDialog from '../components/TextDialog'
 import { BottomBar, ErrorBox, Link, PanelTitle, PurpleMenu } from '../components/Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from '../components/TacticsBoard'
 import { TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
@@ -29,6 +31,9 @@ export default function TacticsPage({ id }: { id: number }) {
   const [instructions, setInstructions] = useState(false)
   // Jogador com o diálogo das instruções individuais aberto
   const [ordersFor, setOrdersFor] = useState<TacticPlayer | null>(null)
+  // Carregar / Gravar Táctica abertos
+  const [fileDialog, setFileDialog] = useState<'load' | 'save' | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   // A escolha ao abrir a tela, para o Cancelar
   const original = useRef<Selection | null>(null)
   // Troca em dois cliques (Substituir no banco, ⇄ no onze): o primeiro escolhido, à espera do outro
@@ -121,8 +126,8 @@ export default function TacticsPage({ id }: { id: number }) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Cabeçalho: o nome da táctica abre o menu Tácticas; as vistas; Vêr, Último Jogo e Editar */}
-      <div className="mx-2 mt-2 flex shrink-0 items-center gap-3 rounded-md bg-[#1a1b21] px-3 py-2.5">
+      {/* Cabeçalho: o nome da táctica abre o menu Tácticas; à direita, o Editar */}
+      <div className="mx-2 mt-2 flex shrink-0 items-center gap-3 rounded-md bg-cm-surface px-3 py-2.5">
         <PurpleMenu
           label="Tácticas"
           options={TACTICS_MENU}
@@ -130,6 +135,7 @@ export default function TacticsPage({ id }: { id: number }) {
           disabled={!editable}
           onChange={(k) => {
             if (k === 'instructions') setInstructions(true)
+            else if (k === 'load' || k === 'save') setFileDialog(k)
             else if (t) void apply({ ...selectionOf(t), formation: Number(k), positions: [], auto: false })
           }}
           buttonClass="flex items-center gap-2 rounded-md py-1 pl-1 pr-2.5 text-left hover:bg-white/[0.06] disabled:hover:bg-transparent"
@@ -155,27 +161,7 @@ export default function TacticsPage({ id }: { id: number }) {
             </>
           }
         />
-        <div className="ml-auto flex gap-0.5 rounded-md bg-black/60 p-[3px]">
-          {(
-            [
-              ['Vista Geral', false],
-              ['Com Bola', true],
-              ['Sem Bola', true],
-            ] as const
-          ).map(([label, off], i) => (
-            <button
-              key={label}
-              disabled={off}
-              className={`h-7 rounded px-3.5 text-[12px] font-semibold ${i === 0 ? 'bg-cm-purple text-white' : 'text-[#c8c8d0] disabled:text-white/25'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <PurpleMenu label="Vêr" options={[]} disabled buttonClass={headButton} trigger={<>Vêr <ChevronDown size={14} /></>} />
-        <button className={headButton} disabled title="Chega com o relato dos jogos (3.4)">
-          <History size={14} /> Último Jogo
-        </button>
+        <div className="ml-auto" />
         <PurpleMenu
           label="Editar"
           align="right"
@@ -197,11 +183,12 @@ export default function TacticsPage({ id }: { id: number }) {
         />
       </div>
       <ErrorBox className="mx-2 mt-2">{error}</ErrorBox>
+      {notice && <div className="mx-2 mt-2 rounded-md bg-[#0f3a2a] px-3 py-1.5 font-semibold text-[#4edea3]">{notice}</div>}
       {t && (
         <div className="mx-2 mt-2 flex min-h-0 flex-1 gap-2">
           {/* Onze, banco e resto do plantel numa coluna só, que rola */}
           <div className="flex min-h-0 w-[54%] flex-col gap-2 overflow-auto">
-            <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
+            <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
               <PanelTitle
                 title="Onze Titular"
                 chip={`${t.starters.filter((s) => s.player).length}/11`}
@@ -265,7 +252,7 @@ export default function TacticsPage({ id }: { id: number }) {
                 })}
               </div>
             </div>
-            <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
+            <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
               <PanelTitle title="Banco de Suplentes" chip="SB1 – SB9" right={pending && <span className="font-bold text-cm-yellow">{hint}</span>} />
               <RowHeader place="Slot" action={editable ? 'Acção' : undefined} />
               {/* Banco fixo de 9: as casas vazias também recebem jogadores arrastados */}
@@ -308,7 +295,7 @@ export default function TacticsPage({ id }: { id: number }) {
               </div>
             </div>
             {editable && t.reserves.length > 0 && (
-              <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
+              <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
                 <PanelTitle title="Resto do Plantel" />
                 <RowHeader place="" />
                 <div className="cm-zebra">
@@ -333,7 +320,7 @@ export default function TacticsPage({ id }: { id: number }) {
           </div>
           {/* O campo com toda a altura e, ao lado, o resumo das instruções */}
           <div className="flex min-h-0 min-w-0 flex-1 gap-2">
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md bg-cm-surface">
               <PanelTitle
                 title="Quadro Táctico"
                 chip={`${t.formation}${t.custom ? '*' : ''}`}
@@ -358,6 +345,36 @@ export default function TacticsPage({ id }: { id: number }) {
       )}
       {!t && <div className="flex-1" />}
       {drag.ghost}
+      {fileDialog === 'load' && t && (
+        <LoadTacticDialog
+          onCancel={() => setFileDialog(null)}
+          onOk={(file) => {
+            setFileDialog(null)
+            api.loadTactic(selectionOf(t), file).then(
+              (sel) => {
+                setNotice(null)
+                void apply(sel)
+              },
+              (e) => setError(String(e)),
+            )
+          }}
+        />
+      )}
+      {fileDialog === 'save' && t && (
+        <TextDialog
+          title="Gravar Táctica"
+          initial={t.custom ? '' : t.formation}
+          hint="As posições, as setas e as instruções, sem os jogadores."
+          onCancel={() => setFileDialog(null)}
+          onOk={(name) => {
+            setFileDialog(null)
+            api.saveTactic(selectionOf(t), name).then(
+              (f) => setNotice(`Táctica "${f.name}" gravada.`),
+              (e) => setError(String(e)),
+            )
+          }}
+        />
+      )}
       {instructions && t && (
         <InstructionsDialog
           initial={t.instructions}

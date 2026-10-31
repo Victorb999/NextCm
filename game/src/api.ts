@@ -46,6 +46,7 @@ import type { ScoutList } from './bindings/ScoutList'
 import type { SearchQuery } from './bindings/SearchQuery'
 import type { SearchResult } from './bindings/SearchResult'
 import type { Selection } from './bindings/Selection'
+import type { TacticFile } from './bindings/TacticFile'
 import type { SquadNumbers } from './bindings/SquadNumbers'
 import type { StageView } from './bindings/StageView'
 import type { StandingRow } from './bindings/StandingRow'
@@ -203,6 +204,11 @@ export const api = {
   previewTactics: (selection: Selection) => call<ClubTactics>('preview_tactics', { selection }),
   setTactics: (selection: Selection) => call<ClubTactics>('set_tactics', { selection }),
   togglePlayer: (selection: Selection, player: number) => call<ClubTactics>('toggle_player', { selection, player }),
+  /** As tácticas gravadas na pasta `tactics` (Carregar Táctica). */
+  listTactics: () => call<TacticFile[]>('list_tactics'),
+  saveTactic: (selection: Selection, name: string) => call<TacticFile>('save_tactic', { selection, name }),
+  /** A escolha com a táctica do ficheiro; a tela aplica-a. */
+  loadTactic: (selection: Selection, file: string) => call<Selection>('load_tactic', { selection, file }),
 
   // Jogo do treinador ao vivo (marco 3.4)
   liveMatch: () => call<LiveView>('live_match'),

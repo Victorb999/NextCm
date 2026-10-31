@@ -11,6 +11,9 @@ pub struct World {
     pub(crate) conn: Connection,
     /// Ano em que o jogo começa (2001 no CM 01/02 + year_offset do patch).
     pub(crate) start_year: i32,
+    /// A última pesquisa por atributos (a consulta e os ids), para a troca de página não
+    /// refazer as contas.
+    pub(crate) attribute_search: std::cell::RefCell<Option<(String, Vec<i32>)>>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -41,7 +44,7 @@ impl World {
         let year_offset: i32 = conn
             .query_row("SELECT value FROM meta WHERE key = 'year_offset'", [], |r| r.get::<_, String>(0))
             .map(|v| v.parse().unwrap_or(0))?;
-        Ok(World { conn, start_year: 2001 + year_offset })
+        Ok(World { conn, start_year: 2001 + year_offset, attribute_search: Default::default() })
     }
 
     /// Procura `data/world.sqlite` subindo a partir de `start` (útil em dev,

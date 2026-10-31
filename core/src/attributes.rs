@@ -206,13 +206,25 @@ fn uses_low(attr: usize, gk: i32) -> bool {
 /// Current Ability e `gk` a nota da posição de GR (20 = GR, 15+ = joga de GR).
 pub fn displayed_attributes(raw: &Attributes, ca: Option<i32>, gk: Option<i32>) -> Attributes {
     let mut out = raw.clone();
-    let Some(ca) = ca.filter(|ca| (1..=200).contains(ca)) else { return out };
-    let gk = gk.unwrap_or(0);
-    let cells = player_intrinsics(&mut out, ca, gk);
-    for (i, cell) in cells.iter().enumerate() {
-        out.insert(RELATIVE[i].into(), cell.map(|v| displayed(v, ca, uses_low(i, gk))));
-    }
+    show_attributes(&mut out, ca, gk);
     out
+}
+
+/// O mesmo que [`displayed_attributes`], no próprio mapa (a pesquisa por atributos passa
+/// por milhares de jogadores e não aloca um mapa por cada).
+pub fn show_attributes(out: &mut Attributes, ca: Option<i32>, gk: Option<i32>) {
+    let Some(ca) = ca.filter(|ca| (1..=200).contains(ca)) else { return };
+    let gk = gk.unwrap_or(0);
+    let cells = player_intrinsics(out, ca, gk);
+    for (i, cell) in cells.iter().enumerate() {
+        let shown = cell.map(|v| displayed(v, ca, uses_low(i, gk)));
+        match out.get_mut(RELATIVE[i]) {
+            Some(slot) => *slot = shown,
+            None => {
+                out.insert(RELATIVE[i].into(), shown);
+            }
+        }
+    }
 }
 
 /// Os 8 atributos relativos do staff, na ordem das células 13–20 do vetor
@@ -227,13 +239,18 @@ pub const STAFF_RELATIVE: [&str; 8] =
 /// exibição (`non_player_attribute_rating`, 0x544410) é a fórmula "normal" de [`displayed`].
 pub fn displayed_staff_attributes(raw: &Attributes, ca: Option<i32>) -> Attributes {
     let mut out = raw.clone();
-    let Some(ca) = ca.filter(|ca| (1..=200).contains(ca)) else { return out };
+    show_staff_attributes(&mut out, ca);
+    out
+}
+
+/// O mesmo que [`displayed_staff_attributes`], no próprio mapa.
+pub fn show_staff_attributes(out: &mut Attributes, ca: Option<i32>) {
+    let Some(ca) = ca.filter(|ca| (1..=200).contains(ca)) else { return };
     for k in STAFF_RELATIVE {
-        if let Some(Some(v)) = raw.get(k) {
-            out.insert(k.into(), Some(displayed(initial_intrinsic(*v, ca), ca, false)));
+        if let Some(Some(v)) = out.get_mut(k) {
+            *v = displayed(initial_intrinsic(*v, ca), ca, false);
         }
     }
-    out
 }
 
 #[cfg(test)]

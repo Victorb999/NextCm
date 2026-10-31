@@ -991,7 +991,7 @@ const CONTENDER_REP: i32 = 500;
 const WORLD_NEWS_FEE: i64 = 20_000_000;
 
 /// Continente da Europa em `continents`, e o da Ásia (a Arábia Saudita paga para os levar).
-const EUROPE: i32 = 2;
+pub(super) const EUROPE: i32 = 2;
 const ASIA: i32 = 1;
 
 /// Um jogador de um clube europeu a ir para um clube das Américas, de África ou da Oceânia.

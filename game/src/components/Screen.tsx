@@ -30,7 +30,7 @@ export function ScreenHeader({
 }) {
   const badge = emblem ?? (club ? { text: initials(club.shortName), ...clubColours(club) } : undefined)
   return (
-    <div className="m-2 flex shrink-0 items-center gap-3 rounded-md bg-[#1a1b21] px-3 py-1.5">
+    <div className="m-2 flex shrink-0 items-center gap-3 rounded-md bg-cm-surface px-3 py-1.5">
       {badge && (
         <span
           className="flex size-9 shrink-0 items-center justify-center rounded font-title text-[15px] font-bold"
@@ -65,7 +65,7 @@ export function Panel({
   className?: string
 }) {
   return (
-    <div className={`flex min-h-0 flex-col rounded-md bg-[#1a1b21] ${className}`}>
+    <div className={`flex min-h-0 flex-col rounded-md bg-cm-surface ${className}`}>
       {title && <PanelTitle title={title} chip={chip} right={right} />}
       {children}
     </div>

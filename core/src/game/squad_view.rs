@@ -88,9 +88,8 @@ impl Game {
                 Some("Lst")
             } else if unhappy {
                 Some("Des")
-            } else if p.international {
-                Some("Int")
             } else {
+                // "Int" (fora na selecção) fica para quando houver convocatórias
                 None
             }
             .map(Into::into);

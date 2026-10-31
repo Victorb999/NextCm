@@ -72,7 +72,7 @@ function AttributeGrid({ items }: { items: { label: string; value: ReactNode; co
   return (
     <div className="grid shrink-0 grid-cols-3 gap-2">
       {columns.map((col, c) => (
-        <div key={c} className="cm-zebra overflow-hidden rounded-md bg-[#1a1b21]">
+        <div key={c} className="cm-zebra overflow-hidden rounded-md bg-cm-surface">
           {col.map((it) => (
             <div key={it.label} className="flex h-6 items-center justify-between px-3">
               <span className="text-[14.5px] text-[#e3e1e9]">{it.label}</span>
@@ -88,7 +88,7 @@ function AttributeGrid({ items }: { items: { label: string; value: ReactNode; co
 /** Tabela pequena de cabeçalho roxo (a época quando não há dados do jogo). */
 function PurpleTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   return (
-    <table className="w-full overflow-hidden rounded-md border-collapse bg-[#1a1b21] text-center">
+    <table className="w-full overflow-hidden rounded-md border-collapse bg-cm-surface text-center">
       <thead>
         <tr className="h-8">
           {head.map((h, i) => (
@@ -126,7 +126,7 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
   const born = p?.birthDate ? cmDate(p.birthDate) : p?.birthYear ? String(p.birthYear) : '?'
   const dot = <span className="text-[#5a5a66]"> · </span>
   return (
-    <div className="m-2 shrink-0 rounded-md bg-[#1a1b21] px-3 pb-1.5 pt-2">
+    <div className="m-2 shrink-0 rounded-md bg-cm-surface px-3 pb-1.5 pt-2">
       <div className="flex items-start gap-3">
         <div
           className="flex size-[44px] shrink-0 flex-col items-center justify-center rounded border border-black/40 leading-none"

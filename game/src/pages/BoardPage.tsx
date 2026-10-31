@@ -164,7 +164,7 @@ export default function BoardPage() {
       />
       <div className="mx-2 flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
         <ErrorBox>{error}</ErrorBox>
-        <div className="shrink-0 overflow-hidden rounded-md bg-[#1a1b21]">
+        <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
           <div className="cm-zebra">
             {view?.lines.map((l) => {
               const st = LINE_STYLE[l.kind] ?? LINE_STYLE.performance
@@ -188,7 +188,7 @@ export default function BoardPage() {
           </div>
         </div>
         {view && (
-          <div className="flex shrink-0 flex-wrap gap-x-6 gap-y-1 rounded-md bg-[#1a1b21] px-4 py-2 font-mono text-[12px] uppercase tracking-wider text-[#86869a]">
+          <div className="flex shrink-0 flex-wrap gap-x-6 gap-y-1 rounded-md bg-cm-surface px-4 py-2 font-mono text-[12px] uppercase tracking-wider text-[#86869a]">
             <span>
               Expectativa: <b className="normal-case text-white">{view.goal.charAt(0).toUpperCase() + view.goal.slice(1)}</b>
             </span>

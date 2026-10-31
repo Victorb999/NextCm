@@ -287,7 +287,7 @@ export function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: ()
     ['Livres', name(t.takers.freeKick), false],
   ]
   return (
-    <div className="flex w-[176px] shrink-0 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
+    <div className="flex w-[176px] shrink-0 flex-col overflow-hidden rounded-md bg-cm-surface">
       <PanelTitle
         title="Instruções"
         right={

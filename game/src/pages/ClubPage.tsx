@@ -1,62 +1,97 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
-import { api } from '../api'
-import type { ClubListItem } from '../bindings/ClubListItem'
-import type { ClubProfile } from '../bindings/ClubProfile'
-import type { ClubTactics } from '../bindings/ClubTactics'
-import type { Fixture } from '../bindings/Fixture'
-import type { SquadPlayer } from '../bindings/SquadPlayer'
-import CascadeMenu, { type MenuNode } from '../components/CascadeMenu'
-import { ClubFixtureList, MatchInfo } from '../components/Fixtures'
-import FinancesPanel from '../components/FinancesPanel'
-import SquadTable, { InfBadge } from '../components/SquadTable'
-import TransfersPanel from '../components/TransfersPanel'
-import { BottomBar, Empty, ErrorBox, Link, PanelTitle, PurpleMenu, ScreenHeader, Tabs, type MenuOption } from '../components/Screen'
-import { money, shortListName } from '../format'
-import { useGame } from '../game'
-import { useNav } from '../nav'
-import { BENCH, selectionOf, spotOf, swap, useDragSwap, type Spot } from '../selection'
-import { FILTER_OPTIONS, NO_FILTER, VIEW_TITLE, nameClass, passes, squadName, type Filter, type SquadView } from '../squad'
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { ReactNode } from "react"
+import { api } from "../api"
+import type { ClubListItem } from "../bindings/ClubListItem"
+import type { ClubProfile } from "../bindings/ClubProfile"
+import type { ClubTactics } from "../bindings/ClubTactics"
+import type { Fixture } from "../bindings/Fixture"
+import type { SquadPlayer } from "../bindings/SquadPlayer"
+import CascadeMenu, { type MenuNode } from "../components/CascadeMenu"
+import { ClubFixtureList, MatchInfo } from "../components/Fixtures"
+import FinancesPanel from "../components/FinancesPanel"
+import SquadTable, { InfBadge } from "../components/SquadTable"
+import TransfersPanel from "../components/TransfersPanel"
+import {
+  BottomBar,
+  Empty,
+  ErrorBox,
+  Link,
+  PanelTitle,
+  PurpleMenu,
+  ScreenHeader,
+  Tabs,
+  type MenuOption,
+} from "../components/Screen"
+import { money, shortListName } from "../format"
+import { useGame } from "../game"
+import { useNav } from "../nav"
+import {
+  BENCH,
+  selectionOf,
+  spotOf,
+  swap,
+  useDragSwap,
+  type Spot,
+} from "../selection"
+import {
+  FILTER_OPTIONS,
+  NO_FILTER,
+  VIEW_TITLE,
+  nameClass,
+  passes,
+  squadName,
+  type Filter,
+  type SquadView,
+} from "../squad"
 
 const TABS = [
-  { key: 'squad', label: 'Plantel' },
-  { key: 'transfers', label: 'Transferências' },
-  { key: 'next', label: 'Próximo Jogo' },
-  { key: 'fixtures', label: 'Calendário' },
-  { key: 'info', label: 'Finanças & Info' },
+  { key: "squad", label: "Plantel" },
+  { key: "transfers", label: "Transferências" },
+  { key: "next", label: "Próximo Jogo" },
+  { key: "fixtures", label: "Calendário" },
+  { key: "info", label: "Finanças & Info" },
 ]
 
-type View = SquadView | 'staff'
-type Criterion = 'position' | 'name' | 'number' | 'age' | 'ability'
+type View = SquadView | "staff"
+type Criterion = "position" | "name" | "number" | "age" | "ability"
 
 // O Vêr do CM; Mais Dados, Atributos e Outros esperam por prints
 const VIEWS: MenuOption<View>[] = [
-  { key: 'traditional', label: 'Tradicional' },
-  { key: 'contract', label: 'Contrato' },
-  { key: 'selection', label: 'Selecção' },
-  { key: 'stats', label: 'Estatísticas' },
-  { key: 'penalties', label: 'Marcadores Penalties' },
-  'separator',
-  { key: 'staff', label: 'Staff' },
+  { key: "traditional", label: "Tradicional" },
+  { key: "contract", label: "Contrato" },
+  { key: "selection", label: "Selecção" },
+  { key: "stats", label: "Estatísticas" },
+  { key: "penalties", label: "Marcadores Penalties" },
+  "separator",
+  { key: "staff", label: "Staff" },
 ]
 
 const CRITERIA: { key: Criterion; label: string }[] = [
-  { key: 'position', label: 'Posição' },
-  { key: 'name', label: 'Nome' },
-  { key: 'number', label: 'Número' },
-  { key: 'age', label: 'Idade' },
-  { key: 'ability', label: 'Habilidade' },
+  { key: "position", label: "Posição" },
+  { key: "name", label: "Nome" },
+  { key: "number", label: "Número" },
+  { key: "age", label: "Idade" },
+  { key: "ability", label: "Habilidade" },
 ]
 
 /** Uma linha do plantel: [número] [lugar/Int] Nome ... posição */
-type Entry = { id: number; number: ReactNode; badge: ReactNode; name: string; detail: string; spot?: Spot; player?: SquadPlayer }
+type Entry = {
+  id: number
+  number: ReactNode
+  badge: ReactNode
+  name: string
+  detail: string
+  spot?: Spot
+  player?: SquadPlayer
+}
 
-type Bind = { 'data-spot': string; onMouseDown: (e: React.MouseEvent) => void }
+type Bind = { "data-spot": string; onMouseDown: (e: React.MouseEvent) => void }
 
 /** "D D" -> "DD", "M C" -> "MC": a sigla curta da função, como nas casas do plantel do CM. */
-const shortRole = (role: string) => role.replace(' ', '')
+const shortRole = (role: string) => role.replace(" ", "")
 
-const byNullsLast = (a: number | null, b: number | null) => (a ?? 999) - (b ?? 999)
+const byNullsLast = (a: number | null, b: number | null) =>
+  (a ?? 999) - (b ?? 999)
 
 function SquadGrid({
   entries,
@@ -83,24 +118,24 @@ function SquadGrid({
       <div
         key={e.id}
         data-row={i}
-        data-spot={drag?.['data-spot']}
+        data-spot={drag?.["data-spot"]}
         onMouseDown={drag?.onMouseDown}
         onClick={() => onSelect(i)}
         onDoubleClick={() => onOpen(e)}
-        className={`flex h-6 items-center gap-1.5 px-2 ${i === selected ? '!bg-cm-sel' : ''} ${drag ? 'cursor-grab' : ''}`}
+        className={`flex h-6 items-center gap-1.5 px-2 ${i === selected ? "!bg-cm-sel" : ""} ${drag ? "cursor-grab" : ""}`}
       >
         <span
           onMouseDown={stop}
           onClick={toggle}
-          className={`w-8 shrink-0 text-center font-mono text-[13px] text-[#c8c8d0] ${onToggle ? 'cursor-pointer' : ''}`}
+          className={`w-8 shrink-0 text-center font-mono text-[13px] text-[#c8c8d0] ${onToggle ? "cursor-pointer" : ""}`}
         >
           {e.number}
         </span>
         <span
           onMouseDown={stop}
           onClick={toggle}
-          title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
-          className={`w-10 shrink-0 text-center font-mono text-[12px] font-bold text-[#4edea3] ${onToggle ? 'cursor-pointer' : ''}`}
+          title={onToggle ? "Clique para pôr/tirar da equipa" : undefined}
+          className={`w-10 shrink-0 text-center font-mono text-[12px] font-bold text-[#4edea3] ${onToggle ? "cursor-pointer" : ""}`}
         >
           {e.badge || <span className="text-[#5a5a66]">-</span>}
         </span>
@@ -110,12 +145,24 @@ function SquadGrid({
           </span>
         )}
         <span
-          className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${e.player ? nameClass(e.player) : 'text-white'}`}
-          title={e.player?.ghost ? 'Jogador de enchimento' : e.player?.loaned ? 'Emprestado' : e.player?.free ? 'Sem contrato' : undefined}
+          className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${e.player ? nameClass(e.player) : "text-white"}`}
+          title={
+            e.player?.ghost
+              ? "Jogador de enchimento"
+              : e.player?.loaned
+                ? "Emprestado"
+                : e.player?.free
+                  ? "Sem contrato"
+                  : undefined
+          }
         >
           <Link onClick={() => onOpen(e)}>{e.name}</Link>
         </span>
-        <span className={`w-28 shrink-0 truncate text-right font-mono text-[12.5px] ${i === selected ? 'text-white' : 'text-cm-yellow'}`}>{e.detail}</span>
+        <span
+          className={`w-28 shrink-0 truncate text-right font-mono text-[12.5px] ${i === selected ? "text-white" : "text-cm-yellow"}`}
+        >
+          {e.detail}
+        </span>
       </div>
     )
   }
@@ -129,9 +176,13 @@ function SquadGrid({
     </div>
   )
   const column = (side: 0 | 1) => (
-    <div className="min-w-0 flex-1 overflow-hidden rounded-md bg-[#1a1b21]">
+    <div className="min-w-0 flex-1 overflow-hidden rounded-md bg-cm-surface">
       {head}
-      <div className="cm-zebra">{entries.map((e, i) => (i % 2 === side ? row(e, i) : null)).filter(Boolean)}</div>
+      <div className="cm-zebra">
+        {entries
+          .map((e, i) => (i % 2 === side ? row(e, i) : null))
+          .filter(Boolean)}
+      </div>
     </div>
   )
   return (
@@ -144,12 +195,12 @@ function SquadGrid({
 
 /** Finanças pela palavra, como o CM (o banco guarda o saldo em euros). */
 function financesLabel(cash: number | null) {
-  if (cash === null) return '-'
-  if (cash >= 50_000_000) return 'Rico'
-  if (cash >= 10_000_000) return 'Seguro'
-  if (cash >= 1_000_000) return 'Razoável'
-  if (cash >= 0) return 'Apertado'
-  return 'Em dívida'
+  if (cash === null) return "-"
+  if (cash >= 50_000_000) return "Rico"
+  if (cash >= 10_000_000) return "Seguro"
+  if (cash >= 1_000_000) return "Razoável"
+  if (cash >= 0) return "Apertado"
+  return "Em dívida"
 }
 
 /** "Finanças & Info" → Informação Geral do CM: dados do clube e a lista do staff. */
@@ -157,7 +208,9 @@ function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
   const nav = useNav()
   const row = (label: string, value: ReactNode) => (
     <div key={label} className="flex min-h-6 items-baseline gap-4 px-3 py-1">
-      <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
+      <span className="w-56 shrink-0 text-[15px] font-semibold text-white">
+        {label}
+      </span>
       <span className="flex-1 text-[14px] text-cm-yellow">{value}</span>
     </div>
   )
@@ -167,45 +220,73 @@ function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
       {finances}
       <PanelTitle title="Informação Geral" />
       <div className="cm-zebra">
-      {row('País', c.nationId !== null && c.nation ? <Link onClick={() => nav.go({ kind: 'nation', id: c.nationId! })}>{c.nation}</Link> : '-')}
-      {row('Estatuto', `${c.status ?? '-'}${competition ? ` (${competition})` : ''}`)}
-      {row('Finanças', `${financesLabel(c.cash)} · saldo ${money(c.cash)}`)}
-      {row('Estádio', [c.stadium, c.stadiumCity].filter(Boolean).join(', ') || '-')}
-      {row(
-        'Lotação',
-        c.stadiumCapacity
-          ? `${c.stadiumCapacity.toLocaleString('pt-BR')}${c.stadiumSeated === c.stadiumCapacity ? ' - todos lugares sentados' : c.stadiumSeated ? ` (${c.stadiumSeated.toLocaleString('pt-BR')} sentados)` : ''}`
-          : '-',
-      )}
-      {row('Reputação', c.reputation ?? '-')}
-      {c.reserveDivision &&
-        row('Estadual', <Link onClick={() => nav.go({ kind: 'competition', id: c.reserveDivision!.id })}>{c.reserveDivision.name}</Link>)}
-      {row(
-        'Rivais',
-        c.rivals.length
-          ? c.rivals.map((r, i) => (
-              <span key={r.id}>
-                {i > 0 && ', '}
-                <Link onClick={() => nav.go({ kind: 'club', id: r.id })}>{r.shortName}</Link>
-              </span>
-            ))
-          : '-',
-      )}
+        {row(
+          "País",
+          c.nationId !== null && c.nation ? (
+            <Link onClick={() => nav.go({ kind: "nation", id: c.nationId! })}>
+              {c.nation}
+            </Link>
+          ) : (
+            "-"
+          ),
+        )}
+        {row(
+          "Estatuto",
+          `${c.status ?? "-"}${competition ? ` (${competition})` : ""}`,
+        )}
+        {row("Finanças", `${financesLabel(c.cash)} · saldo ${money(c.cash)}`)}
+        {row(
+          "Estádio",
+          [c.stadium, c.stadiumCity].filter(Boolean).join(", ") || "-",
+        )}
+        {row(
+          "Lotação",
+          c.stadiumCapacity
+            ? `${c.stadiumCapacity.toLocaleString("pt-BR")}${c.stadiumSeated === c.stadiumCapacity ? " - todos lugares sentados" : c.stadiumSeated ? ` (${c.stadiumSeated.toLocaleString("pt-BR")} sentados)` : ""}`
+            : "-",
+        )}
+        {row("Reputação", c.reputation ?? "-")}
+        {c.reserveDivision &&
+          row(
+            "Estadual",
+            <Link
+              onClick={() =>
+                nav.go({ kind: "competition", id: c.reserveDivision!.id })
+              }
+            >
+              {c.reserveDivision.name}
+            </Link>,
+          )}
+        {row(
+          "Rivais",
+          c.rivals.length
+            ? c.rivals.map((r, i) => (
+                <span key={r.id}>
+                  {i > 0 && ", "}
+                  <Link onClick={() => nav.go({ kind: "club", id: r.id })}>
+                    {r.shortName}
+                  </Link>
+                </span>
+              ))
+            : "-",
+        )}
       </div>
       <PanelTitle title="Staff" />
       {/* Uma linha por função, com os nomes (ligações para o perfil) */}
       <div className="cm-zebra">
-        {[...new Set(c.staff.map((s) => s.job ?? '-'))].map((job) =>
+        {[...new Set(c.staff.map((s) => s.job ?? "-"))].map((job) =>
           row(
             job,
             c.staff
-              .filter((s) => (s.job ?? '-') === job)
+              .filter((s) => (s.job ?? "-") === job)
               .map((s, i) => (
                 <span key={s.id}>
-                  {i > 0 && ', '}
-                  <Link onClick={() => nav.go({ kind: 'person', id: s.id })}>
+                  {i > 0 && ", "}
+                  <Link onClick={() => nav.go({ kind: "person", id: s.id })}>
                     {/* "Sobrenome, Nome" -> "Nome Sobrenome", como na lista do CM */}
-                    {s.listName.includes(', ') ? s.listName.split(', ').reverse().join(' ') : s.listName}
+                    {s.listName.includes(", ")
+                      ? s.listName.split(", ").reverse().join(" ")
+                      : s.listName}
                   </Link>
                 </span>
               )),
@@ -216,23 +297,33 @@ function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
   )
 }
 
-export default function ClubPage({ id, reserves }: { id: number; reserves?: boolean }) {
+export default function ClubPage({
+  id,
+  reserves,
+}: {
+  id: number
+  reserves?: boolean
+}) {
   const nav = useNav()
   const game = useGame()
   const [club, setClub] = useState<ClubProfile | null>(null)
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState('squad')
-  const [view, setView] = useState<View>('traditional')
+  const [tab, setTab] = useState("squad")
+  const [view, setView] = useState<View>("traditional")
   const [filter, setFilter] = useState<Filter>(NO_FILTER)
-  const [criterion, setCriterion] = useState<Criterion>('position')
+  const [criterion, setCriterion] = useState<Criterion>("position")
   const [selected, setSelected] = useState(0)
   const [tactics, setTactics] = useState<ClubTactics | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
-  const mine = game.mode === 'game' && game.info?.club.id === id
+  const mine = game.mode === "game" && game.info?.club.id === id
   // O menu do clube (▸ na faixa) e os clubes da divisão, pedidos ao abri-lo
-  const [clubMenu, setClubMenu] = useState<{ x: number; y: number } | null>(null)
-  const [divisionClubs, setDivisionClubs] = useState<ClubListItem[] | null>(null)
+  const [clubMenu, setClubMenu] = useState<{ x: number; y: number } | null>(
+    null,
+  )
+  const [divisionClubs, setDivisionClubs] = useState<ClubListItem[] | null>(
+    null,
+  )
 
   useEffect(() => {
     api.getClub(id).then(setClub, (e) => setError(String(e)))
@@ -274,7 +365,14 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
     if (!tactics) return
     try {
       const sel = selectionOf(tactics)
-      setTactics(await api.setTactics({ ...sel, auto: false, starters: sel.starters.map(() => null), bench: [] }))
+      setTactics(
+        await api.setTactics({
+          ...sel,
+          auto: false,
+          starters: sel.starters.map(() => null),
+          bench: [],
+        }),
+      )
       const info = await api.gameInfo()
       if (info) game.update(info)
       setError(null)
@@ -302,14 +400,26 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
   // Os jogadores da vista: plantel principal ou reservas (com os séniores, se pedido), filtrados e ordenados
   const players: SquadPlayer[] = useMemo(() => {
     if (!club) return []
-    const list = club.players.filter((p) => (reserves ? p.reserve || filter.seniors : !p.reserve) && passes(p, filter))
-    const name = (a: { listName: string }, b: { listName: string }) => a.listName.localeCompare(b.listName)
-    if (criterion === 'position') list.sort((a, b) => a.positionOrder - b.positionOrder || name(a, b))
-    if (criterion === 'name') list.sort(name)
-    if (criterion === 'number') list.sort((a, b) => byNullsLast(a.squadNumber, b.squadNumber) || name(a, b))
-    if (criterion === 'age') list.sort((a, b) => byNullsLast(a.age, b.age) || name(a, b))
-    if (criterion === 'ability') list.sort((a, b) => a.abilityRank - b.abilityRank)
-    if (view === 'penalties') list.sort((a, b) => byNullsLast(a.penaltyOrder, b.penaltyOrder))
+    const list = club.players.filter(
+      (p) =>
+        (reserves ? p.reserve || filter.seniors : !p.reserve) &&
+        passes(p, filter),
+    )
+    const name = (a: { listName: string }, b: { listName: string }) =>
+      a.listName.localeCompare(b.listName)
+    if (criterion === "position")
+      list.sort((a, b) => a.positionOrder - b.positionOrder || name(a, b))
+    if (criterion === "name") list.sort(name)
+    if (criterion === "number")
+      list.sort(
+        (a, b) => byNullsLast(a.squadNumber, b.squadNumber) || name(a, b),
+      )
+    if (criterion === "age")
+      list.sort((a, b) => byNullsLast(a.age, b.age) || name(a, b))
+    if (criterion === "ability")
+      list.sort((a, b) => a.abilityRank - b.abilityRank)
+    if (view === "penalties")
+      list.sort((a, b) => byNullsLast(a.penaltyOrder, b.penaltyOrder))
     return list
   }, [club, reserves, filter, criterion, view])
 
@@ -317,66 +427,86 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
   // Casa na equipa (GR, DD... e SB1–SB7 nos suplentes)
   const placeOf = (pid: number) => {
     const spot = sel ? spotOf(sel, pid) : undefined
-    return spot?.kind === 'starter' ? shortRole(tactics!.starters[spot.index].role) : spot?.kind === 'bench' ? `SB${spot.index + 1}` : null
+    return spot?.kind === "starter"
+      ? shortRole(tactics!.starters[spot.index].role)
+      : spot?.kind === "bench"
+        ? `SB${spot.index + 1}`
+        : null
   }
 
   const entries: Entry[] = !club
     ? []
-    : view === 'staff'
-      ? club.staff.map((s) => ({ id: s.id, number: '', badge: '', name: shortListName(s.listName), detail: s.job ?? '' }))
+    : view === "staff"
+      ? club.staff.map((s) => ({
+          id: s.id,
+          number: "",
+          badge: "",
+          name: shortListName(s.listName),
+          detail: s.job ?? "",
+        }))
       : players.map((p) => ({
-      id: p.id,
-      spot: sel ? spotOf(sel, p.id) : undefined,
-      number: criterion === 'age' ? (p.age ?? '') : (p.squadNumber ?? ''),
-      badge: placeOf(p.id) ?? '',
-      name: squadName(p),
-      detail: p.position,
-      player: p,
-    }))
+          id: p.id,
+          spot: sel ? spotOf(sel, p.id) : undefined,
+          number: criterion === "age" ? (p.age ?? "") : (p.squadNumber ?? ""),
+          badge: placeOf(p.id) ?? "",
+          name: squadName(p),
+          detail: p.position,
+          player: p,
+        }))
 
-  const table = view !== 'traditional' && view !== 'staff'
+  const table = view !== "traditional" && view !== "staff"
   // Casas da equipa, Limpar Equipa e pôr/tirar: só no plantel principal, na vista Tradicional
-  const teamView = !reserves && view === 'traditional'
+  const teamView = !reserves && view === "traditional"
   const rowCount = table ? players.length : entries.length
 
-  const open = (e: { id: number } | undefined) => e && nav.go({ kind: 'person', id: e.id })
+  const open = (e: { id: number } | undefined) =>
+    e && nav.go({ kind: "person", id: e.id })
 
   // Teclado: setas andam na grade de 2 colunas, Enter abre, Esc/Backspace voltam
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey) return
       // Nas tabelas do Vêr, uma coluna só
-      const steps: Record<string, number> = table ? { ArrowUp: -1, ArrowDown: 1 } : { ArrowUp: -2, ArrowDown: 2, ArrowLeft: -1, ArrowRight: 1 }
+      const steps: Record<string, number> = table
+        ? { ArrowUp: -1, ArrowDown: 1 }
+        : { ArrowUp: -2, ArrowDown: 2, ArrowLeft: -1, ArrowRight: 1 }
       const step = steps[e.key]
-      if (step !== undefined && tab === 'squad') {
+      if (step !== undefined && tab === "squad") {
         e.preventDefault()
         setSelected((s) => {
           const next = Math.max(0, Math.min(rowCount - 1, s + step))
-          gridRef.current?.querySelector(`[data-row="${next}"]`)?.scrollIntoView({ block: 'nearest' })
+          gridRef.current
+            ?.querySelector(`[data-row="${next}"]`)
+            ?.scrollIntoView({ block: "nearest" })
           return next
         })
-      } else if (e.key === 'Enter' && tab === 'squad') {
+      } else if (e.key === "Enter" && tab === "squad") {
         open(table ? players[selected] : entries[selected])
-      } else if (e.key === 'Escape' || e.key === 'Backspace') {
+      } else if (e.key === "Escape" || e.key === "Backspace") {
         nav.back()
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
   })
 
   const division = club?.division
 
   // Lugar de treinador vago: "Concorrer ao Lugar", como no CM
-  const [vacancy, setVacancy] = useState<{ club: number; text: string | null } | null>(null)
+  const [vacancy, setVacancy] = useState<{
+    club: number
+    text: string | null
+  } | null>(null)
   const nationId = club?.nationId ?? null
   const ownClub = club?.club.id === game.info?.club.id
   useEffect(() => {
-    if (game.mode !== 'game' || ownClub || nationId === null) return
+    if (game.mode !== "game" || ownClub || nationId === null) return
     api.jobsView(nationId).then(
       (j) => {
         const row = j.rows.find((r) => r.club.id === id)
-        setVacancy(row?.vacant && !row.applied ? { club: id, text: null } : null)
+        setVacancy(
+          row?.vacant && !row.applied ? { club: id, text: null } : null,
+        )
       },
       () => setVacancy(null),
     )
@@ -394,44 +524,88 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
   const openClubMenu = (e: React.MouseEvent) => {
     const r = e.currentTarget.getBoundingClientRect()
     setClubMenu(clubMenu ? null : { x: r.left, y: r.bottom + 2 })
-    if (division && !divisionClubs) api.getCompetition(division.id).then((c) => setDivisionClubs(c.clubs), () => setDivisionClubs([]))
+    if (division && !divisionClubs)
+      api.getCompetition(division.id).then(
+        (c) => setDivisionClubs(c.clubs),
+        () => setDivisionClubs([]),
+      )
   }
   const clubMenuItems = (): MenuNode[] => {
     if (!club) return []
     const items: MenuNode[] = []
-    if (mine && !reserves) items.push({ label: 'Plantel de Reservas', onSelect: () => nav.go({ kind: 'club', id, reserves: true }) })
-    if (reserves) items.push({ label: 'Plantel Principal', onSelect: () => nav.go({ kind: 'club', id }) })
-    if (club.parent) items.push({ label: 'Equipa Principal', onSelect: () => nav.go({ kind: 'club', id: club.parent!.id }) })
-    for (const a of club.affiliates) items.push({ label: a.shortName, onSelect: () => nav.go({ kind: 'club', id: a.id }) })
+    if (mine && !reserves)
+      items.push({
+        label: "Plantel de Reservas",
+        onSelect: () => nav.go({ kind: "club", id, reserves: true }),
+      })
+    if (reserves)
+      items.push({
+        label: "Plantel Principal",
+        onSelect: () => nav.go({ kind: "club", id }),
+      })
+    if (club.parent)
+      items.push({
+        label: "Equipa Principal",
+        onSelect: () => nav.go({ kind: "club", id: club.parent!.id }),
+      })
+    for (const a of club.affiliates)
+      items.push({
+        label: a.shortName,
+        onSelect: () => nav.go({ kind: "club", id: a.id }),
+      })
     const others = (divisionClubs ?? [])
       .filter((c) => c.club.id !== id)
       .sort((a, b) => a.club.shortName.localeCompare(b.club.shortName))
-      .map((c) => ({ label: c.club.shortName, onSelect: () => nav.go({ kind: 'club', id: c.club.id }) }))
+      .map((c) => ({
+        label: c.club.shortName,
+        onSelect: () => nav.go({ kind: "club", id: c.club.id }),
+      }))
     if (division) {
-      if (items.length) items.push('separator')
-      items.push({ label: division.name, children: others.length ? others : undefined, onSelect: () => nav.go({ kind: 'competition', id: division.id }) })
+      if (items.length) items.push("separator")
+      items.push({
+        label: division.name,
+        children: others.length ? others : undefined,
+        onSelect: () => nav.go({ kind: "competition", id: division.id }),
+      })
     }
-    if (club.nationId !== null && club.nation) items.push({ label: club.nation, onSelect: () => nav.go({ kind: 'nation', id: club.nationId! }) })
+    if (club.nationId !== null && club.nation)
+      items.push({
+        label: club.nation,
+        onSelect: () => nav.go({ kind: "nation", id: club.nationId! }),
+      })
     return items
   }
 
-  const filterOptions: MenuOption<string>[] = reserves ? [...FILTER_OPTIONS, 'separator', { key: 'seniors', label: 'Incluir Séniores' }] : FILTER_OPTIONS
+  const filterOptions: MenuOption<string>[] = reserves
+    ? [
+        ...FILTER_OPTIONS,
+        "separator",
+        { key: "seniors", label: "Incluir Séniores" },
+      ]
+    : FILTER_OPTIONS
   const filterChecked = (key: string) => {
-    if (key === 'seniors') return filter.seniors
-    const [group, value] = key.split(':')
-    return group === 'line' ? filter.line === value : group === 'side' ? filter.side === value : filter.avail === value
+    if (key === "seniors") return filter.seniors
+    const [group, value] = key.split(":")
+    return group === "line"
+      ? filter.line === value
+      : group === "side"
+        ? filter.side === value
+        : filter.avail === value
   }
   const changeFilter = (key: string) => {
-    const [group, value] = key.split(':')
+    const [group, value] = key.split(":")
     setFilter((f) =>
-      key === 'seniors'
+      key === "seniors"
         ? { ...f, seniors: !f.seniors }
-        : group === 'line'
+        : group === "line"
           ? { ...f, line: value }
-          : group === 'side'
+          : group === "side"
             ? { ...f, side: value }
             : // Disponíveis / Indisponíveis: um clique marca, outro desmarca
-              { ...f, avail: f.avail === value ? '' : (value as Filter['avail']) },
+              {
+                ...f,
+                avail: f.avail === value ? "" : (value as Filter["avail"]),
+              },
     )
     setSelected(0)
   }
@@ -444,12 +618,20 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
         eyebrow={
           club && (
             <>
-              <span className="text-cm-orange">{club.division?.name ?? club.status ?? ''}</span>
-              {reserves && <span className="rounded bg-[#0f3a2a] px-1.5 text-[#4edea3]">Reservas</span>}
+              <span className="text-cm-orange">
+                {club.division?.name ?? club.status ?? ""}
+              </span>
+              {reserves && (
+                <span className="rounded bg-[#0f3a2a] px-1.5 text-[#4edea3]">
+                  Reservas
+                </span>
+              )}
             </>
           )
         }
-        title={club ? (reserves ? `Reservas ${club.club.name}` : club.club.name) : ''}
+        title={
+          club ? (reserves ? `Reservas ${club.club.name}` : club.club.name) : ""
+        }
         right={
           <>
             {club?.stadium && (
@@ -457,19 +639,27 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
                 Estádio: <b className="text-white">{club.stadium}</b>
                 {club.stadiumCapacity ? (
                   <>
-                    {' '}
-                    · Lotação: <b className="text-white">{club.stadiumCapacity.toLocaleString('pt-BR')}</b>
+                    {" "}
+                    · Lotação:{" "}
+                    <b className="text-white">
+                      {club.stadiumCapacity.toLocaleString("pt-BR")}
+                    </b>
                   </>
                 ) : null}
               </span>
             )}
             {vacancy?.club === id &&
               (vacancy.text === null ? (
-                <button className="h-8 rounded bg-cm-orange px-4 font-title text-[15px] font-bold text-black hover:brightness-110" onClick={() => void apply()}>
+                <button
+                  className="h-8 rounded bg-cm-orange px-4 font-title text-[15px] font-bold text-black hover:brightness-110"
+                  onClick={() => void apply()}
+                >
                   Concorrer ao Lugar
                 </button>
               ) : (
-                <span className="rounded bg-black/60 px-2 py-1 text-[13px] text-cm-yellow">{vacancy.text}</span>
+                <span className="rounded bg-black/60 px-2 py-1 text-[13px] text-cm-yellow">
+                  {vacancy.text}
+                </span>
               ))}
             {club && (
               <button
@@ -487,13 +677,17 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
       />
       <Tabs
         tabs={TABS.map((t) =>
-          t.key === 'next' || t.key === 'fixtures' ? { ...t, disabled: fixtures.length === 0 } : t.key === 'transfers' ? { ...t, disabled: game.mode !== 'game' } : t,
+          t.key === "next" || t.key === "fixtures"
+            ? { ...t, disabled: fixtures.length === 0 }
+            : t.key === "transfers"
+              ? { ...t, disabled: game.mode !== "game" }
+              : t,
         )}
         active={tab}
         onChange={setTab}
       />
 
-      {tab === 'squad' && (
+      {tab === "squad" && (
         <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
           <PurpleMenu
             label="Vêr"
@@ -508,7 +702,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
             label="Critério"
             options={CRITERIA}
             value={criterion}
-            disabled={view === 'staff'}
+            disabled={view === "staff"}
             onChange={(c) => {
               setCriterion(c)
               setSelected(0)
@@ -516,7 +710,11 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
           />
           <div className="flex-1" />
           {mine && (
-            <button className="cm-purple h-6 w-40" disabled={!tactics || !teamView} onClick={() => void clearTeam()}>
+            <button
+              className="cm-purple h-6 w-40"
+              disabled={!tactics || !teamView}
+              onClick={() => void clearTeam()}
+            >
               Limpar Equipa
             </button>
           )}
@@ -524,18 +722,22 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
             <button
               className="cm-purple h-6 w-40"
               disabled={!game.info?.numbersOpen}
-              title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-época'}
-              onClick={() => nav.go({ kind: 'squadNumbers' })}
+              title={
+                game.info?.numbersOpen
+                  ? undefined
+                  : "Os números só se mudam na pré-época"
+              }
+              onClick={() => nav.go({ kind: "squadNumbers" })}
             >
               Números
             </button>
           )}
           <PurpleMenu
-            label={filtered || filter.seniors ? 'Filtrar ✓' : 'Filtrar'}
+            label={filtered || filter.seniors ? "Filtrar ✓" : "Filtrar"}
             options={filterOptions}
             checked={filterChecked}
             onChange={changeFilter}
-            disabled={view === 'staff'}
+            disabled={view === "staff"}
             align="right"
           />
         </div>
@@ -543,40 +745,58 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
 
       <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col">
         <ErrorBox className="mb-2">{error}</ErrorBox>
-        {club && tab === 'squad' && (
+        {club && tab === "squad" && (
           <>
             {/* Casas da equipa: arraste um jogador para uma casa (ou para outro jogador) para mudar o lugar */}
-            <div className="mb-2 flex shrink-0 flex-wrap items-center gap-0.5 rounded-md bg-[#1a1b21] px-3 py-1.5">
+            <div className="mb-2 flex shrink-0 flex-wrap items-center gap-0.5 rounded-md bg-cm-surface px-3 py-1.5">
               <span className="mr-2 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-cm-orange">
-                {view === 'staff' ? 'Staff' : view === 'traditional' ? CRITERIA.find((c) => c.key === criterion)!.label : VIEW_TITLE[view]}
+                {view === "staff"
+                  ? "Staff"
+                  : view === "traditional"
+                    ? CRITERIA.find((c) => c.key === criterion)!.label
+                    : VIEW_TITLE[view]}
               </span>
               {mine && tactics && teamView && (
-              <>
-                {tactics.starters.map((s, i) => {
-                  const b = drag.bind({ kind: 'starter', index: i }, shortRole(s.role))
-                  return (
-                    <span key={`s${i}`} {...b} title={s.player?.listName ?? 'vazio'} className="cm-chip min-w-[38px] cursor-grab px-1 text-center text-[12px]">
-                      {shortRole(s.role)}
-                    </span>
-                  )
-                })}
-                {/* Banco fixo de 9, como no CM: arraste um jogador para uma casa SB vazia para o pôr no banco */}
-                {Array.from({ length: BENCH }, (_, i) => {
-                  const p = tactics.bench[i]
-                  const b = drag.bind({ kind: 'bench', index: i }, `SB${i + 1}`)
-                  return (
-                    <span
-                      key={`b${i}`}
-                      {...b}
-                      title={p?.listName ?? 'vazio'}
-                      className={`min-w-[38px] cursor-grab px-1 text-center text-[12px] ${p ? 'cm-chip' : 'cm-chip !bg-[#2a1a45] !text-[#8a63c4]'}`}
-                    >
-                      SB{i + 1}
-                    </span>
-                  )
-                })}
-                <span className="ml-2 self-center text-[11px] text-[#86869a]">Arraste para trocar · clique no número ou na casa para pôr/tirar</span>
-              </>
+                <>
+                  {tactics.starters.map((s, i) => {
+                    const b = drag.bind(
+                      { kind: "starter", index: i },
+                      shortRole(s.role),
+                    )
+                    return (
+                      <span
+                        key={`s${i}`}
+                        {...b}
+                        title={s.player?.listName ?? "vazio"}
+                        className="cm-chip min-w-[38px] cursor-grab px-1 text-center text-[12px]"
+                      >
+                        {shortRole(s.role)}
+                      </span>
+                    )
+                  })}
+                  {/* Banco fixo de 9, como no CM: arraste um jogador para uma casa SB vazia para o pôr no banco */}
+                  {Array.from({ length: BENCH }, (_, i) => {
+                    const p = tactics.bench[i]
+                    const b = drag.bind(
+                      { kind: "bench", index: i },
+                      `SB${i + 1}`,
+                    )
+                    return (
+                      <span
+                        key={`b${i}`}
+                        {...b}
+                        title={p?.listName ?? "vazio"}
+                        className={`min-w-[38px] cursor-grab px-1 text-center text-[12px] ${p ? "cm-chip" : "cm-chip !bg-[#2a1a45] !text-[#8a63c4]"}`}
+                      >
+                        SB{i + 1}
+                      </span>
+                    )
+                  })}
+                  <span className="ml-2 self-center text-[11px] text-[#86869a]">
+                    Arraste para trocar · clique no número ou na casa para
+                    pôr/tirar
+                  </span>
+                </>
               )}
             </div>
             <div ref={gridRef} className="min-h-0 flex-1 overflow-auto">
@@ -595,25 +815,54 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
                   onSelect={setSelected}
                   onOpen={open}
                   bind={mine && tactics && !reserves ? drag.bind : undefined}
-                  onToggle={mine && tactics && teamView ? (e) => void toggle(e) : undefined}
+                  onToggle={
+                    mine && tactics && teamView
+                      ? (e) => void toggle(e)
+                      : undefined
+                  }
                 />
               ) : (
-                <Empty>{filtered ? 'Nenhum jogador com este filtro.' : 'Ninguém registado.'}</Empty>
+                <Empty>
+                  {filtered
+                    ? "Nenhum jogador com este filtro."
+                    : "Ninguém registado."}
+                </Empty>
               )}
             </div>
           </>
         )}
-        {tab !== 'squad' && (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-[#1a1b21]">
-            {club && tab === 'info' && <Info c={club} finances={mine ? <FinancesPanel clubId={id} /> : undefined} />}
-            {tab === 'next' && (
-              <MatchInfo key="next" clubId={id} fixtures={fixtures} start={nextMatch ? fixtures.indexOf(nextMatch) : fixtures.length} empty="Não há mais jogos marcados." />
+        {tab !== "squad" && (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-cm-surface">
+            {club && tab === "info" && (
+              <Info
+                c={club}
+                finances={mine ? <FinancesPanel clubId={id} /> : undefined}
+              />
             )}
-            {tab === 'last' && (
-              <MatchInfo key="last" clubId={id} fixtures={fixtures} start={lastMatch ? fixtures.indexOf(lastMatch) : -1} empty="Ainda não jogou." />
+            {tab === "next" && (
+              <MatchInfo
+                key="next"
+                clubId={id}
+                fixtures={fixtures}
+                start={
+                  nextMatch ? fixtures.indexOf(nextMatch) : fixtures.length
+                }
+                empty="Não há mais jogos marcados."
+              />
             )}
-            {tab === 'transfers' && <TransfersPanel clubId={id} />}
-            {tab === 'fixtures' && <ClubFixtureList clubId={id} fixtures={fixtures} />}
+            {tab === "last" && (
+              <MatchInfo
+                key="last"
+                clubId={id}
+                fixtures={fixtures}
+                start={lastMatch ? fixtures.indexOf(lastMatch) : -1}
+                empty="Ainda não jogou."
+              />
+            )}
+            {tab === "transfers" && <TransfersPanel clubId={id} />}
+            {tab === "fixtures" && (
+              <ClubFixtureList clubId={id} fixtures={fixtures} />
+            )}
           </div>
         )}
       </div>
@@ -622,29 +871,45 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
       <div className="mt-2">
         <Tabs
           tabs={[
-            { key: 'tactics', label: 'Tácticas' },
-            { key: 'training', label: 'Treino', disabled: !mine },
-            { key: 'last', label: 'Último Jogo', disabled: !lastMatch },
+            { key: "tactics", label: "Tácticas" },
+            { key: "training", label: "Treino", disabled: !mine },
+            { key: "last", label: "Último Jogo", disabled: !lastMatch },
             // Num clube de reservas ou juniores, o atalho leva à Equipa Principal
             club?.parent
-              ? { key: 'parent', label: 'Equipa Principal' }
-              : { key: 'division', label: division?.shortName ?? '-', disabled: !division },
-            { key: 'history', label: 'Historial' },
+              ? { key: "parent", label: "Equipa Principal" }
+              : {
+                  key: "division",
+                  label: division?.shortName ?? "-",
+                  disabled: !division,
+                },
+            { key: "history", label: "Historial" },
           ]}
-          active={tab === 'last' ? 'last' : ''}
+          active={tab === "last" ? "last" : ""}
           onChange={(k) => {
-            if (k === 'last') setTab('last')
-            if (k === 'division' && division) nav.go({ kind: 'competition', id: division.id })
-            if (k === 'parent' && club?.parent) nav.go({ kind: 'club', id: club.parent.id })
-            if (k === 'tactics') nav.go({ kind: 'tactics', id })
-            if (k === 'training') nav.go({ kind: 'training' })
-            if (k === 'history') nav.go({ kind: 'clubHistory', id })
+            if (k === "last") setTab("last")
+            if (k === "division" && division)
+              nav.go({ kind: "competition", id: division.id })
+            if (k === "parent" && club?.parent)
+              nav.go({ kind: "club", id: club.parent.id })
+            if (k === "tactics") nav.go({ kind: "tactics", id })
+            if (k === "training") nav.go({ kind: "training" })
+            if (k === "history") nav.go({ kind: "clubHistory", id })
           }}
         />
       </div>
-      <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+      <BottomBar
+        onLeft={nav.canBack ? nav.back : undefined}
+        onRight={nav.canForward ? nav.forward : undefined}
+      />
       {drag.ghost}
-      {clubMenu && <CascadeMenu x={clubMenu.x} y={clubMenu.y} items={clubMenuItems()} onClose={() => setClubMenu(null)} />}
+      {clubMenu && (
+        <CascadeMenu
+          x={clubMenu.x}
+          y={clubMenu.y}
+          items={clubMenuItems()}
+          onClose={() => setClubMenu(null)}
+        />
+      )}
     </div>
   )
 }

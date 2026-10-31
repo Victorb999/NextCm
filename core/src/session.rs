@@ -18,6 +18,7 @@ use crate::MatchSheet;
 use crate::NewsLink;
 use crate::PressView;
 use crate::WorldTransfers;
+use crate::tactic_file::{self, TacticFile};
 use crate::{DealTerms, LoanTerms};
 use crate::{TalkLine, TalkReaction, TalkView};
 use crate::{TrainingPlan, TrainingView};
@@ -59,6 +60,9 @@ impl Session {
                 let mut q = q.clone();
                 if q.injured.is_some() {
                     q.injured_ids = g.injured_ids();
+                }
+                if q.interested == Some(true) {
+                    q.unwilling = g.unwilling_sql()?;
                 }
                 let mut r = g.world().search_people_on(&q, g.date())?;
                 g.tag_people(&mut r.items)?;
@@ -109,6 +113,23 @@ impl Session {
     /// Põe ou tira um jogador da escolha (sem gravar).
     pub fn toggle_player(&self, selection: &Selection, player: i32) -> Result<ClubTactics> {
         self.game()?.toggle_player(selection, player)
+    }
+
+    /// As tácticas gravadas na pasta `tactics`.
+    pub fn list_tactics(&self) -> Vec<TacticFile> {
+        tactic_file::list_tactics(&tactic_file::tactics_dir(&self.saves_dir))
+    }
+
+    /// Gravar Táctica: as posições, setas e instruções da escolha, com um nome.
+    pub fn save_tactic(&self, selection: &Selection, name: &str) -> Result<TacticFile> {
+        let t = self.game()?.preview_selection(selection)?;
+        tactic_file::write_tactic(&tactic_file::tactics_dir(&self.saves_dir), &tactic_file::from_view(name, &t))
+    }
+
+    /// Carregar Táctica: a escolha com a táctica do ficheiro (sem gravar; a tela aplica-a).
+    pub fn load_tactic(&self, selection: &Selection, file: &str) -> Result<Selection> {
+        let t = tactic_file::read_tactic(&tactic_file::tactics_dir(&self.saves_dir), file)?;
+        self.game()?.load_tactic(selection, &t)
     }
 
     /// Grava a escolha do treinador.

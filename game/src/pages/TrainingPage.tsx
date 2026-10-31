@@ -173,7 +173,7 @@ export default function TrainingPage() {
         <ErrorBox className="mb-2">{error}</ErrorBox>
         <div className="min-h-0 flex-1 overflow-auto">
           {rows.length ? (
-            <div className="overflow-hidden rounded-md bg-[#1a1b21]">
+            <div className="overflow-hidden rounded-md bg-cm-surface">
               <div className={`flex h-7 items-center gap-2 border-b border-cm-line bg-black/30 px-2 ${head}`}>
                 <span className="w-24">Programa</span>
                 <span className="w-10 text-center">Inf</span>

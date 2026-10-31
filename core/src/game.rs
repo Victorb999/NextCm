@@ -1543,6 +1543,21 @@ impl Game {
         self.preview_selection(&sel)
     }
 
+    /// Carregar Táctica: a escolha com as posições, setas e instruções da táctica; os mesmos
+    /// titulares, arrumados pelas funções novas, com as instruções individuais de cada função.
+    pub fn load_tactic(&self, sel: &Selection, t: &crate::tactic_file::SavedTactic) -> Result<Selection> {
+        let mut out = crate::tactic_file::apply(t, sel);
+        self.world.place_starters(self.club_id, &mut out)?;
+        if !t.orders.is_empty() {
+            out.orders = t
+                .orders
+                .iter()
+                .filter_map(|&(slot, orders)| Some(crate::tactics::PlayerOrder { person_id: (*out.starters.get(slot)?)?, orders }))
+                .collect();
+        }
+        Ok(out)
+    }
+
     /// Grava a escolha do treinador (Ok na tela de Tácticas).
     pub fn set_selection(&mut self, sel: Selection) -> Result<ClubTactics> {
         let t = self.preview_selection(&sel)?;

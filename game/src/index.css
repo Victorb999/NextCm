@@ -12,6 +12,11 @@
   --cm-side-mark: #5f6c84;
   --cm-title-font: 'Trebuchet MS', Tahoma, sans-serif;
   --cm-text-font: Tahoma, Verdana, sans-serif;
+  --cm-surface-alpha: 1;
+}
+/* Com foto ou imagem de fundo, os painéis deixam-na ver (o Escurecer Fundo das Opções nota-se) */
+[data-bg='image'] {
+  --cm-surface-alpha: 0.90;
 }
 
 html,

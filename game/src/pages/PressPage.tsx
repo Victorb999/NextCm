@@ -60,7 +60,7 @@ export default function PressPage({ id }: { id: number }) {
         {view && view.status !== 'pending' && !result && <Empty>Esta conferência de imprensa já acabou.</Empty>}
         {q && (
           <>
-            <div className="shrink-0 rounded-md bg-[#1a1b21] px-4 py-3">
+            <div className="shrink-0 rounded-md bg-cm-surface px-4 py-3">
               <div className="text-[13px] text-cm-magenta">{view!.intro}</div>
               <div className="pt-1 font-title text-[20px] font-bold leading-snug text-cm-yellow">{q.text}</div>
             </div>

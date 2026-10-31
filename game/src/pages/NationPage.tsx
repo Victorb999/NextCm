@@ -71,7 +71,7 @@ export default function NationPage({ id }: { id: number }) {
     <div className="flex h-full flex-col">
       <ScreenHeader icon={<Flag size={22} />} title={nation?.name ?? ''} />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
-      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21]">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-cm-surface">
         <ErrorBox>{error}</ErrorBox>
         {nation && tab === 'clubs' && (
           <PickList key="clubs" groups={clubGroups} onOpen={(c) => nav.go({ kind: 'club', id: c.id })} />

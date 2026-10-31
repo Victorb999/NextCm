@@ -2,6 +2,7 @@ import type { PersonKind } from '../bindings/PersonKind'
 import type { Position } from '../bindings/Position'
 import type { SearchQuery } from '../bindings/SearchQuery'
 import type { Side } from '../bindings/Side'
+import { PLAYER_ATTRIBUTES } from '../attributes'
 
 // Opções do diálogo de filtros, nos mesmos grupos do CM 01/02.
 
@@ -26,6 +27,25 @@ export const SIDES: { key: Side; label: string }[] = [
   { key: 'right', label: 'Direita' },
 ]
 
+/** Atributos da aba Atributos dos filtros de staff, por ordem alfabética como no CM. */
+export const STAFF_FILTER_ATTRIBUTES: [string, string][] = [
+  ['adaptability', 'Adaptabilidade'],
+  ['judgement', 'Avaliação Capacidade Jogador'],
+  ['judging_potential', 'Avaliação Potencial Jogador'],
+  ['tactics', 'Conhecimento Táctico'],
+  ['determination', 'Determinação'],
+  ['physiotherapy', 'Fisioterapia'],
+  ['man_handling', 'Gestão de Pessoas'],
+  ['motivating', 'Motivação'],
+  ['discipline', 'Nível de Disciplina'],
+  ['youngsters', 'Trabalho Com Jovens'],
+  ['coaching_gks', 'Treino Guarda-Redes'],
+  ['coaching', 'Treino Jogadores Campo'],
+]
+
+/** A lista da aba Atributos para jogadores ou staff. */
+export const filterAttributes = (players: boolean) => (players ? PLAYER_ATTRIBUTES : STAFF_FILTER_ATTRIBUTES)
+
 export type Filters = {
   text: string
   nationId: number | null
@@ -36,10 +56,14 @@ export type Filters = {
   expiring: boolean
   /** Lesões: só os lesionados ou sem eles. */
   injured: 'only' | 'exclude' | null
-  /** Só os com propostas ou na Lista Preferencial. */
+  /** Só os que aceitam vir para o clube do treinador. */
   interested: boolean
   /** "Incluir Plantel": com os do clube do treinador. */
   ownSquad: boolean
+  /** Aba Atributos: o mínimo de cada atributo (sem a chave, 1). */
+  attributes: Record<string, number>
+  /** O "Igualar": quantos mínimos têm de bater (null = todos). */
+  needed: number | null
 }
 
 export const EMPTY_FILTERS: Filters = {
@@ -52,6 +76,8 @@ export const EMPTY_FILTERS: Filters = {
   injured: null,
   interested: false,
   ownSquad: true,
+  attributes: {},
+  needed: null,
 }
 
 /** `own`: o clube do treinador (para o "Incluir Plantel"). */
@@ -70,7 +96,18 @@ export function toQuery(f: Filters, kind: PersonKind, own?: number): SearchQuery
     injured: players && f.injured ? f.injured === 'only' : undefined,
     interested: players && f.interested ? true : undefined,
     excludeClub: !f.ownSquad && own !== undefined ? own : undefined,
+    ...attributeQuery(f, players),
   }
+}
+
+/** Os mínimos da aba Atributos que valem para este tipo de pesquisa. */
+function attributeQuery(f: Filters, players: boolean): Pick<SearchQuery, 'attributes' | 'attributesNeeded'> {
+  const keys = new Set(filterAttributes(players).map(([k]) => k))
+  const attributes = Object.entries(f.attributes)
+    .filter(([k, min]) => keys.has(k) && min > 1)
+    .map(([key, min]) => ({ key, min }))
+  if (!attributes.length) return {}
+  return { attributes, attributesNeeded: f.needed !== null && f.needed < attributes.length ? f.needed : undefined }
 }
 
 /** Resumo dos filtros ativos, mostrado acima da lista (como "Famous players in your region"). */
@@ -85,5 +122,7 @@ export function describe(f: Filters, nationName: (id: number) => string | undefi
   if (f.injured) parts.push(f.injured === 'only' ? 'lesionados' : 'sem lesionados')
   if (f.interested) parts.push('interessados')
   if (!f.ownSquad) parts.push('sem o plantel')
+  const set = Object.values(f.attributes).filter((v) => v > 1).length
+  if (set) parts.push(`${f.needed !== null && f.needed < set ? f.needed : set}/${set} atributos`)
   return parts.length ? parts.join(' · ') : 'Todos'
 }

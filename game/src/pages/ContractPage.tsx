@@ -37,7 +37,7 @@ function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: st
   return (
     <>
       <ScreenHeader icon={<FileText size={22} />} eyebrow={terms.name} title="Definir Função No Clube" />
-      <div className="mx-1.5 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21] px-10 py-4">
+      <div className="mx-1.5 flex min-h-0 flex-1 flex-col rounded-md bg-cm-surface px-10 py-4">
         <div className="pb-3 font-title text-[21px] text-white">Situação</div>
         {terms.roles.map((r) => (
           <button

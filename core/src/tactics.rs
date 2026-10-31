@@ -822,6 +822,27 @@ impl World {
         Ok(())
     }
 
+    /// Depois de mudar as posições (Carregar Táctica): os mesmos titulares, cada um na
+    /// função nova onde joga melhor (os melhores encaixes primeiro).
+    pub fn place_starters(&self, id: i32, sel: &mut Selection) -> Result<()> {
+        let Squad { pool, .. } = self.squad(id, None)?;
+        let layout = layout_for(sel);
+        let players: Vec<&Candidate> = sel.starters.iter().flatten().filter_map(|pid| pool.iter().find(|c| c.id == *pid)).collect();
+        let mut pairs: Vec<(i32, usize, usize)> =
+            players.iter().enumerate().flat_map(|(p, c)| layout.iter().enumerate().map(move |(s, &slot)| (c.fit(slot), p, s))).collect();
+        pairs.sort_by_key(|&(fit, p, s)| (std::cmp::Reverse(fit), p, s));
+        let mut starters = vec![None; layout.len()];
+        let mut placed = vec![false; players.len()];
+        for (_, p, s) in pairs {
+            if !placed[p] && starters[s].is_none() {
+                starters[s] = Some(players[p].id);
+                placed[p] = true;
+            }
+        }
+        sel.starters = starters;
+        Ok(())
+    }
+
     /// Antes do jogo: troca os titulares lesionados/suspensos (e as funções vazias) pelo
     /// melhor suplente disponível para a função, senão das reservas. Devolve (saiu, entrou);
     /// `saiu` é `None` quando a função estava vazia.

@@ -7,7 +7,7 @@ import type { TacticPlayer } from '../bindings/TacticPlayer'
 import { selectionOf, swap, useDragSwap, type Spot } from '../selection'
 import InstructionsDialog from './InstructionsDialog'
 import PlayerOrdersDialog from './PlayerOrdersDialog'
-import { BottomBar, ErrorBox, PurpleMenu, ScreenHeader, Tabs } from './Screen'
+import { BottomBar, ErrorBox, PurpleMenu, ScreenHeader } from './Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from './TacticsBoard'
 import { TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
 
@@ -118,7 +118,7 @@ export default function LiveTactics({
       <div className="flex shrink-0 items-center gap-1 px-1.5">
         <PurpleMenu
           label="Tácticas"
-          options={TACTICS_MENU}
+          options={TACTICS_MENU.filter((o) => o.key !== 'load' && o.key !== 'save')}
           value={t && !t.custom ? String(t.formationIndex) : undefined}
           disabled={!editable}
           onChange={(k) => {
@@ -126,16 +126,12 @@ export default function LiveTactics({
             else if (t) void preview({ ...selectionOf(t), formation: Number(k), positions: [] })
           }}
         />
-        <PurpleMenu label="Vêr" options={[]} disabled />
         <div className="flex-1" />
         {editable && (
           <span className="px-2 text-[12px] text-cm-yellow">
             {view.minute === 0 ? 'Antes do apito as trocas não contam' : `Substituições restantes: ${subsLeft}`}
           </span>
         )}
-        <button className="cm-purple h-6 w-40" disabled>
-          Último Jogo
-        </button>
         <PurpleMenu
           label="Editar"
           align="right"
@@ -221,16 +217,7 @@ export default function LiveTactics({
           </div>
           <div className="flex min-h-0 flex-1 gap-2">
             <div className="flex min-h-0 flex-1 flex-col">
-              <Tabs
-                tabs={[
-                  { key: 'overview', label: 'Vista Geral' },
-                  { key: 'with', label: 'Com Bola', disabled: true },
-                  { key: 'without', label: 'Sem Bola', disabled: true },
-                ]}
-                active="overview"
-                onChange={() => {}}
-              />
-              <div className="mt-1 flex min-h-0 flex-1 flex-col">
+              <div className="flex min-h-0 flex-1 flex-col">
                 <Pitch t={t} colours={colours} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
               </div>
               <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">

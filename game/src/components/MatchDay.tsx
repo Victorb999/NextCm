@@ -550,7 +550,7 @@ function Table({ view, own }: { view: LiveView; own: number }) {
 function Highlights({ team }: { team: LiveTeam }) {
   const top = [...team.players].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 3)
   return (
-    <div className="min-w-0 flex-1 rounded bg-[#1a1b21] px-2.5 py-2">
+    <div className="min-w-0 flex-1 rounded bg-cm-surface px-2.5 py-2">
       <div className="mb-1 flex items-center justify-between text-[12px] font-bold font-mono uppercase tracking-wider">
         <span className="truncate text-cm-orange">{team.club.shortName} · Destaques</span>
         <span className="shrink-0 text-[#86869a]">Con / Nota</span>
@@ -573,7 +573,7 @@ function History({ said }: { said: Line[] }) {
   const kinds = ['save', 'miss', 'yellow', 'red', 'injury', 'sub']
   const recent = said.filter((l) => isGoalLine(l) || (l.last && kinds.includes(l.kind))).slice(-3).reverse()
   return (
-    <div className="min-w-0 flex-[1.3] rounded bg-[#1a1b21] px-2.5 py-2">
+    <div className="min-w-0 flex-[1.3] rounded bg-cm-surface px-2.5 py-2">
       <div className="mb-1 text-[12px] font-bold font-mono uppercase tracking-wider text-cm-orange">Histórico Recente</div>
       {recent.length === 0 && <div className="text-[13px] text-[#86869a]">Ainda sem lances.</div>}
       {recent.map((l, i) => (
@@ -882,7 +882,7 @@ function LiveScreen({
                 </button>
               ))}
             </div>
-            <div className="min-h-0 flex-1 overflow-auto rounded bg-[#1a1b21]">
+            <div className="min-h-0 flex-1 overflow-auto rounded bg-cm-surface">
               {pane === 'panorama' && <Panorama view={view} line={current} said={said} started={started} />}
               {pane === 'stats' && <Stats view={view} />}
               {pane === 'zones' && <Zones view={view} />}

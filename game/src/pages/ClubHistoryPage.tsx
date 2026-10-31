@@ -74,7 +74,7 @@ export default function ClubHistoryPage({ id }: { id: number }) {
     <div className="flex h-full flex-col">
       <ScreenHeader club={club?.club} eyebrow={club?.club.name} title="Historial" />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
-      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21]">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-cm-surface">
         <ErrorBox>{error}</ErrorBox>
         {club && tab === 'competitions' && <Competitions c={club} />}
         {club && tab === 'positions' && <Positions c={club} />}

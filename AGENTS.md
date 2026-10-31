@@ -39,6 +39,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/board_meeting.rs` | Reunião com a Direcção: estádio, camadas jovens, fundos, mais tempo |
 | `core/src/game/league_meeting.rs` | Reunião com a Federação: queixas sobre a arbitragem, adiamento de jogos |
 | `core/src/tactics.rs` | Formações, escolha automática, `Selection` do treinador, `tactics_from_selection` |
+| `core/src/tactic_file.rs` | Gravar/Carregar Táctica (JSON na pasta `tactics`, ao lado dos saves) |
 | `core/src/squad.rs` | Condição, moral, lesões e castigos entre jogos |
 | `core/src/personality.rs` | Personalidade: as contas dos atributos ocultos (Versatilidade, Adaptabilidade, Desportivismo, Temperamento, Ambição, Lealdade) |
 | `core/src/session.rs` | O que o app tem aberto; usado igual pelo Tauri e pela ponte de dev |

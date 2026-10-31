@@ -167,7 +167,8 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **3.15** Testes e ajustes | Jogar no app e acertar o que aparecer: início do jogo como no CM (ligas e época), o visual novo das telas (perfil, historial, plantel, notícias, direcção...), fluxos e as correções dos testes de 24, 25 e 29/10 | As telas no visual novo, o perfil e o historial com as estatísticas do core, e os testes do core a passar; o resto vai como ajustes finos com os marcos seguintes |
 | ✅ **3.16** Plantel completo | O Plantel como no CM: menu do clube (principal, reservas, os outros clubes da divisão), Vêr (Tradicional, Contrato, Selecção, Estatísticas, Mais Dados, Atributos, Outros, Marcadores Penalties), Filtrar, siglas da coluna Inf, atalhos com ▸; reservas e clubes U21/B ligados ao clube principal | Ver o contrato, a forma e a nota média do plantel pelo Vêr, filtrar os médios disponíveis e saltar das reservas para o plantel principal |
 | ✅ **3.17** Treino | A tela "<Clube> - Treinos": programas por grupo de jogadores (intensidade de Prep. Física, Táctica, Remate, Técnica e G-Redes, nova posição e novo lado), os treinadores, e o efeito no core (condição, evolução dos atributos, aprender uma posição) | Mudar o programa de um grupo muda a evolução numa época na CLI, e um jogador aprende uma posição nova |
-| **3.18** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
+| **3.18** Selecções | Datas FIFA com os jogos das selecções (Eliminatórias, Nations League, amigáveis e as fases finais), convocatórias pelos seleccionadores, os convocados fora do clube com "Int" e de volta com lesões e cansaço, internacionalizações no perfil, classificações das competições de selecções; treinar uma selecção | Numa época com as janelas FIFA, os internacionais do treinador saem com "Int", jogam pela selecção e voltam, e as médias dos clubes continuam na CLI |
+| **3.19** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
 
 #### Detalhe de cada marco
 
@@ -199,7 +200,8 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Ajuste 3.15b — Fluxo do último dia da janela (vídeo de 30/10)](docs/roadmap/3.15b-fluxo-do-fim-da-janela.md)
 - [Marco 3.16 — Plantel completo (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.16-plantel-completo.md)
 - [Marco 3.17 — Treino (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.17-treino.md)
-- [Marco 3.18 — Editor de jogos salvos (por detalhar)](docs/roadmap/3.18-editor-de-saves.md)
+- [Marco 3.18 — Selecções (por detalhar)](docs/roadmap/3.18-seleccoes.md)
+- [Marco 3.19 — Editor de jogos salvos (por detalhar)](docs/roadmap/3.19-editor-de-saves.md)
 
 ---
 

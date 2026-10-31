@@ -17,8 +17,8 @@ use nextcm_core::{
     TransferView, World,
 };
 use nextcm_core::{DealTerms, LoanTerms};
+use nextcm_core::{TacticFile, TrainingPlan, TrainingView};
 use nextcm_core::{TalkLine, TalkReaction, TalkView};
-use nextcm_core::{TrainingPlan, TrainingView};
 use tauri::{Manager, State};
 
 /// Mundo base e jogo aberto. `rusqlite::Connection` não é `Sync`, daí o Mutex.
@@ -179,6 +179,24 @@ async fn preview_tactics(state: State<'_, AppState>, selection: Selection) -> Re
 }
 
 #[tauri::command]
+async fn list_tactics(state: State<'_, AppState>) -> Result<Vec<TacticFile>, String> {
+    let session = state.session.lock().map_err(|e| e.to_string())?;
+    Ok(session.list_tactics())
+}
+
+#[tauri::command]
+async fn save_tactic(state: State<'_, AppState>, selection: Selection, name: String) -> Result<TacticFile, String> {
+    let session = state.session.lock().map_err(|e| e.to_string())?;
+    session.save_tactic(&selection, &name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn load_tactic(state: State<'_, AppState>, selection: Selection, file: String) -> Result<Selection, String> {
+    let session = state.session.lock().map_err(|e| e.to_string())?;
+    session.load_tactic(&selection, &file).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn toggle_player(state: State<'_, AppState>, selection: Selection, player: i32) -> Result<ClubTactics, String> {
     let session = state.session.lock().map_err(|e| e.to_string())?;
     session.toggle_player(&selection, player).map_err(|e| e.to_string())
@@ -308,6 +326,9 @@ pub fn run() {
             preview_tactics,
             set_tactics,
             toggle_player,
+            list_tactics,
+            save_tactic,
+            load_tactic,
             delete_save,
             match_preview,
             live_match,

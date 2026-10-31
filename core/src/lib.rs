@@ -19,6 +19,7 @@ pub mod regulation;
 mod search;
 mod session;
 pub mod squad;
+mod tactic_file;
 mod tactics;
 mod world;
 
@@ -50,9 +51,12 @@ pub use league::{
 pub use live::{LivePlayer, LiveTeam, LiveView, MAX_SUBS, MatchEvent, ScoreLine, TeamStats};
 pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, Knowledge, PersonProfile, PlayerDetails, SeasonLine, StaffDetails};
-pub use search::{MarketStatus, PersonKind, PersonSummary, Position, PositionTag, SearchQuery, SearchResult, SearchSort, Side};
+pub use search::{
+    AttributeMin, MarketStatus, PersonKind, PersonSummary, Position, PositionTag, SearchQuery, SearchResult, SearchSort, Side,
+};
 pub use session::Session;
 pub use squad::PlayerStatus;
+pub use tactic_file::{SavedTactic, TacticFile};
 pub use tactics::{
     ClubTactics, FORMATIONS, Instructions, Marking, Mentality, PassTo, Passing, PlayerOrder, PlayerOrders, Selection, SetPiece, Tackling,
     TacticPlayer, TacticSlot, Takers,

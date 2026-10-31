@@ -84,7 +84,7 @@ export default function TalkPanel({ onClose }: { onClose: () => void }) {
         <ErrorBox>{error}</ErrorBox>
         {view && !reactions && (
           <>
-            <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-[#1a1b21] px-4 py-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-cm-surface px-4 py-2">
               <span className="text-[14px] font-semibold text-white">Tom</span>
               {view.tones.map((t) => (
                 <Choice key={t.key} selected={tone === t.key} onClick={() => setTone(t.key)}>

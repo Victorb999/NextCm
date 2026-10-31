@@ -8,8 +8,9 @@ use serde::Serialize;
 use ts_rs::TS;
 
 use super::Game;
+use super::market::{EUROPE, leaving_europe};
 use crate::search::PersonSummary;
-use crate::{Result, TransferItem};
+use crate::{Result, TransferItem, personality};
 
 /// Negócios por página na tela Transferências.
 const WORLD_PAGE: i64 = 200;
@@ -35,6 +36,36 @@ impl Game {
             .collect();
         ids.sort_unstable();
         ids
+    }
+
+    /// Filtro Interessados da pesquisa: um SELECT com os jogadores que recusam vir para o
+    /// clube do treinador, pelas recusas de princípio do contrato: os de um clube muito maior
+    /// (`step_down`) e os europeus que não saem da Europa (as idades de `leaves_europe`).
+    pub fn unwilling_sql(&self) -> Result<Option<String>> {
+        if self.sacked() {
+            return Ok(None);
+        }
+        let (club, rep) = (self.club_id, self.club_rep(self.club_id)?);
+        let steps: String = (1..=20).map(|a| format!(" WHEN {a} THEN {}", personality::step_down(a as f64))).collect();
+        let mut sql = format!(
+            "SELECT q.id FROM people q JOIN clubs c ON c.id = q.club_id
+             WHERE q.club_id <> {club} AND COALESCE(c.reputation, 0) > {rep} + CASE MIN(MAX(COALESCE(q.ambition, 10), 1), 20){steps} END"
+        );
+        let (to, nation) = self.club_place(club)?;
+        if leaving_europe(EUROPE, to) {
+            let (year, day) = (&self.date[0..4], &self.date[5..10]);
+            sql += &format!(
+                " UNION SELECT id FROM (
+                    SELECT q.id, q.nation_id AS nation,
+                           {year} - CAST(substr(q.birth_sort, 1, 4) AS INTEGER) - (substr(q.birth_sort, 6, 5) > '{day}') AS age,
+                           ROW_NUMBER() OVER (PARTITION BY q.club_id ORDER BY pl.current_ability DESC, q.id) AS n
+                    FROM people q JOIN players pl ON pl.person_id = q.id
+                    JOIN clubs c ON c.id = q.club_id JOIN nations k ON k.id = c.nation_id
+                    WHERE q.is_player = 1 AND k.continent_id = {EUROPE})
+                  WHERE NOT (age >= 31 OR (nation = {nation} AND age >= 27) OR (n > 11 AND age >= 29))"
+            );
+        }
+        Ok(Some(sql))
     }
 
     /// A coluna Inf: Pro (proposta em curso), Les, Sus, Ped (pediu para sair), Lst (lista de
@@ -152,6 +183,19 @@ mod tests {
         let q = SearchQuery { kind: Some(PersonKind::Players), expiring: Some(true), exclude_club: Some(7568), ..Default::default() };
         let r = g.world.search_people_on(&q, &g.date).unwrap();
         assert!(r.total > 0 && r.items.iter().all(|p| p.club_id != Some(7568)));
+        // Interessados: no Palmeiras, nem o Mbappé (clube muito maior, titular na Europa) nem
+        // ninguém dos maiores clubes europeus; os livres e os do próprio plantel ficam
+        let mbappe = SearchQuery { text: Some("Mbappe".into()), kind: Some(PersonKind::Players), ..Default::default() };
+        assert!(g.world.search_people_on(&mbappe, &g.date).unwrap().total > 0);
+        let unwilling = g.unwilling_sql().unwrap();
+        let q = SearchQuery { interested: Some(true), unwilling: unwilling.clone(), ..mbappe };
+        assert_eq!(g.world.search_people_on(&q, &g.date).unwrap().total, 0);
+        let all = SearchQuery { kind: Some(PersonKind::Players), ..Default::default() };
+        let total = g.world.search_people_on(&all, &g.date).unwrap().total;
+        let q = SearchQuery { interested: Some(true), unwilling, limit: Some(200), ..all };
+        let r = g.world.search_people_on(&q, &g.date).unwrap();
+        assert!(r.total > 0 && r.total < total);
+        assert!(r.items.iter().all(|p| p.club_id != Some(819) && p.club_id != Some(8383)), "nem Arsenal nem Real Madrid");
         // As transferências do mês
         let w = g.world_transfers(&g.date[0..7], 0).unwrap();
         assert!(w.total > 0 && w.items.len() as i32 <= w.total);

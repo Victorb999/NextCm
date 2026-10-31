@@ -15,6 +15,8 @@ import { selectionOf } from './selection'
 export const FORMATIONS = ['4-4-2', '5-3-2 Líbero', '5-3-2', '4-4-2', '4-3-3', '4-2-4', '3-5-2', '4-1-2-1-2', '4-5-1', '3-4-3']
 // Menu Tácticas, como no CM: Instruções à Equipa e as tácticas pré-definidas
 export const TACTICS_MENU = [
+  { key: 'load', label: 'Carregar Táctica' },
+  { key: 'save', label: 'Gravar Táctica' },
   { key: 'instructions', label: 'Instruções à Equipa' },
   ...FORMATIONS.map((label, i) => ({ key: String(i), label: `Pré-definida: ${label}` })).slice(1),
 ]

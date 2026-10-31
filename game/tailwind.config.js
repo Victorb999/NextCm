@@ -8,6 +8,8 @@ export default {
         cm: {
           screen: '#161616', // fundo das telas
           panel: '#0d0d0d', // painéis de lista
+          // Painéis das telas: translúcidos com foto de fundo (index.css)
+          surface: 'rgb(26 27 33 / var(--cm-surface-alpha))',
           line: '#2c2c2c', // divisórias
           // Coluna esquerda: personalizável em Opções Jogo (variáveis em settings.ts)
           side: 'var(--cm-side)',

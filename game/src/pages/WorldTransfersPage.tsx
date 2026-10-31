@@ -75,7 +75,7 @@ export default function WorldTransfersPage() {
           </span>
         )}
       </div>
-      <div className="mx-2 mb-1 min-h-0 flex-1 overflow-auto rounded-md bg-[#1a1b21]">
+      <div className="mx-2 mb-1 min-h-0 flex-1 overflow-auto rounded-md bg-cm-surface">
         <table className="w-full table-fixed text-[14px]">
           <thead className="sticky top-0">
             <tr className="h-7">

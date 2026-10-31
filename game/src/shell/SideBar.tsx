@@ -203,6 +203,17 @@ export default function SideBar({
           ]}
         />
       )}
+      {/* "Tem Notícias" no fundo da coluna, como no CM: atalho para a Caixa de Mensagens */}
+      {info && info.unreadNews > 0 && (
+        <button
+          className="mt-auto py-1 text-center font-title text-[15px] leading-tight text-red-500 hover:text-red-400 disabled:opacity-50"
+          disabled={!browsing}
+          onClick={() => nav.go({ kind: 'news' })}
+          title={`${info.unreadNews} por ler`}
+        >
+          Tem Notícias
+        </button>
+      )}
     </aside>
   )
 }

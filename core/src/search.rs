@@ -5,6 +5,15 @@ use unicode_normalization::UnicodeNormalization;
 
 use crate::{Result, World};
 
+/// Atributos mentais, na tabela `people`.
+const MENTAL: [&str; 8] =
+    ["adaptability", "ambition", "determination", "loyalty", "pressure", "professionalism", "sportsmanship", "temperament"];
+/// Os que a normalização física do perfil pode baixar 1–2 pontos (`attributes::normalise_physical`).
+const PHYSICAL_CUT: [&str; 4] = ["acceleration", "pace", "technique", "work_rate"];
+/// O que essa normalização lê.
+const PHYSICAL_INPUTS: [&str; 9] =
+    ["pace", "leadership", "jumping", "acceleration", "teamwork", "technique", "left_foot", "right_foot", "work_rate"];
+
 /// Valor mínimo (1–20) para considerar uma posição "natural".
 pub(crate) const NATURAL_POSITION: i32 = 15;
 const MAX_LIMIT: u32 = 200;
@@ -118,9 +127,18 @@ pub struct SearchQuery {
     /// Lesionados: só eles (`true`) ou sem eles (`false`); o jogo em curso põe a lista em `injured_ids`.
     #[ts(optional)]
     pub injured: Option<bool>,
-    /// Só os que têm propostas ou estão na Lista Preferencial.
+    /// Só os que aceitam vir para o clube do treinador; o jogo em curso põe em `unwilling` quem recusa.
     #[ts(optional)]
     pub interested: Option<bool>,
+    #[serde(skip)]
+    #[ts(skip)]
+    pub unwilling: Option<String>,
+    /// A aba Atributos dos filtros: o mínimo de cada atributo (como o perfil o mostra).
+    #[ts(optional)]
+    pub attributes: Option<Vec<AttributeMin>>,
+    /// O "Igualar" do CM: quantos desses mínimos tem de cumprir (sem nada, todos).
+    #[ts(optional)]
+    pub attributes_needed: Option<u32>,
     /// Sem os jogadores deste clube ("Incluir Plantel: Não").
     #[ts(optional)]
     pub exclude_club: Option<i32>,
@@ -133,6 +151,14 @@ pub struct SearchQuery {
     pub limit: Option<u32>,
     #[ts(optional)]
     pub offset: Option<u32>,
+}
+
+/// Um mínimo da aba Atributos dos filtros ("Velocidade 15+").
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AttributeMin {
+    pub key: String,
+    pub min: i32,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -303,12 +329,10 @@ impl World {
             Some(true) => wheres.push("0".into()),
             _ => {}
         }
-        if q.interested == Some(true) && has("offers")? {
-            wheres.push(
-                "(p.id IN (SELECT person_id FROM shortlist) OR p.id IN (SELECT person_id FROM offers
-                  WHERE kind IN ('transfer', 'loan', 'contract') AND status IN ('pending', 'countered', 'agreed', 'raised')))"
-                    .into(),
-            );
+        if q.interested == Some(true)
+            && let Some(sql) = &q.unwilling
+        {
+            wheres.push(format!("p.id NOT IN ({sql})"));
         }
         if let Some(club) = q.exclude_club {
             wheres.push("(p.club_id IS NULL OR p.club_id <> ?)".into());
@@ -325,12 +349,7 @@ impl World {
         }
 
         let filter_from = "FROM people p";
-        let where_sql = if wheres.is_empty() { String::new() } else { format!("WHERE {}", wheres.join(" AND ")) };
-
-        let total: u32 = self
-            .conn
-            .prepare_cached(&format!("SELECT COUNT(*) {filter_from} {where_sql}"))?
-            .query_row(params_from_iter(args.iter()), |r| r.get(0))?;
+        let mut where_sql = if wheres.is_empty() { String::new() } else { format!("WHERE {}", wheres.join(" AND ")) };
 
         // Ordenação pelas colunas pré-calculadas (com índice); os joins de
         // exibição são feitos só nas linhas da página.
@@ -341,6 +360,31 @@ impl World {
         };
         let limit = q.limit.unwrap_or(50).min(MAX_LIMIT);
         let offset = q.offset.unwrap_or(0);
+
+        let mins: Vec<&AttributeMin> = q.attributes.iter().flatten().filter(|a| a.min > 1).collect();
+        let total: u32 = if mins.is_empty() {
+            self.conn
+                .prepare_cached(&format!("SELECT COUNT(*) {filter_from} {where_sql}"))?
+                .query_row(params_from_iter(args.iter()), |r| r.get(0))?
+        } else {
+            // Os atributos mostrados saem de contas com o CA: filtra em Rust e a página
+            // ordena só os ids que ficaram
+            // A mesma consulta no mesmo dia (outra página ou outra ordem) reaproveita os ids
+            let filters = SearchQuery { sort: None, limit: None, offset: None, ..q.clone() };
+            let key = format!("{today}|{where_sql}|{filters:?}");
+            let cached = self.attribute_search.borrow().as_ref().filter(|(k, _)| *k == key).map(|(_, ids)| ids.clone());
+            let ids = match cached {
+                Some(ids) => ids,
+                None => {
+                    let ids = self.match_attributes(q.kind.unwrap_or_default(), &mins, q.attributes_needed, &where_sql, &args)?;
+                    *self.attribute_search.borrow_mut() = Some((key, ids.clone()));
+                    ids
+                }
+            };
+            where_sql = "WHERE p.id IN (SELECT value FROM json_each(?))".into();
+            args = vec![Box::new(format!("[{}]", ids.iter().map(i32::to_string).collect::<Vec<_>>().join(",")))];
+            ids.len() as u32
+        };
 
         let sql = format!(
             "WITH page AS (
@@ -397,6 +441,115 @@ impl World {
         }
 
         Ok(SearchResult { total, items })
+    }
+
+    /// Os ids de quem cumpre pelo menos `needed` dos mínimos, com os atributos como o perfil
+    /// os mostra. Só jogadores ou só staff.
+    fn match_attributes(
+        &self,
+        kind: PersonKind,
+        mins: &[&AttributeMin],
+        needed: Option<u32>,
+        where_sql: &str,
+        args: &[Box<dyn ToSql>],
+    ) -> Result<Vec<i32>> {
+        let staff = kind == PersonKind::Staff;
+        let table = if staff { "non_players" } else { "players" };
+        // Colunas de atributos que existem (as da tabela, sem as de identificação, e as mentais de `people`)
+        let skip = [
+            "person_id",
+            "squad_number",
+            "current_ability",
+            "potential_ability",
+            "home_reputation",
+            "current_reputation",
+            "world_reputation",
+            "morale",
+            "preferred_formation",
+        ];
+        let mut columns: Vec<String> = self
+            .conn
+            .prepare_cached(&format!("SELECT name FROM pragma_table_info('{table}')"))?
+            .query_map([], |r| r.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .into_iter()
+            .filter(|c| !skip.contains(&c.as_str()) && !c.starts_with("pos_"))
+            .map(|c| format!("x.{c}"))
+            .collect();
+        columns.extend(MENTAL.map(|m| format!("p.{m}")));
+        let column = |key: &str| columns.iter().find(|c| c[2..] == *key).cloned();
+        let mins: Vec<(String, &str, i32)> = mins.iter().filter_map(|m| Some((column(&m.key)?, m.key.as_str(), m.min))).collect();
+        if mins.is_empty() {
+            return Ok(Vec::new());
+        }
+        let needed = needed.map_or(mins.len(), |n| (n as usize).clamp(1, mins.len()));
+
+        // As contas do perfil só mexem nos relativos (e, nos jogadores, cortam um pouco o físico):
+        // os outros mostram-se como estão. Quando todos os mínimos contam, os que não sobem
+        // nas contas já cortam em SQL
+        let relative: &[&str] = if staff { &crate::attributes::STAFF_RELATIVE } else { &crate::attributes::RELATIVE };
+        let mut wheres = vec![where_sql.trim_start_matches("WHERE ").to_string()];
+        let mut computed = false;
+        for (col, key, min) in &mins {
+            if relative.contains(key) {
+                computed = true;
+            } else if needed == mins.len() {
+                wheres.push(format!("{col} >= {min}"));
+            }
+        }
+        if !staff && mins.iter().any(|(_, k, _)| PHYSICAL_CUT.contains(k)) {
+            computed = true;
+        }
+        if !computed && needed < mins.len() {
+            let sum = mins.iter().map(|(col, _, min)| format!("({col} >= {min})")).collect::<Vec<_>>().join(" + ");
+            wheres.push(format!("{sum} >= {needed}"));
+        }
+        let wheres: Vec<String> = wheres.into_iter().filter(|w| !w.is_empty()).collect();
+        let where_sql = if wheres.is_empty() { String::new() } else { format!("WHERE {}", wheres.join(" AND ")) };
+        // Só as colunas que as contas usam e as pedidas
+        let used: Vec<&String> = columns
+            .iter()
+            .filter(|c| {
+                let key = &c[2..];
+                relative.contains(&key) || (!staff && PHYSICAL_INPUTS.contains(&key)) || mins.iter().any(|(_, k, _)| *k == key)
+            })
+            .collect();
+        let select = if computed {
+            let used = used.iter().map(|c| c.as_str()).collect::<Vec<_>>().join(", ");
+            format!("x.current_ability, {}{used}", if staff { "" } else { "x.pos_goalkeeper, " })
+        } else {
+            "1".into()
+        };
+        let mut stmt =
+            self.conn.prepare(&format!("SELECT p.id, {select} FROM people p JOIN {table} x ON x.person_id = p.id {where_sql}"))?;
+        let names: Vec<String> = stmt.column_names().into_iter().map(String::from).collect();
+        let first = if staff { 2 } else { 3 };
+        let mut rows = stmt.query(params_from_iter(args.iter()))?;
+        let mut out = Vec::new();
+        // Um só mapa para todas as linhas: as chaves ficam, os valores trocam
+        let mut shown: crate::person::Attributes = names.iter().skip(first).map(|n| (n.clone(), None)).collect();
+        while let Some(r) = rows.next()? {
+            if !computed {
+                out.push(r.get(0)?);
+                continue;
+            }
+            for (i, name) in names.iter().enumerate().skip(first) {
+                if let Some(slot) = shown.get_mut(name) {
+                    *slot = r.get(i)?;
+                }
+            }
+            let ca: Option<i32> = r.get(1)?;
+            if staff {
+                crate::attributes::show_staff_attributes(&mut shown, ca);
+            } else {
+                crate::attributes::show_attributes(&mut shown, ca, r.get(2)?);
+            }
+            let hits = mins.iter().filter(|(_, k, min)| shown.get(*k).copied().flatten().is_some_and(|v| v >= *min)).count();
+            if hits >= needed {
+                out.push(r.get(0)?);
+            }
+        }
+        Ok(out)
     }
 }
 
@@ -465,6 +618,19 @@ mod tests {
         }
         // Os jogadores trazem o valor
         assert!(r.items.iter().all(|p| p.value.is_some()));
+
+        // Aba Atributos: Velocidade 18+ e Finalização 17+, os dois
+        let mins = vec![AttributeMin { key: "pace".into(), min: 18 }, AttributeMin { key: "finishing".into(), min: 17 }];
+        let both = SearchQuery { kind: Some(PersonKind::Players), attributes: Some(mins), limit: Some(20), ..Default::default() };
+        let r = w.search_people(&both).unwrap();
+        assert!(r.total > 0 && r.total < 2000, "{}", r.total);
+        for p in &r.items {
+            let shown = w.get_person(p.id).unwrap().player.unwrap().attributes;
+            assert!(shown["pace"].unwrap() >= 18 && shown["finishing"].unwrap() >= 17, "{}", p.name);
+        }
+        // Igualar 1/2: basta um dos dois
+        let any = w.search_people(&SearchQuery { attributes_needed: Some(1), ..both }).unwrap();
+        assert!(any.total > r.total);
     }
 }
 
@@ -493,6 +659,22 @@ mod bench {
                 },
             ),
             ("página 500", SearchQuery { offset: Some(50_000), ..Default::default() }),
+            (
+                "atributos",
+                SearchQuery {
+                    kind: Some(PersonKind::Players),
+                    attributes: Some(vec![AttributeMin { key: "pace".into(), min: 15 }]),
+                    ..Default::default()
+                },
+            ),
+            (
+                "atributos relativos",
+                SearchQuery {
+                    kind: Some(PersonKind::Players),
+                    attributes: Some(vec![AttributeMin { key: "finishing".into(), min: 15 }]),
+                    ..Default::default()
+                },
+            ),
         ] {
             let t = std::time::Instant::now();
             let r = w.search_people(&q).unwrap();

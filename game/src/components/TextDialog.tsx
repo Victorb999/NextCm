@@ -6,12 +6,15 @@ export default function TextDialog({
   title,
   initial,
   multiline,
+  hint = 'Em branco apaga.',
   onCancel,
   onOk,
 }: {
   title: string
   initial: string
   multiline?: boolean
+  /** A linha de ajuda por baixo do campo. */
+  hint?: string
   onCancel: () => void
   onOk: (text: string) => void
 }) {
@@ -31,7 +34,7 @@ export default function TextDialog({
             className={field}
           />
         )}
-        <div className="pt-1 text-[13px] text-[#bfe6c4]">Em branco apaga.</div>
+        <div className="pt-1 text-[13px] text-[#bfe6c4]">{hint}</div>
       </DialogFrame>
     </Overlay>
   )

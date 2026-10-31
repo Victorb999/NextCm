@@ -110,7 +110,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
           Apagar
         </button>
       </div>
-      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-[#1a1b21]">
+      <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-cm-surface">
         <PanelTitle
           title={`Olheiro #${slot}`}
           right={
