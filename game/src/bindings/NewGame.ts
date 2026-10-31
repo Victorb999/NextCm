@@ -25,4 +25,12 @@ start: StartSeason,
 /**
  * Qualificações do treinador: 0 Nenhuma, 1 Licença C, 2 B, 3 A, 4 Pro.
  */
-license: number, };
+license: number, 
+/**
+ * "Jogadores Reais": com `false`, os jogadores ganham nomes inventados do país deles.
+ */
+realPlayers: boolean, 
+/**
+ * "Definição Atributos": com `false`, vêem-se os atributos de todos os jogadores.
+ */
+masking: boolean, };

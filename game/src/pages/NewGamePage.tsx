@@ -46,6 +46,8 @@ export default function NewGamePage() {
   const [choices, setChoices] = useState<LeagueChoice[]>([])
   const [nations, setNations] = useState<NationOption[]>([])
   const [form, setForm] = useState({ saveName: 'Jogo 1', firstName: '', lastName: '', birth: '', nationId: null as number | null, license: 0 })
+  // "Jogadores Reais" e "Definição Atributos" do Escolher Campeonato(s)
+  const [options, setOptions] = useState({ realPlayers: true, masking: true })
   const [clubNation, setClubNation] = useState<number | null>(null)
   const [nation, setNation] = useState<NationProfile | null>(null)
   const [club, setClub] = useState<PickItem | null>(null)
@@ -126,6 +128,8 @@ export default function NewGamePage() {
         leagues: choices,
         start: season,
         license: form.license,
+        realPlayers: options.realPlayers,
+        masking: options.masking,
       })
       game.update(info)
       nav.go({ kind: 'news' })
@@ -151,6 +155,8 @@ export default function NewGamePage() {
         nations={leagueNations}
         choices={choices}
         onChange={setChoices}
+        options={options}
+        onOptions={setOptions}
         onCancel={() => game.setMode('start')}
         error={error}
         onNext={() => {

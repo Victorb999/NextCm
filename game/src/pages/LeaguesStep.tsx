@@ -20,9 +20,14 @@ export default function LeaguesStep({
   onCancel,
   onNext,
   error,
+  options,
+  onOptions,
 }: {
   nations: LeagueNation[]
   choices: LeagueChoice[]
+  /** "Jogadores Reais" e "Definição Atributos" (tapar o que o clube não conhece), como no CM. */
+  options: { realPlayers: boolean; masking: boolean }
+  onOptions: (o: { realPlayers: boolean; masking: boolean }) => void
   onChange: (c: LeagueChoice[]) => void
   onCancel: () => void
   onNext: () => void
@@ -41,7 +46,27 @@ export default function LeaguesStep({
         onOk={onNext}
         okLabel="Seguinte"
         header={
-          <div className="flex shrink-0 justify-end gap-1 px-1 pt-2">
+          <div className="flex shrink-0 items-center justify-end gap-1 px-1 pt-2">
+            {(
+              [
+                ['realPlayers', 'Jogadores Reais:'],
+                ['masking', 'Definição Atributos:'],
+              ] as const
+            ).map(([key, label]) => (
+              <span key={key} className="mr-3 flex items-center gap-1.5 whitespace-nowrap text-[14px] text-white">
+                {label}
+                {[true, false].map((v) => (
+                  <button
+                    key={String(v)}
+                    onClick={() => onOptions({ ...options, [key]: v })}
+                    className={`h-6 px-2 font-bold ${options[key] === v ? 'border border-cm-yellow text-cm-orange' : 'text-[#8a8a8a] hover:text-white'}`}
+                  >
+                    {v ? 'Sim' : 'Não'}
+                  </button>
+                ))}
+              </span>
+            ))}
+            <div className="flex-1" />
             <button className="cm-purple h-6 w-40" onClick={() => all('play')}>
               Escolher Todos
             </button>

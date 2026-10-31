@@ -527,6 +527,8 @@ mod tests {
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
+            real_players: true,
+            masking: true,
         };
         let mut g = Game::create(&path, &dir, &new, 37).unwrap();
         // Um clube da Série A com o treinador a zero de confiança: despedido no dia 1

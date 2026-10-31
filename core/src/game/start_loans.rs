@@ -69,6 +69,8 @@ mod tests {
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
+            real_players: true,
+            masking: true,
         };
         let g = Game::create(&path, &dir, &new, 3).unwrap();
         // Onana (Man Utd) joga no Trabzonspor e volta ao United no fim da época

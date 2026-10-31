@@ -1940,6 +1940,8 @@ mod tests {
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
+            real_players: true,
+            masking: true,
         };
         let mut g = Game::create(&path, &dir, &new, 3).unwrap();
         g.world.conn.execute("UPDATE clubs SET cash = 200000000 WHERE id = ?", [PALMEIRAS]).unwrap();
@@ -2158,6 +2160,8 @@ Palmeiras fez uma nova proposta."
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
+            real_players: true,
+            masking: true,
         };
         let mut g = Game::create(&path, &dir, &new, 5).unwrap();
         let set = |g: &Game, id: i32, col: &str, v: i32| {

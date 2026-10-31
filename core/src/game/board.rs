@@ -487,6 +487,8 @@ mod tests {
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
+            real_players: true,
+            masking: true,
         };
         let mut g = Game::create(&path, &dir, &new, 29).unwrap();
         // Um save que ficou sem a linha da direção (aconteceu num jogo do Botafogo)
@@ -515,6 +517,8 @@ mod tests {
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
+            real_players: true,
+            masking: true,
         };
         let mut g = Game::create(&path, &dir, &new, 5).unwrap();
         let b = g.board_view().unwrap();

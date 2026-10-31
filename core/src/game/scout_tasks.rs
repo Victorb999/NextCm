@@ -333,6 +333,8 @@ mod tests {
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
+            real_players: true,
+            masking: true,
         };
         let mut g = Game::create(&path, &dir, &new, 11).unwrap();
         let list = g.scout_list(1).unwrap();

@@ -95,6 +95,10 @@ impl Game {
 
     /// O que o clube do treinador sabe de um jogador (os que não são jogadores: tudo).
     pub fn knowledge(&self, person: i32) -> Result<Knowledge> {
+        // "Definição Atributos: Não" no Novo Jogo: conhece-se toda a gente
+        if !self.masking()? {
+            return Ok(Knowledge::Known);
+        }
         let Some(p) = self.place(person)? else { return Ok(Knowledge::Known) };
         let lent: bool = self
             .world
@@ -117,6 +121,11 @@ impl Game {
         } else {
             Knowledge::Unknown
         })
+    }
+
+    /// A "Definição Atributos" do jogo (tapar os atributos de quem o clube não conhece).
+    pub(super) fn masking(&self) -> Result<bool> {
+        Ok(self.world.conn.query_row("SELECT masking FROM game", [], |r| r.get(0))?)
     }
 
     /// Tapa no perfil o que o clube não sabe: os atributos (todos, ou parte fixa por jogador).
@@ -331,6 +340,8 @@ mod tests {
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
+            real_players: true,
+            masking: true,
         };
         let mut g = Game::create(&path, &dir, &new, 9).unwrap();
         let first = |sql: &str| g.world.conn.query_row(sql, [], |r| r.get::<_, i32>(0)).unwrap();

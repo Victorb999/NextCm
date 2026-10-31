@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
 use rand_chacha::ChaCha8Rng;
-use rand_core::RngCore;
+use rand_core::{RngCore, SeedableRng};
 use rusqlite::params;
 
 use super::Game;
@@ -162,6 +162,45 @@ impl Game {
     /// jogam nesta época. O nível vem da reputação do clube: o CA médio dos 11 melhores no
     /// patch é ≈ 74,6 + 0,0101 × reputação.
     /// Jogador de enchimento (criado para completar um plantel pequeno).
+    /// "Jogadores Reais: Não": cada jogador fica com o nome e o apelido de duas pessoas do país
+    /// dele (como os juniores), pela seed do jogo. Os do treinador e os staff ficam.
+    pub(super) fn invent_names(&mut self) -> Result<()> {
+        let mut rng = ChaCha8Rng::seed_from_u64(self.seed as u64 ^ 0x4E41_4D45);
+        let mut pools: HashMap<Option<i32>, Vec<(String, String)>> = HashMap::new();
+        let players: Vec<(i32, Option<i32>)> = self
+            .world
+            .conn
+            .prepare("SELECT id, nation_id FROM people WHERE is_player = 1 ORDER BY id")?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut update = self.world.conn.prepare(
+            "UPDATE people SET first_name = ?1, second_name = ?2, common_name = NULL, display_name = ?3, search_name = ?4,
+                               list_name = ?5 WHERE id = ?6",
+        )?;
+        for (id, nation) in players {
+            if let Entry::Vacant(e) = pools.entry(nation) {
+                let names: Vec<(String, String)> = self
+                    .world
+                    .conn
+                    .prepare("SELECT first_name, second_name FROM people WHERE nation_id IS ? AND first_name <> '' AND second_name <> '' ORDER BY id")?
+                    .query_map([nation], |r| Ok((r.get(0)?, r.get(1)?)))?
+                    .collect::<rusqlite::Result<_>>()?;
+                e.insert(names);
+            }
+            let names = &pools[&nation];
+            if names.is_empty() {
+                continue;
+            }
+            let pick = |rng: &mut ChaCha8Rng| (rng.next_u64() % names.len() as u64) as usize;
+            let first = names[pick(&mut rng)].0.split_whitespace().next().unwrap_or("João").to_string();
+            let last = names[pick(&mut rng)].1.clone();
+            let display = format!("{first} {last}");
+            update.execute(params![first, last, display, crate::search::fold(&display), format!("{last}, {first}"), id])?;
+        }
+        self.unsaved = true;
+        Ok(())
+    }
+
     pub fn is_ghost(&self, person: i32) -> bool {
         self.world.conn.query_row("SELECT 1 FROM ghosts WHERE person_id = ?", [person], |_| Ok(())).is_ok()
     }
@@ -382,8 +421,56 @@ mod tests {
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
+            real_players: true,
+            masking: true,
         };
         (Game::create(world, &dir, &new, seed).unwrap(), dir)
+    }
+
+    #[test]
+    fn invented_names_and_no_masking() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-regen-nomes-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = NewGame {
+            save_name: "Nomes".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 7568,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: false,
+            masking: false,
+        };
+        let g = Game::create(&world, &dir, &new, 5).unwrap();
+        // Ninguém se chama Lucas Paquetá, e o nome inventado vem do Brasil
+        let paqueta = g.world.search_people(&crate::SearchQuery { text: Some("paqueta lucas".into()), ..Default::default() }).unwrap();
+        assert_eq!(paqueta.total, 0);
+        let (name, list): (String, String) = g
+            .world
+            .conn
+            .query_row("SELECT display_name, list_name FROM people WHERE is_player = 1 AND club_id = 7568 LIMIT 1", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        let (first, last) = name.split_once(' ').unwrap();
+        assert_eq!(list, format!("{last}, {first}"));
+        // Sem "Definição Atributos", conhece-se um jogador de outro continente
+        let far: i32 = g
+            .world
+            .conn
+            .query_row(
+                "SELECT p.id FROM people p JOIN nations n ON n.id = p.nation_id WHERE p.is_player = 1 AND n.continent_id = 1 LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(g.knowledge(far).unwrap(), crate::Knowledge::Known);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

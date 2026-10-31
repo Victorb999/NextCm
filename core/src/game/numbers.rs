@@ -367,6 +367,8 @@ mod tests {
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
+            real_players: true,
+            masking: true,
         };
         let mut g = Game::create(&path, &dir, &new, 2).unwrap();
         // O plantel do treinador começa todo numerado e sem repetidos
