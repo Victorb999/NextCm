@@ -51,6 +51,15 @@ export default function NewGamePage() {
   const [club, setClub] = useState<PickItem | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // O passo da criação (o core di-lo enquanto o newGame corre)
+  const [creation, setCreation] = useState<{ label: string; done: number } | null>(null)
+  useEffect(() => {
+    if (!busy) return
+    const t = setInterval(() => {
+      api.creationProgress().then((p) => p.label && setCreation(p), () => {})
+    }, 300)
+    return () => clearInterval(t)
+  }, [busy])
 
   useEffect(() => {
     api.listNations().then((list) => {
@@ -103,6 +112,7 @@ export default function NewGamePage() {
 
   const start = async (chosen: PickItem | null) => {
     if (!chosen || busy) return
+    setCreation(null)
     setBusy(true)
     setError(null)
     try {
@@ -263,7 +273,7 @@ export default function NewGamePage() {
         </div>
       </DialogFrame>
       {busy && (
-        <Loading title="Novo Jogo" detail={season === 'brazil' ? 'A jogar o 2º semestre de 2025…' : 'A criar o jogo e o calendário…'} />
+        <Loading title="Novo Jogo" detail={creation?.label ?? 'A criar o jogo…'} progress={creation?.done ?? 0} />
       )}
     </Overlay>
   )

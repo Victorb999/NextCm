@@ -144,7 +144,7 @@ impl Game {
     }
 
     /// O treinador de um clube (cargo 5).
-    fn coach_of(&self, club: i32) -> Result<Option<(i32, String)>> {
+    pub(super) fn coach_of(&self, club: i32) -> Result<Option<(i32, String)>> {
         Ok(self
             .world
             .conn

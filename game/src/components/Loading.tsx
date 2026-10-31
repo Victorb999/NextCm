@@ -10,12 +10,15 @@ export default function Loading({
   detail,
   delay = 0,
   footer,
+  progress,
 }: {
   title: ReactNode
   detail?: ReactNode
   delay?: number
   /** A barra de baixo (os resultados do dia no "Processando", como no CM). */
   footer?: ReactNode
+  /** Quanto já fez (0 a 1): a barra enche até aí; sem isto, a barra listrada de sempre. */
+  progress?: number
 }) {
   const [visible, setVisible] = useState(delay === 0)
   useEffect(() => {
@@ -32,7 +35,7 @@ export default function Loading({
         </div>
         <div className="mt-2 px-1 text-center text-cm-yellow">{detail ?? 'Por favor aguarde…'}</div>
         <div className="mx-1 my-2 h-4 border border-black bg-black p-0.5">
-          <div className="cm-progress h-full w-full" />
+          <div className="cm-progress h-full" style={{ width: progress === undefined ? '100%' : `${Math.max(3, progress * 100)}%` }} />
         </div>
       </div>
       {footer && (

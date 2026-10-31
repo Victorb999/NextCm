@@ -119,7 +119,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// 33: o treino (`training_programs`, `training_players`), marco 3.17.
 /// 34: os prémios e cláusulas dos contratos (`contract_talks.extras`, `contract_extras`) e os
 /// minutos e cartões de cada jogo (`player_matches`), para a ficha da partida.
-pub const SAVE_VERSION: i32 = 35;
+pub const SAVE_VERSION: i32 = 36;
 
 /// Os jogadores de enchimento (save 32): criados para completar os plantéis dos clubes
 /// pequenos, só jogam pelo clube deles (sem mercado, contratos nem olheiros), como os do CM.
@@ -208,6 +208,9 @@ CREATE TABLE ai_boards (club_id INTEGER PRIMARY KEY, confidence INTEGER NOT NULL
 CREATE TABLE vacancies (club_id INTEGER PRIMARY KEY, since TEXT NOT NULL);
 CREATE TABLE manager_info (id INTEGER PRIMARY KEY CHECK (id = 1), reputation INTEGER NOT NULL);
 ";
+
+/// Provocações na conferência antes do jogo (save 36): o adversário vem mais motivado.
+const PROVOKE_SCHEMA: &str = "ALTER TABLE press ADD COLUMN provoked INTEGER NOT NULL DEFAULT 0;";
 
 /// Qualificações do treinador (save 35): 0 Nenhuma a 4 Licença Pro.
 const LICENSE_SCHEMA: &str = "ALTER TABLE manager_info ADD COLUMN license INTEGER NOT NULL DEFAULT 0;";
@@ -638,9 +641,11 @@ impl Game {
         if path.exists() {
             return Err(Error::Invalid(format!("Já existe um jogo chamado \"{}\".", new.save_name.trim())));
         }
+        crate::progress::set("A copiar a base de dados…", 0.02);
         std::fs::copy(world_path, &path)?;
 
         let result = (|| {
+            crate::progress::set("A preparar o jogo…", 0.08);
             let mut world = World::open_save(&path)?;
             // O patch é de 2025/26; a Europa 26/27 começa um ano depois com os mesmos dados
             if new.start == StartSeason::Europe {
@@ -677,6 +682,7 @@ impl Game {
             tx.execute_batch(training::TRAINING_SCHEMA)?;
             tx.execute_batch(contract_extras::EXTRAS_SCHEMA)?;
             tx.execute_batch(LICENSE_SCHEMA)?;
+            tx.execute_batch(PROVOKE_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -748,17 +754,22 @@ impl Game {
             game.comp_nations = leagues::comp_nations(&game.world)?;
             let club_nation: Option<i32> =
                 game.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [new.club_id], |r| r.get(0)).unwrap_or(None);
+            crate::progress::set("A escolher as ligas…", 0.15);
             game.set_league_modes(&new.leagues, club_nation)?;
             // Como o CM ao começar: os atributos que o patch não define são gerados
+            crate::progress::set("A completar os atributos dos jogadores…", 0.2);
             game.fill_missing_attributes()?;
+            crate::progress::set("A sortear os calendários…", 0.35);
             game.schedule_season(SeasonKind::Calendar, year, &mut fresh, &mut next_id)?;
             game.schedule_season(SeasonKind::European, year, &mut fresh, &mut next_id)?;
+            crate::progress::set("A tratar dos empréstimos e dos contratos…", 0.5);
             // Os empréstimos em curso de 2025/26 (o banco do CM não os tem)
             game.start_loans()?;
             // Um ano depois do patch: os contratos que acabaram a 30/6 renovam-se ou saem
             if new.start == StartSeason::Europe {
                 game.start_contracts(&mut fresh, &mut next_id)?;
             }
+            crate::progress::set("A completar os plantéis…", 0.6);
             game.complete_squads()?;
             numbers::fix_squad_numbers(&game.world, &[game.club_id], game.seed, None)?;
             game.refresh_live()?;
@@ -773,6 +784,7 @@ impl Game {
             for n in fresh {
                 game.news.insert(0, n);
             }
+            crate::progress::set("A apresentar o treinador à Direcção…", 0.7);
             game.board_setup()?;
             game.career_join(new.club_id)?;
             game.set_license(new.license)?;
@@ -780,9 +792,11 @@ impl Game {
             if new.start == StartSeason::Brazil {
                 game.play_to_brazil_start()?;
             }
+            crate::progress::set("A gravar o jogo…", 0.98);
             game.save()?;
             Ok(game)
         })();
+        crate::progress::clear();
         if result.is_err() {
             let _ = std::fs::remove_file(&path);
         }
@@ -1003,6 +1017,11 @@ impl Game {
             world.conn.execute_batch(LICENSE_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 35", [])?;
             version = 35;
+        }
+        if version == 35 {
+            world.conn.execute_batch(PROVOKE_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 36", [])?;
+            version = 36;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -1383,6 +1402,12 @@ impl Game {
             let occasion = self.occasion(&self.matches[i])?;
             let mut live =
                 LiveMatch::new(&self.world, self.fixture(&self.matches[i]), home_t, away_t, side, user_ai, rng)?.with_occasion(occasion);
+            // O treinador provocou-os na conferência antes do jogo: o adversário vem mais motivado
+            if let Some(s) = side
+                && self.provoked(self.matches[i].id)?
+            {
+                live.motivate_side(1 - s, 1.0 + press::PROVOKED_BOOST);
+            }
             if side.is_some() && self.watch {
                 user = Some(games.len());
                 live = live.detailed(engine::match_rng(self.seed ^ 0x0F1A_7E55, self.matches[i].id));
@@ -2044,7 +2069,12 @@ impl Game {
     fn play_to_brazil_start(&mut self) -> Result<()> {
         let day = format!("{}-01-01", self.first_year + 1);
         self.prestart = true;
+        let first = date::parse(&self.date).unwrap_or(0);
+        let total = (date::parse(&day).unwrap_or(first) - first).max(1) as f64;
         while self.date < day {
+            // O 2º semestre de 2025 é o mais demorado: a barra anda com os dias
+            let done = (date::parse(&self.date).unwrap_or(first) - first) as f64 / total;
+            crate::progress::set(&format!("A jogar o 2º semestre de 2025: {}…", cm_date(&self.date)), 0.72 + 0.25 * done);
             self.advance_day()?;
         }
         self.prestart = false;

@@ -13,6 +13,7 @@ import type { TrainingView } from './bindings/TrainingView'
 import type { WorldTransfers } from './bindings/WorldTransfers'
 import type { CareerClub } from './bindings/CareerClub'
 import type { ContinueStep } from './bindings/ContinueStep'
+import type { CreationProgress } from './bindings/CreationProgress'
 import type { ManagerStats } from './bindings/ManagerStats'
 import type { LeagueNation } from './bindings/LeagueNation'
 import type { TalkLine } from './bindings/TalkLine'
@@ -104,6 +105,8 @@ export const api = {
   advanceDay: () => call<GameInfo>('advance_day'),
   /** Avança até o próximo evento (jogo do treinador, notícia...). */
   continueGame: () => call<GameInfo>('continue_game'),
+  /** O passo da criação do jogo, enquanto o `newGame` corre (barra do carregamento). */
+  creationProgress: () => call<CreationProgress>('creation_progress'),
   /** Um dia do Continuar Jogo, com os resultados do dia (a tela repete até `stop`). */
   continueStep: (idle: number) => call<ContinueStep>('continue_step', { idle }),
   /** Antes do dia de jogo: o que falta ou o que confirmar na equipa. */

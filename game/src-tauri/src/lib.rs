@@ -37,6 +37,12 @@ fn world_path() -> Option<PathBuf> {
 }
 
 // Comandos `async` rodam fora da thread da janela, então a interface nunca trava.
+/// O passo da criação de um jogo: não usa a sessão, que o `new_game` tem ocupada.
+#[tauri::command]
+async fn creation_progress() -> nextcm_core::progress::CreationProgress {
+    nextcm_core::progress::creation_progress()
+}
+
 #[tauri::command]
 async fn search_people(state: State<'_, AppState>, query: SearchQuery) -> Result<SearchResult, String> {
     let session = state.session.lock().map_err(|e| e.to_string())?;
@@ -281,6 +287,7 @@ pub fn run() {
             list_news,
             read_news,
             continue_game,
+            creation_progress,
             continue_step,
             league_table,
             list_fixtures,

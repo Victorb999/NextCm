@@ -18,6 +18,8 @@ use crate::{Error, Result};
 const POST_DAYS: i32 = 2;
 /// Conferências antes dos jogos faltadas seguidas até a direção se queixar.
 const SKIPS_TO_COMPLAIN: usize = 3;
+/// Quanto rende a mais o adversário que o treinador provocou antes do jogo.
+pub(super) const PROVOKED_BOOST: f64 = 0.04;
 /// Lugares do topo e do fundo da tabela que tornam um jogo importante.
 const TOP: i32 = 4;
 const BOTTOM: i32 = 4;
@@ -39,6 +41,9 @@ struct Answer {
     board: i32,
     #[serde(default)]
     fans: i32,
+    /// Provoca o adversário: ele vem mais motivado para o jogo.
+    #[serde(default)]
+    provoke: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,7 +119,11 @@ impl Game {
         }
         let opp = if m.home_id == self.club_id { m.away_id } else { m.home_id };
         let mut questions = vec![self.opponent_question(opp)?];
-        questions.extend(self.form_question()?);
+        // Com um treinador do outro lado, às vezes perguntam por ele em vez da forma
+        match self.rival_coach_question(opp, m.id)? {
+            Some(q) => questions.push(q),
+            None => questions.extend(self.form_question()?),
+        }
         questions.extend(self.third_question()?);
         self.open_press("pre", m.id, &tomorrow, &questions, fresh, next_id, &self.club(opp).short_name)
     }
@@ -266,9 +275,37 @@ impl Game {
                 Answer { squad: 1, fans: 1, ..answer("Vamos ganhar. Somos melhores e vamos prová-lo.") },
                 answer(&format!("Será um jogo difícil. Temos de respeitar o {name}.")),
                 answer("Prefiro não fazer previsões."),
-                Answer { squad: 1, fans: 2, board: -1, ..answer(&format!("O {name} não nos mete medo nenhum.")) },
+                Answer { squad: 1, fans: 2, board: -1, provoke: true, ..answer(&format!("O {name} não nos mete medo nenhum.")) },
             ],
         })
+    }
+
+    /// O treinador do adversário (num jogo par, pela seed): elogiar, fugir ou provocar.
+    fn rival_coach_question(&self, opp: i32, fixture: i32) -> Result<Option<Question>> {
+        let Some((_, coach)) = self.coach_of(opp)? else { return Ok(None) };
+        if fixture % 2 != 0 {
+            return Ok(None);
+        }
+        let name = self.club(opp).short_name;
+        Ok(Some(Question {
+            text: format!("O que pensa do trabalho de {coach} no {name}?"),
+            person: None,
+            answers: vec![
+                answer(&format!("{coach} é um grande treinador. Temos muito respeito pelo {name}.")),
+                answer("Não comento o trabalho dos colegas."),
+                Answer { squad: 1, fans: 1, provoke: true, ..answer(&format!("Não percebo como {coach} ainda tem o lugar.")) },
+            ],
+        }))
+    }
+
+    /// O treinador provocou o adversário na conferência antes deste jogo.
+    pub(super) fn provoked(&self, fixture: i32) -> Result<bool> {
+        Ok(self
+            .world
+            .conn
+            .query_row("SELECT provoked FROM press WHERE fixture = ? AND kind = 'pre' AND status = 'done'", [fixture], |r| r.get(0))
+            .optional()?
+            .unwrap_or(false))
     }
 
     /// Vitórias nos últimos 5 jogos do treinador.
@@ -447,8 +484,10 @@ impl Game {
         let mut quotes = Vec::new();
         let mut reactions = Vec::new();
         let squad: Vec<i32> = self.squads.states.keys().copied().filter(|&p| self.club_of(p) == Some(self.club_id)).collect();
+        let mut provoked = false;
         for (q, &i) in questions.iter().zip(answers) {
             let a = q.answers.get(i).ok_or_else(|| Error::Invalid("Resposta inválida.".into()))?;
+            provoked |= a.provoke;
             quotes.push(format!("«{}»", a.label.trim_end_matches('.')));
             if a.squad != 0 {
                 for &p in &squad {
@@ -471,9 +510,16 @@ impl Game {
                 self.world.conn.execute("UPDATE board SET fans = MIN(100, MAX(0, fans + ?)) WHERE id = 1", [a.fans])?;
             }
         }
-        self.world.conn.execute("UPDATE press SET status = 'done' WHERE id = ?", [id])?;
+        self.world.conn.execute("UPDATE press SET status = 'done', provoked = ? WHERE id = ?", params![provoked, id])?;
         let club = self.club(self.club_id).short_name;
         let mut body = format!("Na conferência de imprensa, o treinador do {club} disse: {}.", quotes.join(" "));
+        if provoked {
+            body = format!(
+                "{body}
+
+As palavras do treinador caíram mal no adversário, que promete dar uma resposta em campo."
+            );
+        }
         for r in &reactions {
             body = format!("{body}\n\n{r}");
         }
@@ -535,6 +581,20 @@ mod tests {
         assert!(text.contains("disse"));
         assert_eq!(g.press_view(id).unwrap().status, "done");
         assert!(g.answer_press(id, &answers).is_err(), "só uma vez");
+
+        // Antes do próximo jogo: provocar o treinador adversário motiva o adversário
+        let next = g.matches.iter().find(|m| m.result.is_none() && (m.home_id == 7568 || m.away_id == 7568)).unwrap().clone();
+        let opp = if next.home_id == 7568 { next.away_id } else { next.home_id };
+        let q = g.rival_coach_question(opp, 2).unwrap().expect("o adversário tem treinador");
+        assert!(q.answers.iter().any(|a| a.provoke));
+        let (mut fresh, mut nid) = (Vec::new(), 9000);
+        let deadline = g.date.clone();
+        g.open_press("pre", next.id, &deadline, &[q], &mut fresh, &mut nid, "rival").unwrap();
+        let pre: i32 = g.world.conn.query_row("SELECT MAX(id) FROM press", [], |r| r.get(0)).unwrap();
+        assert!(!g.provoked(next.id).unwrap());
+        let text = g.answer_press(pre, &[2]).unwrap();
+        assert!(text.contains("resposta em campo"), "{text}");
+        assert!(g.provoked(next.id).unwrap());
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -350,11 +350,17 @@ fn handle(stream: TcpStream, tx: mpsc::Sender<Job>) {
     let path = request_line.split_whitespace().nth(1).unwrap_or("");
     let cmd = path.strip_prefix("/invoke/").unwrap_or("").to_string();
     let args: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
-    let (reply_tx, reply_rx) = mpsc::channel();
-    if tx.send((cmd, args, reply_tx)).is_err() {
-        return;
-    }
-    let Ok((status, out)) = reply_rx.recv() else { return };
+    // O passo da criação de um jogo responde já, sem esperar pelo `new_game` que está a correr
+    let (status, out) = if cmd == "creation_progress" {
+        ("200 OK", serde_json::to_string(&nextcm_core::progress::creation_progress()).unwrap_or_default())
+    } else {
+        let (reply_tx, reply_rx) = mpsc::channel();
+        if tx.send((cmd, args, reply_tx)).is_err() {
+            return;
+        }
+        let Ok(reply) = reply_rx.recv() else { return };
+        reply
+    };
     let mut s = &stream;
     let _ =
         write!(s, "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{out}", out.len());

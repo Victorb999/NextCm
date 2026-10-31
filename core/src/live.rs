@@ -714,6 +714,14 @@ impl LiveMatch {
         }
     }
 
+    /// Toda uma equipa mais (ou menos) motivada nesta partida: a provocação do treinador na
+    /// conferência de imprensa motiva o adversário.
+    pub fn motivate_side(&mut self, side: usize, factor: f64) {
+        for p in &mut self.teams[side].players {
+            p.form *= factor;
+        }
+    }
+
     /// A bola já rolou (antes do apito ainda se grava o jogo).
     pub fn started(&self) -> bool {
         self.minute > 0
