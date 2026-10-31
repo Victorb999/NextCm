@@ -80,6 +80,7 @@ impl Game {
         if self.date.ends_with("-01") {
             self.develop()?;
             self.learn_positions()?;
+            self.train_attributes()?;
         }
         match &self.date[5..] {
             "03-01" => self.youth_intake(fresh, next_id)?,
@@ -288,6 +289,11 @@ impl Game {
         for reg in regs.iter().filter(|r| r.promotion.is_some() || r.relegation.is_some() || r.draw_up.is_some()) {
             let div = reg.competition;
             let played = self.year_matches(div, year).next().is_some();
+            // Quem sobe não desce por dívidas (um clube não pode ir para dois lados)
+            let promoted = match &reg.promotion {
+                Some(mv) if played => self.pick(reg, &mv.pick, 0, year)?,
+                _ => Vec::new(),
+            };
             for (mv, up) in [(&reg.relegation, false), (&reg.promotion, true)] {
                 let Some(mv) = mv else { continue };
                 let count = mv.count.unwrap_or(SWAP);
@@ -305,7 +311,11 @@ impl Game {
                 if !up && played {
                     let table = self.stage_table(div, year, 0, None);
                     let pos = |id: i32| table.iter().find(|r| r.club.id == id).map_or(i32::MAX, |r| r.position);
-                    let here: Vec<i32> = bankrupt.iter().filter(|(b, d)| *d == Some(div) && !clubs.contains(b)).map(|b| b.0).collect();
+                    let here: Vec<i32> = bankrupt
+                        .iter()
+                        .filter(|(b, d)| *d == Some(div) && !clubs.contains(b) && !promoted.contains(b))
+                        .map(|b| b.0)
+                        .collect();
                     for b in here {
                         // Fica o melhor colocado dos que desciam
                         let spared = (0..clubs.len()).filter(|&i| !relegated_for_debt.contains(&clubs[i])).min_by_key(|&i| pos(clubs[i]));

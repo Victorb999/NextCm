@@ -198,6 +198,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 3.14 — Palestras](docs/roadmap/3.14-palestras.md)
 - [Marco 3.15 — Testes e ajustes](docs/roadmap/3.15-testes-e-ajustes.md)
 - [Ajuste 3.15b — Fluxo do último dia da janela (vídeo de 30/10)](docs/roadmap/3.15b-fluxo-do-fim-da-janela.md)
+- [Passo 3.15c — Pendências por complexidade (compilado de 31/10)](docs/roadmap/3.15c-pendencias.md)
 - [Marco 3.16 — Plantel completo (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.16-plantel-completo.md)
 - [Marco 3.17 — Treino (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.17-treino.md)
 - [Marco 3.18 — Selecções (por detalhar)](docs/roadmap/3.18-seleccoes.md)

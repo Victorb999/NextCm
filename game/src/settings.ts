@@ -38,7 +38,7 @@ export type Settings = {
   screen: ScreenMode
   /** Tamanho da janela (só em modo janela): sempre 16:9, para o layout não perder a proporção. */
   resolution: Resolution
-  /** Cor base da coluna esquerda (#rrggbb); os relevos saem dela. */
+  /** Cor base da coluna esquerda (#rrggbb), um dos temas de `SIDE_PRESETS`; os relevos saem dela. */
   sideColour: string
   background: Background
   /** Foto de fundo que vem com o jogo (chave de `BACKGROUND_PHOTOS`). */
@@ -144,7 +144,7 @@ export const TEXT_FONTS: { key: TextFont; label: string; family: string }[] = [
   { key: 'oswald', label: 'Oswald', family: 'Oswald, Tahoma, sans-serif' },
 ]
 
-/** Cores prontas da coluna esquerda (a 1ª é a do tema Coalizão). */
+/** Os temas da coluna esquerda (o 1º é o da Coalizão). */
 export const SIDE_PRESETS: { label: string; colour: string }[] = [
   { label: 'Coalizão', colour: '#45526a' },
   { label: 'Azul CM', colour: '#24448a' },
@@ -216,8 +216,8 @@ export function shade(hex: string, t: number) {
 /** Variáveis CSS do tema, fundo e modo de ecrã. */
 export function applySettings(s: Settings) {
   const root = document.documentElement.style
-  // A cor da coluna já não se escolhe (virão temas pré-definidos): fica a de sempre
-  const base = DEFAULT_SETTINGS.sideColour
+  // A cor da coluna vem do tema escolhido; uma cor antiga fora dos temas volta à da Coalizão
+  const base = SIDE_PRESETS.some((p) => p.colour === s.sideColour) ? s.sideColour : DEFAULT_SETTINGS.sideColour
   root.setProperty('--cm-side', base)
   root.setProperty('--cm-side-top', shade(base, 0.12))
   root.setProperty('--cm-sidebtn', shade(base, -0.17))

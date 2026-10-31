@@ -8,6 +8,7 @@ import {
   FONTS,
   MATCH_SPEEDS,
   RESOLUTIONS,
+  SIDE_PRESETS,
   TEXT_FONTS,
   WAGES,
   applyResolution,
@@ -272,6 +273,13 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
           )}
           {section === "look" && (
             <>
+              <Row label="Tema">
+                <Cycle
+                  options={SIDE_PRESETS.map((p) => ({ key: p.colour, label: p.label }))}
+                  value={SIDE_PRESETS.some((p) => p.colour === s.sideColour) ? s.sideColour : DEFAULT_SETTINGS.sideColour}
+                  onChange={(sideColour) => set({ sideColour })}
+                />
+              </Row>
               <Row label="Letra dos Títulos">
                 <Cycle
                   options={FONTS}

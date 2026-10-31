@@ -143,7 +143,20 @@ fn training(world: &Path, club_id: i32, seed: i64, days: u32) {
             let club = game.world().get_club(club_id).expect("clube");
             club.players.iter().map(|p| (p.id, p.current_ability.unwrap_or(0))).collect()
         };
+        // Soma dos atributos físicos e técnicos do banco (a evolução por área)
+        let attrs = |game: &Game| -> HashMap<i32, i32> {
+            let keys = ["pace", "acceleration", "stamina", "strength", "technique", "dribbling", "passing", "finishing", "positioning"];
+            let club = game.world().get_club(club_id).expect("clube");
+            club.players
+                .iter()
+                .map(|p| {
+                    let raw = game.world().get_person(p.id).expect("pessoa").player.map(|pl| pl.raw_attributes).unwrap_or_default();
+                    (p.id, keys.iter().map(|k| raw.get(*k).copied().flatten().unwrap_or(0)).sum())
+                })
+                .collect()
+        };
         let before = ca(&game);
+        let attrs_before = attrs(&game);
         let news = game.news().len();
         let (mut condition, mut counted) = (0i64, 0i64);
         for _ in 0..days {
@@ -156,16 +169,23 @@ fn training(world: &Path, club_id: i32, seed: i64, days: u32) {
             }
         }
         let after = ca(&game);
+        let attrs_after = attrs(&game);
         let kept: Vec<i32> = before.keys().filter(|id| after.contains_key(id)).copied().collect();
         let young: Vec<i32> = kept.iter().filter(|id| before[id] < 120).copied().collect();
         let avg = |ids: &[i32]| ids.iter().map(|id| (after[id] - before[id]) as f64).sum::<f64>() / ids.len().max(1) as f64;
+        let attr_avg =
+            |ids: &[i32]| ids.iter().map(|id| (attrs_after[id] - attrs_before[id]) as f64).sum::<f64>() / ids.len().max(1) as f64;
+        let veterans: Vec<i32> = kept.iter().filter(|id| before[id] >= 120).copied().collect();
         let injuries = game.news()[..game.news().len() - news].iter().filter(|n| n.title.ends_with("lesionado no treino")).count();
         println!(
-            "{label:<10} CA {:+.1} em média ({} jogadores; {:+.1} nos {} com CA < 120), condição do onze {:.0}%, {injuries} lesões no treino",
+            "{label:<10} CA {:+.1} em média ({} jogadores; {:+.1} nos {} com CA < 120), atributos {:+.1} ({:+.1} nos de CA < 120, {:+.1} nos outros), condição do onze {:.0}%, {injuries} lesões no treino",
             avg(&kept),
             kept.len(),
             avg(&young),
             young.len(),
+            attr_avg(&kept),
+            attr_avg(&young),
+            attr_avg(&veterans),
             condition as f64 / counted.max(1) as f64
         );
         drop(game);

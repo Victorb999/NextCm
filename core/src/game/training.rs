@@ -50,6 +50,23 @@ const CONDITION_PER_DAY: [i32; 4] = [1, 1, 0, -1];
 const INJURY_PER_DAY: [f64; 4] = [0.0, 0.0, 0.000_05, 0.000_4];
 /// Pontos por mês ao aprender uma posição (Versatilidade 10, até aos 23 anos).
 const LEARN_PER_MONTH: f64 = 1.8;
+/// Atributos de cada área (Prep. Física, Táctica, Remate, Técnica, G-Redes), colunas de `players`.
+/// Os relativos (remate, passe...) mudam o perfil do jogador; os outros, o valor.
+const AREAS: [&[&str]; 5] = [
+    &["pace", "acceleration", "stamina", "strength", "agility", "balance", "jumping"],
+    &["positioning", "anticipation", "decisions", "marking", "off_the_ball", "teamwork", "work_rate"],
+    &["finishing", "long_shots", "penalties"],
+    &["technique", "dribbling", "passing", "crossing", "free_kicks"],
+    &["handling", "reflexes", "one_on_ones"],
+];
+/// Peso de cada intensidade (Nenhum, Ligeiro, Médio, Intensivo) no ganho por área.
+const AREA_WEIGHT: [f64; 4] = [0.0, 0.4, 1.0, 1.6];
+/// Probabilidade por mês de +1 num atributo de uma área Média, num jovem com bons treinadores.
+const AREA_GAIN: f64 = 0.15;
+/// Os clubes da IA treinam como o "Geral" do patch (os guarda-redes como o "GK").
+const AI_FIELD: [i32; 5] = [2, 2, 2, 2, 0];
+const AI_KEEPER: [i32; 5] = [2, 1, 0, 1, 3];
+
 /// Ambição a partir da qual um jogador sem treino fica infeliz, e o Profissionalismo até ao
 /// qual o treino físico intensivo o deixa infeliz.
 const BORED_AMBITION: i32 = 14;
@@ -309,6 +326,114 @@ impl Game {
             );
         }
         Ok(out)
+    }
+
+    /// Dia 1 de cada mês, a evolução por área: cada área treinada pode subir um atributo dela
+    /// (mais nos jovens que ainda não chegaram ao potencial, com bons treinadores e mais
+    /// intensidade), e os veteranos perdem físico, mais depressa com pouca Prep. Física. O
+    /// plantel do treinador segue os programas; os outros clubes das ligas vivas, o "Geral".
+    pub(super) fn train_attributes(&mut self) -> Result<()> {
+        let mine: HashMap<i32, [i32; 5]> = if self.sacked() {
+            HashMap::new()
+        } else {
+            let programs = self.training_programs()?;
+            self.assignments(&programs)?
+                .into_iter()
+                .filter_map(|(person, id)| {
+                    let p = programs.iter().find(|p| p.id == id)?;
+                    Some((person, [p.fitness, p.tactics, p.shooting, p.technique, p.goalkeeping]))
+                })
+                .collect()
+        };
+        let (field, keepers) = if self.sacked() { (0.5, 0.5) } else { self.coach_quality()? };
+        let columns: Vec<&str> = AREAS.iter().flat_map(|a| a.iter().copied()).collect();
+        let managed = self.managed_sql(None);
+        let sql = format!(
+            "SELECT p.id, p.club_id, p.birth_date, p.birth_year, pl.current_ability, pl.potential_ability,
+                    COALESCE(pl.pos_goalkeeper, 0), {}
+             FROM people p JOIN players pl ON pl.person_id = p.id JOIN clubs c ON c.id = p.club_id
+             WHERE c.division_id IN ({managed}) AND p.is_player = 1 ORDER BY p.id",
+            columns.iter().map(|c| format!("pl.{c}")).collect::<Vec<_>>().join(", ")
+        );
+        type Row = (i32, i32, Option<String>, Option<i32>, i32, i32, i32, Vec<Option<i32>>);
+        let rows: Vec<Row> = self
+            .world
+            .conn
+            .prepare(&sql)?
+            .query_map([], |r| {
+                let values = (0..columns.len()).map(|i| r.get(7 + i)).collect::<rusqlite::Result<Vec<_>>>()?;
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get::<_, Option<i32>>(4)?.unwrap_or(1),
+                    r.get::<_, Option<i32>>(5)?.unwrap_or(0),
+                    r.get(6)?,
+                    values,
+                ))
+            })?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut rng = self.season_rng(0xA7EA);
+        let today = self.date.clone();
+        let mut changes: Vec<(i32, &str, i32)> = Vec::new();
+        for (id, club, birth, birth_year, ca, pa, gk, values) in rows {
+            let keeper = gk >= 15;
+            let own = club == self.club_id && !self.sacked();
+            let load = match mine.get(&id) {
+                Some(l) if own => *l,
+                _ if keeper => AI_KEEPER,
+                _ => AI_FIELD,
+            };
+            let quality = if own { if keeper { keepers } else { field } } else { 0.5 };
+            let age = age_on(birth.as_deref(), birth_year, &today);
+            let youth = match age {
+                ..=21 => 1.0,
+                22..=24 => 0.8,
+                25..=28 => 0.5,
+                29..=30 => 0.25,
+                _ => 0.0,
+            };
+            let room = if pa <= 0 || ca < pa { 1.0 } else { 0.0 };
+            let mut at = 0;
+            for (area, cols) in AREAS.iter().enumerate() {
+                let (from, to) = (at, at + cols.len());
+                at = to;
+                // G-Redes só nos guarda-redes; o remate não conta neles
+                if (area == 4) != keeper && (area == 4 || area == 2) {
+                    continue;
+                }
+                let weight = AREA_WEIGHT[load[area].clamp(0, 3) as usize];
+                let chance = AREA_GAIN * weight * youth * room * (0.5 + 0.5 * quality);
+                if chance > 0.0 && uniform(&mut rng) < chance {
+                    let open: Vec<usize> = (from..to).filter(|&i| values[i].is_some_and(|v| v < 20)).collect();
+                    if !open.is_empty() {
+                        let i = open[(uniform(&mut rng) * open.len() as f64) as usize % open.len()];
+                        changes.push((id, columns[i], 1));
+                    }
+                }
+            }
+            // Declínio físico dos veteranos (guarda-redes dois anos mais tarde)
+            let old = age - if keeper { 2 } else { 0 };
+            if old >= 30 {
+                let chance = (0.10 + 0.04 * (old - 30) as f64) * (1.25 - 0.5 * load[0].clamp(0, 3) as f64 / 3.0);
+                if uniform(&mut rng) < chance {
+                    let open: Vec<usize> = (0..AREAS[0].len()).filter(|&i| values[i].is_some_and(|v| v > 1)).collect();
+                    if !open.is_empty() {
+                        let i = open[(uniform(&mut rng) * open.len() as f64) as usize % open.len()];
+                        changes.push((id, columns[i], -1));
+                    }
+                }
+            }
+        }
+        for (id, col, step) in changes {
+            self.world.conn.execute(
+                &format!("UPDATE players SET {col} = MAX(1, MIN(20, COALESCE({col}, 10) + ?)) WHERE person_id = ?"),
+                params![step, id],
+            )?;
+        }
+        self.unsaved = true;
+        Ok(())
     }
 
     /// Dia 1 de cada mês: quem treina uma posição ou um lado novos ganha jeito para eles,
