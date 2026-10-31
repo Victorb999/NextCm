@@ -217,6 +217,7 @@ mod tests {
             club_id: PALMEIRAS,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         };
         let mut g = Game::create(&path, &dir, &new, 19).unwrap();
         // Sem motivo, as duas questões ficam apagadas

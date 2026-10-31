@@ -41,4 +41,12 @@ budgetNote: string | null,
 /**
  * As linhas da aba como no CM: disponibilidade, propostas, interessados e o futuro.
  */
-availability: string, offers: Array<string>, interested: Array<ClubRef>, future: string | null, };
+availability: string, offers: Array<string>, interested: Array<ClubRef>, 
+/**
+ * As frases do Futuro, como no CM (o lugar no plantel e o que mais o preocupa).
+ */
+future: Array<string>, 
+/**
+ * Possíveis Despesas: os prémios do contrato que o clube pode ter de pagar.
+ */
+expenses: Array<string>, };

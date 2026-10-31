@@ -5,7 +5,18 @@ import type { ReactNode } from 'react'
  * Ecrã de carregamento no estilo do CM: caixa preta com o título e a barra amarela a correr.
  * `delay` evita que pisque quando a operação é rápida.
  */
-export default function Loading({ title, detail, delay = 0 }: { title: ReactNode; detail?: ReactNode; delay?: number }) {
+export default function Loading({
+  title,
+  detail,
+  delay = 0,
+  footer,
+}: {
+  title: ReactNode
+  detail?: ReactNode
+  delay?: number
+  /** A barra de baixo (os resultados do dia no "Processando", como no CM). */
+  footer?: ReactNode
+}) {
   const [visible, setVisible] = useState(delay === 0)
   useEffect(() => {
     if (delay === 0) return
@@ -24,6 +35,11 @@ export default function Loading({ title, detail, delay = 0 }: { title: ReactNode
           <div className="cm-progress h-full w-full" />
         </div>
       </div>
+      {footer && (
+        <div className="absolute inset-x-0 bottom-0 flex h-8 items-center overflow-hidden whitespace-nowrap border-t border-cm-line bg-black/90 px-3 text-[13px] font-semibold text-cm-yellow">
+          {footer}
+        </div>
+      )}
     </div>
   )
 }

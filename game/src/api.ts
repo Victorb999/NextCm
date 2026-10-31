@@ -12,6 +12,8 @@ import type { TrainingPlan } from './bindings/TrainingPlan'
 import type { TrainingView } from './bindings/TrainingView'
 import type { WorldTransfers } from './bindings/WorldTransfers'
 import type { CareerClub } from './bindings/CareerClub'
+import type { ContinueStep } from './bindings/ContinueStep'
+import type { ManagerStats } from './bindings/ManagerStats'
 import type { LeagueNation } from './bindings/LeagueNation'
 import type { TalkLine } from './bindings/TalkLine'
 import type { TalkReaction } from './bindings/TalkReaction'
@@ -102,6 +104,8 @@ export const api = {
   advanceDay: () => call<GameInfo>('advance_day'),
   /** Avança até o próximo evento (jogo do treinador, notícia...). */
   continueGame: () => call<GameInfo>('continue_game'),
+  /** Um dia do Continuar Jogo, com os resultados do dia (a tela repete até `stop`). */
+  continueStep: (idle: number) => call<ContinueStep>('continue_step', { idle }),
   /** Antes do dia de jogo: o que falta ou o que confirmar na equipa. */
   lineupCheck: () => call<LineupCheck>('lineup_check'),
   pressView: (id: number) => call<PressView>('press_view', { id }),
@@ -128,6 +132,7 @@ export const api = {
   retireManager: () => call<string>('retire_manager'),
   holiday: (days: number) => call<GameInfo>('holiday', { days }),
   managerCareer: () => call<CareerClub[]>('manager_career'),
+  managerStats: () => call<ManagerStats>('manager_stats'),
   /** Gravar com outro nome; `overwrite` substitui um ficheiro com esse nome. */
   saveAs: (name: string, overwrite: boolean) => call<GameInfo>('save_as', { name, overwrite }),
   /** Classificação real; vazia sem jogo ou numa competição parada. */

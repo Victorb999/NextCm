@@ -92,6 +92,10 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "list_news" => out(serde_json::to_value(session.list_news().map_err(e)?)),
         "read_news" => out(serde_json::to_value(session.read_news(id()?).map_err(e)?)),
         "continue_game" => out(serde_json::to_value(session.continue_game().map_err(e)?)),
+        "continue_step" => {
+            let idle = args["idle"].as_i64().unwrap_or(0) as i32;
+            out(serde_json::to_value(session.continue_step(idle).map_err(e)?))
+        }
         "league_table" => out(serde_json::to_value(session.league_table(id()?).map_err(e)?)),
         "list_fixtures" => out(serde_json::to_value(session.list_fixtures(id()?).map_err(e)?)),
         "competition_stages" => out(serde_json::to_value(session.competition_stages(id()?).map_err(e)?)),
@@ -195,6 +199,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             out(serde_json::to_value(session.holiday(days).map_err(e)?))
         }
         "manager_career" => out(serde_json::to_value(session.manager_career().map_err(e)?)),
+        "manager_stats" => out(serde_json::to_value(session.manager_stats().map_err(e)?)),
         "save_as" => {
             let name = args["name"].as_str().ok_or("falta name")?.to_string();
             let overwrite = args["overwrite"].as_bool().unwrap_or(false);

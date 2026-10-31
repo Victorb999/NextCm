@@ -193,7 +193,9 @@ export default function TransferTab({ personId, version, onChanged }: { personId
         : 'Nenhum',
     ],
   ]
-  if (view.future) rows.push(['Futuro', view.future])
+  // Uma linha por frase, como no CM (só a primeira com o rótulo)
+  view.future.forEach((f, i) => rows.push([i === 0 ? 'Futuro' : '', f]))
+  view.expenses.forEach((e, i) => rows.push([i === 0 ? 'Possíveis Despesas' : '', e]))
   if (view.optionFee) rows.push(['Opção de compra', money(view.optionFee)])
   if (view.loanFrom) {
     rows.push([
@@ -209,8 +211,8 @@ export default function TransferTab({ personId, version, onChanged }: { personId
   return (
     <div>
       <div className="cm-zebra">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex min-h-6 items-center justify-between gap-4 px-3 text-[13.5px]">
+        {rows.map(([k, v], i) => (
+          <div key={i} className="flex min-h-6 items-center justify-between gap-4 px-3 text-[13.5px]">
             <span className="shrink-0 text-[#c8c8d0]">{k}</span>
             <span className="text-right font-bold text-cm-yellow">{v}</span>
           </div>

@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use nextcm_core::CareerClub;
 use nextcm_core::ContractExtras;
 use nextcm_core::LeagueNation;
 use nextcm_core::LineupCheck;
@@ -16,6 +15,7 @@ use nextcm_core::{
     SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, Session, SquadNumbers, StageView, StandingRow, TransferItem,
     TransferView, World,
 };
+use nextcm_core::{CareerClub, ContinueStep, ManagerStats};
 use nextcm_core::{DealTerms, LoanTerms};
 use nextcm_core::{SavedFile, TrainingPlan, TrainingView};
 use nextcm_core::{TalkLine, TalkReaction, TalkView};
@@ -84,6 +84,7 @@ session_command!(advance_day() -> GameInfo);
 session_command!(list_news() -> Vec<NewsItem>);
 session_command!(read_news(id: i32) -> GameInfo);
 session_command!(continue_game() -> GameInfo);
+session_command!(continue_step(idle: i32) -> ContinueStep);
 session_command!(league_table(id: i32) -> Vec<StandingRow>);
 session_command!(list_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(competition_stages(id: i32) -> Vec<StageView>);
@@ -131,6 +132,7 @@ session_command!(give_talks(tone: String, lines: Vec<TalkLine>) -> Vec<TalkReact
 session_command!(retire_manager() -> String);
 session_command!(holiday(days: i32) -> GameInfo);
 session_command!(manager_career() -> Vec<CareerClub>);
+session_command!(manager_stats() -> ManagerStats);
 session_command!(save_as(name: String, overwrite: bool) -> GameInfo);
 session_command!(ask_terms(id: i32, terms: DealTerms) -> OfferView);
 session_command!(contract_terms(id: i32, role: Option<String>) -> ContractTerms);
@@ -279,6 +281,7 @@ pub fn run() {
             list_news,
             read_news,
             continue_game,
+            continue_step,
             league_table,
             list_fixtures,
             competition_stages,
@@ -326,6 +329,7 @@ pub fn run() {
             retire_manager,
             holiday,
             manager_career,
+            manager_stats,
             save_as,
             ask_terms,
             contract_terms,

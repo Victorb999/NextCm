@@ -29,6 +29,7 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         club_id,
         leagues: Vec::new(),
         start: Default::default(),
+        license: 0,
     };
     let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
     let divisions = [(SERIE_A, "Série A"), (SERIE_B, "Série B"), (SERIE_C, "Série C"), (PREMIER_LEAGUE, "Premier League")];
@@ -126,6 +127,7 @@ fn training(world: &Path, club_id: i32, seed: i64, days: u32) {
             club_id,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         };
         let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
         let view = game.training_view().expect("treino");
@@ -242,6 +244,7 @@ fn main() {
             club_id,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         };
         let mut game = Game::create(&world, &dir, &new, seed + s).expect("não criou o jogo");
         let created = t.elapsed();

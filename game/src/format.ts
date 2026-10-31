@@ -114,3 +114,6 @@ export function initials(name: string): string {
   const words = name.split(/\s+/).filter((w) => /^\p{Lu}/u.test(w))
   return (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase()
 }
+
+/** As qualificações do treinador no Novo Jogo, pela ordem do core (0 a 4). */
+export const LICENSES = ['Nenhuma', 'Licença C', 'Licença B', 'Licença A', 'Licença Pro']

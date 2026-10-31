@@ -2,7 +2,7 @@
 //! adjunto trata de tudo durante uns dias) e o Currículo com os clubes por onde passou
 //! (`manager_history`), as compras, as vendas e os títulos de cada um.
 
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use ts_rs::TS;
 
@@ -33,7 +33,79 @@ pub struct CareerClub {
     pub titles: Vec<String>,
 }
 
+/// A reputação do treinador num país onde treinou.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct NationReputation {
+    pub nation: String,
+    /// "Local", "Regional", "Nacional", "Continental" ou "Mundial".
+    pub level: String,
+    /// Anos (com uma casa decimal) a treinar clubes deste país e títulos ganhos lá.
+    pub years: f64,
+    pub titles: i32,
+}
+
+/// Estatísticas do treinador no Currículo: a reputação, as qualificações e cada país.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagerStats {
+    pub level: String,
+    pub reputation: i32,
+    pub license: String,
+    pub nations: Vec<NationReputation>,
+}
+
+/// O nível de uma reputação (0–10 000), como o CM a descreve.
+fn rep_level(rep: i32) -> &'static str {
+    match rep {
+        8000.. => "Mundial",
+        6500.. => "Continental",
+        5000.. => "Nacional",
+        3000.. => "Regional",
+        _ => "Local",
+    }
+}
+
 impl Game {
+    /// Estatísticas do treinador: a reputação geral e a de cada país onde treinou, que parte
+    /// dela e cresce com os anos lá (até 3) e os títulos (até 2): `geral × (1 + 0,1 × anos +
+    /// 0,1 × títulos)`.
+    pub fn manager_stats(&self) -> Result<ManagerStats> {
+        let rep = self.manager_rep()?;
+        let mut nations: Vec<NationReputation> = Vec::new();
+        for c in self.manager_career()? {
+            let nation: Option<String> = self
+                .world
+                .conn
+                .query_row("SELECT n.name FROM clubs c JOIN nations n ON n.id = c.nation_id WHERE c.id = ?", [c.club.id], |r| r.get(0))
+                .optional()?;
+            let Some(nation) = nation else { continue };
+            let end = c.left.clone().unwrap_or_else(|| self.date.clone());
+            let days = date::parse(&end).zip(date::parse(&c.joined)).map_or(0, |(a, b)| (a - b).max(0));
+            let titles = c.titles.len() as i32;
+            match nations.iter_mut().find(|n| n.nation == nation) {
+                Some(n) => {
+                    n.years += days as f64 / 365.0;
+                    n.titles += titles;
+                }
+                None => nations.push(NationReputation { nation, level: String::new(), years: days as f64 / 365.0, titles }),
+            }
+        }
+        for n in &mut nations {
+            let weight = 1.0 + 0.1 * n.years.min(3.0) + 0.1 * n.titles.min(2) as f64;
+            n.level = rep_level(((rep as f64 * weight) as i32).min(10_000)).into();
+            n.years = (n.years * 10.0).round() / 10.0;
+        }
+        Ok(ManagerStats {
+            level: rep_level(rep).into(),
+            reputation: rep,
+            license: super::jobs::LICENSES[self.license()?.clamp(0, 4) as usize].into(),
+            nations,
+        })
+    }
+
     /// Abre a passagem por um clube (ao começar o jogo e ao aceitar outro emprego).
     pub(super) fn career_join(&self, club: i32) -> Result<()> {
         self.world.conn.execute("INSERT INTO manager_history (club_id, joined) VALUES (?, ?)", params![club, self.date])?;
@@ -169,10 +241,18 @@ mod tests {
             club_id: 7568,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         };
         let mut g = Game::create(&path, &dir, &new, 23).unwrap();
         g.set_watch(true);
         let start = g.date.clone();
+        // Estatísticas: sem licença e com o Brasil como único país
+        let stats = g.manager_stats().unwrap();
+        assert_eq!(stats.license, "Nenhuma");
+        assert_eq!(stats.nations.iter().map(|n| n.nation.as_str()).collect::<Vec<_>>(), ["Brazil"]);
+        g.set_license(4).unwrap();
+        assert_eq!(g.manager_stats().unwrap().license, "Licença Pro");
+        g.set_license(0).unwrap();
         let info = g.holiday(14).unwrap();
         assert_eq!(info.date, date::add_days(&start, 14).unwrap());
         assert!(!info.live, "volta fora de um jogo");

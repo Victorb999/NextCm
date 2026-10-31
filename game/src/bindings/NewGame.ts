@@ -21,4 +21,8 @@ leagues: Array<LeagueChoice>,
 /**
  * "Escolher Iniciar Época".
  */
-start: StartSeason, };
+start: StartSeason, 
+/**
+ * Qualificações do treinador: 0 Nenhuma, 1 Licença C, 2 B, 3 A, 4 Pro.
+ */
+license: number, };

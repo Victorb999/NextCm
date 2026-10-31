@@ -179,6 +179,7 @@ mod tests {
             club_id: 7568,
             leagues: vec![choice(BRAZIL, LeagueMode::Background), choice(ENGLAND, LeagueMode::Play)],
             start: Default::default(),
+            license: 0,
         };
         // O clube do treinador tem de ser de uma liga escolhida
         assert!(Game::create(&path, &dir, &new, 3).is_err());

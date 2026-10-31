@@ -859,6 +859,7 @@ mod tests {
             club_id,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         }
     }
 

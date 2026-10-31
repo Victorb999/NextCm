@@ -17,9 +17,12 @@ export function useContinueGame({
   onMatch,
   matchStep,
   onLineup,
+  onResults,
 }: {
   notify: (msg: string) => void
   onProcessing: (busy: boolean) => void
+  /** Os resultados de cada dia que passa, para a barra do "Processando". */
+  onResults?: (lines: string[]) => void
   onMatch: (m: MatchDayData) => void
   matchStep?: () => void
   /** Antes do dia de jogo: o que falta na equipa ou o que confirmar; `go` avança mesmo assim. */
@@ -51,7 +54,16 @@ export function useContinueGame({
           return
         }
         const before = next?.date
-        next = await api.continueGame()
+        // Dia a dia até ao core dizer que pára, com os resultados de cada dia na barra de baixo
+        let idle = 0
+        let step = await api.continueStep(idle)
+        while (!step.stop) {
+          if (step.results.length) onResults?.(step.results)
+          idle++
+          step = await api.continueStep(idle)
+        }
+        next = step.info
+        onResults?.([])
         game.update(next)
         // Auto Gravação (Opções Jogo): fora dos dias de jogo
         if (before && !next.live && autosaveDue(getSettings().autosave, before, next.date)) {

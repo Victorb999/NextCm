@@ -296,6 +296,7 @@ mod tests {
             club_id: PALMEIRAS,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         };
         let mut g = Game::create(&path, &dir, &new, 7).unwrap();
         let squad = g.squad_unhappy().unwrap();

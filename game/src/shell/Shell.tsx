@@ -29,6 +29,8 @@ export default function Shell() {
   const [options, setOptions] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [processing, setProcessing] = useState(false);
+  // Os resultados do dia que passa, na barra de baixo do "Processando"
+  const [ticker, setTicker] = useState<string[]>([]);
   // O aviso do despedimento, até o treinador ir ler as notícias
   const [sackedSeen, setSackedSeen] = useState(false);
   const { notice, notify } = useNotice();
@@ -43,6 +45,7 @@ export default function Shell() {
     onMatch: matchDay.open,
     matchStep: matchDay.advance,
     onLineup: (check, go) => setLineup({ check, go }),
+    onResults: setTicker,
   });
 
   return (
@@ -87,7 +90,12 @@ export default function Shell() {
           )}
           {options && <OptionsDialog onClose={() => setOptions(false)} />}
           {processing && (
-            <Loading title="Continuar Jogo" detail="Processando, Por Favor Espere…" delay={250} />
+            <Loading
+              title="Continuar Jogo"
+              detail="Processando, Por Favor Espere…"
+              delay={250}
+              footer={ticker.length > 0 && ticker.join("     ·     ")}
+            />
           )}
           {/* Escondido fica montado: ao voltar continua na mesma fase (o jogo pode já ter acabado no core) */}
           {matchDay.match && game.info && (

@@ -28,6 +28,17 @@ const OFFER_DAYS: i32 = 7;
 const REP_REACH: i32 = 1000;
 pub(super) const REP_SACKED: i32 = -500;
 pub(super) const REP_SEASON: i32 = 300;
+/// As qualificações do treinador (Novo Jogo), e quanto cada nível alarga os clubes que o
+/// aceitam (reputação de clube a mais do que a dele).
+pub const LICENSES: [&str; 5] = ["Nenhuma", "Licença C", "Licença B", "Licença A", "Licença Pro"];
+const LICENSE_REACH: i32 = 250;
+
+/// Confiança abaixo da qual um clube troca o treinador por um candidato (lugar ocupado), e
+/// abaixo da qual também o convida por iniciativa própria.
+const SHAKY: i32 = 40;
+const DESPERATE: i32 = 20;
+/// Probabilidade por mês de um clube fazer uma proposta ao treinador (a dobrar sem clube).
+const MONTHLY_OFFER: f64 = 0.2;
 /// Reputação a partir da qual um despedimento é notícia em qualquer liga.
 const NEWS_REP: i32 = 7000;
 
@@ -101,6 +112,25 @@ impl Game {
                 Ok(r)
             }
         }
+    }
+
+    /// As qualificações (0 Nenhuma a 4 Licença Pro).
+    pub(super) fn license(&self) -> Result<i32> {
+        self.manager_rep()?;
+        Ok(self.world.conn.query_row("SELECT license FROM manager_info WHERE id = 1", [], |r| r.get(0))?)
+    }
+
+    pub(super) fn set_license(&self, level: i32) -> Result<()> {
+        self.manager_rep()?;
+        self.world.conn.execute("UPDATE manager_info SET license = ? WHERE id = 1", [level.clamp(0, LICENSES.len() as i32 - 1)])?;
+        Ok(())
+    }
+
+    /// Reputação de clube a mais do que a dele que um clube ainda aceita: o dobro sem clube,
+    /// mais o que as qualificações dão.
+    fn reach(&self) -> Result<i32> {
+        let base = if self.sacked() { 2 * REP_REACH } else { REP_REACH };
+        Ok(base + LICENSE_REACH * self.license()?)
     }
 
     pub(super) fn change_manager_rep(&self, delta: i32) -> Result<()> {
@@ -204,8 +234,8 @@ impl Game {
         if club == self.club_id && !self.sacked() {
             return Err(Error::Invalid("Já é o treinador deste clube.".into()));
         }
-        if self.coach_of(club)?.is_some() {
-            return Err(Error::Invalid("Este clube tem treinador.".into()));
+        if self.coach_of(club)?.is_some() && self.ai_confidence(club)? >= SHAKY {
+            return Err(Error::Invalid("O treinador deste clube está seguro no lugar.".into()));
         }
         let open: bool = self
             .world
@@ -244,6 +274,10 @@ impl Game {
     /// as listas do clube novo começam do zero.
     pub(super) fn take_job(&mut self, club: i32) -> Result<()> {
         let old = self.club_id;
+        // Um lugar ocupado: o treinador que lá estava sai
+        if let Some((coach, _)) = self.coach_of(club)? {
+            self.world.conn.execute("UPDATE people SET club_id = NULL, club_job = NULL WHERE id = ?", [coach])?;
+        }
         if !self.sacked() {
             self.world.conn.execute("INSERT OR REPLACE INTO vacancies (club_id, since) VALUES (?, ?)", params![old, self.date])?;
         }
@@ -295,10 +329,15 @@ impl Game {
     pub(super) fn jobs_day(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         // Respostas às candidaturas
         let due = self.offers_where("kind = 'job' AND status = 'applied' AND answer_on <= ?1", params![self.date])?;
-        let reach = if self.sacked() { 2 * REP_REACH } else { REP_REACH };
+        let reach = self.reach()?;
         for o in due {
             let name = self.club(o.buyer).name;
-            let wants = self.coach_of(o.buyer)?.is_none() && self.club_rep_of(o.buyer)? <= self.manager_rep()? + reach;
+            let club_rep = self.club_rep_of(o.buyer)?;
+            let within = club_rep <= self.manager_rep()? + reach;
+            // Um lugar ocupado: o clube só troca um treinador inseguro, e por um com nome
+            let occupied = self.coach_of(o.buyer)?.is_some();
+            let confidence = self.ai_confidence(o.buyer)?;
+            let wants = within && (!occupied || confidence < DESPERATE || (confidence < SHAKY && self.manager_rep()? >= club_rep));
             if wants {
                 let until = date::add_days(&self.date, OFFER_DAYS).unwrap_or_default();
                 self.set_status(o.id, "pending", Some(&until))?;
@@ -306,7 +345,11 @@ impl Game {
                 self.offer_news(fresh, next_id, format!("Proposta do {name}"), body, o.id);
             } else {
                 self.set_status(o.id, "rejected", None)?;
-                let body = format!("O {name} agradece o interesse, mas procura um treinador com outro perfil.");
+                let body = if occupied && within {
+                    format!("O {name} agradece o interesse, mas mantém a confiança no treinador actual.")
+                } else {
+                    format!("O {name} agradece o interesse, mas procura um treinador com outro perfil.")
+                };
                 self.offer_news(fresh, next_id, format!("Resposta do {name}"), body, o.id);
             }
         }
@@ -359,7 +402,60 @@ impl Game {
         }
         if self.date.ends_with("-01") {
             self.ai_boards_month(fresh, next_id)?;
+            self.unsolicited_offer(fresh, next_id)?;
         }
+        Ok(())
+    }
+
+    /// No dia 1 de cada mês, às vezes um clube convida o treinador por iniciativa própria: um
+    /// lugar vago ou um treinador à beira do despedimento, num clube ao alcance da reputação
+    /// dele e não muito abaixo (sem clube, qualquer um abaixo serve). No máximo uma por mês.
+    fn unsolicited_offer(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        let mut rng = self.season_rng(0x10B5);
+        let chance = if self.sacked() { 2.0 * MONTHLY_OFFER } else { MONTHLY_OFFER };
+        if crate::engine::uniform(&mut rng) >= chance {
+            return Ok(());
+        }
+        let rep = self.manager_rep()?;
+        let mut options = Vec::new();
+        for club in self.managed_clubs()? {
+            // Nem o clube dele, nem o que o despediu
+            if club == self.club_id {
+                continue;
+            }
+            let club_rep = self.club_rep_of(club)?;
+            let fits = club_rep <= rep + self.reach()? / 2 && (self.sacked() || club_rep >= rep - REP_REACH);
+            // Um lugar vago há pelo menos uns dias, ou um treinador à beira do despedimento
+            let settled = date::add_days(&self.date, -APPLY_DAYS).unwrap_or_default();
+            let vacant_since: Option<String> =
+                self.world.conn.query_row("SELECT since FROM vacancies WHERE club_id = ?", [club], |r| r.get(0)).optional()?;
+            let open = match self.coach_of(club)? {
+                None => vacant_since.is_none_or(|s| s <= settled),
+                Some(_) => self.ai_confidence(club)? < DESPERATE,
+            };
+            let busy: bool = self
+                .world
+                .conn
+                .query_row("SELECT 1 FROM offers WHERE kind = 'job' AND buyer = ? AND status IN ('applied', 'pending')", [club], |_| {
+                    Ok(true)
+                })
+                .optional()?
+                .is_some();
+            if fits && open && !busy {
+                options.push((club_rep, club));
+            }
+        }
+        // O clube de maior nome entre os que servem
+        let Some(&(_, club)) = options.iter().max() else { return Ok(()) };
+        let until = date::add_days(&self.date, OFFER_DAYS).unwrap_or_default();
+        self.world.conn.execute(
+            "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created) VALUES ('job', ?, ?, NULL, 0, 'pending', ?, ?)",
+            params![self.manager_id, club, until, self.date],
+        )?;
+        let id = self.world.conn.last_insert_rowid() as i32;
+        let name = self.club(club).name;
+        let body = format!("O {name} gostava de o ter como treinador e faz-lhe uma proposta. Responda até {}.", cm_date(&until));
+        self.offer_news(fresh, next_id, format!("Proposta do {name}"), body, id);
         Ok(())
     }
 
@@ -430,6 +526,7 @@ mod tests {
             club_id: PALMEIRAS,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         };
         let mut g = Game::create(&path, &dir, &new, 37).unwrap();
         // Um clube da Série A com o treinador a zero de confiança: despedido no dia 1
@@ -479,6 +576,41 @@ mod tests {
         assert!(g.sacked());
         g.advance_day().unwrap();
         assert!(g.jobs_view(None).unwrap().unemployed);
+
+        // Lugar ocupado: um treinador seguro não sai; um à beira do despedimento sim
+        let other =
+            g.managed_clubs().unwrap().into_iter().find(|&c| c != target && c != PALMEIRAS && g.coach_of(c).unwrap().is_some()).unwrap();
+        let old_coach = g.coach_of(other).unwrap().unwrap().0;
+        g.world.conn.execute("INSERT OR REPLACE INTO ai_boards (club_id, confidence) VALUES (?, 80)", [other]).unwrap();
+        assert!(g.apply_job(other).is_err(), "treinador seguro");
+        g.world.conn.execute("INSERT OR REPLACE INTO ai_boards (club_id, confidence) VALUES (?, 10)", [other]).unwrap();
+        assert!(g.apply_job(other).is_ok());
+        g.date = date::add_days(&g.date, APPLY_DAYS).unwrap();
+        let (mut fresh, mut id) = (Vec::new(), 9000);
+        g.jobs_day(&mut fresh, &mut id).unwrap();
+        let offer = fresh.iter().find(|n| n.title.starts_with("Proposta do")).and_then(|n| n.offer_id).expect("proposta do lugar ocupado");
+        g.answer_offer(offer, "accept", None).unwrap();
+        assert_eq!(g.club_id, other);
+        let still: Option<i32> = g.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [old_coach], |r| r.get(0)).unwrap();
+        assert_eq!(still, None, "o treinador antigo sai");
+        assert_eq!(g.coach_of(other).unwrap(), None);
+
+        // Propostas por iniciativa própria: sem clube, ao fim de uns meses aparece uma
+        let (mut fresh, mut id) = (Vec::new(), 9000);
+        g.change_confidence(-100, &mut fresh, &mut id).unwrap();
+        assert!(g.sacked());
+        let mut got = false;
+        for _ in 0..36 {
+            let next = date::add_days(&format!("{}-01", &g.date[0..7]), 40).unwrap();
+            g.date = format!("{}-01", &next[0..7]);
+            let (mut fresh, mut id) = (Vec::new(), 9000);
+            g.unsolicited_offer(&mut fresh, &mut id).unwrap();
+            if fresh.iter().any(|n| n.title.starts_with("Proposta do") && n.offer_id.is_some()) {
+                got = true;
+                break;
+            }
+        }
+        assert!(got, "nenhum clube fez proposta em 3 anos");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

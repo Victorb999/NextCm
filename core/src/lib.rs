@@ -27,7 +27,6 @@ pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry, TableZone};
 pub use engine::{TeamStrength, expected_goals};
 pub use finance::{ClubFinances, FinanceLine, SeasonBooks};
-pub use game::CareerClub;
 pub use game::ContractExtras;
 pub use game::LineupCheck;
 pub use game::MatchSheet;
@@ -39,6 +38,7 @@ pub use game::{
     OfferView, ReportStaff, RoleOption, SaveSummary, ScoutFind, ScoutList, SquadNumbers, StageView, StartSeason, TieView, TransferItem,
     TransferView, delete_save, list_saves,
 };
+pub use game::{CareerClub, ManagerStats};
 pub use game::{DealTerms, LoanTerms};
 pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use game::{PressQuestion, PressView};
@@ -54,7 +54,7 @@ pub use person::{Attributes, CareerEntry, ClubRef, Knowledge, PersonProfile, Pla
 pub use search::{
     AttributeMin, MarketStatus, PersonKind, PersonSummary, Position, PositionTag, SearchQuery, SearchResult, SearchSort, Side,
 };
-pub use session::Session;
+pub use session::{ContinueStep, Session};
 pub use squad::PlayerStatus;
 pub use tactic_file::{SavedFile, SavedTactic};
 pub use tactics::{

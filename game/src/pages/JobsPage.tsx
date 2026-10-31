@@ -76,11 +76,10 @@ export default function JobsPage() {
                 <span className="w-28 truncate text-cm-yellow">{r.nation}</span>
                 <span className="w-8 text-center font-mono text-cm-orange">{r.letter}</span>
                 <span className="min-w-0 flex-1 truncate text-[#c8c8d0]">{r.situation}</span>
-                {r.vacant && (
-                  <button className="cm-purple h-6 w-40 shrink-0 text-[13px]" disabled={r.applied} onClick={() => void apply(r.club.id)}>
-                    {r.applied ? 'Candidatura feita' : 'Concorrer ao Lugar'}
-                  </button>
-                )}
+                {/* Vagos e treinadores inseguros (os da lista): o clube decide pela reputação e pela confiança */}
+                <button className="cm-purple h-6 w-40 shrink-0 text-[13px]" disabled={r.applied} onClick={() => void apply(r.club.id)}>
+                  {r.applied ? 'Candidatura feita' : 'Concorrer ao Lugar'}
+                </button>
               </div>
             ))}
           </div>

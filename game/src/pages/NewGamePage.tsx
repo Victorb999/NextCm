@@ -8,6 +8,7 @@ import { api } from '../api'
 import type { NationOption } from '../bindings/NationOption'
 import type { NationProfile } from '../bindings/NationProfile'
 import { DialogFrame, DialogRow, Overlay } from '../components/Dialog'
+import { LICENSES } from '../format'
 import Loading from '../components/Loading'
 import PickList, { type PickGroup, type PickItem } from '../components/PickList'
 import { useGame } from '../game'
@@ -44,7 +45,7 @@ export default function NewGamePage() {
   const [leagueNations, setLeagueNations] = useState<LeagueNation[]>([])
   const [choices, setChoices] = useState<LeagueChoice[]>([])
   const [nations, setNations] = useState<NationOption[]>([])
-  const [form, setForm] = useState({ saveName: 'Jogo 1', firstName: '', lastName: '', birth: '', nationId: null as number | null })
+  const [form, setForm] = useState({ saveName: 'Jogo 1', firstName: '', lastName: '', birth: '', nationId: null as number | null, license: 0 })
   const [clubNation, setClubNation] = useState<number | null>(null)
   const [nation, setNation] = useState<NationProfile | null>(null)
   const [club, setClub] = useState<PickItem | null>(null)
@@ -114,6 +115,7 @@ export default function NewGamePage() {
         clubId: chosen.id,
         leagues: choices,
         start: season,
+        license: form.license,
       })
       game.update(info)
       nav.go({ kind: 'news' })
@@ -197,6 +199,15 @@ export default function NewGamePage() {
                 />
               </DialogRow>
               <DialogRow label="Nacionalidade">{nationSelect(form.nationId, (id) => set({ nationId: id }))}</DialogRow>
+              <DialogRow label="Qualificações">
+                <select className={FIELD} value={form.license} onChange={(e) => set({ license: Number(e.target.value) })}>
+                  {LICENSES.map((l, i) => (
+                    <option key={l} value={i}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              </DialogRow>
               <ErrorBox>{error}</ErrorBox>
               <button type="submit" className="hidden" />
             </form>

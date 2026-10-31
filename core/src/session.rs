@@ -23,6 +23,18 @@ use crate::{DealTerms, LoanTerms};
 use crate::{TalkLine, TalkReaction, TalkView};
 use crate::{TrainingPlan, TrainingView};
 
+/// Um dia do Continuar Jogo (comando `continue_step`).
+#[derive(Debug, Clone, serde::Serialize, ts_rs::TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct ContinueStep {
+    pub info: GameInfo,
+    /// O Continuar Jogo pára aqui (notícias, o jogo do treinador ou muitos dias sem nada).
+    pub stop: bool,
+    /// Os resultados do dia ("Série A: Santos 2-1 Bahia").
+    pub results: Vec<String>,
+}
+
 pub struct Session {
     world_path: PathBuf,
     saves_dir: PathBuf,
@@ -271,6 +283,10 @@ impl Session {
         self.game()?.manager_career()
     }
 
+    pub fn manager_stats(&self) -> Result<crate::ManagerStats> {
+        self.game()?.manager_stats()
+    }
+
     /// "Gravar Jogo" com outro nome: grava, copia para o ficheiro novo e continua nele.
     /// Com um ficheiro desse nome já gravado, só substitui com `overwrite`.
     pub fn save_as(&mut self, name: String, overwrite: bool) -> Result<GameInfo> {
@@ -331,6 +347,14 @@ impl Session {
         let game = self.game_mut()?;
         game.advance_to_next_event()?;
         game.info()
+    }
+
+    /// Um dia do Continuar Jogo: a tela repete-o até `stop`, com os resultados do dia na barra
+    /// do "Processando" (`idle` = dias que já passaram sem nada).
+    pub fn continue_step(&mut self, idle: i32) -> Result<ContinueStep> {
+        let game = self.game_mut()?;
+        let (_, stop) = game.advance_step(idle)?;
+        Ok(ContinueStep { stop, results: game.day_results(), info: game.info()? })
     }
 
     /// O jogo do treinador a decorrer (tela da partida).
@@ -631,6 +655,7 @@ mod tests {
             club_id: 7568,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         };
         s.new_game(&new).unwrap();
         s.save_as("Cópia".into(), false).unwrap();

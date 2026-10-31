@@ -2,6 +2,7 @@ import { ScrollText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { CareerClub } from '../bindings/CareerClub'
+import type { ManagerStats } from '../bindings/ManagerStats'
 import { BottomBar, Empty, Link, Panel, ScreenHeader } from '../components/Screen'
 import { cmDate, money } from '../format'
 import { useGame } from '../game'
@@ -13,12 +14,38 @@ export default function CareerPage() {
   const game = useGame()
   useEscBack()
   const [clubs, setClubs] = useState<CareerClub[]>([])
+  const [stats, setStats] = useState<ManagerStats | null>(null)
   useEffect(() => {
     api.managerCareer().then(setClubs, () => setClubs([]))
+    api.managerStats().then(setStats, () => setStats(null))
   }, [game.info?.date])
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader icon={<ScrollText size={22} />} eyebrow={game.info?.managerName} title="Currículo" />
+      {stats && (
+        <Panel title="Estatísticas" className="mx-2 mb-2 shrink-0">
+          <div className="cm-zebra text-[14px]">
+            <div className="flex h-7 items-center gap-4 px-3">
+              <span className="w-44 text-[#c8c8d0]">Reputação</span>
+              <span className="font-bold text-cm-yellow">{stats.level}</span>
+            </div>
+            <div className="flex h-7 items-center gap-4 px-3">
+              <span className="w-44 text-[#c8c8d0]">Qualificações</span>
+              <span className="font-bold text-cm-yellow">{stats.license}</span>
+            </div>
+            {stats.nations.map((n) => (
+              <div key={n.nation} className="flex h-7 items-center gap-4 px-3">
+                <span className="w-44 truncate text-[#c8c8d0]">{n.nation}</span>
+                <span className="w-28 font-bold text-cm-yellow">{n.level}</span>
+                <span className="text-[13px] text-[#c8c8d0]">
+                  {n.years.toLocaleString('pt-BR')} {n.years === 1 ? 'ano' : 'anos'}
+                  {n.titles > 0 && ` · ${n.titles} ${n.titles === 1 ? 'título' : 'títulos'}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
       <Panel title="Clubes" className="mx-2 mb-1 min-h-0 flex-1">
         <div className="min-h-0 flex-1 overflow-auto">
           {clubs.length === 0 ? (

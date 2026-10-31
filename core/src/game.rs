@@ -65,7 +65,7 @@ pub use discipline::DisciplineOptions;
 pub use jobs::{JobNation, JobRow, JobsView};
 pub use leagues::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use lineup_check::LineupCheck;
-pub use manager_career::CareerClub;
+pub use manager_career::{CareerClub, ManagerStats};
 pub use market::TransferItem;
 pub use market_view::WorldTransfers;
 pub use negotiation::{DealTerms, LoanTerms};
@@ -119,7 +119,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// 33: o treino (`training_programs`, `training_players`), marco 3.17.
 /// 34: os prémios e cláusulas dos contratos (`contract_talks.extras`, `contract_extras`) e os
 /// minutos e cartões de cada jogo (`player_matches`), para a ficha da partida.
-pub const SAVE_VERSION: i32 = 34;
+pub const SAVE_VERSION: i32 = 35;
 
 /// Os jogadores de enchimento (save 32): criados para completar os plantéis dos clubes
 /// pequenos, só jogam pelo clube deles (sem mercado, contratos nem olheiros), como os do CM.
@@ -208,6 +208,9 @@ CREATE TABLE ai_boards (club_id INTEGER PRIMARY KEY, confidence INTEGER NOT NULL
 CREATE TABLE vacancies (club_id INTEGER PRIMARY KEY, since TEXT NOT NULL);
 CREATE TABLE manager_info (id INTEGER PRIMARY KEY CHECK (id = 1), reputation INTEGER NOT NULL);
 ";
+
+/// Qualificações do treinador (save 35): 0 Nenhuma a 4 Licença Pro.
+const LICENSE_SCHEMA: &str = "ALTER TABLE manager_info ADD COLUMN license INTEGER NOT NULL DEFAULT 0;";
 
 /// Reservas (save 21).
 const RESERVES_SCHEMA: &str = "ALTER TABLE player_state ADD COLUMN reserve INTEGER NOT NULL DEFAULT 0;";
@@ -443,6 +446,9 @@ pub struct NewGame {
     /// "Escolher Iniciar Época".
     #[serde(default)]
     pub start: StartSeason,
+    /// Qualificações do treinador: 0 Nenhuma, 1 Licença C, 2 B, 3 A, 4 Pro.
+    #[serde(default)]
+    pub license: i32,
 }
 
 /// Época em que o jogo começa ("Escolher Iniciar Época", como no CM).
@@ -670,6 +676,7 @@ impl Game {
             tx.execute_batch(GHOSTS_SCHEMA)?;
             tx.execute_batch(training::TRAINING_SCHEMA)?;
             tx.execute_batch(contract_extras::EXTRAS_SCHEMA)?;
+            tx.execute_batch(LICENSE_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -768,6 +775,7 @@ impl Game {
             }
             game.board_setup()?;
             game.career_join(new.club_id)?;
+            game.set_license(new.license)?;
             game.youth_to_reserves()?;
             if new.start == StartSeason::Brazil {
                 game.play_to_brazil_start()?;
@@ -990,6 +998,11 @@ impl Game {
             world.conn.execute_batch(contract_extras::EXTRAS_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 34", [])?;
             version = 34;
+        }
+        if version == 34 {
+            world.conn.execute_batch(LICENSE_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 35", [])?;
+            version = 35;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -1473,18 +1486,50 @@ impl Game {
     /// de uma competição...), até à véspera de um jogo do treinador (para ver o Próximo
     /// Jogo antes de o jogar) ou até [`MAX_IDLE_DAYS`] dias sem nada.
     pub fn advance_to_next_event(&mut self) -> Result<Vec<NewsItem>> {
-        for _ in 0..MAX_IDLE_DAYS {
-            let news = self.advance_day()?;
-            // As transferências do dia ficam nas notícias mas não param o Continuar Jogo
-            if news.iter().any(|n| n.kind != "transfer") || self.live.is_some() {
+        for idle in 0..MAX_IDLE_DAYS {
+            let (news, stop) = self.advance_step(idle)?;
+            if stop {
                 return Ok(news);
-            }
-            let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
-            if self.matches.iter().any(|m| m.date == tomorrow && (m.home_id == self.club_id || m.away_id == self.club_id)) {
-                break;
             }
         }
         Ok(Vec::new())
+    }
+
+    /// Um dia do Continuar Jogo (a tela avança dia a dia para mostrar os resultados na barra
+    /// de baixo): `idle` é quantos dias já passaram sem nada. Devolve as notícias do dia e se
+    /// o Continuar Jogo pára aqui: notícias que não são transferências, o jogo do treinador
+    /// (hoje ou amanhã) ou [`MAX_IDLE_DAYS`] dias sem nada.
+    pub fn advance_step(&mut self, idle: i32) -> Result<(Vec<NewsItem>, bool)> {
+        let news = self.advance_day()?;
+        // As transferências do dia ficam nas notícias mas não param o Continuar Jogo
+        if news.iter().any(|n| n.kind != "transfer") || self.live.is_some() {
+            return Ok((news, true));
+        }
+        let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
+        let ours_tomorrow = self.matches.iter().any(|m| m.date == tomorrow && (m.home_id == self.club_id || m.away_id == self.club_id));
+        Ok((Vec::new(), ours_tomorrow || idle + 1 >= MAX_IDLE_DAYS))
+    }
+
+    /// Os resultados de hoje para a barra do "Processando" ("Série A: Santos 2-1 Bahia"),
+    /// primeiro os do país do treinador.
+    pub fn day_results(&self) -> Vec<String> {
+        let own: Option<i32> =
+            self.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0)).unwrap_or(None);
+        let mut out: Vec<(bool, String)> = self
+            .matches
+            .iter()
+            .filter(|m| m.date == self.date)
+            .filter_map(|m| {
+                let (h, a) = m.result?;
+                let nation = self.comp_nations.get(&m.competition_id).copied();
+                let home = self.club(m.home_id).short_name;
+                let away = self.club(m.away_id).short_name;
+                let comp = self.competitions.get(&m.competition_id).cloned().unwrap_or_default();
+                Some((nation.is_none() || nation != own, format!("{comp}: {home} {h}-{a} {away}")))
+            })
+            .collect();
+        out.sort_by_key(|a| a.0);
+        out.into_iter().map(|(_, s)| s).take(60).collect()
     }
 
     /// A equipa de um clube para o jogo de hoje. No clube do treinador, a escolha dele
@@ -2472,6 +2517,7 @@ mod tests {
             club_id,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         }
     }
 

@@ -128,7 +128,10 @@ pub struct TransferView {
     pub availability: String,
     pub offers: Vec<String>,
     pub interested: Vec<ClubRef>,
-    pub future: Option<String>,
+    /// As frases do Futuro, como no CM (o lugar no plantel e o que mais o preocupa).
+    pub future: Vec<String>,
+    /// Possíveis Despesas: os prémios do contrato que o clube pode ter de pagar.
+    pub expenses: Vec<String>,
 }
 
 /// Funções no clube ("Definir Função No Clube" do CM): chave, texto e peso (0 = a mais
@@ -656,6 +659,7 @@ impl Game {
             offers,
             interested,
             future,
+            expenses: self.expenses(person, mine)?,
             person_id: person,
             mine,
             free: f.club.is_none(),
@@ -690,8 +694,8 @@ impl Game {
         f: &Facts,
         mine: bool,
         listing: Option<(bool, bool, Option<i64>)>,
-    ) -> Result<(String, Option<String>)> {
-        let Some(club) = f.club else { return Ok(("Livre: sem contrato".into(), None)) };
+    ) -> Result<(String, Vec<String>)> {
+        let Some(club) = f.club else { return Ok(("Livre: sem contrato".into(), Vec::new())) };
         let days_left = f.expires.as_deref().and_then(date::parse).zip(date::parse(&self.date)).map(|(e, t)| e - t);
         let (rank, _) = self.squad_rank(club, person, f.role)?;
         let loan = self.loan_of(person)?.filter(|l| Some(l.0) != f.club);
@@ -711,7 +715,7 @@ impl Game {
         } else {
             None
         };
-        let future = match role.and_then(|k| SQUAD_ROLES.iter().find(|r| r.0 == k)) {
+        let mut future = vec![match role.and_then(|k| SQUAD_ROLES.iter().find(|r| r.0 == k)) {
             Some(r) => r.1.to_string(),
             None => match rank {
                 0..3 => "Pensa que é um membro essencial ao plantel".into(),
@@ -720,8 +724,50 @@ impl Game {
                 _ if f.age <= PROSPECT_AGE => "Pensa que tem uma boa perspectiva futura no clube".into(),
                 _ => "Pensa que é um apoio à primeira equipa".into(),
             },
-        };
-        Ok((availability, Some(future)))
+        }];
+        // O que mais lhe passa pela cabeça, pela personalidade e pelo lugar no plantel
+        let (adaptability, ambition, abroad): (Option<i32>, Option<i32>, bool) = self.world.conn.query_row(
+            "SELECT p.adaptability, p.ambition, COALESCE(p.nation_id <> c.nation_id, 0)
+             FROM people p JOIN clubs c ON c.id = p.club_id WHERE p.id = ?",
+            [person],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )?;
+        let outside = rank >= 11;
+        if outside && ambition.unwrap_or(10) >= 15 {
+            future.push("Espera impressionar os olheiros de outros clubes".into());
+        }
+        if abroad && adaptability.unwrap_or(10) <= 8 {
+            future.push("Tem saudades do seu país".into());
+        }
+        if outside && f.age <= 23 {
+            future.push("Está a tentar conquistar um lugar na equipa principal".into());
+        }
+        let requested: bool = self
+            .world
+            .conn
+            .query_row("SELECT requested FROM transfer_list WHERE person_id = ?", [person], |r| r.get(0))
+            .optional()?
+            .unwrap_or(false);
+        if requested {
+            future.push("Pediu para ser transferido".into());
+        }
+        Ok((availability, future))
+    }
+
+    /// Possíveis Despesas de um jogador do plantel do treinador: os prémios do contrato.
+    fn expenses(&self, person: i32, mine: bool) -> Result<Vec<String>> {
+        let Some(e) = self.contract_extras(person)?.filter(|_| mine) else { return Ok(Vec::new()) };
+        let mut out = Vec::new();
+        if e.goal_bonus > 0 {
+            out.push(format!("{} por golo marcado", money_text(e.goal_bonus)));
+        }
+        if e.assist_bonus > 0 {
+            out.push(format!("{} por assistência", money_text(e.assist_bonus)));
+        }
+        if e.clean_sheet_bonus > 0 {
+            out.push(format!("{} por jogo sem sofrer golos", money_text(e.clean_sheet_bonus)));
+        }
+        Ok(out)
     }
 
     /// O veto da direção a uma função: pela idade (as de jovem) ou pelos valores envolvidos
@@ -1893,6 +1939,7 @@ mod tests {
             club_id: PALMEIRAS,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         };
         let mut g = Game::create(&path, &dir, &new, 3).unwrap();
         g.world.conn.execute("UPDATE clubs SET cash = 200000000 WHERE id = ?", [PALMEIRAS]).unwrap();
@@ -2110,6 +2157,7 @@ Palmeiras fez uma nova proposta."
             club_id: PALMEIRAS,
             leagues: Vec::new(),
             start: Default::default(),
+            license: 0,
         };
         let mut g = Game::create(&path, &dir, &new, 5).unwrap();
         let set = |g: &Game, id: i32, col: &str, v: i32| {
