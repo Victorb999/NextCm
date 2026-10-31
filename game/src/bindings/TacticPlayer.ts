@@ -16,4 +16,8 @@ condition: number | null, morale: number | null, injured: boolean, suspended: bo
 /**
  * Jogador-chave do plantel (o `*` depois do nome); só num jogo em curso.
  */
-key: boolean, };
+key: boolean, 
+/**
+ * Golos, as últimas notas e a nota média nesta época (o Vêr das Tácticas); só num jogo em curso.
+ */
+goals: number, form: Array<number>, rating: number | null, };

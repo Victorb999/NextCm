@@ -44,11 +44,21 @@ impl Game {
     }
 
     /// O `*` dos jogadores-chave também nas Tácticas.
+    /// Os jogadores-chave e, para o Vêr das Tácticas, os golos, a forma e a nota média da época.
     pub(super) fn mark_key_players(&self, t: &mut ClubTactics) -> Result<()> {
         let keys = self.key_players(t.club_id)?;
+        let start = self.season_start(Some(t.club_id))?;
         let players = t.starters.iter_mut().filter_map(|s| s.player.as_mut()).chain(&mut t.bench).chain(&mut t.reserves);
         for p in players {
             p.key = keys.contains(&p.id);
+            p.form = self.form_of(p.id)?;
+            let (goals, rating): (i32, Option<f64>) = self
+                .world
+                .conn
+                .prepare_cached("SELECT COALESCE(SUM(goals), 0), AVG(rating) FROM player_matches WHERE person_id = ? AND date >= ?")?
+                .query_row(params![p.id, start], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            p.goals = goals;
+            p.rating = rating.map(|r| (r * 100.0).round() / 100.0);
         }
         Ok(())
     }

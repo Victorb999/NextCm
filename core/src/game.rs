@@ -2242,7 +2242,9 @@ impl Game {
     /// As Tácticas de um lado do jogo do treinador (0 casa, 1 fora), como a tela as mostra.
     pub fn live_tactics(&self, side: i32) -> Result<ClubTactics> {
         let day = self.live_day()?;
-        day.games[day.user].1.tactics(&self.world, side.clamp(0, 1) as usize, None)
+        let mut t = day.games[day.user].1.tactics(&self.world, side.clamp(0, 1) as usize, None)?;
+        self.mark_key_players(&mut t)?;
+        Ok(t)
     }
 
     /// Como ficaria a equipa do treinador com esta escolha (sem mexer no jogo).
@@ -2250,7 +2252,9 @@ impl Game {
         let day = self.live_day()?;
         let live = &day.games[day.user].1;
         let side = live.user_side().ok_or_else(|| Error::Invalid("Este jogo não é da sua equipa.".into()))?;
-        live.tactics(&self.world, side, Some(sel))
+        let mut t = live.tactics(&self.world, side, Some(sel))?;
+        self.mark_key_players(&mut t)?;
+        Ok(t)
     }
 
     /// O Ok das Tácticas a meio do jogo: aplica a escolha toda de uma vez.

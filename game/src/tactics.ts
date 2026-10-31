@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { ClubTactics } from './bindings/ClubTactics'
+import type { Marking } from './bindings/Marking'
 import type { Mentality } from './bindings/Mentality'
+import type { PassTo } from './bindings/PassTo'
 import type { Passing } from './bindings/Passing'
 import type { PlayerOrders } from './bindings/PlayerOrders'
+import type { SetPiece } from './bindings/SetPiece'
 import type { Tackling } from './bindings/Tackling'
 import type { Selection } from './bindings/Selection'
 import type { TacticPlayer } from './bindings/TacticPlayer'
@@ -38,6 +41,131 @@ export const TACKLING: [Tackling, string][] = [
   ['soft', 'Suave'],
   ['hard', 'Duro'],
 ]
+
+// Opções das instruções individuais (diálogo do jogador e o Vêr das Tácticas)
+export const ORDER_PASSING: [Passing | null, string][] = [
+  [null, 'Equipa'],
+  ['mixed', 'Misto'],
+  ['short', 'Curto'],
+  ['direct', 'Directo'],
+  ['long', 'Longo'],
+]
+export const ORDER_TACKLING: [Tackling | null, string][] = [
+  [null, 'Equipa'],
+  ['normal', 'Normal'],
+  ['soft', 'Suave'],
+  ['hard', 'Duro'],
+]
+export const ORDER_PRESSING: [boolean | null, string][] = [
+  [null, 'Equipa'],
+  [false, 'Não'],
+  [true, 'Sim'],
+]
+export const ORDER_PASS_TO: [PassTo, string][] = [
+  ['mixed', 'D/E/C'],
+  ['left', 'Esquerda'],
+  ['centre', 'Centro'],
+  ['right', 'Direita'],
+]
+export const ORDER_SET_PIECE: [SetPiece, string][] = [
+  ['normal', 'Normal'],
+  ['back', 'Atrás'],
+  ['forward', 'Frente'],
+]
+export const ORDER_MARKING: [Marking, string][] = [
+  ['zonal', 'Zona'],
+  ['none', 'Nenhuma'],
+  ['manToMan', 'H-H'],
+]
+export const ORDER_FLAGS: [keyof PlayerOrders, string][] = [
+  ['freeRole', 'Acção Livre'],
+  ['forwardRuns', 'Movimentos Frente'],
+  ['runWithBall', 'Correr com Bola'],
+  ['holdBall', 'Segurar Bola'],
+  ['longShots', 'Remates Longe'],
+  ['throughBalls', 'Passes Costas'],
+  ['crosses', 'Cruzamentos'],
+]
+
+/** O Vêr das Tácticas, como no CM: o que mostra a coluna da direita da lista. */
+export type TacticsView =
+  | 'position'
+  | 'condition'
+  | 'goals'
+  | 'form'
+  | 'rating'
+  | 'passing'
+  | 'tackling'
+  | 'pressing'
+  | 'passTo'
+  | 'setAttack'
+  | 'setDefence'
+  | 'freeRole'
+  | 'forwardRuns'
+  | 'runWithBall'
+  | 'holdBall'
+  | 'longShots'
+  | 'throughBalls'
+  | 'crosses'
+  | 'marking'
+
+export const TACTICS_VIEWS: ({ key: TacticsView; label: string } | 'separator')[] = [
+  { key: 'position', label: 'Posição' },
+  { key: 'condition', label: 'Condição' },
+  { key: 'goals', label: 'Golos' },
+  { key: 'form', label: 'Forma' },
+  { key: 'rating', label: 'Classificação Média' },
+  'separator',
+  { key: 'passing', label: 'Passe' },
+  { key: 'tackling', label: 'Desarme' },
+  { key: 'pressing', label: 'Pressão' },
+  { key: 'passTo', label: 'Passar para' },
+  { key: 'setAttack', label: 'Bolas Paradas (A)' },
+  { key: 'setDefence', label: 'Bolas Paradas (D)' },
+  { key: 'freeRole', label: 'Acção Livre' },
+  { key: 'forwardRuns', label: 'Movimentos Frente' },
+  { key: 'runWithBall', label: 'Correr com Bola' },
+  { key: 'holdBall', label: 'Segurar Bola' },
+  { key: 'longShots', label: 'Remates Longe' },
+  { key: 'throughBalls', label: 'Passes Costas Defesa' },
+  { key: 'crosses', label: 'Cruzamentos' },
+  { key: 'marking', label: 'Marcação' },
+]
+
+const pick = <T,>(options: [T, string][], v: T) => options.find(([k]) => k === v)?.[1] ?? '-'
+
+/** O valor da coluna do Vêr para um jogador; `on` pinta-o a amarelo (os números, e nas instruções o Sim
+ * ou o que não é o da equipa). */
+export function viewValue(view: TacticsView, p: TacticPlayer, o: PlayerOrders): { text: string; on: boolean } {
+  switch (view) {
+    case 'position':
+      return { text: p.position, on: false }
+    case 'condition':
+      return { text: `${p.condition ?? 100}%`, on: true }
+    case 'goals':
+      return { text: String(p.goals), on: true }
+    case 'form':
+      return { text: p.form.length ? p.form.map((r) => Math.round(r)).join('-') : '-', on: true }
+    case 'rating':
+      return { text: p.rating === null ? '-' : p.rating.toFixed(2).replace('.', ','), on: true }
+    case 'passing':
+      return { text: pick(ORDER_PASSING, o.passing), on: o.passing !== null }
+    case 'tackling':
+      return { text: pick(ORDER_TACKLING, o.tackling), on: o.tackling !== null }
+    case 'pressing':
+      return { text: pick(ORDER_PRESSING, o.pressing), on: o.pressing !== null }
+    case 'passTo':
+      return { text: pick(ORDER_PASS_TO, o.passTo), on: o.passTo !== 'mixed' }
+    case 'setAttack':
+      return { text: pick(ORDER_SET_PIECE, o.setAttack), on: o.setAttack !== 'normal' }
+    case 'setDefence':
+      return { text: pick(ORDER_SET_PIECE, o.setDefence), on: o.setDefence !== 'normal' }
+    case 'marking':
+      return { text: pick(ORDER_MARKING, o.marking), on: o.marking !== 'zonal' }
+    default:
+      return { text: o[view] ? 'Sim' : 'Não', on: !!o[view] }
+  }
+}
 
 /** Instruções individuais iguais às da equipa. */
 export const NO_ORDERS: PlayerOrders = {
@@ -136,3 +264,7 @@ export function moveOnPitch(t: ClubTactics, index: number, x: number, y: number)
   positions[index] = [Math.round(Math.min(96, Math.max(4, x))), Math.round(Math.min(85, Math.max(4, y)))]
   return { ...selectionOf(t), positions, auto: false }
 }
+
+/** O rótulo do Vêr escolhido (o título da coluna). */
+export const viewLabel = (view: TacticsView) =>
+  TACTICS_VIEWS.find((v): v is { key: TacticsView; label: string } => v !== 'separator' && v.key === view)?.label ?? 'Posição'

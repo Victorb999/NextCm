@@ -33,6 +33,9 @@ const blank = (id: number): TrainingProgram => ({
   newSide: null,
 })
 
+/** As colunas do Vêr Atributos: as áreas do treino, pela ordem do programa. */
+const AREA_LABELS = ['Físico', 'Táctica', 'Remate', 'Técnica', 'G-Redes']
+
 export default function TrainingPage() {
   const nav = useNav()
   const game = useGame()
@@ -123,7 +126,10 @@ export default function TrainingPage() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const [columns, setColumns] = useState<'general' | 'attributes'>('general')
   const head = 'font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#86869a]'
+  // Vêr Atributos: a média de cada área de treino de cada jogador (do core)
+  const areasOf = (id: number) => view?.areas.find((a) => a.person === id)?.areas ?? [null, null, null, null, null]
   const cell = (i: number) => `shrink-0 truncate font-mono text-[12.5px] ${i === selected ? 'text-white' : 'text-cm-yellow'}`
   return (
     <div className="relative flex h-full flex-col">
@@ -143,6 +149,15 @@ export default function TrainingPage() {
         >
           Editar Programa
         </button>
+        <PurpleMenu
+          label="Vêr"
+          options={[
+            { key: 'general', label: 'Geral' },
+            { key: 'attributes', label: 'Atributos' },
+          ]}
+          value={columns}
+          onChange={setColumns}
+        />
         <button className="cm-purple h-6 w-40" disabled={!view} onClick={() => setDialog({ kind: 'coaches' })}>
           Treinadores
         </button>
@@ -180,10 +195,20 @@ export default function TrainingPage() {
                 <span className="min-w-28 flex-1">Nome</span>
                 <span className="w-24">Posição</span>
                 <span className="w-12 text-right">Idade</span>
-                <span className="w-20">Forma</span>
-                <span className="w-20">Moral</span>
-                <span className="w-14 text-right">Cond.</span>
-                <span className="w-20 text-right">Valor</span>
+                {columns === 'general' ? (
+                  <>
+                    <span className="w-20">Forma</span>
+                    <span className="w-20">Moral</span>
+                    <span className="w-14 text-right">Cond.</span>
+                    <span className="w-20 text-right">Valor</span>
+                  </>
+                ) : (
+                  AREA_LABELS.map((l) => (
+                    <span key={l} className="w-16 text-right">
+                      {l}
+                    </span>
+                  ))
+                )}
               </div>
               <div className="cm-zebra">
                 {rows.map((p, i) => (
@@ -201,10 +226,20 @@ export default function TrainingPage() {
                     </span>
                     <span className={`w-24 ${cell(i)}`}>{p.position}</span>
                     <span className={`w-12 text-right ${cell(i)}`}>{p.age ?? '-'}</span>
-                    <span className={`w-20 ${cell(i)}`}>{p.form.length ? p.form.map((f) => Math.round(f)).join(' ') : '-'}</span>
-                    <span className={`w-20 ${cell(i)}`}>{p.morale ?? '-'}</span>
-                    <span className={`w-14 text-right ${cell(i)}`}>{p.condition === null ? '-' : `${p.condition}%`}</span>
-                    <span className={`w-20 text-right ${cell(i)}`}>{p.free ? 'Livre' : money(p.value)}</span>
+                    {columns === 'general' ? (
+                      <>
+                        <span className={`w-20 ${cell(i)}`}>{p.form.length ? p.form.map((f) => Math.round(f)).join(' ') : '-'}</span>
+                        <span className={`w-20 ${cell(i)}`}>{p.morale ?? '-'}</span>
+                        <span className={`w-14 text-right ${cell(i)}`}>{p.condition === null ? '-' : `${p.condition}%`}</span>
+                        <span className={`w-20 text-right ${cell(i)}`}>{p.free ? 'Livre' : money(p.value)}</span>
+                      </>
+                    ) : (
+                      areasOf(p.id).map((v, k) => (
+                        <span key={k} className={`w-16 text-right ${cell(i)}`}>
+                          {v ?? '-'}
+                        </span>
+                      ))
+                    )}
                   </div>
                 ))}
               </div>

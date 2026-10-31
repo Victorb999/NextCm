@@ -9,7 +9,7 @@ import InstructionsDialog from './InstructionsDialog'
 import PlayerOrdersDialog from './PlayerOrdersDialog'
 import { BottomBar, ErrorBox, PanelTitle, PurpleMenu, ScreenHeader } from './Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from './TacticsBoard'
-import { TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
+import { TACTICS_MENU, TACTICS_VIEWS, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, viewLabel, viewValue, withOrders, type TacticsView } from '../tactics'
 
 /**
  * "Tácticas <clube>" a meio do jogo: a mesma tela de Tácticas (arrastar na lista ou no
@@ -38,6 +38,9 @@ export default function LiveTactics({
   const [error, setError] = useState<string | null>(null)
   const [instructions, setInstructions] = useState(false)
   const [ordersFor, setOrdersFor] = useState<TacticPlayer | null>(null)
+  // O Vêr: o que a coluna da direita da lista mostra (posição, condição, golos, instruções...)
+  const [viewing, setViewing] = useState<TacticsView>('position')
+  const col = (p: TacticPlayer) => (viewing === 'position' || !t ? undefined : viewValue(viewing, p, ordersOf(t, p.id)))
   const [busy, setBusy] = useState(false)
   // Como estava ao abrir: quem estava em campo (para contar as substituições) e a escolha
   const [original, setOriginal] = useState<{ on: number[]; sel: Selection } | null>(null)
@@ -126,6 +129,7 @@ export default function LiveTactics({
             else if (t) void preview({ ...selectionOf(t), formation: Number(k), positions: [] })
           }}
         />
+        <PurpleMenu label="Vêr" options={TACTICS_VIEWS} value={viewing} onChange={setViewing} />
         <div className="flex-1" />
         {editable && (
           <span className="px-2 text-[12px] text-cm-yellow">
@@ -149,7 +153,7 @@ export default function LiveTactics({
           <div className="flex min-h-0 w-[50%] flex-col gap-2 overflow-y-auto overflow-x-hidden">
             <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
               <PanelTitle title="Onze Titular" chip={`${t.formation}${t.custom ? '*' : ''}`} />
-              <RowHeader place="Pos" rating />
+              <RowHeader place="Pos" rating column={viewLabel(viewing)} />
               <div className="cm-zebra">
                 {t.starters.map((s, i) => {
                   const spot: Spot = { kind: 'starter', index: i }
@@ -157,6 +161,7 @@ export default function LiveTactics({
                     <Row
                       key={`s${i}`}
                       p={s.player}
+                      column={col(s.player)}
                       kind="starter"
                       place={shortRole(s.role)}
                       bind={drag.bind(spot, label(s))}
@@ -177,7 +182,7 @@ export default function LiveTactics({
             </div>
             <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
               <PanelTitle title="Banco de Suplentes" chip={`${t.bench.length}`} />
-              <RowHeader place="Slot" rating />
+              <RowHeader place="Slot" rating column={viewLabel(viewing)} />
               <div className="cm-zebra">
                 {t.bench.map((p, i) => {
                   // Quem estava em campo e foi para o banco nesta tela sai de vez no Ok (antes do apito volta ao banco)
@@ -186,6 +191,7 @@ export default function LiveTactics({
                     <Row
                       key={`b${p.id}`}
                       p={p}
+                      column={col(p)}
                       kind="reserve"
                       place="Sai"
                       bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))}
@@ -196,6 +202,7 @@ export default function LiveTactics({
                     <Row
                       key={`b${p.id}`}
                       p={p}
+                      column={col(p)}
                       kind="bench"
                       place={`SB${i + 1}`}
                       bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))}

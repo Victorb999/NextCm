@@ -1,60 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Marking } from '../bindings/Marking'
-import type { PassTo } from '../bindings/PassTo'
-import type { Passing } from '../bindings/Passing'
 import type { PlayerOrders } from '../bindings/PlayerOrders'
-import type { SetPiece } from '../bindings/SetPiece'
-import type { Tackling } from '../bindings/Tackling'
-import { NO_ORDERS } from '../tactics'
+import { NO_ORDERS, ORDER_FLAGS as FLAGS, ORDER_MARKING as MARKING, ORDER_PASSING as PASSING, ORDER_PASS_TO as PASS_TO, ORDER_PRESSING as PRESSING, ORDER_SET_PIECE as SET_PIECE, ORDER_TACKLING as TACKLING } from '../tactics'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
 
 // Instruções individuais de um jogador, como no CM (botão direito num jogador da lista das
 // Tácticas): passe, desarme, pressão, passar para, bolas paradas, acções e marcação.
-
-const PASSING: [Passing | null, string][] = [
-  [null, 'Equipa'],
-  ['mixed', 'Misto'],
-  ['short', 'Curto'],
-  ['direct', 'Directo'],
-  ['long', 'Longo'],
-]
-const TACKLING: [Tackling | null, string][] = [
-  [null, 'Equipa'],
-  ['normal', 'Normal'],
-  ['soft', 'Suave'],
-  ['hard', 'Duro'],
-]
-const PRESSING: [boolean | null, string][] = [
-  [null, 'Equipa'],
-  [false, 'Não'],
-  [true, 'Sim'],
-]
-const PASS_TO: [PassTo, string][] = [
-  ['mixed', 'D/E/C'],
-  ['left', 'Esquerda'],
-  ['centre', 'Centro'],
-  ['right', 'Direita'],
-]
-const SET_PIECE: [SetPiece, string][] = [
-  ['normal', 'Normal'],
-  ['back', 'Atrás'],
-  ['forward', 'Frente'],
-]
-const MARKING: [Marking, string][] = [
-  ['zonal', 'Zona'],
-  ['none', 'Nenhuma'],
-  ['manToMan', 'H-H'],
-]
-const FLAGS: [keyof PlayerOrders, string][] = [
-  ['freeRole', 'Acção Livre'],
-  ['forwardRuns', 'Movimentos Frente'],
-  ['runWithBall', 'Correr com Bola'],
-  ['holdBall', 'Segurar Bola'],
-  ['longShots', 'Remates Longe'],
-  ['throughBalls', 'Passes Costas'],
-  ['crosses', 'Cruzamentos'],
-]
 
 function Option({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
   return (

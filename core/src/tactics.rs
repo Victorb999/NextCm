@@ -482,6 +482,10 @@ pub struct TacticPlayer {
     pub suspended: bool,
     /// Jogador-chave do plantel (o `*` depois do nome); só num jogo em curso.
     pub key: bool,
+    /// Golos, as últimas notas e a nota média nesta época (o Vêr das Tácticas); só num jogo em curso.
+    pub goals: i32,
+    pub form: Vec<f64>,
+    pub rating: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -599,6 +603,9 @@ impl Candidate {
             injured: self.state.injured,
             suspended: self.state.suspended,
             key: false,
+            goals: 0,
+            form: Vec::new(),
+            rating: None,
         }
     }
 }

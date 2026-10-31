@@ -30,13 +30,13 @@ const COL = {
 }
 
 /** Cabeçalho das colunas da lista (onze, banco, resto do plantel). */
-export function RowHeader({ place, action, rating }: { place: string; action?: string; rating?: boolean }) {
+export function RowHeader({ place, action, rating, column = 'Posição' }: { place: string; action?: string; rating?: boolean; column?: string }) {
   return (
     <div className="flex h-7 items-center gap-2 bg-black/40 px-3 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#86869a]">
       <span className={COL.num}>Nº</span>
       <span className={COL.place}>{place}</span>
       <span className="flex-1">Jogador</span>
-      <span className={COL.pos}>Posição</span>
+      <span className={COL.pos}>{column}</span>
       <span className={COL.cond}>Cond</span>
       {rating && <span className={COL.rating}>Nota</span>}
       <span className={COL.stat}>Est</span>
@@ -59,6 +59,7 @@ export function Row({
   highlight,
   rating,
   note,
+  column,
 }: {
   p: TacticPlayer
   kind: 'starter' | 'bench' | 'reserve'
@@ -82,6 +83,8 @@ export function Row({
   rating?: number | null
   /** Um aviso curto depois do nome ("sai no Ok"). */
   note?: ReactNode
+  /** O Vêr: o valor no lugar da posição (`on` a amarelo, como o "Sim" do CM). */
+  column?: { text: string; on: boolean }
 }) {
   const text = kind === 'reserve' ? 'text-[#9a9aa6]' : 'text-white'
   const toggle =
@@ -142,7 +145,11 @@ export function Row({
         )}
         {note && <span className="shrink-0 text-[11px] font-bold text-[#ff6060]">{note}</span>}
       </span>
-      <span className={`${COL.pos} text-[13px] text-[#c8c8d0]`}>{p.position}</span>
+      {column ? (
+        <span className={`${COL.pos} text-[13px] ${column.on ? 'font-bold text-cm-yellow' : 'text-[#9b6fe8]'}`}>{column.text}</span>
+      ) : (
+        <span className={`${COL.pos} text-[13px] text-[#c8c8d0]`}>{p.position}</span>
+      )}
       <span className={`${COL.cond} font-semibold tabular-nums ${conditionColour(p.condition)}`}>{p.condition ?? 100}%</span>
       {rating !== undefined && <span className={`${COL.rating} font-semibold tabular-nums text-cm-yellow`}>{rating ?? '-'}</span>}
       <span className={COL.stat}>

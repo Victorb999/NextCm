@@ -11,7 +11,7 @@ import PlayerOrdersDialog from '../components/PlayerOrdersDialog'
 import TextDialog from '../components/TextDialog'
 import { BottomBar, ErrorBox, Link, PanelTitle, PurpleMenu } from '../components/Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from '../components/TacticsBoard'
-import { TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
+import { TACTICS_MENU, TACTICS_VIEWS, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, viewLabel, viewValue, withOrders, type TacticsView } from '../tactics'
 import { initials } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -31,6 +31,9 @@ export default function TacticsPage({ id }: { id: number }) {
   const [instructions, setInstructions] = useState(false)
   // Jogador com o diálogo das instruções individuais aberto
   const [ordersFor, setOrdersFor] = useState<TacticPlayer | null>(null)
+  // O Vêr: o que a coluna da direita da lista mostra (posição, condição, golos, instruções...)
+  const [view, setView] = useState<TacticsView>('position')
+  const col = (p: TacticPlayer) => (view === 'position' || !t ? undefined : viewValue(view, p, ordersOf(t, p.id)))
   // Carregar / Gravar Táctica abertos
   const [fileDialog, setFileDialog] = useState<'load' | 'save' | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -163,6 +166,18 @@ export default function TacticsPage({ id }: { id: number }) {
         />
         <div className="ml-auto" />
         <PurpleMenu
+          label="Vêr"
+          options={TACTICS_VIEWS}
+          value={view}
+          onChange={setView}
+          buttonClass={headButton}
+          trigger={
+            <>
+              Vêr <ChevronDown size={14} />
+            </>
+          }
+        />
+        <PurpleMenu
           label="Editar"
           align="right"
           options={[
@@ -204,7 +219,7 @@ export default function TacticsPage({ id }: { id: number }) {
                   )
                 }
               />
-              <RowHeader place="Pos" action={editable ? 'Troca' : undefined} />
+              <RowHeader place="Pos" action={editable ? 'Troca' : undefined} column={viewLabel(view)} />
               <div className="cm-zebra">
                 {t.starters.map((s, i) => {
                   const spot: Spot = { kind: 'starter', index: i }
@@ -212,6 +227,7 @@ export default function TacticsPage({ id }: { id: number }) {
                     <Row
                       key={`s${i}`}
                       p={s.player}
+                      column={col(s.player)}
                       kind="starter"
                       place={shortRole(s.role)}
                       bind={drag.bind(spot, label(s.player, s.role))}
@@ -254,7 +270,7 @@ export default function TacticsPage({ id }: { id: number }) {
             </div>
             <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
               <PanelTitle title="Banco de Suplentes" chip="SB1 – SB9" right={pending && <span className="font-bold text-cm-yellow">{hint}</span>} />
-              <RowHeader place="Slot" action={editable ? 'Acção' : undefined} />
+              <RowHeader place="Slot" action={editable ? 'Acção' : undefined} column={viewLabel(view)} />
               {/* Banco fixo de 9: as casas vazias também recebem jogadores arrastados */}
               <div className="cm-zebra">
                 {Array.from({ length: editable ? BENCH : t.bench.length }, (_, i) => {
@@ -264,6 +280,7 @@ export default function TacticsPage({ id }: { id: number }) {
                     <Row
                       key={`b${p.id}`}
                       p={p}
+                      column={col(p)}
                       kind="bench"
                       place={`SB${i + 1}`}
                       bind={drag.bind(spot, label(p, ''))}
@@ -297,7 +314,7 @@ export default function TacticsPage({ id }: { id: number }) {
             {editable && t.reserves.length > 0 && (
               <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
                 <PanelTitle title="Resto do Plantel" />
-                <RowHeader place="" />
+                <RowHeader place="" column={viewLabel(view)} />
                 <div className="cm-zebra">
                   {t.reserves.map((p) => {
                     const spot: Spot = { kind: 'reserve', id: p.id }
@@ -305,6 +322,7 @@ export default function TacticsPage({ id }: { id: number }) {
                       <Row
                         key={`r${p.id}`}
                         p={p}
+                        column={col(p)}
                         kind="reserve"
                         place=""
                         bind={drag.bind(spot, label(p, ''))}
