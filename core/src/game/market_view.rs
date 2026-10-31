@@ -81,6 +81,21 @@ impl Game {
         let requested = set("SELECT person_id FROM transfer_list WHERE requested = 1")?;
         let loans = set("SELECT person_id FROM loans")?;
         let ghosts = set("SELECT person_id FROM ghosts")?;
+        let wanted: HashSet<i32> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT person_id FROM offers WHERE buyer <> ? AND kind IN ('transfer', 'loan', 'contract')
+                 AND status IN ('pending', 'countered', 'agreed', 'raised', 'waiting', 'talks', 'confirm')",
+            )?
+            .query_map([self.club_id], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let expired: HashSet<i32> = self
+            .world
+            .conn
+            .prepare_cached("SELECT id FROM people WHERE club_id IS NOT NULL AND contract_expires IS NOT NULL AND contract_expires < ?")?
+            .query_map([&self.date], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
         for p in items.iter_mut() {
             let st = self.squads.states.get(&p.id);
             let mut tags = Vec::new();
@@ -103,6 +118,12 @@ impl Game {
             }
             if loans.contains(&p.id) {
                 tags.push("Emp");
+            }
+            if expired.contains(&p.id) {
+                tags.push("Ctr");
+            }
+            if wanted.contains(&p.id) {
+                tags.push("Des");
             }
             if st.is_some_and(|s| s.yellows() >= 2) {
                 tags.push("Amr");

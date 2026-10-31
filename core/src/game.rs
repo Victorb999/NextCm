@@ -2953,12 +2953,30 @@ mod tests {
         assert!(c.players.iter().any(|p| p.penalty_order == Some(1)));
         assert!(c.players.iter().filter(|p| p.lines.iter().any(|l| l == "GR")).all(|p| p.penalty_order.is_none()));
         // Na lista de transferências: "Lst" e Dispensável
-        let p = c.players.iter().find(|p| !p.injured && !p.suspended && !p.loaned).unwrap().id;
+        let today = g.date().to_string();
+        let ok = |p: &&crate::SquadPlayer| {
+            !p.injured && !p.suspended && !p.loaned && p.contract_expires.as_deref().is_some_and(|e| e > today.as_str())
+        };
+        let p = c.players.iter().find(ok).unwrap().id;
         g.set_listing(p, true, false, None).unwrap();
+        // Contrato acabado mas ainda no clube: "Ctr"
+        let gone = c.players.iter().filter(ok).nth(1).unwrap().id;
+        g.world.conn.execute("UPDATE people SET contract_expires = '2000-01-01' WHERE id = ?", [gone]).unwrap();
+        // Outro clube com uma proposta aberta: "Des" (desejado)
+        let wanted = c.players.iter().filter(ok).nth(2).unwrap().id;
+        g.world
+            .conn
+            .execute(
+                "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created) VALUES ('transfer', ?, 1, 7568, 1000000, 'pending', ?, ?)",
+                params![wanted, today, today],
+            )
+            .unwrap();
         let mut c = g.world().get_club(7568).unwrap();
         g.fill_squad(&mut c).unwrap();
         let p = c.players.iter().find(|x| x.id == p).unwrap();
         assert_eq!((p.info.as_deref(), p.role.as_deref()), (Some("Lst"), Some("Dispensável")));
+        assert_eq!(c.players.iter().find(|x| x.id == gone).unwrap().info.as_deref(), Some("Ctr"));
+        assert_eq!(c.players.iter().find(|x| x.id == wanted).unwrap().info.as_deref(), Some("Des"));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

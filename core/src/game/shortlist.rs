@@ -5,7 +5,7 @@
 use rusqlite::params;
 
 use super::Game;
-use crate::Result;
+use crate::{Error, Result};
 
 impl Game {
     /// Junta um jogador à lista (os do plantel do treinador não entram).
@@ -26,6 +26,65 @@ impl Game {
         }
         self.unsaved = true;
         Ok(())
+    }
+
+    /// Os jogadores de uma lista, para Gravar Lista: a Lista Preferencial (`slot` 0) ou a de
+    /// um olheiro (1–7), com as estrelas (5 nos da Lista Preferencial).
+    pub fn list_players(&self, slot: i32) -> Result<Vec<(i32, i32)>> {
+        let (sql, arg) = if slot == 0 {
+            ("SELECT person_id, 5 FROM shortlist ORDER BY added, person_id", None)
+        } else {
+            ("SELECT person_id, stars FROM scout_finds WHERE slot = ? ORDER BY stars DESC, person_id", Some(slot))
+        };
+        let mut stmt = self.world.conn.prepare(sql)?;
+        let rows = match arg {
+            Some(s) => stmt.query_map([s], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<_>>()?,
+            None => stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<_>>()?,
+        };
+        Ok(rows)
+    }
+
+    /// Carregar Lista: na Lista Preferencial junta os jogadores (os do plantel não entram); na
+    /// de um olheiro troca a lista pela do ficheiro. Ignora quem já não é jogador.
+    pub fn load_list_players(&mut self, slot: i32, players: &[(i32, i32)]) -> Result<()> {
+        if !(0..=7).contains(&slot) {
+            return Err(Error::Invalid("Lista desconhecida.".into()));
+        }
+        let valid: Vec<(i32, i32)> = players
+            .iter()
+            .copied()
+            .filter(|&(id, _)| {
+                self.world
+                    .conn
+                    .query_row("SELECT is_player FROM people WHERE id = ?", [id], |r| r.get::<_, Option<i32>>(0))
+                    .is_ok_and(|v| v == Some(1))
+            })
+            .collect();
+        if slot == 0 {
+            for (id, _) in valid {
+                self.add_shortlist(id)?;
+            }
+        } else {
+            self.world.conn.execute("DELETE FROM scout_finds WHERE slot = ?", [slot])?;
+            for (id, stars) in valid {
+                self.world.conn.execute(
+                    "INSERT OR IGNORE INTO scout_finds (slot, person_id, found, stars) VALUES (?, ?, ?, ?)",
+                    params![slot, id, self.date, stars.clamp(1, 5)],
+                )?;
+            }
+        }
+        self.unsaved = true;
+        Ok(())
+    }
+
+    /// "Des" na coluna Inf: outro clube (não o do treinador) tem um negócio aberto pelo jogador.
+    pub(super) fn wanted(&self, person: i32) -> Result<bool> {
+        Ok(self.world.conn.query_row(
+            "SELECT COUNT(*) FROM offers WHERE person_id = ? AND buyer <> ? AND kind IN ('transfer', 'loan', 'contract')
+             AND status IN ('pending', 'countered', 'agreed', 'raised', 'waiting', 'talks', 'confirm')",
+            params![person, self.club_id],
+            |r| r.get::<_, i64>(0),
+        )? > 0)
     }
 
     pub fn in_shortlist(&self, person: i32) -> Result<bool> {
@@ -71,8 +130,16 @@ mod tests {
         let q = SearchQuery { kind: Some(PersonKind::Players), status: Some(MarketStatus::Shortlist), ..Default::default() };
         let r = g.world.search_people_on(&q, &g.date).unwrap();
         assert_eq!(r.items.iter().map(|p| p.id).collect::<Vec<_>>(), vec![other]);
+        // Gravar e Carregar Lista: a Lista Preferencial vai para o olheiro #2 e volta
+        let saved = g.list_players(0).unwrap();
+        assert_eq!(saved, vec![(other, 5)]);
+        g.load_list_players(2, &[(other, 3), (-1, 5)]).unwrap();
+        assert_eq!(g.list_players(2).unwrap(), vec![(other, 3)], "quem não existe fica de fora");
         g.set_shortlist(other, false).unwrap();
         assert_eq!(g.world.search_people_on(&q, &g.date).unwrap().total, 0);
+        g.load_list_players(0, &saved).unwrap();
+        assert!(g.in_shortlist(other).unwrap());
+        assert!(g.load_list_players(9, &saved).is_err());
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -55,7 +55,8 @@ pub struct SquadPlayer {
     pub contract_expires: Option<String>,
     /// Um dos três jogadores-chave do plantel (o `*` depois do nome, como no CM).
     pub key: bool,
-    /// A sigla da coluna Inf: "Les", "Sus", "Emp", "Lst" ou "Des" ("Int", fora na selecção,
+    /// A sigla da coluna Inf: "Les", "Sus", "Emp", "Ctr" (contrato acabado, ainda no clube), "Lst",
+    /// "Des" (desejado por outro clube) ou "Ins" (insatisfeito) ("Int", fora na selecção,
     /// quando houver convocatórias).
     pub info: Option<String>,
     /// Emprestado por outro clube (nome a azul-claro).
@@ -155,7 +156,7 @@ fn strip_suffix<'a>(name: &'a str, suffixes: &[&str]) -> Option<&'a str> {
 }
 
 /// Grupos de posição e lados (posição com 15 ou mais), para o Filtrar do plantel.
-fn lines_and_sides(p: &[Option<i32>; 12]) -> (Vec<String>, Vec<String>) {
+pub(crate) fn lines_and_sides(p: &[Option<i32>; 12]) -> (Vec<String>, Vec<String>) {
     let natural = |i: usize| p[i].unwrap_or(0) >= NATURAL_POSITION;
     if natural(0) {
         return (vec!["GR".into()], vec!["C".into()]);

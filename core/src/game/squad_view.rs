@@ -78,16 +78,22 @@ impl Game {
             let listed: bool =
                 conn.query_row("SELECT transfer FROM transfer_list WHERE person_id = ?", [p.id], |r| r.get(0)).optional()?.unwrap_or(false);
             let unhappy = conn.query_row("SELECT 1 FROM unhappy WHERE person_id = ? LIMIT 1", [p.id], |_| Ok(())).optional()?.is_some();
+            let wanted = self.wanted(p.id)?;
             p.info = if p.injured {
                 Some("Les")
             } else if p.suspended {
                 Some("Sus")
             } else if p.loaned {
                 Some("Emp")
+            } else if p.contract_expires.as_deref().is_some_and(|e| e < self.date.as_str()) {
+                // Contrato acabado, mas ainda no clube (até se tratar no fim da época)
+                Some("Ctr")
             } else if listed {
                 Some("Lst")
-            } else if unhappy {
+            } else if wanted {
                 Some("Des")
+            } else if unhappy {
+                Some("Ins")
             } else {
                 // "Int" (fora na selecção) fica para quando houver convocatórias
                 None

@@ -39,6 +39,11 @@ pub struct ScoutFind {
     /// Recomendação do olheiro, 1 a 5 estrelas.
     pub stars: i32,
     pub injured: bool,
+    /// Outro clube quer o jogador (um negócio aberto): "Des" na coluna Inf.
+    pub wanted: bool,
+    /// Grupos de posição ("GR", "D", "M", "A") e lados ("E", "C", "D"), para o Filtrar.
+    pub lines: Vec<String>,
+    pub sides: Vec<String>,
 }
 
 /// Uma aba "Olheiro #N".
@@ -159,6 +164,7 @@ impl Game {
             .collect::<rusqlite::Result<_>>()?;
         let mut finds = Vec::with_capacity(rows.len());
         for (id, list_name, club, division, nation, stars, pos) in rows {
+            let (lines, sides) = crate::club::lines_and_sides(&pos);
             finds.push(ScoutFind {
                 id,
                 list_name,
@@ -168,6 +174,9 @@ impl Game {
                 value: self.world.market_value_of(id, &self.date)?,
                 stars,
                 injured: self.player_status(id).is_some_and(|s| s.injury.is_some()),
+                wanted: self.wanted(id)?,
+                lines,
+                sides,
             });
         }
         Ok(ScoutList { slot, scouts: scouts.len() as i32, scout, task, finds })

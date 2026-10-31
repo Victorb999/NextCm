@@ -12,4 +12,12 @@ base: string | null, position: string, value: number | null,
 /**
  * Recomendação do olheiro, 1 a 5 estrelas.
  */
-stars: number, injured: boolean, };
+stars: number, injured: boolean, 
+/**
+ * Outro clube quer o jogador (um negócio aberto): "Des" na coluna Inf.
+ */
+wanted: boolean, 
+/**
+ * Grupos de posição ("GR", "D", "M", "A") e lados ("E", "C", "D"), para o Filtrar.
+ */
+lines: Array<string>, sides: Array<string>, };

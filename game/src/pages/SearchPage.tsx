@@ -20,6 +20,7 @@ import { money } from "../format"
 import { useGame } from "../game"
 import { useNav } from "../nav"
 import FilterDialog from "./FilterDialog"
+import ListFileButtons from "../components/ListFileButtons"
 import { EMPTY_FILTERS, describe, toQuery, type Filters } from "./searchFilters"
 import { InfBadge } from "../components/SquadTable"
 
@@ -197,6 +198,9 @@ export default function SearchPage({ active }: { active: boolean }) {
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState(0)
   const [dialog, setDialog] = useState(false)
+  // Carregar Lista na Lista Preferencial: refaz a pesquisa e diz o que fez
+  const [listTick, setListTick] = useState(0)
+  const [listNotice, setListNotice] = useState<string | null>(null)
 
   const [nations, setNations] = useState<NationOption[]>([])
   const [found, setResult] = useState<SearchResult | null>(null)
@@ -308,6 +312,7 @@ export default function SearchPage({ active }: { active: boolean }) {
     status,
     sort,
     page,
+    listTick,
     shortlist,
   ])
 
@@ -447,6 +452,14 @@ export default function SearchPage({ active }: { active: boolean }) {
                 </span>
               ))}
             </div>
+            {shortlist && game.mode === "game" && (
+              <ListFileButtons
+                slot={0}
+                buttonClass={barButton}
+                onLoaded={() => setListTick((t) => t + 1)}
+                onMessage={(text, bad) => (bad ? (setError(text), setListNotice(null)) : (setListNotice(text), setError(null)))}
+              />
+            )}
             <div className="flex shrink-0 items-center gap-0.5 rounded-[4px] bg-black/40 px-1.5 py-1">
               <PageButton
                 label="◀◀"
@@ -476,6 +489,7 @@ export default function SearchPage({ active }: { active: boolean }) {
 
           <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-cm-surface">
             <ErrorBox>{error}</ErrorBox>
+            {listNotice && shortlist && <div className="px-3 py-1 font-semibold text-[#4edea3]">{listNotice}</div>}
             <div
               ref={tableRef}
               className={`min-h-0 flex-1 overflow-auto ${idle ? "hidden" : ""}`}

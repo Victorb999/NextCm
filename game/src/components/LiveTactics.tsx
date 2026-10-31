@@ -7,7 +7,7 @@ import type { TacticPlayer } from '../bindings/TacticPlayer'
 import { selectionOf, swap, useDragSwap, type Spot } from '../selection'
 import InstructionsDialog from './InstructionsDialog'
 import PlayerOrdersDialog from './PlayerOrdersDialog'
-import { BottomBar, ErrorBox, PurpleMenu, ScreenHeader } from './Screen'
+import { BottomBar, ErrorBox, PanelTitle, PurpleMenu, ScreenHeader } from './Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from './TacticsBoard'
 import { TACTICS_MENU, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, withOrders } from '../tactics'
 
@@ -145,75 +145,82 @@ export default function LiveTactics({
       <ErrorBox className="mx-2 mt-2">{error}</ErrorBox>
       {t ? (
         <div className="mx-2 mt-2 flex min-h-0 flex-1 gap-1.5">
-          <div className="flex min-h-0 w-[50%] flex-col">
-            <div className="flex h-10 shrink-0 items-center justify-center bg-black/70 font-title text-[20px] font-bold text-cm-yellow">
-              {t.formation}
-              {t.custom && '*'}
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto bg-black/50 pb-1">
+          {/* Onze, banco e quem já saiu numa coluna que rola, nos painéis da tela de Tácticas */}
+          <div className="flex min-h-0 w-[50%] flex-col gap-2 overflow-y-auto overflow-x-hidden">
+            <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
+              <PanelTitle title="Onze Titular" chip={`${t.formation}${t.custom ? '*' : ''}`} />
               <RowHeader place="Pos" rating />
-              {t.starters.map((s, i) => {
-                const spot: Spot = { kind: 'starter', index: i }
-                return s.player ? (
-                  <Row
-                    key={`s${i}`}
-                    p={s.player}
-                    kind="starter"
-                    place={shortRole(s.role)}
-                    bind={drag.bind(spot, label(s))}
-                    onOrders={editable ? () => setOrdersFor(s.player!) : undefined}
-                    ordered={t.orders.some((o) => o.personId === s.player!.id)}
-                    captain={t.takers.captain === s.player.id}
-                    rating={ratings.get(s.player.id) ?? null}
-                  />
-                ) : (
-                  <div key={`s${i}`} {...drag.bind(spot, s.role)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
-                    <span className="w-7 shrink-0" />
-                    <span className="cm-cell w-9 shrink-0 text-center text-[11px] text-cm-yellow">{shortRole(s.role)}</span>
-                    <span className="italic text-[#8a8a8a]">— sem jogador (expulso) —</span>
-                  </div>
-                )
-              })}
-              <div className="my-0.5 border-t border-cm-line" />
-              {t.bench.map((p, i) => {
-                // Quem estava em campo e foi para o banco nesta tela sai de vez no Ok (antes do apito volta ao banco)
-                const leaving = view.minute > 0 && !!original?.on.includes(p.id)
-                return leaving ? (
-                  <Row
-                    key={`b${p.id}`}
-                    p={p}
-                    kind="reserve"
-                    place="Sai"
-                    bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))}
-                    rating={ratings.get(p.id) ?? null}
-                    note="sai no Ok"
-                  />
-                ) : (
-                  <Row
-                    key={`b${p.id}`}
-                    p={p}
-                    kind="bench"
-                    place={`SB${i + 1}`}
-                    bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))}
-                    rating={ratings.get(p.id) ?? null}
-                  />
-                )
-              })}
-              {/* Quem já saiu não pode voltar: só aparece, sem se poder arrastar */}
-              {team.out.length > 0 && (
-                <>
-                  <div className="my-0.5 border-t border-cm-line" />
+              <div className="cm-zebra">
+                {t.starters.map((s, i) => {
+                  const spot: Spot = { kind: 'starter', index: i }
+                  return s.player ? (
+                    <Row
+                      key={`s${i}`}
+                      p={s.player}
+                      kind="starter"
+                      place={shortRole(s.role)}
+                      bind={drag.bind(spot, label(s))}
+                      onOrders={editable ? () => setOrdersFor(s.player!) : undefined}
+                      ordered={t.orders.some((o) => o.personId === s.player!.id)}
+                      captain={t.takers.captain === s.player.id}
+                      rating={ratings.get(s.player.id) ?? null}
+                    />
+                  ) : (
+                    <div key={`s${i}`} {...drag.bind(spot, s.role)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
+                      <span className="w-7 shrink-0" />
+                      <span className="cm-cell w-9 shrink-0 text-center text-[11px] text-cm-yellow">{shortRole(s.role)}</span>
+                      <span className="italic text-[#8a8a8a]">— sem jogador (expulso) —</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
+              <PanelTitle title="Banco de Suplentes" chip={`${t.bench.length}`} />
+              <RowHeader place="Slot" rating />
+              <div className="cm-zebra">
+                {t.bench.map((p, i) => {
+                  // Quem estava em campo e foi para o banco nesta tela sai de vez no Ok (antes do apito volta ao banco)
+                  const leaving = view.minute > 0 && !!original?.on.includes(p.id)
+                  return leaving ? (
+                    <Row
+                      key={`b${p.id}`}
+                      p={p}
+                      kind="reserve"
+                      place="Sai"
+                      bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))}
+                      rating={ratings.get(p.id) ?? null}
+                      note="sai no Ok"
+                    />
+                  ) : (
+                    <Row
+                      key={`b${p.id}`}
+                      p={p}
+                      kind="bench"
+                      place={`SB${i + 1}`}
+                      bind={drag.bind({ kind: 'bench', index: i }, surname(p.listName))}
+                      rating={ratings.get(p.id) ?? null}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+            {/* Quem já saiu não pode voltar: só aparece, sem se poder arrastar */}
+            {team.out.length > 0 && (
+              <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
+                <PanelTitle title="Já Saíram" chip={`${team.out.length}`} />
+                <div className="cm-zebra">
                   {team.out.map((p) => (
-                    <div key={`o${p.id}`} className="flex h-[19px] items-center gap-2 px-1 text-[13.5px] text-[#6a6a6a]">
-                      <span className="cm-cell w-7 shrink-0 text-center">{p.squadNumber ?? ''}</span>
-                      <span className="cm-cell w-9 shrink-0 text-center text-[11px]">{p.red ? 'Exp' : 'Saiu'}</span>
+                    <div key={`o${p.id}`} className="flex h-[30px] items-center gap-2 px-3 text-[14px] text-[#6a6a6a]">
+                      <span className="w-8 shrink-0 text-center">{p.squadNumber ?? ''}</span>
+                      <span className="w-12 shrink-0 text-[11px] font-bold">{p.red ? 'Exp' : 'Saiu'}</span>
                       <span className="flex-1 truncate">{p.listName.split(', ').reverse().join(' ')}</span>
                       <span className="shrink-0 text-[12px]">{p.red ? `expulso ${p.offMinute}'` : `saiu ${p.offMinute}'`}</span>
                     </div>
                   ))}
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex min-h-0 flex-1 gap-2">
             <div className="flex min-h-0 flex-1 flex-col">

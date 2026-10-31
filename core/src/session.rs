@@ -18,7 +18,7 @@ use crate::MatchSheet;
 use crate::NewsLink;
 use crate::PressView;
 use crate::WorldTransfers;
-use crate::tactic_file::{self, TacticFile};
+use crate::tactic_file::{self, SavedFile};
 use crate::{DealTerms, LoanTerms};
 use crate::{TalkLine, TalkReaction, TalkView};
 use crate::{TrainingPlan, TrainingView};
@@ -116,12 +116,29 @@ impl Session {
     }
 
     /// As tácticas gravadas na pasta `tactics`.
-    pub fn list_tactics(&self) -> Vec<TacticFile> {
-        tactic_file::list_tactics(&tactic_file::tactics_dir(&self.saves_dir))
+    pub fn list_tactics(&self) -> Vec<SavedFile> {
+        tactic_file::list_files(&tactic_file::tactics_dir(&self.saves_dir))
+    }
+
+    /// As listas de jogadores gravadas na pasta `lists`.
+    pub fn list_lists(&self) -> Vec<SavedFile> {
+        tactic_file::list_files(&tactic_file::lists_dir(&self.saves_dir))
+    }
+
+    /// Gravar Lista: a Lista Preferencial (`slot` 0) ou a de um olheiro (1–7), com um nome.
+    pub fn save_list(&self, slot: i32, name: &str) -> Result<SavedFile> {
+        let players = self.game()?.list_players(slot)?;
+        tactic_file::write_list(&tactic_file::lists_dir(&self.saves_dir), &tactic_file::SavedList { name: name.into(), players })
+    }
+
+    /// Carregar Lista: junta à Lista Preferencial ou troca a lista de um olheiro.
+    pub fn load_list(&mut self, slot: i32, file: &str) -> Result<()> {
+        let l = tactic_file::read_list(&tactic_file::lists_dir(&self.saves_dir), file)?;
+        self.game_mut()?.load_list_players(slot, &l.players)
     }
 
     /// Gravar Táctica: as posições, setas e instruções da escolha, com um nome.
-    pub fn save_tactic(&self, selection: &Selection, name: &str) -> Result<TacticFile> {
+    pub fn save_tactic(&self, selection: &Selection, name: &str) -> Result<SavedFile> {
         let t = self.game()?.preview_selection(selection)?;
         tactic_file::write_tactic(&tactic_file::tactics_dir(&self.saves_dir), &tactic_file::from_view(name, &t))
     }

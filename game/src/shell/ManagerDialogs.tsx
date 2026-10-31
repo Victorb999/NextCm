@@ -4,6 +4,7 @@ import type { SaveSummary } from '../bindings/SaveSummary'
 import { DialogFrame, Overlay } from '../components/Dialog'
 import { cmDate } from '../format'
 import { useGame } from '../game'
+import { useNav } from '../nav'
 import type { ManagerDialog } from './managerMenu'
 import { Empty } from '../components/Screen'
 
@@ -29,6 +30,7 @@ export default function ManagerDialogs({
   notify: (msg: string) => void
 }) {
   const game = useGame()
+  const nav = useNav()
   const [saves, setSaves] = useState<SaveSummary[]>([])
   // O nome do jogo aberto, para gravar por cima
   const [name, setName] = useState(game.info?.name ?? '')
@@ -151,6 +153,8 @@ export default function ManagerDialogs({
                     notify(await api.resign())
                     const info = await api.gameInfo()
                     if (info) game.update(info)
+                    // A mensagem da saída fica nas Notícias, como no CM
+                    nav.go({ kind: 'news', latest: true })
                   } else {
                     notify(await api.retireManager())
                     await game.close()

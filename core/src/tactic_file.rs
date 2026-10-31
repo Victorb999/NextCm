@@ -1,8 +1,9 @@
-//! Tácticas gravadas em ficheiro (Gravar/Carregar Táctica nas Tácticas), em JSON na pasta
-//! `tactics`, ao lado dos saves.
+//! Ficheiros gravados ao lado dos saves, em JSON: as tácticas (Gravar/Carregar Táctica, pasta
+//! `tactics`) e as listas de jogadores (Gravar/Carregar Lista da Pesquisa, pasta `lists`).
 
 use std::path::{Path, PathBuf};
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -24,12 +25,20 @@ pub struct SavedTactic {
     pub orders: Vec<(usize, PlayerOrders)>,
 }
 
-/// Uma linha do Carregar Táctica.
+/// Uma lista de jogadores gravada: (id, estrelas do olheiro).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedList {
+    pub name: String,
+    pub players: Vec<(i32, i32)>,
+}
+
+/// Uma linha do Carregar Táctica / Carregar Lista.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
-pub struct TacticFile {
-    /// Nome do ficheiro na pasta das tácticas.
+pub struct SavedFile {
+    /// Nome do ficheiro na pasta.
     pub file: String,
     pub name: String,
 }
@@ -39,9 +48,14 @@ pub fn tactics_dir(saves_dir: &Path) -> PathBuf {
     saves_dir.join("tactics")
 }
 
-/// As tácticas da pasta, por nome.
-pub fn list_tactics(dir: &Path) -> Vec<TacticFile> {
-    let mut out: Vec<TacticFile> = std::fs::read_dir(dir)
+/// A pasta das listas de jogadores, ao lado dos saves.
+pub fn lists_dir(saves_dir: &Path) -> PathBuf {
+    saves_dir.join("lists")
+}
+
+/// Os ficheiros `.json` de uma pasta, por nome.
+pub fn list_files(dir: &Path) -> Vec<SavedFile> {
+    let mut out: Vec<SavedFile> = std::fs::read_dir(dir)
         .into_iter()
         .flatten()
         .flatten()
@@ -49,35 +63,57 @@ pub fn list_tactics(dir: &Path) -> Vec<TacticFile> {
             let path = e.path();
             let file = path.file_name()?.to_str()?.to_string();
             let stem = path.file_stem()?.to_str()?.to_string();
-            path.extension()?.eq_ignore_ascii_case("json").then_some(TacticFile { file, name: stem })
+            path.extension()?.eq_ignore_ascii_case("json").then_some(SavedFile { file, name: stem })
         })
         .collect();
     out.sort_by_key(|t| t.name.to_lowercase());
     out
 }
 
-/// Lê uma táctica da pasta pelo nome do ficheiro (nunca um caminho qualquer).
-pub fn read_tactic(dir: &Path, file: &str) -> Result<SavedTactic> {
+/// Lê um ficheiro da pasta pelo nome (nunca um caminho qualquer).
+fn read_json<T: DeserializeOwned>(dir: &Path, file: &str, what: &str) -> Result<T> {
     if file.contains(['/', '\\']) || file.starts_with('.') {
-        return Err(Error::Invalid("Ficheiro de táctica inválido.".into()));
+        return Err(Error::Invalid(format!("Ficheiro de {what} inválido.")));
     }
-    let bytes = std::fs::read(dir.join(file)).map_err(|_| Error::NotFound(format!("táctica {file}")))?;
-    let t: SavedTactic = serde_json::from_slice(&bytes).map_err(|e| Error::Invalid(format!("Táctica estragada: {e}")))?;
-    check(t)
+    let bytes = std::fs::read(dir.join(file)).map_err(|_| Error::NotFound(format!("{what} {file}")))?;
+    serde_json::from_slice(&bytes).map_err(|e| Error::Invalid(format!("Ficheiro de {what} estragado: {e}")))
 }
 
-/// Grava a táctica na pasta como `<nome>.json` (substitui uma com o mesmo nome).
-pub fn write_tactic(dir: &Path, t: &SavedTactic) -> Result<TacticFile> {
-    let name = t.name.trim();
+/// Grava como `<nome>.json` (substitui um com o mesmo nome).
+fn write_json<T: Serialize>(dir: &Path, name: &str, value: &T) -> Result<SavedFile> {
+    std::fs::create_dir_all(dir)?;
+    let file = format!("{name}.json");
+    let json = serde_json::to_vec_pretty(value).map_err(|e| Error::Invalid(e.to_string()))?;
+    std::fs::write(dir.join(&file), json)?;
+    Ok(SavedFile { file, name: name.to_string() })
+}
+
+/// O nome que o treinador escreveu, sem os caracteres que um ficheiro não aceita.
+fn clean_name(name: &str) -> Result<&str> {
+    let name = name.trim();
     if name.is_empty() || name.chars().any(|c| "/\\:*?\"<>|".contains(c)) || name.starts_with('.') {
         return Err(Error::Invalid("Escolha um nome sem / \\ : * ? \" < > |.".into()));
     }
+    Ok(name)
+}
+
+pub fn read_tactic(dir: &Path, file: &str) -> Result<SavedTactic> {
+    check(read_json(dir, file, "táctica")?)
+}
+
+pub fn write_tactic(dir: &Path, t: &SavedTactic) -> Result<SavedFile> {
+    let name = clean_name(&t.name)?;
     let t = check(SavedTactic { name: name.to_string(), ..t.clone() })?;
-    std::fs::create_dir_all(dir)?;
-    let file = format!("{name}.json");
-    let json = serde_json::to_vec_pretty(&t).map_err(|e| Error::Invalid(e.to_string()))?;
-    std::fs::write(dir.join(&file), json)?;
-    Ok(TacticFile { file, name: name.to_string() })
+    write_json(dir, name, &t)
+}
+
+pub fn read_list(dir: &Path, file: &str) -> Result<SavedList> {
+    read_json(dir, file, "lista")
+}
+
+pub fn write_list(dir: &Path, l: &SavedList) -> Result<SavedFile> {
+    let name = clean_name(&l.name)?;
+    write_json(dir, name, &SavedList { name: name.to_string(), players: l.players.clone() })
 }
 
 fn check(t: SavedTactic) -> Result<SavedTactic> {
@@ -135,11 +171,15 @@ mod tests {
         let f = write_tactic(&dir, &t).unwrap();
         assert_eq!(f.file, "Pressão alta.json");
         assert!(write_tactic(&dir, &SavedTactic { name: "a/b".into(), ..t.clone() }).is_err());
-        let list = list_tactics(&dir);
+        let list = list_files(&dir);
         assert_eq!(list.len(), 1);
         let back = read_tactic(&dir, &f.file).unwrap();
         assert_eq!(back.orders[0].0, 3);
         assert!(read_tactic(&dir, "../x.json").is_err());
+        // Listas de jogadores na mesma pasta de testes
+        let l = write_list(&dir, &SavedList { name: " Alvos ".into(), players: vec![(1, 4), (2, 5)] }).unwrap();
+        assert_eq!(l.name, "Alvos");
+        assert_eq!(read_list(&dir, &l.file).unwrap().players, vec![(1, 4), (2, 5)]);
         std::fs::remove_dir_all(&dir).ok();
     }
 }

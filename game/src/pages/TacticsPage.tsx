@@ -6,7 +6,7 @@ import type { ClubTactics } from '../bindings/ClubTactics'
 import type { Selection } from '../bindings/Selection'
 import type { TacticPlayer } from '../bindings/TacticPlayer'
 import InstructionsDialog from '../components/InstructionsDialog'
-import LoadTacticDialog from '../components/LoadTacticDialog'
+import LoadFileDialog from '../components/LoadFileDialog'
 import PlayerOrdersDialog from '../components/PlayerOrdersDialog'
 import TextDialog from '../components/TextDialog'
 import { BottomBar, ErrorBox, Link, PanelTitle, PurpleMenu } from '../components/Screen'
@@ -346,7 +346,10 @@ export default function TacticsPage({ id }: { id: number }) {
       {!t && <div className="flex-1" />}
       {drag.ghost}
       {fileDialog === 'load' && t && (
-        <LoadTacticDialog
+        <LoadFileDialog
+          title="Carregar Táctica"
+          load={api.listTactics}
+          empty="Ainda não há tácticas gravadas. Grave uma com Gravar Táctica."
           onCancel={() => setFileDialog(null)}
           onOk={(file) => {
             setFileDialog(null)

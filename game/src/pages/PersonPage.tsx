@@ -594,7 +594,8 @@ export default function PersonPage({ id }: { id: number }) {
   const act = (k: string) => {
     if (k === 'contract' || k === 'renew') nav.go({ kind: 'contract', id })
     else if (k === 'offer' || k === 'loan' || k === 'price') setDeal(k)
-    else if (k === 'option') void marketAction(() => api.exerciseOption(id))
+    // A opção de compra deixa a mensagem com o contrato a negociar: volta às Notícias
+    else if (k === 'option') void api.exerciseOption(id).then(toNews, (e) => setError(String(e)))
     else if (k === 'nickname' || k === 'note') setText(k)
     else if (k === 'release') void api.releaseQuestion(id).then(setRelease, (e) => setError(String(e)))
     else if (k === 'compareFirst' && person) {

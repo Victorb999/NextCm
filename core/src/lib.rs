@@ -56,7 +56,7 @@ pub use search::{
 };
 pub use session::Session;
 pub use squad::PlayerStatus;
-pub use tactic_file::{SavedTactic, TacticFile};
+pub use tactic_file::{SavedFile, SavedTactic};
 pub use tactics::{
     ClubTactics, FORMATIONS, Instructions, Marking, Mentality, PassTo, Passing, PlayerOrder, PlayerOrders, Selection, SetPiece, Tackling,
     TacticPlayer, TacticSlot, Takers,

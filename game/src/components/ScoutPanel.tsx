@@ -5,7 +5,9 @@ import type { NationOption } from '../bindings/NationOption'
 import type { ScoutList } from '../bindings/ScoutList'
 import { money } from '../format'
 import { useNav } from '../nav'
+import { NO_SCOUT_FILTER, SCOUT_FILTER_OPTIONS, scoutChange, scoutChecked, scoutPasses } from '../scoutFilter'
 import { DialogFrame, Overlay } from './Dialog'
+import ListFileButtons from './ListFileButtons'
 import { ErrorBox, Link, PanelTitle, PurpleMenu } from './Screen'
 
 // Aba "Olheiro #N" da Pesquisa Jogador & Staff: a tarefa do olheiro ("Designar Olheiro") e os
@@ -76,8 +78,10 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
   const [list, setList] = useState<ScoutList | null>(null)
   const [picking, setPicking] = useState<Kind | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [filter, setFilter] = useState(NO_SCOUT_FILTER)
 
-  useEffect(() => {
+  const reload = () =>
     api.scoutList(slot).then(
       (l) => {
         setList(l)
@@ -85,6 +89,11 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
       },
       (e) => setError(String(e)),
     )
+  useEffect(() => {
+    void reload()
+    setFilter(NO_SCOUT_FILTER)
+    setNotice(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot])
 
   const run = async (p: Promise<ScoutList>) => {
@@ -100,12 +109,27 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
     else setPicking(kind)
   }
   const noScout = !!list && !list.scout
+  const shown = list?.finds.filter((f) => scoutPasses(f, filter)) ?? []
+  const filtered = filter.line || filter.side || filter.stars
 
   return (
     <>
       <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
         <PurpleMenu label="Designar Olheiro" options={TASKS} disabled={noScout} onChange={assign} />
         <div className="flex-1" />
+        <ListFileButtons
+          slot={slot}
+          disabled={noScout}
+          onLoaded={() => void reload()}
+          onMessage={(text, bad) => (bad ? (setError(text), setNotice(null)) : (setNotice(text), setError(null)))}
+        />
+        <PurpleMenu
+          label={filtered ? 'Filtrar ✓' : 'Filtrar'}
+          options={SCOUT_FILTER_OPTIONS}
+          checked={(k) => scoutChecked(filter, k)}
+          onChange={(k) => setFilter((f) => scoutChange(f, k))}
+          align="right"
+        />
         <button className="cm-purple h-6 w-40" disabled={noScout || !list?.task} onClick={() => void run(api.clearScout(slot))}>
           Apagar
         </button>
@@ -120,6 +144,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
           }
         />
         <ErrorBox>{error}</ErrorBox>
+        {notice && <div className="px-3 py-1 font-semibold text-[#4edea3]">{notice}</div>}
         <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full table-fixed border-collapse">
             <colgroup>
@@ -141,10 +166,16 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
               </tr>
             </thead>
             <tbody>
-              {list?.finds.map((f) => (
+              {shown.map((f) => (
                 <tr key={f.id} className="h-6 text-[14px]">
                   <td className="px-2 text-center text-cm-yellow">{'*'.repeat(f.stars)}</td>
-                  <td className="px-1 text-center">{f.injured && <span className="bg-[#b8560c] px-0.5 font-bold text-white">Les</span>}</td>
+                  <td className="px-1 text-center">
+                    {f.injured ? (
+                      <span className="bg-[#b8560c] px-0.5 font-bold text-white">Les</span>
+                    ) : (
+                      f.wanted && <span className="border border-gray-700 bg-gray-900 px-0.5 font-bold text-cm-yellow" title="Desejado: outro clube quer o jogador">Des</span>
+                    )}
+                  </td>
                   <td className="truncate px-2 text-white">
                     <Link onClick={() => nav.go({ kind: 'person', id: f.id })}>{f.listName}</Link>
                   </td>
@@ -160,7 +191,8 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
           </table>
         </div>
         <div className="shrink-0 border-t border-cm-line px-3 py-1.5 text-right font-mono text-[12px] uppercase tracking-wider text-cm-magenta">
-          {(list?.finds.length ?? 0).toLocaleString('pt-BR')} jogadores encontrados
+          {shown.length.toLocaleString('pt-BR')} jogadores encontrados
+          {filtered ? ` (${((list?.finds.length ?? 0) - shown.length).toLocaleString('pt-BR')} filtrados)` : ''}
         </div>
       </div>
       {picking && (
