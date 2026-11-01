@@ -4,20 +4,100 @@ import { shortListName } from './format'
 
 // Partilhado pelas vistas do Plantel (grade Tradicional e tabelas do Vêr).
 
-export type SquadView = 'traditional' | 'contract' | 'selection' | 'stats' | 'penalties'
+export type SquadView = 'traditional' | 'contract' | 'selection' | 'stats' | 'more' | 'attributes' | 'others' | 'penalties'
 
 export const VIEW_TITLE: Record<SquadView, string> = {
   traditional: 'Tradicional',
   contract: 'Informação sobre o Contrato',
   selection: 'Selecção - Informação',
   stats: 'Estatísticas',
+  more: 'Estatísticas',
+  attributes: 'Características',
+  others: 'Outra Informação',
   penalties: 'Marcadores Penalties',
 }
 
-/** Cor do nome: emprestado a azul-claro, sem contrato ou de enchimento a roxo. */
+/** Cor do nome, como no CM: emprestado (por ou a outro clube) a azul, sem contrato ou de
+ * enchimento a roxo. */
 export function nameClass(p: SquadPlayer) {
-  return p.ghost || p.free ? 'text-[#9b6fe8]' : p.loaned ? 'text-[#7cc7ff]' : 'text-white'
+  return p.ghost || p.free ? 'text-[#9b6fe8]' : p.loaned || p.loanedOut ? 'text-[#3aa0ff]' : 'text-white'
 }
+
+/** O "Competições" do Vêr Mais Dados (o `kind` do core). */
+export const MORE_COMPETITIONS: { key: string; label: string }[] = [
+  { key: '', label: 'Jogos Oficiais' },
+  { key: 'Liga', label: 'Liga' },
+  { key: 'Taça', label: 'Taça' },
+  { key: 'Continentais', label: 'Continentais' },
+]
+
+/** Os grupos do Vêr Atributos (plantel e Treinos): o título e as colunas (atributo, sigla). */
+export type AttributeGroup = 'physical' | 'technical' | 'mental' | 'goalkeeping'
+export const ATTRIBUTE_GROUPS: { key: AttributeGroup; label: string; title: string; columns: [string, string][] }[] = [
+  {
+    key: 'physical',
+    label: 'Físicos',
+    title: 'Características Físicas',
+    columns: [
+      ['acceleration', 'Ace'],
+      ['agility', 'Agi'],
+      ['balance', 'Bal'],
+      ['heading', 'Cab'],
+      ['strength', 'For'],
+      ['jumping', 'Imp'],
+      ['stamina', 'Res'],
+      ['technique', 'Téc'],
+      ['pace', 'Vel'],
+    ],
+  },
+  {
+    key: 'technical',
+    label: 'Técnicos',
+    title: 'Características Técnicas',
+    columns: [
+      ['crossing', 'Cru'],
+      ['dribbling', 'Fta'],
+      ['finishing', 'Fin'],
+      ['long_shots', 'RLo'],
+      ['passing', 'Pas'],
+      ['free_kicks', 'BPa'],
+      ['tackling', 'Des'],
+      ['marking', 'Mar'],
+      ['off_the_ball', 'SBo'],
+    ],
+  },
+  {
+    key: 'mental',
+    label: 'Mentais',
+    title: 'Características Mentais',
+    columns: [
+      ['aggression', 'Agr'],
+      ['anticipation', 'Ant'],
+      ['bravery', 'Bra'],
+      ['vision', 'Cri'],
+      ['decisions', 'Dec'],
+      ['determination', 'Det'],
+      ['flair', 'Ins'],
+      ['leadership', 'Ifl'],
+      ['positioning', 'Pos'],
+      ['teamwork', 'TEq'],
+      ['work_rate', 'ITr'],
+    ],
+  },
+  {
+    key: 'goalkeeping',
+    label: 'Guarda-Redes',
+    title: 'Características de Guarda-Redes',
+    columns: [
+      ['handling', 'JMã'],
+      ['reflexes', 'Ref'],
+      ['one_on_ones', 'UxU'],
+      ['positioning', 'Pos'],
+      ['anticipation', 'Ant'],
+      ['decisions', 'Dec'],
+    ],
+  },
+]
 
 /** "Apelido, N" e o `*` dos jogadores-chave. */
 export function squadName(p: SquadPlayer) {

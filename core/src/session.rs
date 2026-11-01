@@ -283,6 +283,21 @@ impl Session {
         self.game()?.manager_career()
     }
 
+    /// O Vêr Mais Dados do plantel (`kind`: "" = jogos oficiais, ou "Liga", "Taça", "Continentais").
+    pub fn squad_more(&self, id: i32, kind: &str) -> Result<Vec<crate::SquadMore>> {
+        self.game()?.squad_more(id, kind)
+    }
+
+    /// O Vêr Atributos do plantel e dos Treinos.
+    pub fn squad_attributes(&self, id: i32) -> Result<Vec<crate::SquadAttributes>> {
+        self.game()?.squad_attributes(id)
+    }
+
+    /// O Último Jogo das Tácticas de um clube.
+    pub fn last_lineup(&self, id: i32) -> Result<Option<crate::LastLineup>> {
+        self.game()?.last_lineup(id)
+    }
+
     pub fn manager_stats(&self) -> Result<crate::ManagerStats> {
         self.game()?.manager_stats()
     }

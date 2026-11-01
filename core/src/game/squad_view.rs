@@ -69,6 +69,14 @@ impl Game {
         let mine = id == self.club_id;
         let keys = if c.is_national_team { Vec::new() } else { self.key_players(id)? };
         let start = self.season_start((!c.is_national_team).then_some(id))?;
+        // Os emprestados a outros clubes continuam na lista do dono, a azul, como no CM
+        if !c.is_national_team {
+            let mut out = self.world.squad_players("p.id IN (SELECT person_id FROM loans WHERE parent_id = ? AND person_id NOT IN (SELECT id FROM people WHERE club_id = loans.parent_id))", id)?;
+            for p in &mut out {
+                p.loaned_out = true;
+            }
+            c.players.extend(out);
+        }
         let conn = &self.world.conn;
         for p in &mut c.players {
             p.ghost = self.is_ghost(p.id);
@@ -95,6 +103,13 @@ impl Game {
                 Some("Sus")
             } else if p.loaned {
                 Some("Emp")
+            } else if conn
+                .query_row("SELECT 1 FROM offers WHERE person_id = ? AND status = 'waiting' LIMIT 1", [p.id], |_| Ok(()))
+                .optional()?
+                .is_some()
+            {
+                // Transferência acertada, à espera da janela para sair
+                Some("Trn")
             } else if p.contract_expires.as_deref().is_some_and(|e| e < self.date.as_str()) {
                 // Contrato acabado, mas ainda no clube (até se tratar no fim da época)
                 Some("Ctr")
@@ -170,5 +185,115 @@ impl Game {
             c.players[i].penalty_order = Some(order as i32 + 1);
         }
         Ok(())
+    }
+}
+
+/// Uma linha do Vêr Mais Dados do plantel ("Estatísticas - Jogos Oficiais" no CM).
+#[derive(Debug, Clone, Default, serde::Serialize, ts_rs::TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SquadMore {
+    pub person: i32,
+    pub apps: i32,
+    /// Golos sofridos a jogar à baliza.
+    pub conceded: i32,
+    pub yellows: i32,
+    pub reds: i32,
+    pub wins: i32,
+    pub losses: i32,
+    /// Golos marcados e sofridos pela equipa nos jogos em que entrou.
+    pub team_for: i32,
+    pub team_against: i32,
+    pub rating: Option<f64>,
+}
+
+/// Os atributos de um jogador do plantel como o perfil os mostra (`None` = o clube não sabe).
+#[derive(Debug, Clone, serde::Serialize, ts_rs::TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SquadAttributes {
+    pub person: i32,
+    pub attributes: crate::person::Attributes,
+}
+
+impl Game {
+    /// O Vêr Mais Dados: por jogador, nesta época, nos jogos oficiais (`kind` vazio) ou só
+    /// numa "Liga", "Taça" ou "Continentais".
+    pub fn squad_more(&self, club: i32, kind: &str) -> Result<Vec<SquadMore>> {
+        let start = self.season_start(Some(club))?;
+        let rows: Vec<(i32, i32, i32, i32, Option<i32>, f64)> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT pm.person_id, pm.fixture, pm.competition, pm.club, pm.cards, pm.rating
+                 FROM player_matches pm JOIN people p ON p.id = pm.person_id
+                 WHERE pm.date >= ? AND (p.club_id = ? OR p.id IN (SELECT person_id FROM loans WHERE parent_id = ?))",
+            )?
+            .query_map(params![start, club, club], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let keepers: std::collections::HashSet<i32> = self
+            .world
+            .conn
+            .prepare_cached("SELECT person_id FROM players WHERE COALESCE(pos_goalkeeper, 0) >= 15")?
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut out: Vec<SquadMore> = Vec::new();
+        let mut ratings: std::collections::HashMap<i32, (f64, i32)> = std::collections::HashMap::new();
+        for (person, fixture, comp, side_club, cards, rating) in rows {
+            if !kind.is_empty() && self.comp_kind(comp) != kind {
+                continue;
+            }
+            let Some(m) = self.matches.iter().find(|m| m.id == fixture) else { continue };
+            let Some((h, a)) = m.result else { continue };
+            let (ours, theirs) = if m.home_id == side_club { (h as i32, a as i32) } else { (a as i32, h as i32) };
+            let row = match out.iter_mut().position(|r| r.person == person) {
+                Some(i) => &mut out[i],
+                None => {
+                    out.push(SquadMore { person, ..Default::default() });
+                    out.last_mut().unwrap()
+                }
+            };
+            row.apps += 1;
+            match cards.unwrap_or(0) {
+                2 => row.reds += 1,
+                1 => row.yellows += 1,
+                _ => {}
+            }
+            row.wins += (ours > theirs) as i32;
+            row.losses += (ours < theirs) as i32;
+            row.team_for += ours;
+            row.team_against += theirs;
+            if keepers.contains(&person) {
+                row.conceded += theirs;
+            }
+            let r = ratings.entry(person).or_default();
+            *r = (r.0 + rating, r.1 + 1);
+        }
+        for row in &mut out {
+            row.rating = ratings.get(&row.person).map(|(sum, n)| (sum / *n as f64 * 100.0).round() / 100.0);
+        }
+        Ok(out)
+    }
+
+    /// O Vêr Atributos do plantel e dos Treinos: os atributos de cada jogador, tapados como no
+    /// perfil quando o clube não o conhece.
+    pub fn squad_attributes(&self, club: i32) -> Result<Vec<SquadAttributes>> {
+        let ids: Vec<i32> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT id FROM people WHERE is_player = 1 AND (club_id = ? OR id IN (SELECT person_id FROM loans WHERE parent_id = ?))",
+            )?
+            .query_map(params![club, club], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut out = Vec::with_capacity(ids.len());
+        for id in ids {
+            let mut p = self.world.get_person(id)?;
+            self.mask_profile(&mut p)?;
+            if let Some(pl) = p.player {
+                out.push(SquadAttributes { person: id, attributes: pl.attributes });
+            }
+        }
+        Ok(out)
     }
 }

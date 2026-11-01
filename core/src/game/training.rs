@@ -147,18 +147,6 @@ pub struct TrainingView {
     pub players: Vec<SquadPlayer>,
     pub assign: Vec<ProgramAssign>,
     pub coaches: Vec<Coach>,
-    /// O Vêr Atributos: a média (1–20) de cada área de treino de cada jogador.
-    pub areas: Vec<PlayerAreas>,
-}
-
-/// A média dos atributos de cada área (Prep. Física, Táctica, Remate, Técnica, G-Redes), como
-/// o perfil os mostra; `None` numa área sem atributos.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct PlayerAreas {
-    pub person: i32,
-    pub areas: [Option<i32>; 5],
 }
 
 fn quality_label(v: i32) -> &'static str {
@@ -553,16 +541,7 @@ impl Game {
             self.assignments(&programs)?.into_iter().map(|(person, program)| ProgramAssign { person, program }).collect();
         assign.sort_by_key(|a| a.person);
         let coaches = self.coaches_of()?.into_iter().map(|c| c.0).collect();
-        let mut areas = Vec::with_capacity(club.players.len());
-        for p in &club.players {
-            let Some(pl) = self.world.get_person(p.id)?.player else { continue };
-            let mean = |keys: &[&str]| {
-                let v: Vec<i32> = keys.iter().filter_map(|k| pl.attributes.get(*k).copied().flatten()).collect();
-                (!v.is_empty()).then(|| (v.iter().sum::<i32>() as f64 / v.len() as f64).round() as i32)
-            };
-            areas.push(PlayerAreas { person: p.id, areas: AREAS.map(mean) });
-        }
-        Ok(TrainingView { club: club.club, programs, players: club.players, assign, coaches, areas })
+        Ok(TrainingView { club: club.club, programs, players: club.players, assign, coaches })
     }
 
     /// O Ok da tela: grava os programas (novos com id 0, os que faltam são apagados) e o

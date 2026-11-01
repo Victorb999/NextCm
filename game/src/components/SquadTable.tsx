@@ -1,7 +1,9 @@
 import type { ReactNode } from "react"
+import type { SquadAttributes } from "../bindings/SquadAttributes"
+import type { SquadMore } from "../bindings/SquadMore"
 import type { SquadPlayer } from "../bindings/SquadPlayer"
 import { cmDate, money, wage } from "../format"
-import { nameClass, squadName, type SquadView } from "../squad"
+import { ATTRIBUTE_GROUPS, nameClass, squadName, type AttributeGroup, type SquadView } from "../squad"
 import { Link } from "./Screen"
 
 // As vistas em tabela do Vêr do plantel, como no CM: uma linha por jogador com Esc, Inf e
@@ -23,7 +25,49 @@ const rating = (r: number | null) =>
 const apps = (p: SquadPlayer) =>
   p.apps ? `${p.apps - p.subs}${p.subs ? ` (${p.subs})` : ""}` : "-"
 
-const COLUMNS: Record<Exclude<SquadView, "traditional">, Column[]> = {
+/** O que as vistas novas precisam do core: o Mais Dados e os atributos de cada jogador. */
+export type TableExtra = {
+  more?: Map<number, SquadMore>
+  attributes?: Map<number, SquadAttributes["attributes"]>
+  group?: AttributeGroup
+}
+
+const value = (p: SquadPlayer) => (p.free ? "Livre" : money(p.value))
+const num = (v: number | undefined) => (v === undefined ? "-" : v)
+
+/** As colunas de uma vista; as do Mais Dados e Atributos dependem do que veio do core. */
+function columnsFor(view: Exclude<SquadView, "traditional">, extra: TableExtra): Column[] {
+  if (view === "more") {
+    const m = (p: SquadPlayer) => extra.more?.get(p.id)
+    return [
+      { label: "Sof", width: "w-12", align: "right", cell: (p) => num(m(p)?.conceded) },
+      { label: "Pens", width: "w-12", align: "right", cell: () => "-" },
+      { label: "Amr", width: "w-12", align: "right", cell: (p) => num(m(p)?.yellows) },
+      { label: "Verm", width: "w-12", align: "right", cell: (p) => num(m(p)?.reds) },
+      { label: "V", width: "w-12", align: "right", cell: (p) => num(m(p)?.wins) },
+      { label: "D", width: "w-12", align: "right", cell: (p) => num(m(p)?.losses) },
+      { label: "GlsE", width: "w-12", align: "right", cell: (p) => num(m(p)?.teamFor) },
+      { label: "SofE", width: "w-12", align: "right", cell: (p) => num(m(p)?.teamAgainst) },
+      { label: "Cla M", width: "w-16", align: "right", cell: (p) => rating(m(p)?.rating ?? null) },
+      { label: "Valor", width: "w-24", align: "right", cell: value },
+    ]
+  }
+  if (view === "attributes") {
+    const group = ATTRIBUTE_GROUPS.find((g) => g.key === extra.group) ?? ATTRIBUTE_GROUPS[0]
+    return [
+      ...group.columns.map(([key, label]): Column => ({
+        label,
+        width: "w-11",
+        align: "right",
+        cell: (p) => extra.attributes?.get(p.id)?.[key] ?? "-",
+      })),
+      { label: "Valor", width: "w-24", align: "right", cell: value },
+    ]
+  }
+  return COLUMNS[view]
+}
+
+const COLUMNS: Record<Exclude<SquadView, "traditional" | "more" | "attributes">, Column[]> = {
   contract: [
     { label: "Situação", width: "w-28", cell: (p) => p.role ?? "-" },
     {
@@ -102,6 +146,25 @@ const COLUMNS: Record<Exclude<SquadView, "traditional">, Column[]> = {
       cell: (p) => rating(p.rating),
     },
   ],
+  others: [
+    { label: "Nat.", width: "w-14", cell: (p) => p.nationCode ?? "-" },
+    { label: "Idade", width: "w-14", align: "right", cell: (p) => p.age ?? "-" },
+    { label: "Ints", width: "w-12", align: "right", cell: (p) => p.caps },
+    { label: "Golos", width: "w-14", align: "right", cell: (p) => p.intlGoals },
+    {
+      label: "Forma",
+      width: "w-28",
+      cell: (p) => (p.form.length ? p.form.map((f) => Math.round(f)).join("-") : "-"),
+    },
+    { label: "Moral", width: "w-24", cell: (p) => p.morale ?? "-" },
+    {
+      label: "Cond.",
+      width: "w-14",
+      align: "right",
+      cell: (p) => (p.condition === null ? "-" : `${p.condition}%`),
+    },
+    { label: "Valor", width: "w-24", align: "right", cell: value },
+  ],
   penalties: [
     { label: "Posição", width: "w-28", cell: (p) => p.position },
     {
@@ -133,14 +196,16 @@ export default function SquadTable({
   selected,
   onSelect,
   onOpen,
+  extra = {},
 }: {
   view: Exclude<SquadView, "traditional">
   rows: TableRow[]
   selected: number
   onSelect: (i: number) => void
   onOpen: (id: number) => void
+  extra?: TableExtra
 }) {
-  const columns = COLUMNS[view]
+  const columns = columnsFor(view, extra)
   const head =
     "font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#86869a]"
   return (

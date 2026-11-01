@@ -30,6 +30,12 @@ pub struct SquadPlayer {
     /// Para ordenar por posição como o CM: GR, defesas, médios, avançados.
     pub position_order: i32,
     pub international: bool,
+    /// Internacionalizações e golos pela selecção, e a sigla da nação ("ESP"), para o Vêr Outros.
+    pub caps: i32,
+    pub intl_goals: i32,
+    pub nation_code: Option<String>,
+    /// Do clube mas emprestado a outro (no plantel do dono, a azul, como no CM).
+    pub loaned_out: bool,
     /// Lugar no plantel pela habilidade (1 = o melhor), para o critério "Habilidade" sem
     /// mostrar o CA, que é interno.
     pub ability_rank: i32,
@@ -196,6 +202,75 @@ impl World {
             .optional()?)
     }
 
+    /// Os jogadores de um plantel (`filter` sobre `people p`, com um `?` para `arg`).
+    pub(crate) fn squad_players(&self, filter: &str, arg: i32) -> Result<Vec<SquadPlayer>> {
+        let mut stmt = self.conn.prepare_cached(&format!(
+            "SELECT p.id, p.list_name, pl.squad_number, p.birth_date, p.birth_year, n.name,
+                    p.positions, p.international_apps, pl.current_ability, pl.potential_ability,
+                    pl.pos_goalkeeper, pl.pos_sweeper, pl.pos_defender, pl.pos_defensive_midfielder,
+                    pl.pos_midfielder, pl.pos_attacking_midfielder, pl.pos_attacker, pl.pos_wing_back,
+                    pl.pos_right_side, pl.pos_left_side, pl.pos_central, pl.pos_free_role,
+                    p.wage, p.contract_expires, n.code, p.international_goals
+             FROM people p
+             JOIN players pl ON pl.person_id = p.id
+             LEFT JOIN nations n ON n.id = p.nation_id
+             WHERE {filter}"
+        ))?;
+        let players = stmt
+            .query_map([arg], |r| {
+                let mut pos = [None; 12];
+                for (i, slot) in pos.iter_mut().enumerate() {
+                    *slot = r.get(10 + i)?;
+                }
+                let birth_date: Option<String> = r.get(3)?;
+                let (lines, sides) = lines_and_sides(&pos);
+                Ok(SquadPlayer {
+                    id: r.get(0)?,
+                    list_name: r.get(1)?,
+                    squad_number: r.get(2)?,
+                    age: self.age_from(birth_date.as_deref(), r.get(4)?),
+                    nation: r.get(5)?,
+                    position_order: position_order(r.get(6)?),
+                    international: r.get::<_, i32>(7)? > 0,
+                    caps: r.get::<_, Option<i32>>(7)?.unwrap_or(0),
+                    intl_goals: r.get::<_, Option<i32>>(25)?.unwrap_or(0),
+                    nation_code: r.get(24)?,
+                    loaned_out: false,
+                    ability_rank: 0,
+                    current_ability: r.get(8)?,
+                    potential_ability: r.get(9)?,
+                    condition: None,
+                    injured: false,
+                    suspended: false,
+                    reserve: false,
+                    ghost: false,
+                    position: position_label(&pos),
+                    lines,
+                    sides,
+                    wage: r.get::<_, Option<i32>>(22)?.filter(|w| *w > 0),
+                    contract_expires: r.get(23)?,
+                    key: false,
+                    info: None,
+                    loaned: false,
+                    free: false,
+                    role: None,
+                    morale: None,
+                    form: Vec::new(),
+                    clauses: Vec::new(),
+                    value: None,
+                    apps: 0,
+                    subs: 0,
+                    goals: 0,
+                    assists: 0,
+                    mom: 0,
+                    rating: None,
+                    penalty_order: None,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(players)
+    }
+
     pub fn get_club(&self, id: i32) -> Result<ClubProfile> {
         let Some(club) = self.club_ref(Some(id))? else {
             return Err(Error::NotFound(format!("clube {id}")));
@@ -245,66 +320,7 @@ impl World {
         // Seleções: os jogadores ficam ligados por national_team_id, não por club_id.
         let link = if is_national { "p.national_team_id" } else { "p.club_id" };
 
-        let mut stmt = self.conn.prepare_cached(&format!(
-            "SELECT p.id, p.list_name, pl.squad_number, p.birth_date, p.birth_year, n.name,
-                    p.positions, p.international_apps, pl.current_ability, pl.potential_ability,
-                    pl.pos_goalkeeper, pl.pos_sweeper, pl.pos_defender, pl.pos_defensive_midfielder,
-                    pl.pos_midfielder, pl.pos_attacking_midfielder, pl.pos_attacker, pl.pos_wing_back,
-                    pl.pos_right_side, pl.pos_left_side, pl.pos_central, pl.pos_free_role,
-                    p.wage, p.contract_expires
-             FROM people p
-             JOIN players pl ON pl.person_id = p.id
-             LEFT JOIN nations n ON n.id = p.nation_id
-             WHERE {link} = ?"
-        ))?;
-        let mut players = stmt
-            .query_map([id], |r| {
-                let mut pos = [None; 12];
-                for (i, slot) in pos.iter_mut().enumerate() {
-                    *slot = r.get(10 + i)?;
-                }
-                let birth_date: Option<String> = r.get(3)?;
-                let (lines, sides) = lines_and_sides(&pos);
-                Ok(SquadPlayer {
-                    id: r.get(0)?,
-                    list_name: r.get(1)?,
-                    squad_number: r.get(2)?,
-                    age: self.age_from(birth_date.as_deref(), r.get(4)?),
-                    nation: r.get(5)?,
-                    position_order: position_order(r.get(6)?),
-                    international: r.get::<_, i32>(7)? > 0,
-                    ability_rank: 0,
-                    current_ability: r.get(8)?,
-                    potential_ability: r.get(9)?,
-                    condition: None,
-                    injured: false,
-                    suspended: false,
-                    reserve: false,
-                    ghost: false,
-                    position: position_label(&pos),
-                    lines,
-                    sides,
-                    wage: r.get::<_, Option<i32>>(22)?.filter(|w| *w > 0),
-                    contract_expires: r.get(23)?,
-                    key: false,
-                    info: None,
-                    loaned: false,
-                    free: false,
-                    role: None,
-                    morale: None,
-                    form: Vec::new(),
-                    clauses: Vec::new(),
-                    value: None,
-                    apps: 0,
-                    subs: 0,
-                    goals: 0,
-                    assists: 0,
-                    mom: 0,
-                    rating: None,
-                    penalty_order: None,
-                })
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut players = self.squad_players(&format!("{link} = ?"), id)?;
         let mut order: Vec<usize> = (0..players.len()).collect();
         order.sort_by_key(|&i| (std::cmp::Reverse(players[i].current_ability.unwrap_or(0)), players[i].id));
         for (rank, i) in order.into_iter().enumerate() {

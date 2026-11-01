@@ -5,6 +5,8 @@ import type { ClubListItem } from "../bindings/ClubListItem"
 import type { ClubProfile } from "../bindings/ClubProfile"
 import type { ClubTactics } from "../bindings/ClubTactics"
 import type { Fixture } from "../bindings/Fixture"
+import type { SquadAttributes } from "../bindings/SquadAttributes"
+import type { SquadMore } from "../bindings/SquadMore"
 import type { SquadPlayer } from "../bindings/SquadPlayer"
 import CascadeMenu, { type MenuNode } from "../components/CascadeMenu"
 import { ClubFixtureList, MatchInfo } from "../components/Fixtures"
@@ -37,6 +39,9 @@ import {
   FILTER_OPTIONS,
   NO_FILTER,
   VIEW_TITLE,
+  ATTRIBUTE_GROUPS,
+  MORE_COMPETITIONS,
+  type AttributeGroup,
   nameClass,
   passes,
   squadName,
@@ -53,25 +58,76 @@ const TABS = [
 ]
 
 type View = SquadView | "staff"
-type Criterion = "position" | "name" | "number" | "age" | "ability"
+type Criterion =
+  | "name"
+  | "position"
+  | "number"
+  | "form"
+  | "morale"
+  | "condition"
+  | "nation"
+  | "age"
+  | "caps"
+  | "intlGoals"
+  | "wage"
+  | "contract"
+  | "value"
+  | "goals"
+  | "conceded"
+  | "assists"
+  | "rating"
 
-// O Vêr do CM; Mais Dados, Atributos e Outros esperam por prints
+// O Vêr do CM
 const VIEWS: MenuOption<View>[] = [
   { key: "traditional", label: "Tradicional" },
   { key: "contract", label: "Contrato" },
   { key: "selection", label: "Selecção" },
   { key: "stats", label: "Estatísticas" },
+  { key: "more", label: "Mais Dados" },
+  { key: "attributes", label: "Atributos" },
+  { key: "others", label: "Outros" },
+  "separator",
   { key: "penalties", label: "Marcadores Penalties" },
   "separator",
   { key: "staff", label: "Staff" },
 ]
 
-const CRITERIA: { key: Criterion; label: string }[] = [
-  { key: "position", label: "Posição" },
+// O Critério do CM (a ordem da lista)
+const CRITERIA: MenuOption<Criterion>[] = [
   { key: "name", label: "Nome" },
-  { key: "number", label: "Número" },
+  { key: "position", label: "Posição" },
+  { key: "number", label: "Numeração" },
+  { key: "form", label: "Forma" },
+  { key: "morale", label: "Moral" },
+  { key: "condition", label: "Condição" },
+  { key: "nation", label: "Nacionalidade" },
   { key: "age", label: "Idade" },
-  { key: "ability", label: "Habilidade" },
+  { key: "caps", label: "Internacion." },
+  { key: "intlGoals", label: "Golos Intern." },
+  { key: "wage", label: "Salário Base" },
+  { key: "contract", label: "Termo Contrato" },
+  { key: "value", label: "Valor" },
+  "separator",
+  { key: "goals", label: "Golos" },
+  { key: "conceded", label: "Golos Sofridos" },
+  { key: "assists", label: "Assistências" },
+  { key: "rating", label: "Class. Média" },
+]
+const criterionLabel = (c: Criterion) =>
+  CRITERIA.find(
+    (o): o is { key: Criterion; label: string } =>
+      o !== "separator" && o.key === c,
+  )?.label ?? ""
+
+/** A ordem da moral, da melhor para a pior. */
+const MORALE_ORDER = [
+  "Excelente",
+  "Muito Boa",
+  "Boa",
+  "Razoável",
+  "Fraca",
+  "Muito Fraca",
+  "Péssima",
 ]
 
 /** Uma linha do plantel: [número] [lugar/Int] Nome ... posição */
@@ -135,7 +191,8 @@ function SquadGrid({
           onMouseDown={stop}
           onClick={toggle}
           title={onToggle ? "Clique para pôr/tirar da equipa" : undefined}
-          className={`w-10 shrink-0 text-center font-mono text-[12px] font-bold text-[#4edea3] ${onToggle ? "cursor-pointer" : ""}`}
+          className={`w-10 shrink-0 text-center font-mono text-[12px] 
+            font-bold cm-chip ${onToggle ? "cursor-pointer" : ""}`}
         >
           {e.badge || <span className="text-[#5a5a66]">-</span>}
         </span>
@@ -313,6 +370,13 @@ export default function ClubPage({
   const [view, setView] = useState<View>("traditional")
   const [filter, setFilter] = useState<Filter>(NO_FILTER)
   const [criterion, setCriterion] = useState<Criterion>("position")
+  // Mais Dados (por competição) e Atributos (por grupo): o que vem do core para essas vistas
+  const [moreKind, setMoreKind] = useState("")
+  const [group, setGroup] = useState<AttributeGroup>("physical")
+  const [more, setMore] = useState<Map<number, SquadMore>>(new Map())
+  const [attributes, setAttributes] = useState<
+    Map<number, SquadAttributes["attributes"]>
+  >(new Map())
   const [selected, setSelected] = useState(0)
   const [tactics, setTactics] = useState<ClubTactics | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -407,21 +471,70 @@ export default function ClubPage({
     )
     const name = (a: { listName: string }, b: { listName: string }) =>
       a.listName.localeCompare(b.listName)
-    if (criterion === "position")
-      list.sort((a, b) => a.positionOrder - b.positionOrder || name(a, b))
-    if (criterion === "name") list.sort(name)
-    if (criterion === "number")
-      list.sort(
-        (a, b) => byNullsLast(a.squadNumber, b.squadNumber) || name(a, b),
-      )
-    if (criterion === "age")
-      list.sort((a, b) => byNullsLast(a.age, b.age) || name(a, b))
-    if (criterion === "ability")
-      list.sort((a, b) => a.abilityRank - b.abilityRank)
+    // Do maior para o menor nos números do jogo; os sem valor no fim
+    const desc =
+      (f: (p: SquadPlayer) => number | null | undefined) =>
+      (a: SquadPlayer, b: SquadPlayer) =>
+        byNullsLast(f(b) ?? null, f(a) ?? null) || name(a, b)
+    const asc =
+      (f: (p: SquadPlayer) => number | string | null | undefined) =>
+      (a: SquadPlayer, b: SquadPlayer) => {
+        const x = f(a) ?? null
+        const y = f(b) ?? null
+        if (x === null || y === null)
+          return x === y ? name(a, b) : x === null ? 1 : -1
+        return (
+          (typeof x === "string"
+            ? x.localeCompare(String(y))
+            : x - Number(y)) || name(a, b)
+        )
+      }
+    const avg = (v: number[]) =>
+      v.length ? v.reduce((s, x) => s + x, 0) / v.length : null
+    const sorters: Record<
+      Criterion,
+      (a: SquadPlayer, b: SquadPlayer) => number
+    > = {
+      name,
+      position: (a, b) => a.positionOrder - b.positionOrder || name(a, b),
+      number: asc((p) => p.squadNumber),
+      form: desc((p) => avg(p.form)),
+      morale: asc((p) => (p.morale ? MORALE_ORDER.indexOf(p.morale) : null)),
+      condition: desc((p) => p.condition),
+      nation: asc((p) => p.nation),
+      age: asc((p) => p.age),
+      caps: desc((p) => p.caps),
+      intlGoals: desc((p) => p.intlGoals),
+      wage: desc((p) => p.wage),
+      contract: asc((p) => p.contractExpires),
+      value: desc((p) => p.value),
+      goals: desc((p) => p.goals),
+      conceded: desc((p) => more.get(p.id)?.conceded),
+      assists: desc((p) => p.assists),
+      rating: desc((p) => p.rating),
+    }
+    list.sort(sorters[criterion])
     if (view === "penalties")
       list.sort((a, b) => byNullsLast(a.penaltyOrder, b.penaltyOrder))
     return list
-  }, [club, reserves, filter, criterion, view])
+  }, [club, reserves, filter, criterion, view, more])
+
+  const needMore = view === "more" || criterion === "conceded"
+  useEffect(() => {
+    if (!needMore || game.mode !== "game") return
+    api.squadMore(id, moreKind).then(
+      (rows) => setMore(new Map(rows.map((r) => [r.person, r]))),
+      () => setMore(new Map()),
+    )
+  }, [needMore, id, moreKind, game.mode, game.info?.date])
+  useEffect(() => {
+    if (view !== "attributes" || game.mode !== "game") return
+    api.squadAttributes(id).then(
+      (rows) =>
+        setAttributes(new Map(rows.map((r) => [r.person, r.attributes]))),
+      () => setAttributes(new Map()),
+    )
+  }, [view, id, game.mode, game.info?.date])
 
   const sel = tactics && selectionOf(tactics)
   // Casa na equipa (GR, DD... e SB1–SB7 nos suplentes)
@@ -698,16 +811,32 @@ export default function ClubPage({
               setSelected(0)
             }}
           />
-          <PurpleMenu
-            label="Critério"
-            options={CRITERIA}
-            value={criterion}
-            disabled={view === "staff"}
-            onChange={(c) => {
-              setCriterion(c)
-              setSelected(0)
-            }}
-          />
+          {view === "more" ? (
+            <PurpleMenu
+              label="Competições"
+              options={MORE_COMPETITIONS}
+              value={moreKind}
+              onChange={setMoreKind}
+            />
+          ) : view === "attributes" ? (
+            <PurpleMenu
+              label="Atributos"
+              options={ATTRIBUTE_GROUPS}
+              value={group}
+              onChange={setGroup}
+            />
+          ) : (
+            <PurpleMenu
+              label="Critério"
+              options={CRITERIA}
+              value={criterion}
+              disabled={view === "staff"}
+              onChange={(c) => {
+                setCriterion(c)
+                setSelected(0)
+              }}
+            />
+          )}
           <div className="flex-1" />
           {mine && (
             <button
@@ -753,8 +882,12 @@ export default function ClubPage({
                 {view === "staff"
                   ? "Staff"
                   : view === "traditional"
-                    ? CRITERIA.find((c) => c.key === criterion)!.label
-                    : VIEW_TITLE[view]}
+                    ? criterionLabel(criterion)
+                    : view === "more"
+                      ? `Estatísticas - ${MORE_COMPETITIONS.find((c) => c.key === moreKind)?.label}`
+                      : view === "attributes"
+                        ? ATTRIBUTE_GROUPS.find((g) => g.key === group)?.title
+                        : VIEW_TITLE[view]}
               </span>
               {mine && tactics && teamView && (
                 <>
@@ -803,6 +936,7 @@ export default function ClubPage({
               {table && players.length ? (
                 <SquadTable
                   view={view}
+                  extra={{ more, attributes, group }}
                   rows={players.map((p) => ({ p, place: placeOf(p.id) }))}
                   selected={selected}
                   onSelect={setSelected}

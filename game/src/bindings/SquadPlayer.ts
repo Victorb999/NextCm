@@ -14,6 +14,14 @@ position: string,
  */
 positionOrder: number, international: boolean, 
 /**
+ * Internacionalizações e golos pela selecção, e a sigla da nação ("ESP"), para o Vêr Outros.
+ */
+caps: number, intlGoals: number, nationCode: string | null, 
+/**
+ * Do clube mas emprestado a outro (no plantel do dono, a azul, como no CM).
+ */
+loanedOut: boolean, 
+/**
  * Lugar no plantel pela habilidade (1 = o melhor), para o critério "Habilidade" sem
  * mostrar o CA, que é interno.
  */

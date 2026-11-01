@@ -76,6 +76,7 @@ pub use press::{PressQuestion, PressView};
 pub use scout_tasks::{ScoutFind, ScoutList};
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
+pub use squad_view::{SquadAttributes, SquadMore};
 pub use staff_reports::ReportStaff;
 pub use team_talk::{TalkLine, TalkOption, TalkReaction, TalkView};
 pub use training::{TrainingPlan, TrainingView};
@@ -119,7 +120,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// 33: o treino (`training_programs`, `training_players`), marco 3.17.
 /// 34: os prémios e cláusulas dos contratos (`contract_talks.extras`, `contract_extras`) e os
 /// minutos e cartões de cada jogo (`player_matches`), para a ficha da partida.
-pub const SAVE_VERSION: i32 = 37;
+pub const SAVE_VERSION: i32 = 38;
 
 /// Os jogadores de enchimento (save 32): criados para completar os plantéis dos clubes
 /// pequenos, só jogam pelo clube deles (sem mercado, contratos nem olheiros), como os do CM.
@@ -208,6 +209,10 @@ CREATE TABLE ai_boards (club_id INTEGER PRIMARY KEY, confidence INTEGER NOT NULL
 CREATE TABLE vacancies (club_id INTEGER PRIMARY KEY, since TEXT NOT NULL);
 CREATE TABLE manager_info (id INTEGER PRIMARY KEY CHECK (id = 1), reputation INTEGER NOT NULL);
 ";
+
+/// A escalação do último jogo de cada clube (save 38): o Último Jogo das Tácticas.
+const LAST_LINEUP_SCHEMA: &str = "CREATE TABLE last_lineups (club_id INTEGER PRIMARY KEY, fixture INTEGER NOT NULL,
+                                  opponent INTEGER NOT NULL, date TEXT NOT NULL, selection TEXT NOT NULL);";
 
 /// "Definição Atributos" do Novo Jogo (save 37): 1 = os atributos de quem o clube não conhece ficam tapados.
 const MASKING_SCHEMA: &str = "ALTER TABLE game ADD COLUMN masking INTEGER NOT NULL DEFAULT 1;";
@@ -434,6 +439,16 @@ CREATE TABLE selection_players (
 ";
 
 /// Dados do ecrã "Novo Jogo".
+/// O Último Jogo das Tácticas: o adversário, a data e a escalação desse jogo.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct LastLineup {
+    pub opponent: ClubRef,
+    pub date: String,
+    pub tactics: ClubTactics,
+}
+
 #[derive(Debug, Clone, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -697,6 +712,7 @@ impl Game {
             tx.execute_batch(LICENSE_SCHEMA)?;
             tx.execute_batch(PROVOKE_SCHEMA)?;
             tx.execute_batch(MASKING_SCHEMA)?;
+            tx.execute_batch(LAST_LINEUP_SCHEMA)?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -1046,6 +1062,11 @@ impl Game {
             world.conn.execute_batch(MASKING_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 37", [])?;
             version = 37;
+        }
+        if version == 37 {
+            world.conn.execute_batch(LAST_LINEUP_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 38", [])?;
+            version = 38;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -1405,6 +1426,9 @@ impl Game {
             let comp = self.matches[i].competition_id;
             let (home_t, home_changes) = self.lineup(home, comp)?;
             let (away_t, away_changes) = self.lineup(away, comp)?;
+            let fixture = self.matches[i].id;
+            self.record_lineup(&home_t, away, fixture)?;
+            self.record_lineup(&away_t, home, fixture)?;
             if let Some(changes) = home_changes.or(away_changes)
                 && !changes.is_empty()
                 && !quiet
@@ -1599,6 +1623,48 @@ impl Game {
                 Ok((self.world.auto_tactics(club, Some(&state), instructions)?.with_orders(other.as_ref()), None))
             }
         }
+    }
+
+    /// Guarda a escalação de um clube neste jogo (para o Último Jogo das Tácticas).
+    fn record_lineup(&self, t: &ClubTactics, opponent: i32, fixture: i32) -> Result<()> {
+        let mut sel = t.selection();
+        sel.positions = t.starters.iter().map(|s| [s.x, s.y]).collect();
+        sel.auto = false;
+        self.world.conn.execute(
+            "INSERT OR REPLACE INTO last_lineups (club_id, fixture, opponent, date, selection) VALUES (?, ?, ?, ?, ?)",
+            params![t.club_id, fixture, opponent, self.date, serde_json::to_string(&sel).unwrap_or_default()],
+        )?;
+        Ok(())
+    }
+
+    /// O Último Jogo das Tácticas: a escalação do último jogo do clube (sem os que já não são
+    /// do plantel), só para ver.
+    pub fn last_lineup(&self, club: i32) -> Result<Option<LastLineup>> {
+        let row: Option<(i32, String, String)> = self
+            .world
+            .conn
+            .query_row("SELECT opponent, date, selection FROM last_lineups WHERE club_id = ?", [club], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
+            .optional()?;
+        let Some((opponent, date, json)) = row else { return Ok(None) };
+        let Ok(mut sel) = serde_json::from_str::<Selection>(&json) else { return Ok(None) };
+        let squad: Vec<i32> = self
+            .world
+            .conn
+            .prepare_cached("SELECT id FROM people WHERE club_id = ? AND is_player = 1")?
+            .query_map([club], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        for s in &mut sel.starters {
+            if s.is_some_and(|p| !squad.contains(&p)) {
+                *s = None;
+            }
+        }
+        sel.bench.retain(|p| squad.contains(p));
+        sel.orders.retain(|o| squad.contains(&o.person_id));
+        let mut tactics = self.world.tactics_from_selection(club, &sel, None)?;
+        self.mark_key_players(&mut tactics)?;
+        Ok(Some(LastLineup { opponent: self.club(opponent), date, tactics }))
     }
 
     /// Tácticas de um clube agora: o do treinador é editável; os outros, o que o adjunto escolheria.
@@ -3083,6 +3149,16 @@ mod tests {
         assert_eq!((p.info.as_deref(), p.role.as_deref()), (Some("Lst"), Some("Dispensável")));
         assert_eq!(c.players.iter().find(|x| x.id == gone).unwrap().info.as_deref(), Some("Ctr"));
         assert_eq!(c.players.iter().find(|x| x.id == wanted).unwrap().info.as_deref(), Some("Des"));
+        // Vêr Mais Dados e Atributos: quem jogou tem jogos e resultado; todos os do plantel têm atributos
+        let more = g.squad_more(7568, "").unwrap();
+        assert!(more.iter().any(|m| m.apps > 0 && m.wins + m.losses <= m.apps && m.rating.is_some()));
+        assert!(g.squad_more(7568, "Continentais").unwrap().iter().all(|m| m.apps == 0) || more.len() > 0);
+        // O Último Jogo das Tácticas: a escalação do jogo que já se jogou
+        let last = g.last_lineup(7568).unwrap().expect("último jogo");
+        assert_eq!(last.tactics.starters.len(), 11);
+        assert!(last.tactics.starters.iter().filter(|s| s.player.is_some()).count() >= 9);
+        let attrs = g.squad_attributes(7568).unwrap();
+        assert!(attrs.len() >= 20 && attrs.iter().all(|a| a.attributes.contains_key("pace")));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -3303,7 +3379,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; DROP TABLE last_lineups; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

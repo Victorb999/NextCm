@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { SquadAttributes } from '../bindings/SquadAttributes'
 import { api } from '../api'
 import type { SquadPlayer } from '../bindings/SquadPlayer'
 import type { TrainingProgram } from '../bindings/TrainingProgram'
@@ -9,7 +10,7 @@ import { CoachesDialog, ProgramDialog } from '../components/TrainingDialogs'
 import { money } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
-import { FILTER_OPTIONS, NO_FILTER, nameClass, passes, squadName, type Filter } from '../squad'
+import { ATTRIBUTE_GROUPS, FILTER_OPTIONS, NO_FILTER, nameClass, passes, squadName, type AttributeGroup, type Filter } from '../squad'
 
 // "<Clube> - Treinos", como no CM: uma aba com todos e uma por programa (com quantos
 // jogadores tem); Programa dá um programa ao jogador escolhido, Editar abre o diálogo do
@@ -32,9 +33,6 @@ const blank = (id: number): TrainingProgram => ({
   newPosition: null,
   newSide: null,
 })
-
-/** As colunas do Vêr Atributos: as áreas do treino, pela ordem do programa. */
-const AREA_LABELS = ['Físico', 'Táctica', 'Remate', 'Técnica', 'G-Redes']
 
 export default function TrainingPage() {
   const nav = useNav()
@@ -127,9 +125,19 @@ export default function TrainingPage() {
   })
 
   const [columns, setColumns] = useState<'general' | 'attributes'>('general')
+  const [group, setGroup] = useState<AttributeGroup>('physical')
+  const [attributes, setAttributes] = useState<Map<number, SquadAttributes['attributes']>>(new Map())
+  const clubId = view?.club.id
+  useEffect(() => {
+    if (columns !== 'attributes' || clubId === undefined) return
+    api.squadAttributes(clubId).then(
+      (rows) => setAttributes(new Map(rows.map((r) => [r.person, r.attributes]))),
+      () => setAttributes(new Map()),
+    )
+  }, [columns, clubId])
   const head = 'font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#86869a]'
-  // Vêr Atributos: a média de cada área de treino de cada jogador (do core)
-  const areasOf = (id: number) => view?.areas.find((a) => a.person === id)?.areas ?? [null, null, null, null, null]
+  // Vêr Atributos: os atributos de cada jogador do grupo escolhido (do core, como no plantel)
+  const groupCols = (ATTRIBUTE_GROUPS.find((g) => g.key === group) ?? ATTRIBUTE_GROUPS[0]).columns
   const cell = (i: number) => `shrink-0 truncate font-mono text-[12.5px] ${i === selected ? 'text-white' : 'text-cm-yellow'}`
   return (
     <div className="relative flex h-full flex-col">
@@ -158,6 +166,7 @@ export default function TrainingPage() {
           value={columns}
           onChange={setColumns}
         />
+        {columns === 'attributes' && <PurpleMenu label="Atributos" options={ATTRIBUTE_GROUPS} value={group} onChange={setGroup} />}
         <button className="cm-purple h-6 w-40" disabled={!view} onClick={() => setDialog({ kind: 'coaches' })}>
           Treinadores
         </button>
@@ -203,8 +212,8 @@ export default function TrainingPage() {
                     <span className="w-20 text-right">Valor</span>
                   </>
                 ) : (
-                  AREA_LABELS.map((l) => (
-                    <span key={l} className="w-16 text-right">
+                  groupCols.map(([key, l]) => (
+                    <span key={key} className="w-11 text-right">
                       {l}
                     </span>
                   ))
@@ -234,9 +243,9 @@ export default function TrainingPage() {
                         <span className={`w-20 text-right ${cell(i)}`}>{p.free ? 'Livre' : money(p.value)}</span>
                       </>
                     ) : (
-                      areasOf(p.id).map((v, k) => (
-                        <span key={k} className={`w-16 text-right ${cell(i)}`}>
-                          {v ?? '-'}
+                      groupCols.map(([key]) => (
+                        <span key={key} className={`w-11 text-right ${cell(i)}`}>
+                          {attributes.get(p.id)?.[key] ?? '-'}
                         </span>
                       ))
                     )}

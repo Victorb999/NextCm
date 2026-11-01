@@ -39,7 +39,7 @@ pub use game::{
     OfferView, ReportStaff, RoleOption, SaveSummary, ScoutFind, ScoutList, SquadNumbers, StageView, StartSeason, TieView, TransferItem,
     TransferView, delete_save, list_saves,
 };
-pub use game::{CareerClub, ManagerStats};
+pub use game::{CareerClub, LastLineup, ManagerStats, SquadAttributes, SquadMore};
 pub use game::{DealTerms, LoanTerms};
 pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use game::{PressQuestion, PressView};

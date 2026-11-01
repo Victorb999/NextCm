@@ -1,11 +1,13 @@
-import { ArrowLeftRight, ChevronDown, Pencil } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, History, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
 import type { ClubTactics } from '../bindings/ClubTactics'
+import type { LastLineup } from '../bindings/LastLineup'
 import type { Selection } from '../bindings/Selection'
 import type { TacticPlayer } from '../bindings/TacticPlayer'
 import InstructionsDialog from '../components/InstructionsDialog'
+import LastLineupView from '../components/LastLineupView'
 import LoadFileDialog from '../components/LoadFileDialog'
 import PlayerOrdersDialog from '../components/PlayerOrdersDialog'
 import TextDialog from '../components/TextDialog'
@@ -33,6 +35,13 @@ export default function TacticsPage({ id }: { id: number }) {
   const [ordersFor, setOrdersFor] = useState<TacticPlayer | null>(null)
   // O Vêr: o que a coluna da direita da lista mostra (posição, condição, golos, instruções...)
   const [view, setView] = useState<TacticsView>('position')
+  // O Último Jogo aberto (a escalação do último jogo do clube)
+  const [last, setLast] = useState<LastLineup | null>(null)
+  const openLast = () =>
+    api.lastLineup(id).then(
+      (l) => (l ? setLast(l) : setError('O clube ainda não jogou nenhum jogo.')),
+      (e) => setError(String(e)),
+    )
   const col = (p: TacticPlayer) => (view === 'position' || !t ? undefined : viewValue(view, p, ordersOf(t, p.id)))
   // Carregar / Gravar Táctica abertos
   const [fileDialog, setFileDialog] = useState<'load' | 'save' | null>(null)
@@ -177,6 +186,9 @@ export default function TacticsPage({ id }: { id: number }) {
             </>
           }
         />
+        <button className={headButton} disabled={game.mode !== 'game'} onClick={() => void openLast()}>
+          <History size={14} /> Último Jogo
+        </button>
         <PurpleMenu
           label="Editar"
           align="right"
@@ -363,6 +375,7 @@ export default function TacticsPage({ id }: { id: number }) {
       )}
       {!t && <div className="flex-1" />}
       {drag.ghost}
+      {last && <LastLineupView last={last} colours={colours} onBack={() => setLast(null)} />}
       {fileDialog === 'load' && t && (
         <LoadFileDialog
           title="Carregar Táctica"

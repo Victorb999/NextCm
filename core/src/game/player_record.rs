@@ -584,7 +584,7 @@ impl Game {
     }
 
     /// Liga, Taça ou Continentais, como no Historial do CM.
-    fn comp_kind(&self, comp: i32) -> &'static str {
+    pub(super) fn comp_kind(&self, comp: i32) -> &'static str {
         let nation: Option<i32> =
             self.world.conn.query_row("SELECT nation_id FROM competitions WHERE id = ?", [comp], |r| r.get(0)).unwrap_or(None);
         if nation.is_none() {

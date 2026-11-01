@@ -2,9 +2,6 @@
 import type { LeagueChoice } from "./LeagueChoice";
 import type { StartSeason } from "./StartSeason";
 
-/**
- * Dados do ecrã "Novo Jogo".
- */
 export type NewGame = { 
 /**
  * Nome do save (vira o nome do arquivo).

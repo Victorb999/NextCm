@@ -44,6 +44,12 @@ async fn creation_progress() -> nextcm_core::progress::CreationProgress {
 }
 
 #[tauri::command]
+async fn squad_more(state: State<'_, AppState>, id: i32, kind: String) -> Result<Vec<nextcm_core::SquadMore>, String> {
+    let session = state.session.lock().map_err(|e| e.to_string())?;
+    session.squad_more(id, &kind).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn search_people(state: State<'_, AppState>, query: SearchQuery) -> Result<SearchResult, String> {
     let session = state.session.lock().map_err(|e| e.to_string())?;
     session.search_people(&query).map_err(|e| e.to_string())
@@ -139,6 +145,8 @@ session_command!(retire_manager() -> String);
 session_command!(holiday(days: i32) -> GameInfo);
 session_command!(manager_career() -> Vec<CareerClub>);
 session_command!(manager_stats() -> ManagerStats);
+session_command!(last_lineup(id: i32) -> Option<nextcm_core::LastLineup>);
+session_command!(squad_attributes(id: i32) -> Vec<nextcm_core::SquadAttributes>);
 session_command!(save_as(name: String, overwrite: bool) -> GameInfo);
 session_command!(ask_terms(id: i32, terms: DealTerms) -> OfferView);
 session_command!(contract_terms(id: i32, role: Option<String>) -> ContractTerms);
@@ -337,6 +345,9 @@ pub fn run() {
             holiday,
             manager_career,
             manager_stats,
+            last_lineup,
+            squad_more,
+            squad_attributes,
             save_as,
             ask_terms,
             contract_terms,

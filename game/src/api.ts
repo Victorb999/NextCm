@@ -14,7 +14,10 @@ import type { WorldTransfers } from './bindings/WorldTransfers'
 import type { CareerClub } from './bindings/CareerClub'
 import type { ContinueStep } from './bindings/ContinueStep'
 import type { CreationProgress } from './bindings/CreationProgress'
+import type { LastLineup } from './bindings/LastLineup'
 import type { ManagerStats } from './bindings/ManagerStats'
+import type { SquadAttributes } from './bindings/SquadAttributes'
+import type { SquadMore } from './bindings/SquadMore'
 import type { LeagueNation } from './bindings/LeagueNation'
 import type { TalkLine } from './bindings/TalkLine'
 import type { TalkReaction } from './bindings/TalkReaction'
@@ -136,6 +139,12 @@ export const api = {
   holiday: (days: number) => call<GameInfo>('holiday', { days }),
   managerCareer: () => call<CareerClub[]>('manager_career'),
   managerStats: () => call<ManagerStats>('manager_stats'),
+  /** O Último Jogo das Tácticas: a escalação do último jogo do clube (`null` sem jogos). */
+  lastLineup: (id: number) => call<LastLineup | null>('last_lineup', { id }),
+  /** O Vêr Mais Dados do plantel (`kind`: '' jogos oficiais, 'Liga', 'Taça', 'Continentais'). */
+  squadMore: (id: number, kind: string) => call<SquadMore[]>('squad_more', { id, kind }),
+  /** O Vêr Atributos do plantel e dos Treinos (tapados como no perfil). */
+  squadAttributes: (id: number) => call<SquadAttributes[]>('squad_attributes', { id }),
   /** Gravar com outro nome; `overwrite` substitui um ficheiro com esse nome. */
   saveAs: (name: string, overwrite: boolean) => call<GameInfo>('save_as', { name, overwrite }),
   /** Classificação real; vazia sem jogo ou numa competição parada. */

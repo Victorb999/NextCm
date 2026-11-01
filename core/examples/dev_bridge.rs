@@ -200,6 +200,9 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         }
         "manager_career" => out(serde_json::to_value(session.manager_career().map_err(e)?)),
         "manager_stats" => out(serde_json::to_value(session.manager_stats().map_err(e)?)),
+        "last_lineup" => out(serde_json::to_value(session.last_lineup(id()?).map_err(e)?)),
+        "squad_more" => out(serde_json::to_value(session.squad_more(id()?, args["kind"].as_str().unwrap_or("")).map_err(e)?)),
+        "squad_attributes" => out(serde_json::to_value(session.squad_attributes(id()?).map_err(e)?)),
         "save_as" => {
             let name = args["name"].as_str().ok_or("falta name")?.to_string();
             let overwrite = args["overwrite"].as_bool().unwrap_or(false);
