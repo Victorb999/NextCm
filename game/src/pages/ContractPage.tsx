@@ -1,16 +1,23 @@
-import { FileText } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
-import { api } from '../api'
-import type { ContractExtras } from '../bindings/ContractExtras'
-import type { ContractReply } from '../bindings/ContractReply'
-import type { ContractTerms } from '../bindings/ContractTerms'
-import ContractExtrasPanel from '../components/ContractExtrasPanel'
-import MoneySelect from '../components/MoneySelect'
-import { BottomBar, ErrorBox, Link, Panel, ScreenHeader, Tabs } from '../components/Screen'
-import { money, monthYear, wage as wageText, wagePeriod } from '../format'
-import { useGame } from '../game'
-import { useEscBack, useNav } from '../nav'
+import { FileText } from "lucide-react"
+import { useEffect, useState } from "react"
+import type { ReactNode } from "react"
+import { api } from "../api"
+import type { ContractExtras } from "../bindings/ContractExtras"
+import type { ContractReply } from "../bindings/ContractReply"
+import type { ContractTerms } from "../bindings/ContractTerms"
+import ContractExtrasPanel from "../components/ContractExtrasPanel"
+import MoneySelect from "../components/MoneySelect"
+import {
+  BottomBar,
+  ErrorBox,
+  Link,
+  Panel,
+  ScreenHeader,
+  Tabs,
+} from "../components/Screen"
+import { money, monthYear, wage as wageText, wagePeriod } from "../format"
+import { useGame } from "../game"
+import { useEscBack, useNav } from "../nav"
 
 // Contrato com um jogador, como no CM: primeiro "Definir Função No Clube" e depois
 // "Propôr Contrato" (salário, prémio de assinatura, fim do contrato). O jogador responde
@@ -18,26 +25,42 @@ import { useEscBack, useNav } from '../nav'
 
 /** Nome curto de cada função, para a linha "Função" da proposta. */
 const ROLE_SHORT: Record<string, string> = {
-  key: 'Indispensável',
-  important: 'Importante',
-  rotation: 'Rotação',
-  backup: 'Apoio',
-  prospect: 'Perspectiva futura',
-  youngster: 'Jovem com valor',
+  key: "Indispensável",
+  important: "Importante",
+  rotation: "Rotação",
+  backup: "Apoio",
+  prospect: "Perspectiva futura",
+  youngster: "Jovem com valor",
 }
 
-const SALARY_LABEL: Record<string, string> = { week: 'Salário Semanal', month: 'Salário Mensal', year: 'Salário Anual' }
+const SALARY_LABEL: Record<string, string> = {
+  week: "Salário Semanal",
+  month: "Salário Mensal",
+  year: "Salário Anual",
+}
 
 /** "Este jogador é ..." — a lista de funções, com as vetadas a roxo (pela idade ou pelos valores)
  * e o "*" na que ele espera. */
-function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: string) => void }) {
+function RolePicker({
+  terms,
+  onPick,
+}: {
+  terms: ContractTerms
+  onPick: (role: string) => void
+}) {
   const nav = useNav()
   const [selected, setSelected] = useState<string | null>(null)
-  const vetoes = [...new Set(terms.roles.flatMap((r) => (r.veto ? [r.veto] : [])))]
+  const vetoes = [
+    ...new Set(terms.roles.flatMap((r) => (r.veto ? [r.veto] : []))),
+  ]
   return (
     <>
-      <ScreenHeader icon={<FileText size={22} />} eyebrow={terms.name} title="Definir Função No Clube" />
-      <div className="mx-1.5 flex min-h-0 flex-1 flex-col rounded-md bg-cm-surface px-10 py-4">
+      <ScreenHeader
+        icon={<FileText size={22} />}
+        eyebrow={terms.name}
+        title="Definir Função No Clube"
+      />
+      <div className="mx-1.5 flex min-h-0 flex-1 flex-col rounded-md bg-cm-surface px-10 py-4 cm-zebra">
         <div className="pb-3 font-title text-[21px] text-white">Situação</div>
         {terms.roles.map((r) => (
           <button
@@ -45,11 +68,15 @@ function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: st
             disabled={!r.allowed}
             onClick={() => setSelected(r.key)}
             onDoubleClick={() => r.allowed && onPick(r.key)}
-            className={`ml-10 block text-left font-title text-[21px] leading-snug ${
-              !r.allowed ? 'text-cm-purplelight' : r.key === selected ? 'text-cm-yellow' : 'text-white hover:text-cm-yellow'
+            className={`px-4 ml-10 block text-left font-title text-[21px] leading-snug ${
+              !r.allowed
+                ? "text-cm-purplelight"
+                : r.key === selected
+                  ? "text-cm-yellow"
+                  : "text-white hover:text-cm-yellow"
             }`}
           >
-            {r.veto ? '+ ' : r.key === terms.expectedRole ? '* ' : ''}
+            {r.veto ? "+ " : r.key === terms.expectedRole ? "* " : ""}
             {r.label}
           </button>
         ))}
@@ -60,7 +87,11 @@ function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: st
           <div>* Esperado pelo jogador</div>
         </div>
       </div>
-      <BottomBar right="Escolher" onLeft={nav.back} onRight={selected ? () => onPick(selected) : undefined} />
+      <BottomBar
+        right="Escolher"
+        onLeft={nav.back}
+        onRight={selected ? () => onPick(selected) : undefined}
+      />
     </>
   )
 }
@@ -89,37 +120,62 @@ function TermRow({
     )
   return (
     <div className="flex h-9 items-center gap-1 px-4">
-      <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
-      {btn('−', onMinus)}
-      <span className="flex min-w-52 justify-center text-[15px] text-cm-yellow">{value}</span>
-      {btn('+', onPlus)}
-      {btn('=', onEqual, 'O que ele pede')}
+      <span className="w-56 shrink-0 text-[15px] font-semibold text-white">
+        {label}
+      </span>
+      {btn("−", onMinus)}
+      <span className="flex min-w-52 justify-center text-[15px] text-cm-yellow">
+        {value}
+      </span>
+      {btn("+", onPlus)}
+      {btn("=", onEqual, "O que ele pede")}
     </div>
   )
 }
 
-function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void }) {
+function Proposal({
+  terms,
+  onRole,
+}: {
+  terms: ContractTerms
+  onRole: () => void
+}) {
   const nav = useNav()
   const game = useGame()
   const period = wagePeriod()
   const [w, setW] = useState(terms.wage)
   const [bonus, setBonus] = useState(terms.bonus)
   const [years, setYears] = useState(terms.years)
-  const [tab, setTab] = useState<'basic' | 'bonuses' | 'clauses'>('basic')
+  const [tab, setTab] = useState<"basic" | "bonuses" | "clauses">("basic")
   // Prémios e cláusulas: a contraproposta em curso, senão o que ele exige
   const blank = (e: ContractExtras) =>
-    !e.goalBonus && !e.assistBonus && !e.cleanSheetBonus && e.minFee === null && !e.relegation && !e.nonPromotion && !e.managerJob
-  const [extras, setExtras] = useState<ContractExtras>(blank(terms.extras) ? terms.asks : terms.extras)
+    !e.goalBonus &&
+    !e.assistBonus &&
+    !e.cleanSheetBonus &&
+    e.minFee === null &&
+    !e.relegation &&
+    !e.nonPromotion &&
+    !e.managerJob
+  const [extras, setExtras] = useState<ContractExtras>(
+    blank(terms.extras) ? terms.asks : terms.extras,
+  )
   const [reply, setReply] = useState<ContractReply | null>(null)
   const [error, setError] = useState<string | null>(null)
   // O que ele pede agora (muda com a resposta)
   const asks = reply && !reply.accepted ? reply : terms
-  const end = (y: number) => terms.ends[y - 1] ?? ''
+  const end = (y: number) => terms.ends[y - 1] ?? ""
 
   const offer = async () => {
     try {
       // O − / + no período das Definições deixa casas decimais: o core recebe euros inteiros
-      const r = await api.negotiate(terms.personId, terms.role, Math.round(w), Math.round(bonus), years, extras)
+      const r = await api.negotiate(
+        terms.personId,
+        terms.role,
+        Math.round(w),
+        Math.round(bonus),
+        years,
+        extras,
+      )
       setReply(r)
       setError(null)
       const info = await api.gameInfo()
@@ -131,24 +187,29 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
 
   // Negociação parada: rompida, fechada, ou a proposta seguiu e a resposta chega amanhã
   const over = (reply?.over ?? false) || (reply?.pending ?? false)
-  const wants = `${terms.name} ${reply ? 'recusa: quer' : 'quer'} ${wageText(asks.wage, true)} até ${monthYear(end(asks.years))} mais um prémio de assinatura no valor de ${money(asks.bonus) || '€0'}.`
+  const wants = `${terms.name} ${reply ? "recusa: quer" : "quer"} ${wageText(asks.wage, true)} até ${monthYear(end(asks.years))} mais um prémio de assinatura no valor de ${money(asks.bonus) || "€0"}.`
   return (
     <>
       <ScreenHeader
         club={terms.club}
         icon={!terms.club && <FileText size={22} />}
         eyebrow={
-          <Link onClick={() => nav.go({ kind: 'person', id: terms.personId })}>
-            {terms.club ? `${terms.name} (${terms.club.shortName})` : terms.name}
+          <Link onClick={() => nav.go({ kind: "person", id: terms.personId })}>
+            {terms.club
+              ? `${terms.name} (${terms.club.shortName})`
+              : terms.name}
           </Link>
         }
         title="Propôr Contrato"
       />
       <Tabs
         tabs={[
-          { key: 'basic', label: 'Básico' },
-          { key: 'bonuses', label: blank(terms.asks) ? 'Prémios' : 'Prémios *' },
-          { key: 'clauses', label: 'Cláusulas' },
+          { key: "basic", label: "Básico" },
+          {
+            key: "bonuses",
+            label: blank(terms.asks) ? "Prémios" : "Prémios *",
+          },
+          { key: "clauses", label: "Cláusulas" },
         ]}
         active={tab}
         onChange={(k) => setTab(k as typeof tab)}
@@ -156,59 +217,86 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
       <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
         <Panel title="Situação" className="shrink-0">
           <div className="px-4 py-2">
-            <div className={`text-[16px] leading-snug ${reply?.accepted ? 'text-cm-yellow' : 'text-white'}`}>
+            <div
+              className={`text-[16px] leading-snug ${reply?.accepted ? "text-cm-yellow" : "text-white"}`}
+            >
               {reply && (reply.accepted || over) ? reply.text : wants}
             </div>
             <div className="mt-2 text-[14px] text-[#c8c8d0]">
               {terms.renewal
-                ? `Contrato actual: ${wageText(terms.currentWage, true)} até ${monthYear(terms.currentExpires ?? '')}.`
+                ? `Contrato actual: ${wageText(terms.currentWage, true)} até ${monthYear(terms.currentExpires ?? "")}.`
                 : terms.precontract
-                  ? `Pré-contrato: o contrato dele acaba a ${monthYear(terms.currentExpires ?? '')} e chega livre nessa data.`
+                  ? `Pré-contrato: o contrato dele acaba a ${monthYear(terms.currentExpires ?? "")} e chega livre nessa data.`
                   : terms.fee
                     ? `Transferência acordada: ${money(terms.fee)}.`
-                    : 'Jogador livre.'}
+                    : "Jogador livre."}
             </div>
             <div className="mt-1 text-[14px] text-[#c8c8d0]">
-              A sua direcção autoriza salários até {wageText(terms.maxWage, true)} e transferências até {money(terms.budget) || '€0'}.
+              A sua direcção autoriza salários até{" "}
+              {wageText(terms.maxWage, true)} e transferências até{" "}
+              {money(terms.budget) || "€0"}.
             </div>
           </div>
         </Panel>
-        {tab !== 'basic' && (
-          <ContractExtrasPanel tab={tab} value={extras} asks={terms.asks} suggested={terms.suggested} disabled={over} onChange={setExtras} />
+        {tab !== "basic" && (
+          <ContractExtrasPanel
+            tab={tab}
+            value={extras}
+            asks={terms.asks}
+            suggested={terms.suggested}
+            disabled={over}
+            onChange={setExtras}
+          />
         )}
-        {tab === 'basic' && (
-        <Panel title="Proposta" className="shrink-0">
-          <div className="cm-zebra">
-            <TermRow label="Função" value={ROLE_SHORT[terms.role] ?? terms.role} onPlus={over ? undefined : onRole} />
-            <TermRow
-              label={SALARY_LABEL[period.key] ?? 'Salário'}
-              value={<MoneySelect value={w} factor={period.factor} onChange={setW} />}
-              onEqual={() => setW(asks.wage)}
-            />
-            <TermRow
-              label="Prémio Assinatura"
-              value={<MoneySelect value={bonus} onChange={setBonus} />}
-              onEqual={() => setBonus(asks.bonus)}
-            />
-            <TermRow
-              label="Final Contrato"
-              value={monthYear(end(years))}
-              onMinus={years > 1 ? () => setYears(years - 1) : undefined}
-              onPlus={years < 5 ? () => setYears(years + 1) : undefined}
-              onEqual={() => setYears(asks.years)}
-            />
-            <TermRow label="Tipo de Contrato" value="Tempo Inteiro" />
-            <TermRow label="Tornar proposta pública" value="Não" />
-          </div>
-        </Panel>
+        {tab === "basic" && (
+          <Panel title="Proposta" className="shrink-0">
+            <div className="cm-zebra">
+              <TermRow
+                label="Função"
+                value={ROLE_SHORT[terms.role] ?? terms.role}
+                onPlus={over ? undefined : onRole}
+              />
+              <TermRow
+                label={SALARY_LABEL[period.key] ?? "Salário"}
+                value={
+                  <MoneySelect
+                    value={w}
+                    factor={period.factor}
+                    onChange={setW}
+                  />
+                }
+                onEqual={() => setW(asks.wage)}
+              />
+              <TermRow
+                label="Prémio Assinatura"
+                value={<MoneySelect value={bonus} onChange={setBonus} />}
+                onEqual={() => setBonus(asks.bonus)}
+              />
+              <TermRow
+                label="Final Contrato"
+                value={monthYear(end(years))}
+                onMinus={years > 1 ? () => setYears(years - 1) : undefined}
+                onPlus={years < 5 ? () => setYears(years + 1) : undefined}
+                onEqual={() => setYears(asks.years)}
+              />
+              <TermRow label="Tipo de Contrato" value="Tempo Inteiro" />
+              <TermRow label="Tornar proposta pública" value="Não" />
+            </div>
+          </Panel>
         )}
         <ErrorBox>{error}</ErrorBox>
       </div>
       <BottomBar
-        left={over ? 'Atrás' : 'Cancelar'}
-        right={reply?.accepted || reply?.pending ? 'Continuar' : 'Oferecer'}
+        left={over ? "Atrás" : "Cancelar"}
+        right={reply?.accepted || reply?.pending ? "Continuar" : "Oferecer"}
         onLeft={nav.back}
-        onRight={reply?.accepted || reply?.pending ? () => nav.go({ kind: 'news', latest: true }) : over ? undefined : () => void offer()}
+        onRight={
+          reply?.accepted || reply?.pending
+            ? () => nav.go({ kind: "news", latest: true })
+            : over
+              ? undefined
+              : () => void offer()
+        }
       />
     </>
   )
@@ -224,7 +312,12 @@ export default function ContractPage({ id }: { id: number }) {
     api.contractTerms(id, role).then(setTerms, (e) => setError(String(e)))
   }, [id, role])
 
-  if (error) return <div className="p-6 text-center font-title text-xl text-cm-magenta">{error}</div>
+  if (error)
+    return (
+      <div className="p-6 text-center font-title text-xl text-cm-magenta">
+        {error}
+      </div>
+    )
   if (!terms) return null
   return (
     <div className="flex h-full flex-col">
@@ -232,7 +325,11 @@ export default function ContractPage({ id }: { id: number }) {
         <RolePicker terms={terms} onPick={setRole} />
       ) : (
         // A chave refaz a proposta com o que ele pede pela função escolhida
-        <Proposal key={`${terms.role}`} terms={terms} onRole={() => setRole(null)} />
+        <Proposal
+          key={`${terms.role}`}
+          terms={terms}
+          onRole={() => setRole(null)}
+        />
       )}
     </div>
   )

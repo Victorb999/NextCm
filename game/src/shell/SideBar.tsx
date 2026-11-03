@@ -1,23 +1,27 @@
-import type { ManagerDialog } from './managerMenu'
-import { Globe, Search, Settings, Trophy, User } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
-import { api, hasBackend } from '../api'
-import type { CompetitionListItem } from '../bindings/CompetitionListItem'
-import CascadeMenu from '../components/CascadeMenu'
-import { competitionsMenu } from '../competitionsMenu'
-import { useGame } from '../game'
-import { useNav } from '../nav'
-import type { Screen } from '../nav'
-import { managerMenu } from './managerMenu'
+import type { ManagerDialog } from "./managerMenu"
+import { Globe, Search, Settings, Trophy, User } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import type { ReactNode } from "react"
+import { api, hasBackend } from "../api"
+import type { CompetitionListItem } from "../bindings/CompetitionListItem"
+import CascadeMenu from "../components/CascadeMenu"
+import { competitionsMenu } from "../competitionsMenu"
+import { useGame } from "../game"
+import { useNav } from "../nav"
+import type { Screen } from "../nav"
+import { managerMenu } from "./managerMenu"
 
-type Menu = { kind: 'competitions' | 'manager' | 'options'; x: number; y: number }
-type Section = 'manager' | 'competitions' | 'nations' | 'search'
+type Menu = {
+  kind: "competitions" | "manager" | "options"
+  x: number
+  y: number
+}
+type Section = "manager" | "competitions" | "nations" | "search"
 
 function SideButton({
   children,
   icon,
-  className = '',
+  className = "",
   active,
   disabled,
   title,
@@ -52,10 +56,20 @@ function HistoryButtons({ enabled }: { enabled: boolean }) {
   const nav = useNav()
   return (
     <div className="flex gap-1.5">
-      <button className="cm-side-btn h-8 justify-center text-cm-yellow" disabled={!enabled || !nav.canBack} onClick={nav.back} aria-label="Voltar">
+      <button
+        className="cm-side-btn h-8 justify-center text-cm-yellow"
+        disabled={!enabled || !nav.canBack}
+        onClick={nav.back}
+        aria-label="Voltar"
+      >
         ◀
       </button>
-      <button className="cm-side-btn h-8 justify-center text-cm-yellow" disabled={!enabled || !nav.canForward} onClick={nav.forward} aria-label="Avançar">
+      <button
+        className="cm-side-btn h-8 justify-center text-cm-yellow"
+        disabled={!enabled || !nav.canForward}
+        onClick={nav.forward}
+        aria-label="Avançar"
+      >
         ▶
       </button>
     </div>
@@ -63,30 +77,34 @@ function HistoryButtons({ enabled }: { enabled: boolean }) {
 }
 
 /** O botão da coluna a que a tela aberta pertence (só para a marcar). */
-function sectionOf(s: Screen, club: number | undefined, manager: number | undefined): Section | null {
+function sectionOf(
+  s: Screen,
+  club: number | undefined,
+  manager: number | undefined,
+): Section | null {
   switch (s.kind) {
-    case 'competitions':
-    case 'competition':
-      return 'competitions'
-    case 'nations':
-    case 'nation':
-      return 'nations'
-    case 'search':
-      return 'search'
-    case 'news':
-    case 'board':
-    case 'jobs':
-    case 'worldTransfers':
-    case 'career':
-    case 'squadNumbers':
-    case 'training':
-      return 'manager'
-    case 'club':
-    case 'tactics':
-    case 'clubHistory':
-      return s.id === club ? 'manager' : null
-    case 'person':
-      return s.id === manager ? 'manager' : null
+    case "competitions":
+    case "competition":
+      return "competitions"
+    case "nations":
+    case "nation":
+      return "nations"
+    case "search":
+      return "search"
+    case "news":
+    case "board":
+    case "jobs":
+    case "worldTransfers":
+    case "career":
+    case "squadNumbers":
+    case "training":
+      return "manager"
+    case "club":
+    case "tactics":
+    case "clubHistory":
+      return s.id === club ? "manager" : null
+    case "person":
+      return s.id === manager ? "manager" : null
     default:
       return null
   }
@@ -109,9 +127,11 @@ export default function SideBar({
   const [menu, setMenu] = useState<Menu | null>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
 
-  const browsing = game.mode === 'game' || game.mode === 'explore'
-  const info = game.mode === 'game' ? game.info : null
-  const section = browsing ? sectionOf(nav.current, info?.club.id, info?.managerId) : null
+  const browsing = game.mode === "game" || game.mode === "explore"
+  const info = game.mode === "game" ? game.info : null
+  const section = browsing
+    ? sectionOf(nav.current, info?.club.id, info?.managerId)
+    : null
   const marked = (s: Section) => (menu ? menu.kind === s : section === s)
 
   // Carrega a lista já no início para o menu abrir sem espera
@@ -119,10 +139,13 @@ export default function SideBar({
     if (hasBackend) api.listCompetitions().then(setComps, () => {})
   }, [])
 
-  const toggle = (kind: Menu['kind']) => (e: React.MouseEvent<HTMLButtonElement>) => {
-    const r = e.currentTarget.getBoundingClientRect()
-    setMenu((cur) => (cur?.kind === kind ? null : { kind, x: r.right + 2, y: r.top }))
-  }
+  const toggle =
+    (kind: Menu["kind"]) => (e: React.MouseEvent<HTMLButtonElement>) => {
+      const r = e.currentTarget.getBoundingClientRect()
+      setMenu((cur) =>
+        cur?.kind === kind ? null : { kind, x: r.right + 2, y: r.top },
+      )
+    }
 
   return (
     <aside className="flex w-[150px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-cm-sidedark p-2">
@@ -131,8 +154,8 @@ export default function SideBar({
         <SideButton
           icon={<User size={16} />}
           disabled={!browsing}
-          active={marked('manager')}
-          onClick={toggle('manager')}
+          active={marked("manager")}
+          onClick={toggle("manager")}
           className="relative !text-cm-pink"
           title={info.club.name}
         >
@@ -147,31 +170,38 @@ export default function SideBar({
       ) : (
         <SideButton
           icon={<User size={16} />}
-          disabled={game.mode !== 'explore'}
-          onClick={() => game.setMode('start')}
+          disabled={game.mode !== "explore"}
+          onClick={() => game.setMode("start")}
           className="!text-cm-pink"
           title="Voltar ao menu inicial"
         >
-          {game.mode === 'explore' ? 'Menu Inicial' : 'Treinador'}
+          {game.mode === "explore" ? "Menu Inicial" : "Treinador"}
         </SideButton>
       )}
-      <SideButton icon={<Trophy size={16} />} disabled={!browsing} active={marked('competitions')} onClick={toggle('competitions')}>
+      <SideButton
+        icon={<Trophy size={16} />}
+        disabled={!browsing}
+        active={marked("competitions")}
+        onClick={toggle("competitions")}
+      >
         Competições
-        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-white/40">▶</span>
+        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-white/40">
+          ▶
+        </span>
       </SideButton>
-      {menu?.kind === 'competitions' && comps && (
+      {menu?.kind === "competitions" && comps && (
         <CascadeMenu
           x={menu.x}
           y={menu.y}
           onClose={closeMenu}
           items={competitionsMenu(
             comps,
-            (id) => nav.go({ kind: 'competition', id }),
-            () => nav.go({ kind: 'competitions' }),
+            (id) => nav.go({ kind: "competition", id }),
+            () => nav.go({ kind: "competitions" }),
           )}
         />
       )}
-      {menu?.kind === 'manager' && info && (
+      {menu?.kind === "manager" && info && (
         <CascadeMenu
           x={menu.x}
           y={menu.y}
@@ -179,36 +209,56 @@ export default function SideBar({
           items={managerMenu({ info, go: nav.go, onDialog })}
         />
       )}
-      <SideButton icon={<Globe size={16} />} disabled={!browsing} active={marked('nations')} onClick={() => nav.go({ kind: 'nations' })}>
+      <SideButton
+        icon={<Globe size={16} />}
+        disabled={!browsing}
+        active={marked("nations")}
+        onClick={() => nav.go({ kind: "nations" })}
+      >
         Nações &amp; Clubes
       </SideButton>
-      <SideButton icon={<Search size={16} />} disabled={!browsing} active={marked('search')} onClick={() => nav.go({ kind: 'search' })}>
+      <SideButton
+        icon={<Search size={16} />}
+        disabled={!browsing}
+        active={marked("search")}
+        onClick={() => nav.go({ kind: "search" })}
+      >
         Procurar
       </SideButton>
       {/* Num jogo, um menu com as Opções, Gravar Jogo e Sair para o Menu; fora dele, só as Opções */}
-      <SideButton icon={<Settings size={16} />} onClick={info ? toggle('options') : onOptions} className="relative !text-cm-yellow">
+      <SideButton
+        icon={<Settings size={16} />}
+        onClick={info ? toggle("options") : onOptions}
+        className="relative !text-cm-yellow"
+      >
         Opções Jogo
-        {info && <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-white/40">▶</span>}
+        {info && (
+          <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-white/40">
+            ▶
+          </span>
+        )}
       </SideButton>
-      {menu?.kind === 'options' && info && (
+      {menu?.kind === "options" && info && (
         <CascadeMenu
           x={menu.x}
           y={menu.y}
           onClose={closeMenu}
           items={[
-            { label: 'Opções...', onSelect: onOptions },
-            'separator',
-            { label: 'Gravar Jogo', onSelect: () => onDialog('save') },
-            { label: 'Sair para o Menu', onSelect: onExit },
+            { label: "Opções...", onSelect: onOptions },
+            "separator",
+            { label: "Gravar Jogo", onSelect: () => onDialog("save") },
+            { label: "Sair para o Menu", onSelect: onExit },
           ]}
         />
       )}
       {/* "Tem Notícias" no fundo da coluna, como no CM: atalho para a Caixa de Mensagens */}
       {info && info.unreadNews > 0 && (
         <button
-          className="mt-auto py-1 text-center font-title text-[15px] leading-tight text-red-500 hover:text-red-400 disabled:opacity-50"
+          className="mt-auto p-2 text-center font-bold font-mono animate-pulse
+           text-white hover:text-red-100 disabled:opacity-50
+          rounded border border-red-500 bg-red-500 hover:bg-red-700"
           disabled={!browsing}
-          onClick={() => nav.go({ kind: 'news' })}
+          onClick={() => nav.go({ kind: "news" })}
           title={`${info.unreadNews} por ler`}
         >
           Tem Notícias

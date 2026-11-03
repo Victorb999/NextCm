@@ -69,10 +69,7 @@ function ScoreBand({
         {initials(club.shortName)}
       </span>
       <div className={`min-w-0 flex-1 ${side === "away" ? "text-right" : ""}`}>
-        <div
-          className="truncate font-title text-[28px] font-bold uppercase leading-[32px]"
-          style={{ textShadow: "2px 2px 0 rgba(0,0,0,0.3)" }}
-        >
+        <div className="truncate font-title text-[28px] font-bold uppercase ">
           {club.shortName}
         </div>
         <div className="truncate text-[11px] font-bold font-mono uppercase tracking-wider opacity-80">
@@ -266,8 +263,9 @@ function LineCard({ view, line }: { view: LiveView; line: Line }) {
     `linear-gradient(90deg, ${view.home.club.bg ?? "#888"}, #888, ${view.away.club.bg ?? "#888"})`
   return (
     <div
-      className={`relative w-full max-w-[760px] overflow-hidden rounded-lg px-5 pb-3.5 pt-4 shadow-[0_12px_32px_rgba(0,0,0,0.8)] ${goal ? "" : "bg-white text-[#141414]"}`}
-      style={goal ? clubBand(team.club) : undefined}
+      className={`relative w-full max-w-[760px] overflow-hidden rounded-lg px-5 pb-3.5 pt-4  transition-colors duration-300 ease-in-out
+        shadow-[0_12px_32px_rgba(0,0,0,0.8)] ${goal ? "" : "bg-white text-[#141414]"}`}
+      style={team ? clubBand(team.club) : { background: stripe }}
     >
       {!goal && (
         <div
@@ -706,7 +704,7 @@ function TeamData({ team }: { team: LiveTeam }) {
   }
   return (
     <div className="px-3 py-2">
-      <div className="mb-1 flex h-[18px] items-center gap-1 text-[12px]">
+      <div className="mb-1 flex h-[18px] items-center gap-1 text-[12px]bg]">
         <span className="w-7 shrink-0" />
         <span className="w-3 shrink-0" />
         <span className="w-48 shrink-0" />
@@ -719,8 +717,10 @@ function TeamData({ team }: { team: LiveTeam }) {
           </span>
         ))}
       </div>
-      {[...team.players, ...team.out].map((p) => row(p, true))}
-      {team.bench.map((p) => row(p, false))}
+      <div className="cm-zebra">
+        {[...team.players, ...team.out].map((p) => row(p, true))}
+        {team.bench.map((p) => row(p, false))}
+      </div>
     </div>
   )
 }
@@ -747,7 +747,7 @@ function Results({ view, own }: { view: LiveView; own: number }) {
   if (view.others.length === 0)
     return <div className="p-4 text-[#aab3c4]">Não há outros jogos hoje.</div>
   return (
-    <div className="px-6 pt-3">
+    <div className="px-6 pt-3 cm-zebra">
       <div className="mb-2 text-center text-[13px] text-cm-pink">
         {view.fixture.competition} · {view.minute}'
       </div>
@@ -781,7 +781,7 @@ function Table({ view, own }: { view: LiveView; own: number }) {
       {view.table.map((r) => (
         <div
           key={r.club.id}
-          className={`flex h-[19px] items-center ${playing.includes(r.club.id) ? "bg-white/10" : ""}`}
+          className={`flex h-[19px] items-center border-b border-cm-line ${playing.includes(r.club.id) ? "bg-white/10" : ""}`}
         >
           <span className="w-10 text-center text-white">{r.position}º</span>
           <span
