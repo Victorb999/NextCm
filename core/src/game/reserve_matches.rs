@@ -284,7 +284,7 @@ impl Game {
 
     /// O nível (CA) dos fantasmas que completam as reservas de um clube: o dos jogadores de
     /// enchimento do clube (`regen::complete_squads`), um pouco abaixo por serem das reservas.
-    fn ghost_ability(&self, club: i32) -> Result<f64> {
+    pub(super) fn ghost_ability(&self, club: i32) -> Result<f64> {
         let reputation: Option<i32> = self.world.conn.query_row("SELECT reputation FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
         Ok(GHOST_SHARE * (74.6 + 0.0101 * reputation.unwrap_or(1000) as f64))
     }

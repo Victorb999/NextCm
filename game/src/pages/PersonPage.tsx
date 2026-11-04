@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { PersonProfile } from '../bindings/PersonProfile'
+import CascadeMenu, { type MenuNode } from '../components/CascadeMenu'
 import { DialogFrame, Overlay } from '../components/Dialog'
 import DisciplineDialog from '../components/DisciplineDialog'
 import PlayerHistory, { SeasonTable } from '../components/PlayerHistory'
@@ -14,7 +15,7 @@ import TransferActions, { type TransferAction } from '../components/TransferActi
 import TextDialog from '../components/TextDialog'
 import TransferTab from '../components/TransferTab'
 import { compareFirst, setCompareFirst } from '../compare'
-import { cmDate, money, wage } from '../format'
+import { cmDate, money, shortListName, wage } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import { PLAYER_ATTRIBUTES } from '../attributes'
@@ -125,9 +126,41 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
   const pl = p?.player
   const born = p?.birthDate ? cmDate(p.birthDate) : p?.birthYear ? String(p.birthYear) : '?'
   const dot = <span className="text-[#5a5a66]"> · </span>
+  // O ▸ do canto, como no CM: os outros jogadores do plantel do clube, por ordem alfabética
+  const [squadMenu, setSquadMenu] = useState<{ x: number; y: number; items: MenuNode[] } | null>(null)
+  const openSquadMenu = (e: React.MouseEvent) => {
+    if (squadMenu || !club) {
+      setSquadMenu(null)
+      return
+    }
+    const r = e.currentTarget.getBoundingClientRect()
+    api.getClub(club.id).then(
+      (c) =>
+        setSquadMenu({
+          x: r.left,
+          y: r.bottom + 2,
+          items: c.players
+            .filter((s) => !s.loanedOut)
+            .sort((a, b) => a.listName.localeCompare(b.listName))
+            .map((s) => ({ label: shortListName(s.listName), onSelect: () => nav.go({ kind: 'person', id: s.id }) })),
+        }),
+      () => setSquadMenu(null),
+    )
+  }
   return (
     <div className="m-2 shrink-0 rounded-md bg-cm-surface px-3 pb-1.5 pt-2">
       <div className="flex items-start gap-3">
+        {club && (
+          <button
+            data-menu-anchor
+            className="cm-purple flex h-[44px] w-6 shrink-0 items-center justify-center text-[13px]"
+            title="Plantel do clube"
+            aria-expanded={!!squadMenu}
+            onClick={openSquadMenu}
+          >
+            ▸
+          </button>
+        )}
         <div
           className="flex size-[44px] shrink-0 flex-col items-center justify-center rounded border border-black/40 leading-none"
           style={{ color: colours.fg, background: colours.bg }}
@@ -200,6 +233,7 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
         </div>
       )}
       <div className="mt-1.5">{tabs}</div>
+      {squadMenu && <CascadeMenu x={squadMenu.x} y={squadMenu.y} items={squadMenu.items} onClose={() => setSquadMenu(null)} />}
     </div>
   )
 }

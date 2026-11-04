@@ -3,7 +3,10 @@
 //! (`Availability::reserve`), e a despromoção mexe na moral, mais em quem se acha titular.
 //! Regras em docs/roadmap/3.12-empregos-e-gestao-do-plantel.md.
 
+use rand_core::RngCore;
+
 use super::Game;
+use super::regen::{ATT, DEF, GK, MID, NewPlayer};
 use crate::{Error, Result};
 
 /// Jogadores que a equipa principal mantém, no mínimo.
@@ -13,6 +16,9 @@ const MIN_FIRST_TEAM: usize = 16;
 const YOUTH_AGE: i32 = 19;
 const YOUTH_REP: i32 = 50;
 const FIRST_TEAM_CORE: usize = 22;
+/// Jogadores que as reservas têm ao começar: os que faltam são jogadores de enchimento do
+/// clube (a roxo), como no CM, por funções (GR, D, M, A).
+const RESERVE_SQUAD: [usize; 4] = [2, 5, 5, 4];
 /// Moral que perde quem desce (o dobro se for dos 11 melhores) e que ganha quem sobe.
 const DEMOTED_MORALE: i32 = 2;
 const PROMOTED_MORALE: i32 = 1;
@@ -31,7 +37,9 @@ impl Game {
             .collect::<rusqlite::Result<_>>()?)
     }
 
-    /// Os jovens de reputação baixa fora dos [`FIRST_TEAM_CORE`] melhores vão para as reservas.
+    /// Os jovens de reputação baixa fora dos [`FIRST_TEAM_CORE`] melhores vão para as reservas,
+    /// e as funções que ficam por preencher nelas ([`RESERVE_SQUAD`]) recebem jogadores de
+    /// enchimento do clube.
     pub(super) fn youth_to_reserves(&mut self) -> Result<()> {
         let squad = self.own_squad()?;
         for &id in squad.iter().skip(FIRST_TEAM_CORE) {
@@ -44,7 +52,61 @@ impl Game {
                 self.squads.states.entry(id).or_default().reserve = true;
             }
         }
+        self.reserve_ghosts()?;
         self.unsaved = true;
+        Ok(())
+    }
+
+    /// Completa as reservas do treinador com jogadores de enchimento, como o CM faz.
+    fn reserve_ghosts(&mut self) -> Result<()> {
+        let positions = [GK, DEF, MID, ATT];
+        let mut have = [0usize; 4];
+        for id in self.own_squad()? {
+            if !self.squads.state(id).reserve {
+                continue;
+            }
+            let notes: [i32; 4] = self.world.conn.query_row(
+                "SELECT pos_goalkeeper, pos_defender, pos_midfielder, pos_attacker FROM players WHERE person_id = ?",
+                [id],
+                |r| {
+                    Ok([
+                        r.get::<_, Option<i32>>(0)?.unwrap_or(0),
+                        r.get::<_, Option<i32>>(1)?.unwrap_or(0),
+                        r.get::<_, Option<i32>>(2)?.unwrap_or(0),
+                        r.get::<_, Option<i32>>(3)?.unwrap_or(0),
+                    ])
+                },
+            )?;
+            // Conta na função em que é melhor
+            let best = (0..4).max_by_key(|&i| (notes[i], std::cmp::Reverse(i))).unwrap_or(2);
+            have[best] += 1;
+        }
+        let need: Vec<_> = (0..4).flat_map(|i| std::iter::repeat_n(positions[i], RESERVE_SQUAD[i].saturating_sub(have[i]))).collect();
+        if need.is_empty() {
+            return Ok(());
+        }
+        let year = self.season();
+        let level = self.ghost_ability(self.club_id)?;
+        let nation: Option<i32> = self.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0))?;
+        let mut rng = self.season_rng(0x0005_E7E5);
+        let mut factory = self.player_factory()?;
+        for position in need {
+            let ca = (level * (0.85 + 0.3 * crate::engine::uniform(&mut rng))).round().clamp(30.0, 170.0) as i32;
+            let p = NewPlayer {
+                club: self.club_id,
+                nation,
+                birth_year: year - 18 - (rng.next_u32() % 6) as i32,
+                ca,
+                pa: ca + 5 + (rng.next_u32() % 25) as i32,
+                position,
+                contract_until: format!("{}-06-30", year + 2),
+            };
+            if let Some((id, _)) = self.create_player(&mut factory, &p, &mut rng)? {
+                self.world.conn.execute("INSERT OR IGNORE INTO ghosts (person_id) VALUES (?)", [id])?;
+                self.squads.states.entry(id).or_default().reserve = true;
+            }
+        }
+        super::numbers::fix_squad_numbers(&self.world, &[self.club_id], self.seed, None)?;
         Ok(())
     }
 
@@ -107,6 +169,11 @@ mod tests {
         };
         let mut g = Game::create(&path, &dir, &new, 31).unwrap();
         let squad = g.own_squad().unwrap();
+        // As reservas começam com pelo menos 16, completadas com jogadores de enchimento
+        let reserves: Vec<i32> = squad.iter().copied().filter(|id| g.squads.state(*id).reserve).collect();
+        assert!(reserves.len() >= RESERVE_SQUAD.iter().sum::<usize>(), "{} nas reservas", reserves.len());
+        assert!(reserves.iter().any(|id| g.is_ghost(*id)));
+        assert!(squad.iter().filter(|id| g.is_ghost(**id)).all(|id| g.squads.state(*id).reserve));
         let star = squad[0];
         let in_team = |g: &Game, id: i32| {
             let t = g.club_tactics(PALMEIRAS).unwrap();

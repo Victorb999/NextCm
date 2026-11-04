@@ -117,6 +117,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let g = Game::create(&path, &dir, &crate::NewGame { start: crate::StartSeason::Europe, ..new }, 3).unwrap();
         assert_eq!(at(&g, 26601), (Some(10294), 6271, "2027-06-15".to_string()));
+        // O Zaragoza e o Boey também, no jogo do Bayern a começar em 2026/27
+        assert_eq!(at(&g, 123625), (Some(espanyol), 1350, "2027-06-15".to_string()));
+        assert_eq!(at(&g, 36829).1, 1350);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

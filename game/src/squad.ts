@@ -146,6 +146,26 @@ export function squadName(p: SquadPlayer) {
 export type Filter = { line: string; side: string; avail: '' | 'yes' | 'no'; seniors: boolean; reserves: boolean }
 export const NO_FILTER: Filter = { line: '', side: '', avail: '', seniors: false, reserves: true }
 
+// O filtro do plantel fica gravado neste computador: trocar de tela e voltar mantém-no
+const FILTER_KEY = 'nextcm.squadFilter'
+
+export function loadFilter(): Filter {
+  try {
+    const raw = localStorage.getItem(FILTER_KEY)
+    return raw ? { ...NO_FILTER, ...(JSON.parse(raw) as Partial<Filter>) } : NO_FILTER
+  } catch {
+    return NO_FILTER
+  }
+}
+
+export function saveFilter(f: Filter) {
+  try {
+    localStorage.setItem(FILTER_KEY, JSON.stringify(f))
+  } catch {
+    // Sem localStorage: o filtro vale só nesta tela
+  }
+}
+
 export const FILTER_OPTIONS: MenuOption<string>[] = [
   { key: 'line:', label: 'Todas Posições' },
   { key: 'line:GR', label: 'Guarda-Redes' },
@@ -163,7 +183,8 @@ export const FILTER_OPTIONS: MenuOption<string>[] = [
 ]
 
 export function passes(p: SquadPlayer, f: Filter) {
-  const out = p.injured || p.suspended
+  // Os emprestados a outro clube também não estão disponíveis
+  const out = p.injured || p.suspended || p.loanedOut
   return (
     (!f.line || p.lines.includes(f.line)) &&
     (!f.side || p.sides.includes(f.side)) &&

@@ -73,7 +73,9 @@ export function longDate(iso: string, today?: string): string {
   const base = `${WEEKDAYS_LONG[new Date(y, m - 1, d).getDay()]} ${d} ${MONTHS_LONG[m - 1]}`
   if (!today) return base
   const days = Math.round((Date.UTC(y, m - 1, d) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)
-  return days === 0 ? `${base} (hoje)` : days === 1 ? `${base} (amanhã)` : base
+  // Como no Próximo Jogo do CM: "Domingo, 19 de Dezembro (8 dias)"
+  const long = `${WEEKDAYS_LONG[new Date(y, m - 1, d).getDay()]}, ${d} de ${MONTHS_LONG[m - 1]}`
+  return days === 0 ? `${long} (hoje)` : days === 1 ? `${long} (amanhã)` : days > 1 ? `${long} (${days} dias)` : long
 }
 
 /** Penáltis de uma eliminatória empatada: " (4-3 g.p.)". */

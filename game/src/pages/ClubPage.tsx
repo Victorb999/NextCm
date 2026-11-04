@@ -39,7 +39,8 @@ import {
 } from "../selection"
 import {
   FILTER_OPTIONS,
-  NO_FILTER,
+  loadFilter,
+  saveFilter,
   VIEW_TITLE,
   ATTRIBUTE_GROUPS,
   MORE_COMPETITIONS,
@@ -398,7 +399,13 @@ export default function ClubPage({
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState("squad")
   const [view, setView] = useState<View>("traditional")
-  const [filter, setFilter] = useState<Filter>(NO_FILTER)
+  const [filter, setFilterState] = useState<Filter>(loadFilter)
+  const setFilter = (update: (f: Filter) => Filter) =>
+    setFilterState((f) => {
+      const next = update(f)
+      saveFilter(next)
+      return next
+    })
   const [criterion, setCriterion] = useState<Criterion>("position")
   const [headerSort, setHeaderSort] = useState<HeaderSort | null>(null)
   // Mais Dados (por competição) e Atributos (por grupo): o que vem do core para essas vistas
@@ -731,16 +738,7 @@ export default function ClubPage({
         label: "Plantel Principal",
         onSelect: () => nav.go({ kind: "club", id }),
       })
-    if (club.parent)
-      items.push({
-        label: "Equipa Principal",
-        onSelect: () => nav.go({ kind: "club", id: club.parent!.id }),
-      })
-    for (const a of club.affiliates)
-      items.push({
-        label: a.shortName,
-        onSelect: () => nav.go({ kind: "club", id: a.id }),
-      })
+    // As equipas B/II (Bayern Munich II...) são outros clubes: ficam na lista da divisão delas
     const others = (divisionClubs ?? [])
       .filter((c) => c.club.id !== id)
       .sort((a, b) => a.club.shortName.localeCompare(b.club.shortName))
