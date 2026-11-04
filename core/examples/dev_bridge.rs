@@ -135,6 +135,12 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let on = args["on"].as_bool().ok_or("falta on")?;
             out(serde_json::to_value(session.set_shortlist(id()?, on).map_err(e)?))
         }
+        "reserve_lineup" => out(serde_json::to_value(session.reserve_lineup().map_err(e)?)),
+        "set_reserve_picks" => {
+            let ids: Vec<i32> = serde_json::from_value(args["ids"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.set_reserve_picks(ids).map_err(e)?))
+        }
+        "give_leave" => out(serde_json::to_value(session.give_leave(id()?).map_err(e)?)),
         "set_reserve" => {
             let reserve = args["reserve"].as_bool().ok_or("falta reserve")?;
             out(serde_json::to_value(session.set_reserve(id()?, reserve).map_err(e)?))

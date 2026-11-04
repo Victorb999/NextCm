@@ -733,13 +733,28 @@ impl Game {
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )?;
         let outside = rank >= 11;
-        if outside && ambition.unwrap_or(10) >= 15 {
+        // Nas reservas do treinador: os jovens estão contentes; aos 24, querem saber o futuro
+        let reserve = mine && self.squads.state(person).reserve;
+        let young_reserve = reserve && f.age <= super::unhappy::YOUNG_AGE;
+        let absence = if mine { self.absence(person)? } else { None };
+        match absence.as_ref().map(|a| a.0.as_str()) {
+            Some("awol") => future.push("Ausente sem permissão".into()),
+            Some(_) => future.push(format!("De folga no seu país até {}", super::cm_date(&absence.as_ref().unwrap().1))),
+            None => {}
+        }
+        if outside && ambition.unwrap_or(10) >= 15 && !young_reserve {
             future.push("Espera impressionar os olheiros de outros clubes".into());
         }
-        if abroad && adaptability.unwrap_or(10) <= 8 {
+        let homesick = mine && self.unhappy_reasons(person)?.iter().any(|r| r == super::unhappy::reason_text("homesick"));
+        if homesick || (!mine && abroad && adaptability.unwrap_or(10) <= 8) {
             future.push("Tem saudades do seu país".into());
         }
-        if outside && f.age <= 23 {
+        if young_reserve {
+            future.push("Entende que o clube tem um bom ambiente no vestiário".into());
+            future.push("Contente com situação no clube".into());
+        } else if reserve {
+            future.push("Deseja ver o seu futuro esclarecido".into());
+        } else if outside && f.age <= 23 {
             future.push("Está a tentar conquistar um lugar na equipa principal".into());
         }
         let requested: bool = self

@@ -14,14 +14,19 @@
 //! são quem fica fora dos 18 melhores dele. Há sempre jogo: as funções sem jogador ficam com
 //! fantasmas, como no CM (só nesse jogo, com o nível do enchimento do clube, e sem registo).
 //!
+//! O treinador pode escolher quem joga (item 4.5, `reserve_picks`): o adjunto põe os escolhidos
+//! no onze e completa as funções que faltam com as outras reservas.
+//!
 //! O resultado sai dos golos esperados do motor com um sorteio à parte (os jogos oficiais e as
 //! médias do motor não mudam) e conta no perfil como "Não Competitivos", fora dos Jogos
 //! Oficiais.
 
 use rand_core::RngCore;
 use rusqlite::params;
+use serde::Serialize;
+use ts_rs::TS;
 
-use super::{Game, NewsItem};
+use super::Game;
 use crate::engine::{self, TeamStrength, poisson, uniform};
 use crate::league::Fixture;
 use crate::tactics::{Availability, Instructions, SquadState};
@@ -35,6 +40,28 @@ CREATE TABLE reserve_apps (person_id INTEGER NOT NULL, fixture INTEGER NOT NULL,
                            rating REAL NOT NULL, goals INTEGER NOT NULL, assists INTEGER NOT NULL);
 CREATE INDEX reserve_apps_person ON reserve_apps (person_id, date);
 ";
+
+/// Os escolhidos pelo treinador para o onze das reservas (save 41).
+pub(super) const PICKS_SCHEMA: &str = "CREATE TABLE reserve_picks (person_id INTEGER PRIMARY KEY, ord INTEGER NOT NULL);";
+
+/// O onze das reservas do treinador para o próximo jogo delas: a função de cada um e quem
+/// foi escolhido por ele (os outros, o adjunto).
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct ReserveLineup {
+    pub starters: Vec<ReserveSpot>,
+    pub picks: Vec<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct ReserveSpot {
+    pub person: i32,
+    /// "GR", "D D", "M C"...
+    pub role: String,
+}
 
 /// O nome da competição no Calendário e no perfil.
 pub(super) const RESERVES_LABEL: &str = "Reservas";
@@ -154,8 +181,9 @@ impl Game {
         Ok(out)
     }
 
-    /// Cada dia: o jogo das reservas do clube do treinador, se for hoje.
-    pub(super) fn reserve_day(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+    /// Cada dia: o jogo das reservas do clube do treinador, se for hoje. Sem notícia: o resultado
+    /// fica no Calendário das reservas (um por semana encheria a caixa e pararia o Continuar Jogo).
+    pub(super) fn reserve_day(&mut self) -> Result<()> {
         if self.sacked() {
             return Ok(());
         }
@@ -166,9 +194,7 @@ impl Game {
             if done {
                 continue;
             }
-            let news = self.play_reserves(s.fixture, s.home, s.away, s.competition, *next_id)?;
-            fresh.push(news);
-            *next_id += 1;
+            self.play_reserves(s.fixture, s.home, s.away, s.competition)?;
         }
         Ok(())
     }
@@ -176,7 +202,7 @@ impl Game {
     /// A equipa das reservas de um clube: o adjunto escolhe o onze entre quem joga nelas (os
     /// despromovidos, no clube do treinador; na IA, quem fica fora dos 18 melhores).
     fn reserve_team(&self, club: i32, comp: i32) -> Result<ClubTactics> {
-        let state = self.squads.squad_state(club, Some(comp));
+        let state = self.club_state(club, Some(comp));
         let players: Vec<i32> = self
             .world
             .conn
@@ -195,7 +221,65 @@ impl Game {
             // Os castigos são das competições oficiais; quem não joga fica "lesionado" para o adjunto
             pool.insert(id, Availability { injured: a.injured || !plays, suspended: false, reserve: false, ..a });
         }
-        self.world.auto_tactics(club, Some(&pool), Instructions::default())
+        // Os escolhidos pelo treinador: o adjunto arruma-os no onze e completa com as outras reservas
+        let picks: Vec<i32> = if own { self.reserve_picks()? } else { Vec::new() };
+        let picks: Vec<i32> = picks.into_iter().filter(|id| pool.get(id).is_some_and(|a| a.can_play())).collect();
+        if picks.is_empty() {
+            return self.world.auto_tactics(club, Some(&pool), Instructions::default());
+        }
+        let mut only = pool.clone();
+        for (id, a) in only.iter_mut() {
+            a.injured |= !picks.contains(id);
+        }
+        let mut sel = self.world.auto_tactics(club, Some(&only), Instructions::default())?.selection();
+        sel.bench.clear();
+        self.world.cover_unavailable(club, &mut sel, &pool)?;
+        self.world.tactics_from_selection(club, &sel, Some(&pool))
+    }
+
+    /// Os escolhidos para as reservas, pela ordem em que foram escolhidos.
+    fn reserve_picks(&self) -> Result<Vec<i32>> {
+        Ok(self
+            .world
+            .conn
+            .prepare_cached("SELECT person_id FROM reserve_picks ORDER BY ord, person_id")?
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// O onze das reservas para o próximo jogo delas (o que o adjunto faria hoje).
+    pub fn reserve_lineup(&self) -> Result<ReserveLineup> {
+        let comp = self.division_of(self.club_id)?.unwrap_or(0);
+        let t = self.reserve_team(self.club_id, comp)?;
+        let starters =
+            t.starters.iter().filter_map(|s| s.player.as_ref().map(|p| ReserveSpot { person: p.id, role: s.role.clone() })).collect();
+        let reserves: Vec<i32> =
+            self.squads.squad_state(self.club_id, None).into_iter().filter(|(_, a)| a.reserve).map(|(id, _)| id).collect();
+        let picks = self.reserve_picks()?.into_iter().filter(|id| reserves.contains(id)).collect();
+        Ok(ReserveLineup { starters, picks })
+    }
+
+    /// O treinador escolhe quem joga nas reservas (até 11, todos das reservas); vazio, o adjunto.
+    pub fn set_reserve_picks(&mut self, picks: &[i32]) -> Result<ReserveLineup> {
+        if picks.len() > 11 {
+            return Err(crate::Error::Invalid("A equipa das reservas tem 11 jogadores.".into()));
+        }
+        for id in picks {
+            if !self.squads.state(*id).reserve
+                || !self
+                    .world
+                    .conn
+                    .query_row("SELECT club_id = ? FROM people WHERE id = ?", params![self.club_id, id], |r| r.get::<_, bool>(0))?
+            {
+                return Err(crate::Error::Invalid("Só jogam nas reservas os jogadores que estão nelas.".into()));
+            }
+        }
+        self.world.conn.execute("DELETE FROM reserve_picks", [])?;
+        for (i, id) in picks.iter().enumerate() {
+            self.world.conn.execute("INSERT OR IGNORE INTO reserve_picks (person_id, ord) VALUES (?, ?)", params![id, i as i32])?;
+        }
+        self.unsaved = true;
+        self.reserve_lineup()
     }
 
     /// O nível (CA) dos fantasmas que completam as reservas de um clube: o dos jogadores de
@@ -205,9 +289,9 @@ impl Game {
         Ok(GHOST_SHARE * (74.6 + 0.0101 * reputation.unwrap_or(1000) as f64))
     }
 
-    /// Joga o jogo das reservas e grava o resultado; devolve a notícia. Há sempre jogo: as
-    /// funções sem jogador ficam com fantasmas, como no CM (só neste jogo, sem registo).
-    fn play_reserves(&mut self, fixture: i32, home: i32, away: i32, comp: i32, news_id: i32) -> Result<NewsItem> {
+    /// Joga o jogo das reservas e grava o resultado. Há sempre jogo: as funções sem jogador
+    /// ficam com fantasmas, como no CM (só neste jogo, sem registo).
+    fn play_reserves(&mut self, fixture: i32, home: i32, away: i32, comp: i32) -> Result<()> {
         let teams = [self.reserve_team(home, comp)?, self.reserve_team(away, comp)?];
         let strength = |t: &ClubTactics| -> Result<TeamStrength> { Ok(TeamStrength::from_tactics_with(t, self.ghost_ability(t.club_id)?)) };
         let mut rng = engine::match_rng(self.seed ^ RNG_KEY, fixture);
@@ -217,7 +301,6 @@ impl Game {
         // Quem jogou, os marcadores e as assistências (pelo setor de cada um, os fantasmas
         // também: os golos deles não ficam com nome) e as notas
         let mut apps: Vec<App> = Vec::new();
-        let mut scorers: [Vec<String>; 2] = [Vec::new(), Vec::new()];
         for (side, t) in teams.iter().enumerate() {
             let start = apps.len();
             let sectors: Vec<usize> = t.starters.iter().map(|s| engine::sector(&s.role)).collect();
@@ -233,8 +316,6 @@ impl Game {
                 let scorer = pick(&sectors, &SCORE_WEIGHT, None, &mut rng);
                 if let Some(i) = at[scorer] {
                     apps[i].goals += 1;
-                    let name = t.starters[scorer].player.as_ref().map(|p| p.list_name.clone());
-                    scorers[side].push(name.unwrap_or_default());
                 }
                 if uniform(&mut rng) < ASSIST_CHANCE
                     && let Some(i) = at[pick(&sectors, &ASSIST_WEIGHT, Some(scorer), &mut rng)]
@@ -265,15 +346,7 @@ impl Game {
             )?;
         }
         self.unsaved = true;
-
-        let (h, a) = (self.club(home), self.club(away));
-        let mine = if home == self.club_id { 0 } else { 1 };
-        let mut body = format!("Jogo das reservas:\n\n{} {}-{} {}", h.short_name, goals[0], goals[1], a.short_name);
-        if !scorers[mine].is_empty() {
-            body.push_str(&format!("\n\nGolos das nossas reservas: {}.", scorers[mine].join(", ")));
-        }
-        let title = format!("Reservas: {} {}-{} {}", h.short_name, goals[0], goals[1], a.short_name);
-        Ok(self.news_item(news_id, "competition", title, body))
+        Ok(())
     }
 }
 
@@ -338,6 +411,18 @@ mod tests {
         }
         let demoted = worst.iter().filter(|id| g.squads.state(**id).reserve).count();
 
+        // O treinador escolhe quem joga: os escolhidos entram no onze; de fora das reservas, recusa
+        let reserves: Vec<i32> = worst.iter().filter(|id| g.squads.state(**id).reserve).copied().collect();
+        let pick = *reserves.last().unwrap();
+        let lineup = g.set_reserve_picks(&[pick]).unwrap();
+        assert_eq!(lineup.picks, vec![pick]);
+        assert!(lineup.starters.iter().any(|s| s.person == pick));
+        let first_team = *worst.iter().rev().find(|id| !g.squads.state(**id).reserve).unwrap();
+        assert!(g.set_reserve_picks(&[first_team]).is_err());
+        assert!(g.set_reserve_picks(&[pick; 12]).is_err());
+        assert!(g.set_reserve_picks(&[]).unwrap().picks.is_empty());
+        g.set_reserve_picks(&[pick]).unwrap();
+
         // Dois dias antes de um jogo do campeonato, com o campo trocado, e nunca com menos de 4 dias entre eles
         let reserves = g.reserve_fixtures(PALMEIRAS).unwrap();
         assert!(reserves.len() >= 10, "{}", reserves.len());
@@ -374,6 +459,12 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM reserve_apps WHERE fixture = ? AND club = ?", params![first.id, PALMEIRAS], |r| r.get(0))
             .unwrap();
         assert!(ours as usize <= demoted.min(11), "{ours} {demoted}");
+        let picked: bool = g
+            .world
+            .conn
+            .query_row("SELECT COUNT(*) > 0 FROM reserve_apps WHERE fixture = ? AND person_id = ?", params![first.id, pick], |r| r.get(0))
+            .unwrap();
+        assert!(picked, "o escolhido jogou");
         let mut p = g.world.get_person(player).unwrap();
         g.fill_record(&mut p).unwrap();
         let season = &p.seasons[0];

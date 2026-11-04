@@ -55,7 +55,7 @@ use crate::person::ClubRef;
 use crate::regulation::{self, SeasonKind};
 use crate::search::fold;
 use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
-use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, PlayerOrder, PlayerOrders, Selection, Tackling, Takers};
+use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, PlayerOrder, PlayerOrders, Selection, SquadState, Tackling, Takers};
 use crate::{Error, Result, World, date};
 pub use board::{BoardConfidence, BoardView};
 pub use board_meeting::BoardRequest;
@@ -74,6 +74,7 @@ pub use news_links::NewsLink;
 pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
 pub use player_record::MatchSheet;
 pub use press::{PressQuestion, PressView};
+pub use reserve_matches::{ReserveLineup, ReserveSpot};
 pub use scout_tasks::{ScoutFind, ScoutList};
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
@@ -121,7 +122,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// 33: o treino (`training_programs`, `training_players`), marco 3.17.
 /// 34: os prémios e cláusulas dos contratos (`contract_talks.extras`, `contract_extras`) e os
 /// minutos e cartões de cada jogo (`player_matches`), para a ficha da partida.
-pub const SAVE_VERSION: i32 = 40;
+pub const SAVE_VERSION: i32 = 41;
 
 /// Os jogadores de enchimento (save 32): criados para completar os plantéis dos clubes
 /// pequenos, só jogam pelo clube deles (sem mercado, contratos nem olheiros), como os do CM.
@@ -716,6 +717,8 @@ impl Game {
             tx.execute_batch(LAST_LINEUP_SCHEMA)?;
             tx.execute_batch(training::COACH_AREAS_SCHEMA)?;
             tx.execute_batch(reserve_matches::RESERVES_SCHEMA)?;
+            tx.execute_batch(unhappy::ABSENCES_SCHEMA)?;
+            tx.execute_batch(reserve_matches::PICKS_SCHEMA)?;
             // O saldo do 1.º dia, como no CM (as dívidas ficam como estão)
             tx.execute("UPDATE clubs SET cash = CAST(cash * ? AS INTEGER) WHERE cash > 0", [crate::finance::START_CASH])?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
@@ -1083,6 +1086,12 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 40", [])?;
             version = 40;
         }
+        if version == 40 {
+            world.conn.execute_batch(unhappy::ABSENCES_SCHEMA)?;
+            world.conn.execute_batch(reserve_matches::PICKS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 41", [])?;
+            version = 41;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1425,7 +1434,7 @@ impl Game {
         }
         self.jobs_day(&mut fresh, &mut next_id)?;
         // As reservas jogam na véspera do jogo do campeonato
-        self.reserve_day(&mut fresh, &mut next_id)?;
+        self.reserve_day()?;
 
         self.start_day_matches(fresh, next_id, false)
     }
@@ -1646,10 +1655,24 @@ impl Game {
         out.into_iter().map(|(_, s)| s).take(60).collect()
     }
 
+    /// A disponibilidade de um plantel; no do treinador, quem está fora (de folga ou ausente sem
+    /// permissão) não pode jogar.
+    pub(super) fn club_state(&self, club: i32, comp: Option<i32>) -> SquadState {
+        let mut state = self.squads.squad_state(club, comp);
+        if club == self.club_id {
+            for id in self.absent_players() {
+                if let Some(a) = state.get_mut(&id) {
+                    a.injured = true;
+                }
+            }
+        }
+        state
+    }
+
     /// A equipa de um clube para o jogo de hoje. No clube do treinador, a escolha dele
     /// (com os indisponíveis trocados pelo adjunto, devolvidos em `Some(trocas)`).
     fn lineup(&self, club: i32, comp: i32) -> Result<(ClubTactics, Option<Vec<(Option<i32>, i32)>>)> {
-        let state = self.squads.squad_state(club, Some(comp));
+        let state = self.club_state(club, Some(comp));
         if club != self.club_id || self.sacked() {
             return Ok((self.world.auto_tactics(club, Some(&state), Instructions::default())?, None));
         }
@@ -1710,7 +1733,7 @@ impl Game {
 
     /// Tácticas de um clube agora: o do treinador é editável; os outros, o que o adjunto escolheria.
     pub fn club_tactics(&self, club: i32) -> Result<ClubTactics> {
-        let state = self.squads.squad_state(club, self.next_competition(club));
+        let state = self.club_state(club, self.next_competition(club));
         let mut t = match (&self.selection, club == self.club_id) {
             (Some(sel), true) if !sel.auto => self.world.tactics_from_selection(club, sel, Some(&state))?,
             (sel, true) => self
@@ -1726,7 +1749,7 @@ impl Game {
 
     /// Como ficaria a equipa com esta escolha (sem gravar): para a tela de Tácticas.
     pub fn preview_selection(&self, sel: &Selection) -> Result<ClubTactics> {
-        let state = self.squads.squad_state(self.club_id, self.next_competition(self.club_id));
+        let state = self.club_state(self.club_id, self.next_competition(self.club_id));
         let mut t = if sel.auto {
             self.world.auto_tactics(self.club_id, Some(&state), sel.instructions)?.with_orders(Some(sel))
         } else {
@@ -1772,6 +1795,11 @@ impl Game {
     pub fn player_status(&self, id: i32) -> Option<PlayerStatus> {
         let mut s = self.squads.status(id)?;
         s.unhappy = self.unhappy_reasons(id).unwrap_or_default();
+        if let Ok(Some((kind, until))) = self.absence(id) {
+            s.absence = Some(kind);
+            s.absence_until = Some(until);
+        }
+        s.can_leave = self.can_give_leave(id).unwrap_or(false);
         Some(s)
     }
 
@@ -3480,7 +3508,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; DROP TABLE last_lineups; DROP TABLE coach_areas; DROP TABLE reserve_matches; DROP TABLE reserve_apps; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; DROP TABLE last_lineups; DROP TABLE coach_areas; DROP TABLE reserve_matches; DROP TABLE reserve_apps; DROP TABLE absences; DROP TABLE reserve_picks; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

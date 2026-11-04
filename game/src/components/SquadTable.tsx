@@ -33,7 +33,7 @@ export function InfBadge({ info }: { info: string | null }) {
   const colour =
     info === "Les"
       ? "bg-[#b8560c] text-white"
-      : info === "Sus"
+      : info === "Sus" || info === "Fit"
         ? "bg-[#9c0000] text-white"
         : "bg-gray-900 text-cm-yellow border-gray-700 border"
   return <span className={`px-1 font-bold rounded ${colour}`}>{info}</span>

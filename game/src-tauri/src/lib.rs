@@ -7,6 +7,7 @@ use nextcm_core::LineupCheck;
 use nextcm_core::MatchSheet;
 use nextcm_core::NewsLink;
 use nextcm_core::PressView;
+use nextcm_core::ReserveLineup;
 use nextcm_core::WorldTransfers;
 use nextcm_core::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem,
@@ -111,6 +112,9 @@ session_command!(discipline_options(id: i32) -> DisciplineOptions);
 session_command!(discipline(id: i32, action: usize, reason: String) -> String);
 session_command!(press_comment(id: i32, kind: String) -> String);
 session_command!(set_reserve(id: i32, reserve: bool) -> String);
+session_command!(reserve_lineup() -> ReserveLineup);
+session_command!(set_reserve_picks(ids: Vec<i32>) -> ReserveLineup);
+session_command!(give_leave(id: i32) -> String);
 session_command!(jobs_view(nation: Option<i32>) -> JobsView);
 session_command!(apply_job(id: i32) -> String);
 session_command!(news_links(id: i32) -> Vec<NewsLink>);
@@ -312,6 +316,9 @@ pub fn run() {
             discipline,
             press_comment,
             set_reserve,
+            reserve_lineup,
+            set_reserve_picks,
+            give_leave,
             jobs_view,
             apply_job,
             news_links,

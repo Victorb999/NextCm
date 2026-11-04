@@ -48,6 +48,7 @@ import type { OfferView } from './bindings/OfferView'
 import type { PersonProfile } from './bindings/PersonProfile'
 import type { SaveSummary } from './bindings/SaveSummary'
 import type { ReportStaff } from './bindings/ReportStaff'
+import type { ReserveLineup } from './bindings/ReserveLineup'
 import type { ScoutList } from './bindings/ScoutList'
 import type { SearchQuery } from './bindings/SearchQuery'
 import type { SearchResult } from './bindings/SearchResult'
@@ -176,6 +177,11 @@ export const api = {
   pressComment: (id: number, kind: string) => call<string>('press_comment', { id, kind }),
   /** Despromover para as reservas (true) ou promover ao plantel principal. */
   setReserve: (id: number, reserve: boolean) => call<string>('set_reserve', { id, reserve }),
+  /** O onze das reservas para o próximo jogo delas e os escolhidos pelo treinador. */
+  reserveLineup: () => call<ReserveLineup>('reserve_lineup'),
+  setReservePicks: (ids: number[]) => call<ReserveLineup>('set_reserve_picks', { ids }),
+  /** "Dar Folga" a quem tem saudades de casa. */
+  giveLeave: (id: number) => call<string>('give_leave', { id }),
   jobsView: (nation: number | null) => call<JobsView>('jobs_view', { nation }),
   /** "Concorrer ao Lugar"; devolve a frase com a data da resposta. */
   applyJob: (id: number) => call<string>('apply_job', { id }),

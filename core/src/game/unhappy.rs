@@ -2,14 +2,25 @@
 //! motivos entram e saem pelo que aconteceu, pesam na moral e, com o tempo, o jogador pede para
 //! ser posto na lista de transferências (uma proposta `kind = 'request'`, com os botões na
 //! mensagem). Regras e números em docs/roadmap/3.09b-insatisfacao-e-pedidos-para-sair.md.
+//!
+//! Marco 3.19 (itens 4.2 e 4.3): os jovens até aos 23 anos aceitam as reservas e ficam
+//! contentes; aos 24, nas reservas, querem ver o futuro esclarecido ("Fut"). Os estrangeiros
+//! com saudades de casa podem ter duas semanas de folga; sem ela, acabam por faltar sem
+//! autorização ("Fit"). As ausências ficam em `absences`.
 
 use rusqlite::{OptionalExtension, params};
 
 use super::{Game, NewsItem, age_on};
-use crate::{Result, date, personality};
+use crate::engine::{match_rng, uniform};
+use crate::{Error, Result, date, personality};
+
+/// Folgas e faltas sem autorização (save 41): uma linha por jogador, a última. Uma folga fica
+/// gravada depois de acabar: as saudades não voltam no mesmo clube.
+pub(super) const ABSENCES_SCHEMA: &str =
+    "CREATE TABLE absences (person_id INTEGER PRIMARY KEY, kind TEXT NOT NULL, since TEXT NOT NULL, until TEXT NOT NULL);";
 
 /// Motivos de insatisfação: chave gravada em `unhappy.reason` e o texto do CM.
-pub const REASONS: [(&str, &str); 8] = [
+pub const REASONS: [(&str, &str); 9] = [
     ("starter", "Sente que deve ser titular"),
     ("contract", "Quer negociar um novo contrato"),
     ("bigger", "Quer mudar para um clube maior"),
@@ -18,6 +29,7 @@ pub const REASONS: [(&str, &str); 8] = [
     ("unfair", "Sente que foi tratado injustamente"),
     ("manager", "Perdeu a confiança no treinador"),
     ("training", "Infeliz com o treino"),
+    ("future", "Deseja ver o seu futuro esclarecido"),
 ];
 
 /// Jogos seguidos sem jogar (podendo) para um dos 11 melhores se sentir titular a mais.
@@ -27,8 +39,21 @@ const CONTRACT_DAYS: i32 = 365;
 /// Dias que duram a desilusão de não ir para um clube maior, a de não o deixarem sair, o
 /// castigo injusto e a perda de confiança no treinador.
 const GRUDGE_DAYS: i32 = 120;
-/// Adaptabilidade até à qual um estrangeiro acabado de chegar tem saudades de casa.
+/// Adaptabilidade até à qual um estrangeiro acabado de chegar (ou um jovem estrangeiro do
+/// plantel) tem saudades de casa.
 const HOMESICK_ADAPTABILITY: i32 = 7;
+/// Idade até à qual um estrangeiro do plantel, mesmo sem ter chegado durante o jogo, conta como
+/// jovem longe de casa; e até à qual um jogador aceita as reservas sem se queixar.
+pub(super) const YOUNG_AGE: i32 = 23;
+/// Dias de folga para matar as saudades.
+pub(super) const LEAVE_DAYS: i32 = 14;
+/// Com saudades há este tempo sem folga, pode faltar sem autorização (por segunda-feira).
+const AWOL_AFTER: i32 = 28;
+const AWOL_CHANCE: f64 = 0.25;
+/// Dias que fica fora quando falta (de 7 a 14).
+const AWOL_DAYS: i32 = 7;
+/// Moral que ganha com a folga.
+const LEAVE_MORALE: i32 = 2;
 /// Moral máxima com motivos: 12 menos isto por motivo (no mínimo 4); desce 2 por semana até lá.
 const MORALE_PER_REASON: i32 = 3;
 /// Dias de insatisfação até pedir para sair, e dias que espera pela resposta.
@@ -54,6 +79,8 @@ struct Unhappy {
     adaptability: i32,
     /// Estrangeiro que chegou ao clube durante o jogo.
     moved_abroad: bool,
+    /// Estrangeiro (não é da nação do clube).
+    foreign: bool,
     listed: bool,
     loaned_in: bool,
 }
@@ -90,7 +117,7 @@ impl Game {
     }
 
     fn squad_unhappy(&self) -> Result<Vec<Unhappy>> {
-        type Row = (i32, Option<String>, Option<i32>, Option<String>, Option<String>, [i32; 3], bool, bool, bool);
+        type Row = (i32, Option<String>, Option<i32>, Option<String>, Option<String>, [i32; 3], bool, bool, bool, bool);
         let rows: Vec<Row> = self
             .world
             .conn
@@ -100,7 +127,8 @@ impl Game {
                         COALESCE(p.nation_id <> c.nation_id AND COALESCE(p.second_nation_id, 0) <> c.nation_id
                           AND EXISTS (SELECT 1 FROM transfers t WHERE t.date = p.club_joined AND t.person_id = p.id AND t.to_club = p.club_id), 0),
                         EXISTS (SELECT 1 FROM transfer_list l WHERE l.person_id = p.id AND l.transfer = 1),
-                        EXISTS (SELECT 1 FROM loans o WHERE o.person_id = p.id AND o.parent_id <> p.club_id)
+                        EXISTS (SELECT 1 FROM loans o WHERE o.person_id = p.id AND o.parent_id <> p.club_id),
+                        COALESCE(p.nation_id <> c.nation_id AND COALESCE(p.second_nation_id, 0) <> c.nation_id, 0)
                  FROM people p JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id
                  WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC, p.id",
             )?
@@ -115,27 +143,34 @@ impl Game {
                     r.get(8)?,
                     r.get(9)?,
                     r.get(10)?,
+                    r.get(11)?,
                 ))
             })?
             .collect::<rusqlite::Result<_>>()?;
         Ok(rows
             .into_iter()
             .enumerate()
-            .map(|(rank, (id, birth, birth_year, expires, joined, [ambition, loyalty, adaptability], moved_abroad, listed, loaned_in))| {
-                Unhappy {
-                    id,
+            .map(
+                |(
                     rank,
-                    age: age_on(birth.as_deref(), birth_year, &self.date),
-                    expires,
-                    joined,
-                    ambition,
-                    loyalty,
-                    adaptability,
-                    moved_abroad,
-                    listed,
-                    loaned_in,
-                }
-            })
+                    (id, birth, birth_year, expires, joined, [ambition, loyalty, adaptability], moved_abroad, listed, loaned_in, foreign),
+                )| {
+                    Unhappy {
+                        id,
+                        rank,
+                        age: age_on(birth.as_deref(), birth_year, &self.date),
+                        expires,
+                        joined,
+                        ambition,
+                        loyalty,
+                        adaptability,
+                        moved_abroad,
+                        foreign,
+                        listed,
+                        loaned_in,
+                    }
+                },
+            )
             .collect())
     }
 
@@ -154,14 +189,35 @@ impl Game {
         let squad = self.squad_unhappy()?;
         for p in &squad {
             let missed = self.squads.state(p.id).missed;
+            let reserve = self.squads.state(p.id).reserve;
             let mut new = Vec::new();
-            // Titular sem jogar
-            if p.rank < 11 && p.age >= 20 && missed >= STARTER_MISSED {
+            // Titular sem jogar (os jovens aceitam as reservas)
+            let young_reserve = reserve && p.age <= YOUNG_AGE;
+            if p.rank < 11 && p.age >= 20 && missed >= STARTER_MISSED && !young_reserve {
                 if self.add_unhappy(p.id, "starter")? {
                     new.push("starter");
                 }
-            } else if missed == 0 {
+            } else if missed == 0 || young_reserve {
                 self.remove_unhappy(p.id, "starter")?;
+            }
+            // Nas reservas com 24 anos ou mais: quer ver o futuro esclarecido
+            if reserve && p.age > YOUNG_AGE {
+                if self.add_unhappy(p.id, "future")? {
+                    let name = self.person_name(p.id)?;
+                    fresh.push(self.news_item(
+                        *next_id,
+                        "press",
+                        format!("{name} quer saber o seu futuro"),
+                        format!(
+                            "{name}, com {} anos e ainda nas reservas, deseja ver o seu futuro esclarecido. Promova-o ao \
+                             plantel principal, empreste-o ou ponha-o na lista de transferências.",
+                            p.age
+                        ),
+                    ));
+                    *next_id += 1;
+                }
+            } else {
+                self.remove_unhappy(p.id, "future")?;
             }
             // Contrato a acabar
             let left = p.expires.as_deref().and_then(date::parse).map_or(0, |e| e - today);
@@ -172,11 +228,14 @@ impl Game {
             } else {
                 self.remove_unhappy(p.id, "contract")?;
             }
-            // Saudades de casa
+            // Saudades de casa: o estrangeiro que chegou, ou o jovem estrangeiro, ainda por se
+            // adaptar; depois de uma folga não voltam
             let days = p.joined.as_deref().and_then(date::parse).map_or(i32::MAX, |j| today - j);
-            if p.moved_abroad
+            let away = p.moved_abroad || (p.foreign && p.age <= YOUNG_AGE);
+            if away
                 && p.adaptability <= HOMESICK_ADAPTABILITY
                 && (days as f64) < personality::adaptation_days(p.adaptability as f64)
+                && !self.had_leave(p.id)?
             {
                 if self.add_unhappy(p.id, "homesick")? {
                     new.push("homesick");
@@ -222,6 +281,56 @@ impl Game {
                 s.morale = (s.morale - 2).max(cap);
             }
         }
+        // Os jovens das reservas sem motivos estão contentes: a moral sobe até à inicial
+        let young: Vec<i32> = squad.iter().filter(|p| p.age <= YOUNG_AGE && self.squads.state(p.id).reserve).map(|p| p.id).collect();
+        for id in young {
+            if self.unhappy_reasons(id)?.is_empty() {
+                let s = self.squads.states.entry(id).or_default();
+                if s.morale < 12 {
+                    s.morale += 1;
+                }
+            }
+        }
+        // Com saudades há semanas e sem folga: pode faltar sem autorização
+        let homesick_since = date::add_days(&self.date, -AWOL_AFTER).unwrap_or_default();
+        for p in &squad {
+            let long: bool = self
+                .world
+                .conn
+                .query_row(
+                    "SELECT 1 FROM unhappy WHERE person_id = ? AND reason = 'homesick' AND since <= ?",
+                    params![p.id, homesick_since],
+                    |_| Ok(()),
+                )
+                .optional()?
+                .is_some();
+            if !long || self.absence(p.id)?.is_some() {
+                continue;
+            }
+            let mut rng = match_rng(self.seed ^ 0xA_401, p.id ^ today);
+            if uniform(&mut rng) >= AWOL_CHANCE {
+                continue;
+            }
+            let days = AWOL_DAYS + (uniform(&mut rng) * (AWOL_DAYS + 1) as f64) as i32;
+            let until = date::add_days(&self.date, days).unwrap_or_default();
+            self.world.conn.execute(
+                "INSERT OR REPLACE INTO absences (person_id, kind, since, until) VALUES (?, 'awol', ?, ?)",
+                params![p.id, self.date, until],
+            )?;
+            self.clean_selection()?;
+            let name = self.person_name(p.id)?;
+            fresh.push(self.news_item(
+                *next_id,
+                "press",
+                format!("{name} ausente sem permissão"),
+                format!(
+                    "{name} não apareceu no treino e não deu notícias: terá voltado para o seu país, com saudades de casa. \
+                     Deverá voltar por volta de {}. Para o evitar, pode dar-lhe uma folga (Acção → Dar Folga).",
+                    super::cm_date(&until)
+                ),
+            ));
+            *next_id += 1;
+        }
         // Pedidos para sair
         let since = date::add_days(&self.date, -REQUEST_AFTER).unwrap_or_default();
         for p in &squad {
@@ -240,7 +349,9 @@ impl Game {
                 .query_row("SELECT 1 FROM unhappy WHERE person_id = ? AND reason = 'blocked'", [p.id], |r| r.get::<_, i32>(0))
                 .optional()?
                 .is_some();
-            let Some(reason) = reasons.iter().find(|r| matches!(r.as_str(), "starter" | "bigger" | "contract")) else { continue };
+            let Some(reason) = reasons.iter().find(|r| matches!(r.as_str(), "starter" | "bigger" | "contract" | "future")) else {
+                continue;
+            };
             if blocked || self.open_offer(p.id)?.is_some() {
                 continue;
             }
@@ -266,6 +377,70 @@ impl Game {
             *next_id += 1;
         }
         Ok(())
+    }
+
+    /// A ausência em curso de um jogador do plantel: ("leave" ou "awol", até quando).
+    pub fn absence(&self, person: i32) -> Result<Option<(String, String)>> {
+        Ok(self
+            .world
+            .conn
+            .query_row("SELECT kind, until FROM absences WHERE person_id = ? AND until > ?", params![person, self.date], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .optional()?)
+    }
+
+    /// Os jogadores fora (de folga ou ausentes sem permissão) hoje.
+    pub(super) fn absent_players(&self) -> Vec<i32> {
+        let rows = || -> Result<Vec<i32>> {
+            Ok(self
+                .world
+                .conn
+                .prepare_cached("SELECT person_id FROM absences WHERE until > ?")?
+                .query_map([&self.date], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?)
+        };
+        rows().unwrap_or_default()
+    }
+
+    fn had_leave(&self, person: i32) -> Result<bool> {
+        Ok(self
+            .world
+            .conn
+            .query_row("SELECT 1 FROM absences WHERE person_id = ? AND kind = 'leave'", [person], |_| Ok(()))
+            .optional()?
+            .is_some())
+    }
+
+    /// Pode ter folga: tem saudades de casa (ou faltou por isso) e não está já de folga.
+    pub fn can_give_leave(&self, person: i32) -> Result<bool> {
+        let homesick = self.unhappy_reasons(person)?.iter().any(|r| r == reason_text("homesick"));
+        let away = self.absence(person)?;
+        Ok((homesick || away.as_ref().is_some_and(|a| a.0 == "awol")) && !away.is_some_and(|a| a.0 == "leave"))
+    }
+
+    /// "Dar Folga": duas semanas no seu país; as saudades passam e não voltam neste clube.
+    pub fn give_leave(&mut self, person: i32) -> Result<String> {
+        let mine: bool =
+            self.world.conn.query_row("SELECT club_id = ? FROM people WHERE id = ?", params![self.club_id, person], |r| r.get(0))?;
+        if !mine || self.sacked() {
+            return Err(Error::Invalid("Só para os jogadores do seu plantel.".into()));
+        }
+        if !self.can_give_leave(person)? {
+            return Err(Error::Invalid("Só se dá folga a quem tem saudades de casa.".into()));
+        }
+        let until = date::add_days(&self.date, LEAVE_DAYS).unwrap_or_default();
+        self.world.conn.execute(
+            "INSERT OR REPLACE INTO absences (person_id, kind, since, until) VALUES (?, 'leave', ?, ?)",
+            params![person, self.date, until],
+        )?;
+        self.remove_unhappy(person, "homesick")?;
+        self.change_morale(person, LEAVE_MORALE);
+        self.clean_selection()?;
+        self.refresh_live()?;
+        self.unsaved = true;
+        let name = self.person_name(person)?;
+        Ok(format!("{name} vai passar duas semanas no seu país. Volta a {}.", super::cm_date(&until)))
     }
 
     /// O treinador recusa (ou não responde a) um pedido para sair.
@@ -347,6 +522,93 @@ mod tests {
             .query_row("SELECT requested FROM transfer_list WHERE person_id = ? AND transfer = 1", [star], |r| r.get(0))
             .unwrap();
         assert_eq!(requested, 1);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn reserves_homesickness_and_leave() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-saudades-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Saudades".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: PALMEIRAS,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: false,
+        };
+        let mut g = Game::create(&path, &dir, &new, 11).unwrap();
+        let squad = g.squad_unhappy().unwrap();
+        let monday = |g: &mut Game, d: &str| {
+            g.date = d.into();
+            let (mut fresh, mut id) = (Vec::new(), 1000);
+            g.unhappy_day(&mut fresh, &mut id).unwrap();
+            fresh
+        };
+
+        // Um jovem das reservas não se queixa de não jogar e está contente
+        let young = squad.iter().find(|p| p.rank < 11 && !p.loaned_in && !p.foreign).unwrap().id;
+        g.world.conn.execute("UPDATE people SET birth_date = '2004-01-01', birth_year = 2004 WHERE id = ?", [young]).unwrap();
+        g.set_reserve(young, true).unwrap();
+        g.squads.states.entry(young).or_default().missed = STARTER_MISSED;
+        monday(&mut g, "2025-07-07");
+        assert!(g.unhappy_reasons(young).unwrap().is_empty());
+        let future = g.transfer_view(young).unwrap().future;
+        assert!(future.iter().any(|f| f == "Contente com situação no clube"), "{future:?}");
+
+        // Aos 24, nas reservas, quer ver o futuro esclarecido: notícia, "Fut" e o Futuro
+        g.world.conn.execute("UPDATE people SET birth_date = '2001-01-01', birth_year = 2001 WHERE id = ?", [young]).unwrap();
+        let news = monday(&mut g, "2025-07-14");
+        assert!(news.iter().any(|n| n.title.contains("quer saber o seu futuro")));
+        assert!(g.unhappy_reasons(young).unwrap().contains(&reason_text("future").to_string()));
+        let mut club = g.world.get_club(PALMEIRAS).unwrap();
+        g.fill_squad(&mut club).unwrap();
+        assert_eq!(club.players.iter().find(|p| p.id == young).unwrap().info.as_deref(), Some("Fut"));
+        // Promovido, passa
+        g.set_reserve(young, false).unwrap();
+        monday(&mut g, "2025-07-21");
+        assert!(!g.unhappy_reasons(young).unwrap().contains(&reason_text("future").to_string()));
+
+        // Um jovem estrangeiro pouco adaptável tem saudades; sem folga, acaba por faltar
+        let foreign = squad.iter().find(|p| p.foreign && !p.loaned_in).map(|p| p.id).unwrap_or(young);
+        g.world
+            .conn
+            .execute(
+                "UPDATE people SET birth_date = '2005-01-01', birth_year = 2005, adaptability = 2, club_joined = '2025-07-01',
+                        nation_id = CASE WHEN nation_id = (SELECT nation_id FROM clubs WHERE id = ?1) THEN 1 ELSE nation_id END WHERE id = ?2",
+                params![PALMEIRAS, foreign],
+            )
+            .unwrap();
+        monday(&mut g, "2025-07-28");
+        assert!(g.unhappy_reasons(foreign).unwrap().contains(&reason_text("homesick").to_string()));
+        assert!(g.can_give_leave(foreign).unwrap());
+        let mut awol = false;
+        for d in ["2025-08-25", "2025-09-01", "2025-09-08", "2025-09-15", "2025-09-22", "2025-09-29", "2025-10-06", "2025-10-13"] {
+            monday(&mut g, d);
+            if g.absence(foreign).unwrap().is_some_and(|a| a.0 == "awol") {
+                awol = true;
+                break;
+            }
+        }
+        assert!(awol, "com saudades há semanas, falta sem autorização");
+        assert!(g.club_state(PALMEIRAS, None)[&foreign].injured, "ausente não pode jogar");
+
+        // A folga: duas semanas fora, as saudades passam e não voltam
+        assert!(g.give_leave(foreign).unwrap().contains("duas semanas"));
+        assert_eq!(g.absence(foreign).unwrap().map(|a| a.0).as_deref(), Some("leave"));
+        assert!(!g.unhappy_reasons(foreign).unwrap().contains(&reason_text("homesick").to_string()));
+        assert!(g.give_leave(foreign).is_err(), "já está de folga");
+        let back = date::add_days(&g.date, LEAVE_DAYS + 7).unwrap();
+        monday(&mut g, &back);
+        assert!(g.absence(foreign).unwrap().is_none());
+        assert!(!g.unhappy_reasons(foreign).unwrap().contains(&reason_text("homesick").to_string()));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

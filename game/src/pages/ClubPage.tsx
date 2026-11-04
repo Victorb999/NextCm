@@ -5,6 +5,7 @@ import type { ClubListItem } from "../bindings/ClubListItem"
 import type { ClubProfile } from "../bindings/ClubProfile"
 import type { ClubTactics } from "../bindings/ClubTactics"
 import type { Fixture } from "../bindings/Fixture"
+import type { ReserveLineup } from "../bindings/ReserveLineup"
 import type { SquadAttributes } from "../bindings/SquadAttributes"
 import type { SquadMore } from "../bindings/SquadMore"
 import type { SquadPlayer } from "../bindings/SquadPlayer"
@@ -403,6 +404,25 @@ export default function ClubPage({
       () => {},
     )
   }, [id, date])
+  // Nas reservas do treinador, o onze do próximo jogo delas: clicar no número ou na casa põe
+  // ou tira da equipa (o adjunto completa o resto)
+  const [reserveLineup, setReserveLineup] = useState<ReserveLineup | null>(null)
+  useEffect(() => {
+    if (!date || !reserves || !mine) return
+    api.reserveLineup().then(setReserveLineup, () => setReserveLineup(null))
+  }, [date, reserves, mine])
+  const setPicks = async (picks: number[]) => {
+    try {
+      setReserveLineup(await api.setReservePicks(picks))
+      setError(null)
+    } catch (err) {
+      setError(String(err))
+    }
+  }
+  const toggleReserve = (e: Entry) => {
+    const picks = reserveLineup?.picks ?? []
+    void setPicks(picks.includes(e.id) ? picks.filter((p) => p !== e.id) : [...picks, e.id])
+  }
   // Nas reservas, o Calendário é o dos jogos delas (dois dias antes de cada jogo do campeonato)
   const [reserveFixtures, setReserveFixtures] = useState<Fixture[]>([])
   useEffect(() => {
@@ -556,8 +576,12 @@ export default function ClubPage({
   }, [view, id, game.mode, game.info?.date])
 
   const sel = tactics && selectionOf(tactics)
-  // Casa na equipa (GR, DD... e SB1–SB7 nos suplentes)
+  // Casa na equipa (GR, DD... e SB1–SB7 nos suplentes); nas reservas, a do onze delas
   const placeOf = (pid: number) => {
+    if (reserves) {
+      const r = reserveLineup?.starters.find((s) => s.person === pid)
+      return r ? shortRole(r.role) : null
+    }
     const spot = sel ? spotOf(sel, pid) : undefined
     return spot?.kind === "starter"
       ? shortRole(tactics!.starters[spot.index].role)
@@ -587,8 +611,9 @@ export default function ClubPage({
         }))
 
   const table = view !== "traditional" && view !== "staff"
-  // Casas da equipa, Limpar Equipa e pôr/tirar: só no plantel principal, na vista Tradicional
+  // Casas da equipa, Limpar Equipa e pôr/tirar: na vista Tradicional (nas reservas, o onze delas)
   const teamView = !reserves && view === "traditional"
+  const reserveView = reserves && mine && view === "traditional" && !!reserveLineup
   const rowCount = table ? players.length : entries.length
 
   const open = (e: { id: number } | undefined) =>
@@ -862,8 +887,8 @@ export default function ClubPage({
           {mine && (
             <button
               className="cm-purple h-6 w-40"
-              disabled={!tactics || !teamView}
-              onClick={() => void clearTeam()}
+              disabled={reserves ? !reserveView || !reserveLineup?.picks.length : !tactics || !teamView}
+              onClick={() => void (reserves ? setPicks([]) : clearTeam())}
             >
               Limpar Equipa
             </button>
@@ -952,6 +977,14 @@ export default function ClubPage({
                   </span>
                 </>
               )}
+              {reserveView && (
+                <span className="ml-2 self-center text-[11px] text-[#86869a]">
+                  {reserveLineup.picks.length
+                    ? `Escolheu ${reserveLineup.picks.length} · o adjunto completa o onze`
+                    : "O adjunto escolhe o onze"}{" "}
+                  · clique no número ou na casa para pôr/tirar da equipa das reservas
+                </span>
+              )}
             </div>
             <div ref={gridRef} className="min-h-0 flex-1 overflow-auto">
               {table && players.length ? (
@@ -973,7 +1006,9 @@ export default function ClubPage({
                   header={view === "staff" ? undefined : { text: headerText, onClick: clickHeader }}
                   bind={mine && tactics && !reserves ? drag.bind : undefined}
                   onToggle={
-                    mine && tactics && teamView
+                    reserveView
+                      ? toggleReserve
+                      : mine && tactics && teamView
                       ? (e) => void toggle(e)
                       : undefined
                   }

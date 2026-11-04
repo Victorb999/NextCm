@@ -492,6 +492,8 @@ export default function PersonPage({ id }: { id: number }) {
           person?.status?.reserve
             ? { key: 'promote', label: 'Promover ao Plantel Principal' }
             : { key: 'demote', label: 'Despromover para Reservas' },
+          // Saudades de casa: duas semanas no seu país
+          ...(person?.status?.canLeave ? [{ key: 'leave', label: 'Dar Folga' }] : []),
           { key: 'discipline', label: 'Disciplinar Jogador' },
           { key: 'release', label: 'Dispensar' },
         ],
@@ -567,6 +569,16 @@ export default function PersonPage({ id }: { id: number }) {
     }
   }
 
+  const giveLeave = async () => {
+    try {
+      setNotice(await api.giveLeave(id))
+      setError(null)
+      await reload()
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
   // Uma acção de mercado do menu: mostra a aba Transferência com o resultado
   const marketAction = async (f: () => Promise<TransferView>) => {
     try {
@@ -623,6 +635,7 @@ export default function PersonPage({ id }: { id: number }) {
     else if (k === 'discipline') setDiscipline(true)
     else if (k === 'praise' || k === 'criticise') void comment(k)
     else if (k === 'promote' || k === 'demote') void moveSquad(k === 'demote')
+    else if (k === 'leave') void giveLeave()
     else setReport(k as 'medical' | 'fitness')
   }
 

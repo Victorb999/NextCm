@@ -20,8 +20,8 @@ use crate::PressView;
 use crate::WorldTransfers;
 use crate::tactic_file::{self, SavedFile};
 use crate::{DealTerms, LoanTerms};
+use crate::{ReserveLineup, TrainingPlan, TrainingView};
 use crate::{TalkLine, TalkReaction, TalkView};
-use crate::{TrainingPlan, TrainingView};
 
 /// Um dia do Continuar Jogo (comando `continue_step`).
 #[derive(Debug, Clone, serde::Serialize, ts_rs::TS)]
@@ -621,6 +621,19 @@ impl Session {
 
     pub fn set_shortlist(&mut self, id: i32, on: bool) -> Result<()> {
         self.game_mut()?.set_shortlist(id, on)
+    }
+
+    pub fn reserve_lineup(&self) -> Result<ReserveLineup> {
+        self.game()?.reserve_lineup()
+    }
+
+    pub fn set_reserve_picks(&mut self, ids: Vec<i32>) -> Result<ReserveLineup> {
+        self.game_mut()?.set_reserve_picks(&ids)
+    }
+
+    /// "Dar Folga" a quem tem saudades de casa; devolve a frase para a tela.
+    pub fn give_leave(&mut self, id: i32) -> Result<String> {
+        self.game_mut()?.give_leave(id)
     }
 
     /// O Calendário das reservas (só do clube do treinador; sem jogo, vazio).

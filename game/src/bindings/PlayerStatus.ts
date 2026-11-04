@@ -15,4 +15,12 @@ unhappy: Array<string>,
 /**
  * Na equipa de reservas.
  */
-reserve: boolean, };
+reserve: boolean, 
+/**
+ * Fora do clube: "leave" (de folga) ou "awol" (ausente sem permissão), e até quando.
+ */
+absence: string | null, absenceUntil: string | null, 
+/**
+ * Pode ter folga (tem saudades de casa): o "Dar Folga" do menu Acção.
+ */
+canLeave: boolean, };

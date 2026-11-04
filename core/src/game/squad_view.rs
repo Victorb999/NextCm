@@ -96,11 +96,22 @@ impl Game {
             let listed: bool =
                 conn.query_row("SELECT transfer FROM transfer_list WHERE person_id = ?", [p.id], |r| r.get(0)).optional()?.unwrap_or(false);
             let unhappy = conn.query_row("SELECT 1 FROM unhappy WHERE person_id = ? LIMIT 1", [p.id], |_| Ok(())).optional()?.is_some();
+            let future =
+                conn.query_row("SELECT 1 FROM unhappy WHERE person_id = ? AND reason = 'future'", [p.id], |_| Ok(())).optional()?.is_some();
+            let absence = if mine { self.absence(p.id)?.map(|a| a.0) } else { None };
             let wanted = self.wanted(p.id)?;
             p.info = if p.injured {
                 Some("Les")
             } else if p.suspended {
                 Some("Sus")
+            } else if absence.as_deref() == Some("awol") {
+                // Ausente sem permissão (faltou com saudades de casa), como o "Fit" do CM
+                Some("Fit")
+            } else if absence.is_some() {
+                Some("Fol")
+            } else if future {
+                // Nas reservas com 24 anos: quer ver o futuro esclarecido
+                Some("Fut")
             } else if p.loaned {
                 Some("Emp")
             } else if conn

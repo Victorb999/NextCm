@@ -43,6 +43,7 @@ pub use game::{CareerClub, LastLineup, ManagerStats, SquadAttributes, SquadMore}
 pub use game::{DealTerms, LoanTerms};
 pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use game::{PressQuestion, PressView};
+pub use game::{ReserveLineup, ReserveSpot};
 pub use game::{TalkLine, TalkOption, TalkReaction, TalkView};
 pub use game::{TrainingPlan, TrainingView};
 pub use league::{

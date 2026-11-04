@@ -122,6 +122,11 @@ pub struct PlayerStatus {
     pub unhappy: Vec<String>,
     /// Na equipa de reservas.
     pub reserve: bool,
+    /// Fora do clube: "leave" (de folga) ou "awol" (ausente sem permissão), e até quando.
+    pub absence: Option<String>,
+    pub absence_until: Option<String>,
+    /// Pode ter folga (tem saudades de casa): o "Dar Folga" do menu Acção.
+    pub can_leave: bool,
 }
 
 pub fn morale_label(m: i32) -> &'static str {
@@ -239,6 +244,9 @@ impl Squads {
                 injury: s.injury,
                 injury_until: s.injury_until,
                 unhappy: Vec::new(),
+                absence: None,
+                absence_until: None,
+                can_leave: false,
                 reserve: s.reserve,
             }
         })
