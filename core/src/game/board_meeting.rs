@@ -40,6 +40,8 @@ const STADIUM_DAYS: i32 = 300;
 const YOUTH_COST: f64 = 0.03;
 pub(super) const YOUTH_MAX: i32 = 3;
 pub(super) const YOUTH_PA: f64 = 6.0;
+/// Mais fundos para transferências: o que a direção aceita pôr além do saldo (sobre as receitas).
+const OVERDRAFT: f64 = 0.1;
 /// Mais tempo: dias em que as quedas de confiança contam metade, e lugares a menos no objetivo.
 const GRACE_DAYS: i32 = 120;
 const GRACE_TARGET: i32 = 3;
@@ -148,7 +150,7 @@ impl Game {
                     (false, "A direcção prefere não investir nas camadas jovens enquanto não confiar mais no seu trabalho.".to_string())
                 } else {
                     let cost = finance::round_money(YOUTH_COST * base);
-                    self.book(self.club_id, "youth", cost)?;
+                    self.book(self.club_id, "other_expenses", cost)?;
                     self.world.conn.execute("UPDATE board SET youth_level = ? WHERE id = 1", [youth + 1])?;
                     (
                         true,
@@ -161,7 +163,8 @@ impl Game {
             }
             "transfers" => {
                 let budget = self.transfer_budget()?;
-                let room = cash - budget;
+                // Os fundos já são o saldo: a direção aceita ficar a dever até 10% das receitas
+                let room = cash - budget + (OVERDRAFT * base) as i64;
                 let extra = if confidence >= 60 {
                     0.25
                 } else if confidence >= 50 {
@@ -174,7 +177,7 @@ impl Game {
                 if more <= 0 {
                     (false, "A direcção recusou: não há fundos para mais transferências.".to_string())
                 } else {
-                    self.spend_budget(-more)?;
+                    self.add_funds(more)?;
                     let part = if extra < 0.25 { " em parte" } else { "" };
                     (
                         true,

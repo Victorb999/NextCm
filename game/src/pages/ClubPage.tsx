@@ -11,7 +11,7 @@ import type { SquadMore } from "../bindings/SquadMore"
 import type { SquadPlayer } from "../bindings/SquadPlayer"
 import CascadeMenu, { type MenuNode } from "../components/CascadeMenu"
 import { ClubFixtureList, MatchInfo } from "../components/Fixtures"
-import FinancesPanel from "../components/FinancesPanel"
+import FinancesPanel, { type FinanceView } from "../components/FinancesPanel"
 import SquadTable, { HeaderCell, InfBadge, type HeaderProps } from "../components/SquadTable"
 import { headerColumn } from "../squadColumns"
 import TransfersPanel from "../components/TransfersPanel"
@@ -265,8 +265,33 @@ function financesLabel(cash: number | null) {
   return "Em dívida"
 }
 
-/** "Finanças & Info" → Informação Geral do CM: dados do clube e a lista do staff. */
-function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
+const INFO_VIEWS: { key: "info" | FinanceView; label: string }[] = [
+  { key: "info", label: "Informação Geral" },
+  { key: "finances", label: "Finanças" },
+  { key: "income", label: "Receitas" },
+  { key: "expenses", label: "Despesas" },
+]
+
+/** "Finanças & Info" do CM: o Ver ▾ escolhe a Informação Geral (dados do clube e o staff) ou
+ * as Finanças, Receitas e Despesas. */
+function Info({ c, mine }: { c: ClubProfile; mine: boolean }) {
+  const [view, setView] = useState<"info" | FinanceView>("info")
+  const menu = (
+    <div className="px-2 pb-1 pt-2">
+      <PurpleMenu label="Ver" options={INFO_VIEWS} value={view} onChange={setView} />
+    </div>
+  )
+  if (view !== "info")
+    return (
+      <div className="min-h-0 flex-1 overflow-auto pb-3">
+        {menu}
+        <FinancesPanel clubId={c.club.id} view={view} mine={mine} />
+      </div>
+    )
+  return <GeneralInfo c={c} menu={menu} />
+}
+
+function GeneralInfo({ c, menu }: { c: ClubProfile; menu: ReactNode }) {
   const nav = useNav()
   const row = (label: string, value: ReactNode) => (
     <div key={label} className="flex min-h-6 items-baseline gap-4 px-3 py-1">
@@ -279,7 +304,7 @@ function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
   const competition = c.division?.name
   return (
     <div className="min-h-0 flex-1 overflow-auto pb-3">
-      {finances}
+      {menu}
       <PanelTitle title="Informação Geral" />
       <div className="cm-zebra">
         {row(
@@ -302,9 +327,9 @@ function Info({ c, finances }: { c: ClubProfile; finances?: ReactNode }) {
           [c.stadium, c.stadiumCity].filter(Boolean).join(", ") || "-",
         )}
         {row(
-          "Lotação",
+          "Capacidade",
           c.stadiumCapacity
-            ? `${c.stadiumCapacity.toLocaleString("pt-BR")}${c.stadiumSeated === c.stadiumCapacity ? " - todos lugares sentados" : c.stadiumSeated ? ` (${c.stadiumSeated.toLocaleString("pt-BR")} sentados)` : ""}`
+            ? `${c.stadiumCapacity}${c.stadiumSeated === c.stadiumCapacity ? " - todos lugares sentados" : c.stadiumSeated ? ` - (${c.stadiumSeated} lugares sentados)` : ""}`
             : "-",
         )}
         {row("Reputação", c.reputation ?? "-")}
@@ -1038,10 +1063,7 @@ export default function ClubPage({
         {tab !== "squad" && (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-cm-surface">
             {club && tab === "info" && (
-              <Info
-                c={club}
-                finances={mine ? <FinancesPanel clubId={id} /> : undefined}
-              />
+              <Info c={club} mine={mine} />
             )}
             {tab === "next" && (
               <MatchInfo

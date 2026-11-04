@@ -2,88 +2,108 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { BoardView } from '../bindings/BoardView'
 import type { ClubFinances } from '../bindings/ClubFinances'
-import type { SeasonBooks } from '../bindings/SeasonBooks'
-import { money, wage } from '../format'
+import type { FinanceRow } from '../bindings/FinanceRow'
+import { moneyFull, wage } from '../format'
 import { useGame } from '../game'
 import { PanelTitle } from './Screen'
 
-// Finanças do clube do treinador, como a tela do CM: saldo e folha em cima, receitas e
-// despesas da época em duas colunas, com a época anterior a um clique.
+// Finanças de um clube, como a tela do CM (Ver ▾ Finanças, Receitas, Despesas): cada rubrica
+// em Este Mês, Último Mês, Este Ano (a época) e Último Ano; o Balanço e os Fundos Transferências.
 
-function Column({ title, lines, total }: { title: string; lines: SeasonBooks['income']; total: number }) {
+export type FinanceView = 'finances' | 'income' | 'expenses'
+
+const COLUMNS = ['Este Mês', 'Último Mês', 'Este Ano', 'Último Ano']
+
+/** "€1.234.567", ou "(€1.234.567)" a vermelho nas perdas. */
+function Amount({ v, tone }: { v: number; tone: string }) {
+  if (v < 0) return <span className="text-[#ff5050]">({moneyFull(-v)})</span>
+  return <span className={tone}>{moneyFull(v)}</span>
+}
+
+function Row({ row, tone, big }: { row: FinanceRow; tone: string; big?: boolean }) {
   return (
-    <div className="min-w-0 flex-1 overflow-hidden rounded-md bg-black/20">
-      <PanelTitle title={title} />
-      <div className="cm-zebra">
-        {lines.map((l) => (
-          <div key={l.label} className="flex h-6 items-center justify-between px-3 text-[14px]">
-            <span className="text-white">{l.label}</span>
-            <span className="tabular-nums text-cm-yellow">{l.amount ? money(l.amount) : '-'}</span>
-          </div>
-        ))}
-      </div>
-      <div className="flex h-6 items-center justify-between bg-[#1d4d3a]/50 px-3 text-[14px] font-bold">
-        <span className="text-[#4edea3]">Total</span>
-        <span className="tabular-nums text-cm-yellow">{money(total)}</span>
-      </div>
+    <div className="grid h-[22px] grid-cols-[minmax(13rem,1.6fr)_repeat(4,1fr)] items-center px-4">
+      <span className={`truncate font-semibold ${big ? 'text-[17px] text-[#ff7ad9]' : 'text-[17px] text-white'}`}>{row.label}</span>
+      {row.amounts.map((v, i) => (
+        <span key={i} className="text-[13px] tabular-nums">
+          <Amount v={v} tone={tone} />
+        </span>
+      ))}
     </div>
   )
 }
 
-export default function FinancesPanel({ clubId }: { clubId: number }) {
+function Line({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid h-[22px] grid-cols-[minmax(13rem,1.6fr)_4fr] items-center px-4">
+      <span className="text-[17px] font-semibold text-white">{label}</span>
+      <span className="text-[13px] text-cm-yellow">{value}</span>
+    </div>
+  )
+}
+
+export default function FinancesPanel({ clubId, view, mine }: { clubId: number; view: FinanceView; mine: boolean }) {
   const game = useGame()
   const [data, setData] = useState<ClubFinances | null>(null)
   const [board, setBoard] = useState<BoardView | null>(null)
-  const [last, setLast] = useState(false)
   const date = game.info?.date
 
   useEffect(() => {
     if (!date) return
     api.clubFinances(clubId).then(setData, () => setData(null))
-    api.boardView().then(setBoard, () => setBoard(null))
-  }, [clubId, date])
+    if (mine) api.boardView().then(setBoard, () => setBoard(null))
+  }, [clubId, date, mine])
 
   if (!data) return null
-  const books = last && data.lastSeason ? data.lastSeason : data.thisSeason
-  const result = books.totalIncome - books.totalExpenses
-  const row = (label: string, value: string, red = false) => (
-    <div className="flex min-h-6 items-baseline gap-4 px-3 py-1">
-      <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
-      <span className={`flex-1 text-[14px] ${red ? 'text-[#ff5050]' : 'text-cm-yellow'}`}>{value}</span>
-    </div>
-  )
+  const title = view === 'income' ? 'Receitas' : view === 'expenses' ? 'Despesas' : 'Finanças'
   return (
     <div className="pb-2">
-      <PanelTitle title="Finanças" />
-      <div className="cm-zebra">
-      {row('Saldo', money(data.cash) || '€0', data.cash < 0)}
-      {row('Folha salarial', wage(data.wageBill, true))}
-      {row('Receitas por época', money(data.expectedRevenue))}
-      {board && (
-        <>
-          {row('Confiança da Direcção', `${board.confidenceLabel} (${board.confidence}%)`, board.confidence < 35)}
-          {row('Objectivo', `${board.goal.charAt(0).toUpperCase()}${board.goal.slice(1)} (${board.target}º lugar)`)}
-          {row('Orçamento', `${money(board.transferBudget) || '€0'} para transferências`)}
-          {row('Limite salarial', `${wage(board.wageBudget, true)} (máximo ${wage(board.maxWage, true)} por jogador)`)}
-        </>
-      )}
-      </div>
-      <div className="mt-2 flex items-center gap-1 px-3">
-        <button className={`cm-purple h-6 w-44 ${!last ? '!text-cm-yellow' : ''}`} onClick={() => setLast(false)}>
-          Esta época
-        </button>
-        <button className={`cm-purple h-6 w-44 ${last ? '!text-cm-yellow' : ''}`} disabled={!data.lastSeason} onClick={() => setLast(true)}>
-          Época anterior
-        </button>
-        <span className="ml-2 font-mono text-[13px] font-bold uppercase tracking-wider text-cm-orange">Época {books.season}</span>
-      </div>
-      <div className="mt-2 flex gap-2 px-3">
-        <Column title="Receitas" lines={books.income} total={books.totalIncome} />
-        <Column title="Despesas" lines={books.expenses} total={books.totalExpenses} />
-      </div>
-      <div className="mx-3 mt-2 flex h-[30px] items-center justify-between rounded-md bg-black/30 px-3 text-[15px] font-bold">
-        <span className="text-white">Resultado da época</span>
-        <span className={result < 0 ? 'text-[#ff5050]' : 'text-cm-green'}>{result < 0 ? `-${money(-result)}` : money(result) || '€0'}</span>
+      <PanelTitle title={title} />
+      <div className="py-1">
+        <div className="mx-4 mb-3 grid h-7 grid-cols-[minmax(13rem,1.6fr)_repeat(4,1fr)] items-end border-b border-cm-orange pb-0.5">
+          <span className="text-[17px] font-semibold text-cm-orange">Rúbrica</span>
+          {COLUMNS.map((c) => (
+            <span key={c} className="text-[13px] text-cm-orange">
+              {c}
+            </span>
+          ))}
+        </div>
+        {view === 'finances' ? (
+          <>
+            <Row row={data.totalIncome} tone="text-cm-yellow" />
+            <Row row={data.totalExpenses} tone="text-cm-yellow" />
+            <div className="h-5" />
+            <Row row={data.result} tone="text-cm-green" />
+            <div className="h-5" />
+            <div className="grid h-[22px] grid-cols-[minmax(13rem,1.6fr)_4fr] items-center px-4">
+              <span className="text-[17px] font-semibold text-white">Balanço</span>
+              <span className="text-[13px] tabular-nums">
+                <Amount v={data.cash} tone="text-cm-green" />
+              </span>
+            </div>
+            <div className="grid h-[22px] grid-cols-[minmax(13rem,1.6fr)_4fr] items-center px-4">
+              <span className="text-[17px] font-semibold text-white">Fundos Transferências</span>
+              <span className="text-[13px] tabular-nums text-cm-green">{moneyFull(data.funds)}</span>
+            </div>
+            {/* O que o CM mostra noutras telas da Direcção: fica aqui, no clube do treinador */}
+            {mine && board && (
+              <div className="mt-4">
+                <Line label="Folha salarial" value={wage(data.wageBill, true)} />
+                <Line label="Limite salarial" value={`${wage(board.wageBudget, true)} (máximo ${wage(board.maxWage, true)} por jogador)`} />
+                <Line label="Confiança da Direcção" value={`${board.confidenceLabel} (${board.confidence}%)`} />
+                <Line label="Objectivo" value={`${board.goal.charAt(0).toUpperCase()}${board.goal.slice(1)} (${board.target}º lugar)`} />
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {(view === 'income' ? data.income : data.expenses).map((r) => (
+              <Row key={r.label} row={r} tone="text-cm-yellow" />
+            ))}
+            <div className="h-5" />
+            <Row row={{ ...(view === 'income' ? data.totalIncome : data.totalExpenses), label: 'Total' }} tone="text-[#ff7ad9]" big />
+          </>
+        )}
       </div>
     </div>
   )

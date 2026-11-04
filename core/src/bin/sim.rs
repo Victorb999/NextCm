@@ -9,6 +9,9 @@
 //! substituições e lesões por equipa e jogo).
 //! Marco 3.17: `sim -- <clube> treino <seed> [dias]` joga o mesmo ano com todos os programas
 //! a Nenhum, Médio e Intensivo e compara a evolução do CA, a condição e as lesões no treino.
+//! Passo 3.15c: `sim -- <clube> economia <seed> [meses]` joga desde 1/7/2025 e mostra, no fim
+//! de cada mês, as finanças do Bayern, do Hoffenheim, do 1860 e do Viktoria Köln (os prints do
+//! CM) e do clube escolhido; no fim, as rubricas da época de cada um.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -199,8 +202,98 @@ fn training(world: &Path, club_id: i32, seed: i64, days: u32) {
     }
 }
 
+/// `sim -- <clube> economia <seed> [meses]`: as finanças mês a mês, para comparar com o CM.
+fn economy(world: &Path, club_id: i32, seed: i64, months: i64) {
+    let dir = std::env::temp_dir().join(format!("nextcm-economia-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let new = NewGame {
+        save_name: "economia".into(),
+        first_name: "Treinador".into(),
+        last_name: "Sim".into(),
+        birth_date: None,
+        nation_id: None,
+        club_id,
+        leagues: Vec::new(),
+        start: Default::default(),
+        license: 0,
+        real_players: true,
+        masking: true,
+    };
+    let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
+    let mut clubs = vec![1350, 4590, 10, 10929];
+    if !clubs.contains(&club_id) {
+        clubs.push(club_id);
+    }
+    let m = |v: i64| format!("{:>8.2}", v as f64 / 1e6);
+    let name = |c: i32| match c {
+        1350 => "Bayern".to_string(),
+        4590 => "Hoffenheim".to_string(),
+        10 => "1860 München".to_string(),
+        10929 => "Viktoria Köln".to_string(),
+        _ => format!("clube {c}"),
+    };
+    let show = |game: &Game, title: &str| {
+        println!(
+            "
+{title} ({}): clube | saldo | fundos | mês passado rec/desp | época rec/desp (€M)",
+            game.date()
+        );
+        for &c in &clubs {
+            let f = game.club_finances(c).expect("finanças");
+            println!(
+                "  {:<14} {} {} | {} {} | {} {}",
+                name(c),
+                m(f.cash),
+                m(f.funds),
+                m(f.total_income.amounts[1]),
+                m(f.total_expenses.amounts[1]),
+                m(f.total_income.amounts[2]),
+                m(f.total_expenses.amounts[2])
+            );
+        }
+    };
+    show(&game, "Início");
+    let mut last_season = Vec::new();
+    for _ in 0..months {
+        let month = game.date()[..7].to_string();
+        while game.date().starts_with(month.as_str()) && !game.sacked() {
+            // Antes de a época mudar (1/7), guarda as rubricas da que acaba
+            if game.date().ends_with("-06-30") {
+                last_season = clubs.iter().map(|&c| game.club_finances(c).expect("finanças")).collect();
+            }
+            game.advance_day().expect("falhou ao avançar o dia");
+        }
+        show(&game, &format!("Fim de {month}"));
+    }
+    let books =
+        if last_season.is_empty() { clubs.iter().map(|&c| game.club_finances(c).expect("finanças")).collect() } else { last_season };
+    for f in books {
+        println!(
+            "
+{} — época {} (€M)",
+            name(f.club_id),
+            f.season
+        );
+        for l in f.income.iter().chain(&f.expenses).chain([&f.total_income, &f.total_expenses, &f.result]) {
+            if l.amounts[2] != 0 {
+                println!("  {:<22} {}", l.label, m(l.amounts[2]));
+            }
+        }
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(2).map(String::as_str) == Some("economia") {
+        let world = World::locate(&std::env::current_dir().unwrap())
+            .or_else(|| World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))))
+            .expect("data/world.sqlite não encontrado");
+        let club_id = args.get(1).and_then(|a| a.parse().ok()).unwrap_or(1350);
+        let seed = args.get(3).and_then(|a| a.parse().ok()).unwrap_or(1);
+        let months = args.get(4).and_then(|a| a.parse().ok()).unwrap_or(12);
+        return economy(&world, club_id, seed, months);
+    }
     if args.get(2).map(String::as_str) == Some("treino") {
         let world = World::locate(&std::env::current_dir().unwrap())
             .or_else(|| World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))))

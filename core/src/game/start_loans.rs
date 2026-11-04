@@ -1,6 +1,6 @@
 //! Empréstimos em curso quando o jogo começa (época 2025/26). O banco do CM 01/02 só guarda
 //! o clube com contrato: o CM põe os empréstimos ao começar o jogo, pelas linhas "LOAN" do
-//! `player_setup.cfg` do patch. `scripts/setup_loans.py` cruza-as com a base e grava
+//! `player_setup.cfg` do patch. `scripts/player_setup.py` cruza-as com a base e grava
 //! `core/data/setup_loans.json` (o jogador, o dono, o clube do empréstimo e o fim). Quem está
 //! no clube dono vai para o clube do empréstimo; quem o patch já pôs no clube do empréstimo
 //! fica com o dono registado, para voltar no fim. Os que o patch tem noutro clube ficam como

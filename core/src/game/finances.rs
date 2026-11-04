@@ -1,12 +1,13 @@
-//! Finanças dos clubes que jogam (marco 3.8, passo 1): salários à segunda-feira, direitos de
-//! TV, patrocínios, merchandising e estádio no dia 1 de cada mês, bilheteira em cada jogo em
-//! casa e prémios no fim de cada competição. O saldo é `clubs.cash`; o livro de contas
-//! (`finances`) guarda o total de cada categoria por época do clube.
+//! Finanças dos clubes que jogam (marco 3.8, passo 1; economia do CM no passo 3.15c): salários
+//! (com o staff) à segunda-feira, TV, merchandising, estádio e juros no dia 1 de cada mês,
+//! bilheteira em cada jogo em casa (assistência × bilhete) e prémios no fim de cada competição.
+//! O saldo é `clubs.cash`; o livro de contas guarda o total de cada rubrica por época do clube
+//! (`finances`) e por mês (`finances_month`, só o corrente e o anterior).
 //!
-//! As receitas de uma época normal de um clube (`club_economy.base`) ficam fixas quando ele
-//! entra no jogo: 1,3 vezes a folha salarial anual de então, para todos começarem perto do
-//! equilíbrio. A TV é da liga: cada clube de uma liga recebe o mesmo, a média das bases dela.
-//! Números e partes em `finance.rs` e em docs/roadmap/3.08-mercado.md.
+//! As receitas de referência de um clube (`club_economy.base`) ficam fixas quando ele entra no
+//! jogo: 1,3 vezes a folha salarial anual de então. A TV é da liga: cada clube de uma liga recebe
+//! o mesmo, a média das bases dela. Números e partes em `finance.rs`, docs/roadmap/3.08-mercado.md
+//! e 3.15c-pendencias.md (os prints do CM).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -14,7 +15,7 @@ use rusqlite::{OptionalExtension, params};
 
 use super::Game;
 use crate::engine;
-use crate::finance::{self, ClubFinances, FinanceLine, SeasonBooks};
+use crate::finance::{self, ClubFinances, FinanceRow};
 use crate::league::{CHAMPIONS_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, Match, SUL_AMERICANA};
 use crate::regulation::{self, StageKind};
 use crate::{Result, date};
@@ -87,6 +88,7 @@ impl Game {
         if amount == 0 {
             return Ok(());
         }
+        debug_assert!(finance::INCOME.iter().chain(&finance::EXPENSES).any(|(k, _)| *k == category), "rubrica {category}");
         let season = self.books_season(club)?;
         self.world
             .conn
@@ -95,6 +97,13 @@ impl Game {
              ON CONFLICT (club_id, season, category) DO UPDATE SET amount = amount + excluded.amount",
             )?
             .execute(params![club, season, category, amount])?;
+        self.world
+            .conn
+            .prepare_cached(
+                "INSERT INTO finances_month (club_id, month, category, amount) VALUES (?, ?, ?, ?)
+             ON CONFLICT (club_id, month, category) DO UPDATE SET amount = amount + excluded.amount",
+            )?
+            .execute(params![club, &self.date[..7], category, amount])?;
         let signed = if finance::EXPENSES.iter().any(|(k, _)| *k == category) { -amount } else { amount };
         self.world.conn.prepare_cached("UPDATE clubs SET cash = COALESCE(cash, 0) + ? WHERE id = ?")?.execute(params![signed, club])?;
         Ok(())
@@ -107,7 +116,8 @@ impl Game {
         clubs
     }
 
-    /// O dinheiro do dia: salários à segunda-feira, receitas e despesas mensais no dia 1.
+    /// O dinheiro do dia: salários (e o staff) à segunda-feira, receitas e despesas mensais e
+    /// juros no dia 1.
     pub(super) fn daily_finances(&mut self) -> Result<()> {
         let monday = date::weekday(&self.date) == Some(1);
         let first = self.date.ends_with("-01");
@@ -132,22 +142,25 @@ impl Game {
             }
             for &club in &clubs {
                 let bill = bills.get(&club).copied().unwrap_or(0);
-                self.book(club, "wages", bill)?;
-                self.book(club, "staff", (bill as f64 * finance::STAFF_SHARE).round() as i64)?;
+                self.book(club, "wages", (bill as f64 * (1.0 + finance::STAFF_SHARE)).round() as i64)?;
             }
         }
         if first {
+            // Só ficam o mês corrente e o anterior
+            let previous = date::add_days(&self.date, -1).map(|d| d[..7].to_string()).unwrap_or_default();
+            self.world.conn.execute("DELETE FROM finances_month WHERE month < ?", [&previous])?;
             let mut league_tv = HashMap::new();
             for &club in &clubs {
                 let revenue = self.club_base(club)?;
                 let month = |share: f64| (revenue * share / 12.0).round() as i64;
                 self.book(club, "tv", self.monthly_tv(club, &mut league_tv)?.round() as i64)?;
-                self.book(club, "sponsors", month(finance::SPONSOR_SHARE))?;
                 self.book(club, "merchandising", month(finance::MERCH_SHARE))?;
                 self.book(club, "stadium", month(finance::STADIUM_SHARE))?;
                 let cash: i64 = self.world.conn.query_row("SELECT COALESCE(cash, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
                 if cash < 0 {
                     self.book(club, "interest", (-cash as f64 * finance::MONTHLY_INTEREST).round() as i64)?;
+                } else {
+                    self.book(club, "interest_income", (cash as f64 * finance::SAVINGS_INTEREST).round() as i64)?;
                 }
             }
         }
@@ -170,34 +183,35 @@ impl Game {
         Ok((capacity.unwrap_or(15_000).max(1_000) as f64 * fill).round() as i32)
     }
 
-    /// Bilheteira de um jogo acabado: a parte das receitas de uma época que um jogo em casa
-    /// rende, pela assistência (com três quartos da lotação rende a média). Em campo neutro,
-    /// metade para cada um.
+    /// Bilheteira de um jogo acabado: a assistência vezes o bilhete do clube da casa (pela
+    /// reputação). Em campo neutro, metade para cada um. Nas continentais, o prémio do jogo.
     pub(super) fn gate(&self, m: &Match) -> Result<()> {
+        if CONTINENTAL.contains(&m.competition_id) {
+            for club in [m.home_id, m.away_id] {
+                let prize = finance::CONTINENTAL_PRIZES * finance::CONTINENTAL_MATCH * self.club_base(club)?;
+                self.book(club, "prizes", prize.round() as i64)?;
+            }
+        }
         let attendance = self.attendance(m)? as f64;
-        let capacity: Option<i32> = self
+        let reputation: i32 = self
             .world
             .conn
-            .prepare_cached("SELECT s.capacity FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id WHERE c.id = ?")?
+            .prepare_cached("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?")?
             .query_row([m.home_id], |r| r.get(0))?;
-        let full = 0.75 * capacity.unwrap_or(15_000).max(1_000) as f64;
-        let per_game = |club: i32| -> Result<i64> {
-            let revenue = self.club_base(club)?;
-            Ok((revenue * finance::GATE_SHARE / finance::HOME_GAMES * (attendance / full)).round() as i64)
-        };
+        let takings = (attendance * finance::ticket_price(reputation)).round() as i64;
         if m.neutral {
             for club in [m.home_id, m.away_id] {
-                self.book(club, "gate", per_game(club)? / 2)?;
+                self.book(club, "gate", takings / 2)?;
             }
         } else {
-            self.book(m.home_id, "gate", per_game(m.home_id)?)?;
+            self.book(m.home_id, "gate", takings)?;
         }
         Ok(())
     }
 
-    /// Prémios de uma competição acabada: uma parte das receitas de todos os participantes.
-    /// Numa liga, repartida pela posição final (o 1º recebe n partes, o último 1); nas taças
-    /// e continentais, 40% ao campeão, 20% ao vice e o resto por todos.
+    /// Prémios de uma competição acabada, sobre as receitas de referência de cada clube: numa
+    /// liga de 0,3× (o último) a 1,5× (o campeão) a parte da competição; nas taças e
+    /// continentais, metade a quem jogou, mais 1× ao campeão e ½× ao vice.
     pub(super) fn prizes(&self, comp: i32, year: i32) -> Result<()> {
         let Some(reg) = regulation::get(comp) else { return Ok(()) };
         let clubs: Vec<i32> = {
@@ -209,10 +223,6 @@ impl Game {
         if clubs.is_empty() {
             return Ok(());
         }
-        let mut pool = 0.0;
-        for &c in &clubs {
-            pool += self.club_base(c)?;
-        }
         let league = reg.stages[0].kind == StageKind::League && !reg.stages[0].entrants.divisions.is_empty();
         let rate = if CONTINENTAL.contains(&comp) {
             finance::CONTINENTAL_PRIZES
@@ -221,22 +231,27 @@ impl Game {
         } else {
             finance::CUP_PRIZES
         };
-        let pool = pool * rate;
         let mut share: BTreeMap<i32, f64> = BTreeMap::new();
         if league {
             let table = self.stage_table(comp, year, 0, None);
-            let n = table.len() as f64;
-            let parts = n * (n + 1.0) / 2.0;
+            let last = (table.len() as f64 - 1.0).max(1.0);
             for r in &table {
-                *share.entry(r.club.id).or_default() += pool * (n - r.position as f64 + 1.0) / parts;
+                let place = (table.len() as f64 - r.position as f64) / last;
+                *share.entry(r.club.id).or_default() += rate * self.club_base(r.club.id)? * (0.3 + 1.2 * place);
             }
-        } else if let Some((winner, second, _)) = self.podium(comp, year) {
-            *share.entry(winner).or_default() += pool * 0.4;
-            if let Some(s) = second {
-                *share.entry(s).or_default() += pool * 0.2;
-            }
+        } else {
+            let (winner, second) = self.podium(comp, year).map_or((None, None), |(w, s, _)| (Some(w), s));
             for &c in &clubs {
-                *share.entry(c).or_default() += pool * 0.4 / clubs.len() as f64;
+                let entry = if CONTINENTAL.contains(&comp) { 0.0 } else { 0.5 };
+                let factor = entry
+                    + if Some(c) == winner {
+                        1.0
+                    } else if Some(c) == second {
+                        0.5
+                    } else {
+                        0.0
+                    };
+                *share.entry(c).or_default() += rate * self.club_base(c)? * factor;
             }
         }
         for (club, amount) in share {
@@ -245,31 +260,25 @@ impl Game {
         Ok(())
     }
 
-    fn season_books(&self, club: i32, season: i32) -> Result<Option<SeasonBooks>> {
-        let rows: HashMap<String, i64> = self
+    /// O livro de um clube numa época ou num mês ("AAAA-MM"), por linha (as chaves antigas
+    /// entram na linha delas).
+    fn book_totals(&self, club: i32, table: &str, key: &str, period: &dyn rusqlite::ToSql) -> Result<HashMap<String, i64>> {
+        let mut out: HashMap<String, i64> = HashMap::new();
+        let sql = format!("SELECT category, amount FROM {table} WHERE club_id = ? AND {key} = ?");
+        let rows: Vec<(String, i64)> = self
             .world
             .conn
-            .prepare_cached("SELECT category, amount FROM finances WHERE club_id = ? AND season = ?")?
-            .query_map(params![club, season], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .prepare_cached(&sql)?
+            .query_map(params![club, period], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<rusqlite::Result<_>>()?;
-        if rows.is_empty() {
-            return Ok(None);
+        for (k, v) in rows {
+            *out.entry(finance::line_key(&k).to_string()).or_default() += v;
         }
-        let lines = |cats: &[(&str, &str)]| -> Vec<FinanceLine> {
-            cats.iter().map(|(k, label)| FinanceLine { label: (*label).into(), amount: rows.get(*k).copied().unwrap_or(0) }).collect()
-        };
-        let (income, expenses) = (lines(&finance::INCOME), lines(&finance::EXPENSES));
-        let division = self.division_of(club)?.unwrap_or(0);
-        Ok(Some(SeasonBooks {
-            season: regulation::season_label(division, season),
-            total_income: income.iter().map(|l| l.amount).sum(),
-            total_expenses: expenses.iter().map(|l| l.amount).sum(),
-            income,
-            expenses,
-        }))
+        Ok(out)
     }
 
-    /// A tela Finanças de um clube: saldo, folha, e as contas desta época e da anterior.
+    /// A tela Finanças de um clube, como no CM: cada rubrica no mês, no mês anterior, na época
+    /// e na época anterior; o saldo e os fundos de transferências.
     pub fn club_finances(&self, club: i32) -> Result<ClubFinances> {
         let cash: i64 = self.world.conn.query_row("SELECT COALESCE(cash, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
         let wage_bill: i64 =
@@ -278,20 +287,42 @@ impl Game {
                 .query_row("SELECT COALESCE(SUM(wage), 0) FROM people WHERE is_player = 1 AND club_id = ?", [club], |r| r.get(0))?;
         let season = self.books_season(club)?;
         let division = self.division_of(club)?.unwrap_or(0);
-        let this_season = self.season_books(club, season)?.unwrap_or_else(|| SeasonBooks {
-            season: regulation::season_label(division, season),
-            income: finance::INCOME.iter().map(|(_, l)| FinanceLine { label: (*l).into(), amount: 0 }).collect(),
-            expenses: finance::EXPENSES.iter().map(|(_, l)| FinanceLine { label: (*l).into(), amount: 0 }).collect(),
-            total_income: 0,
-            total_expenses: 0,
-        });
+        let month = self.date[..7].to_string();
+        let last_month = date::add_days(&format!("{month}-01"), -1).map(|d| d[..7].to_string()).unwrap_or_default();
+        let books = [
+            self.book_totals(club, "finances_month", "month", &month)?,
+            self.book_totals(club, "finances_month", "month", &last_month)?,
+            self.book_totals(club, "finances", "season", &season)?,
+            self.book_totals(club, "finances", "season", &(season - 1))?,
+        ];
+        let rows = |cats: &[(&str, &str)]| -> Vec<FinanceRow> {
+            cats.iter()
+                .map(|(k, label)| FinanceRow { label: (*label).into(), amounts: books.each_ref().map(|b| b.get(*k).copied().unwrap_or(0)) })
+                .collect()
+        };
+        let total = |label: &str, lines: &[FinanceRow]| FinanceRow {
+            label: label.into(),
+            amounts: std::array::from_fn(|i| lines.iter().map(|l| l.amounts[i]).sum()),
+        };
+        let (income, expenses) = (rows(&finance::INCOME), rows(&finance::EXPENSES));
+        let (total_income, total_expenses) = (total("Receitas", &income), total("Despesas", &expenses));
+        let result = FinanceRow {
+            label: "Ganho/(Perda)".into(),
+            amounts: std::array::from_fn(|i| total_income.amounts[i] - total_expenses.amounts[i]),
+        };
+        let funds = if club == self.club_id && !self.sacked() { self.transfer_budget()? } else { super::board::round_funds(cash) };
         Ok(ClubFinances {
             club_id: club,
             cash,
+            funds,
             wage_bill,
             expected_revenue: finance::round_money(self.club_base(club)?),
-            this_season,
-            last_season: self.season_books(club, season - 1)?,
+            season: regulation::season_label(division, season),
+            income,
+            expenses,
+            total_income,
+            total_expenses,
+            result,
         })
     }
 }
@@ -326,15 +357,18 @@ mod tests {
             g.advance_day().unwrap();
         }
         let f = g.club_finances(7568).unwrap();
-        let amount = |label: &str, lines: &[crate::FinanceLine]| lines.iter().find(|l| l.label == label).map_or(0, |l| l.amount);
-        let books = &f.this_season;
-        assert!(amount("Salários dos jogadores", &books.expenses) > 0);
-        assert!(amount("Direitos de TV", &books.income) > 0, "TV a 1/8 e 1/9");
-        assert!(amount("Bilheteira", &books.income) > 0, "jogos em casa em agosto");
-        assert_eq!(f.cash, start + books.total_income - books.total_expenses);
+        // Época (coluna 2) e mês (coluna 0)
+        let amount =
+            |label: &str, lines: &[crate::FinanceRow], col: usize| lines.iter().find(|l| l.label == label).map_or(0, |l| l.amounts[col]);
+        assert!(amount("Salário", &f.expenses, 2) > 0);
+        assert!(amount("Receitas TV", &f.income, 2) > 0, "TV a 1/8 e 1/9");
+        assert!(amount("Receitas Bilheteira", &f.income, 2) > 0, "jogos em casa em agosto");
+        assert!(amount("Receitas TV", &f.income, 0) > 0 && amount("Receitas TV", &f.income, 1) > 0, "setembro e agosto");
+        assert_eq!(f.cash, start + f.result.amounts[2]);
+        assert_eq!(f.result.amounts[2], f.total_income.amounts[2] - f.total_expenses.amounts[2]);
         // A TV é igual para todos os clubes da Série A
         let flamengo = g.club_finances(3675).unwrap();
-        assert_eq!(amount("Direitos de TV", &flamengo.this_season.income), amount("Direitos de TV", &books.income));
+        assert_eq!(amount("Receitas TV", &flamengo.income, 2), amount("Receitas TV", &f.income, 2));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

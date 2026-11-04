@@ -22,6 +22,13 @@ export function money(v: number | null | undefined): string {
   return `${sign}${c.symbol}${a}`
 }
 
+/** Valor por inteiro na moeda escolhida, como nas Finanças do CM: 25337195 -> "€25.337.195". */
+export function moneyFull(v: number): string {
+  const c = CURRENCIES.find((c) => c.key === getSettings().currency) ?? CURRENCIES[0]
+  const a = Math.round(Math.abs(v) * c.rate)
+  return `${v < 0 ? '-' : ''}${c.symbol}${a.toLocaleString('pt-BR')}`
+}
+
 /** Salário semanal do banco no período escolhido: "€10K p/s" ou, com `long`, "€43K por mês". */
 export function wage(weekly: number | null | undefined, long = false): string {
   if (!weekly) return '-'

@@ -15,19 +15,16 @@ use crate::{Result, World};
 const START_CONFIDENCE: i32 = 60;
 const WARNING_AT: i32 = 35;
 const ULTIMATUM_AT: i32 = 15;
-/// O orçamento de transferências: esta parte do saldo, como no CM (o Bayern começa com €171M
-/// de fundos para ~€173M de saldo; o Real Madrid a meio da época, €195M para €227M); as
-/// vendas devolvem esta parte do que renderam.
-const BUDGET_CASH: f64 = 0.9;
-const SALES_BACK: f64 = 0.5;
+/// Os Fundos Transferências seguem o saldo, como no CM: ao chegar, o saldo arredondado para
+/// baixo (`budget_reserve` guarda a diferença), e depois o saldo menos essa reserva, euro a euro,
+/// revisto no dia 1 de cada mês (no Bayern do CM a diferença fica em €27M de junho a junho).
+/// As vendas voltam inteiras aos fundos.
+const SALES_BACK: f64 = 1.0;
 /// Teto da folha salarial (sobre as receitas de uma época) e salário máximo de um jogador
 /// (sobre o maior salário do plantel ou sobre a folha permitida).
 const WAGE_CAP: f64 = 0.9;
 const MAX_WAGE_OVER_TOP: f64 = 1.25;
 const MAX_WAGE_SHARE: f64 = 0.1;
-/// Orçamento mínimo de transferências (parte das receitas de uma época) dos clubes de
-/// reputação 8000+ e 6000+.
-const BIG_CLUB_BUDGET: (f64, f64) = (0.3, 0.15);
 /// Saldo negativo (sobre as receitas de uma época) a partir do qual a direção proíbe contratações.
 const NO_SIGNINGS_DEBT: f64 = 0.1;
 /// Vender um dos jogadores que a direção considera valiosos: confiança e adeptos que se perdem.
@@ -118,6 +115,28 @@ pub(super) fn expectation(world: &World, club: i32) -> Result<(i32, &'static str
     })
 }
 
+/// Fundos arredondados para baixo como no CM: a €1M acima de €10M, a €500K acima de €1M,
+/// a €10K abaixo.
+pub(super) fn round_funds(v: i64) -> i64 {
+    let step = match v {
+        10_000_000.. => 1_000_000,
+        1_000_000.. => 500_000,
+        _ => 10_000,
+    };
+    if v <= 0 { 0 } else { v / step * step }
+}
+
+/// Os fundos ao chegar: o saldo arredondado mais largo (o Viktoria Köln do CM tem ~€723K e
+/// €500K de fundos; a diferença fica para sempre).
+fn start_funds(cash: i64) -> i64 {
+    let step = match cash {
+        10_000_000.. => 1_000_000,
+        500_000.. => 250_000,
+        _ => 10_000,
+    };
+    cash / step * step
+}
+
 fn confidence_label(c: i32) -> &'static str {
     match c {
         80.. => "Excelente",
@@ -132,17 +151,43 @@ impl Game {
     /// Cria a direção do clube do treinador (jogo novo, ou save de antes do passo 4).
     pub(super) fn board_setup(&mut self) -> Result<()> {
         let (target, goal, _) = expectation(&self.world, self.club_id)?;
+        let cash: i64 = self.world.conn.query_row("SELECT COALESCE(cash, 0) FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0))?;
+        let reserve = if cash > 0 { cash - start_funds(cash) } else { cash };
         self.world.conn.execute(
-            "INSERT OR REPLACE INTO board (id, goal, target, confidence, transfer_budget, wage_budget, max_wage, warning, sacked)
-             VALUES (1, ?, ?, ?, 0, 0, 0, 0, 0)",
-            params![goal, target, START_CONFIDENCE],
+            "INSERT OR REPLACE INTO board (id, goal, target, confidence, transfer_budget, wage_budget, max_wage, warning, sacked, budget_reserve)
+             VALUES (1, ?, ?, ?, 0, 0, 0, 0, 0, ?)",
+            params![goal, target, START_CONFIDENCE, reserve],
         )?;
         self.refresh_budgets()
     }
 
-    /// Orçamentos de uma janela, pela situação financeira: 90% do saldo (os clubes grandes com
-    /// um mínimo pelas receitas), nada com dívidas grandes; a folha até 90% das receitas (nunca
-    /// abaixo da atual) e um salário máximo por jogador.
+    /// Os fundos de hoje: o saldo menos a reserva, arredondado como no CM; nada com dívidas grandes.
+    fn funds_now(&self) -> Result<i64> {
+        let base = self.club_base(self.club_id)?;
+        let (cash, reserve): (i64, i64) = self.world.conn.query_row(
+            "SELECT COALESCE((SELECT cash FROM clubs WHERE id = ?), 0), budget_reserve FROM board WHERE id = 1",
+            [self.club_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        Ok(if (cash as f64) < -NO_SIGNINGS_DEBT * base { 0 } else { round_funds(cash - reserve) })
+    }
+
+    /// Dia 1 de cada mês: os fundos voltam a ser o saldo menos a reserva.
+    pub(super) fn sync_funds(&mut self) -> Result<()> {
+        let funds = self.funds_now()?;
+        self.world.conn.execute("UPDATE board SET transfer_budget = ? WHERE id = 1", [funds])?;
+        Ok(())
+    }
+
+    /// Mais fundos dados pela direção (reunião): entram já e ficam (a reserva desce).
+    pub(super) fn add_funds(&self, amount: i64) -> Result<()> {
+        self.spend_budget(-amount)?;
+        self.world.conn.execute("UPDATE board SET budget_reserve = budget_reserve - ? WHERE id = 1", [amount])?;
+        Ok(())
+    }
+
+    /// Orçamentos de uma janela, pela situação financeira: os fundos (o saldo menos a reserva),
+    /// a folha até 90% das receitas (nunca abaixo da atual) e um salário máximo por jogador.
     pub(super) fn refresh_budgets(&mut self) -> Result<()> {
         let base = self.club_base(self.club_id)?;
         let (cash, bill, top): (i64, i64, i64) = self.world.conn.query_row(
@@ -152,19 +197,8 @@ impl Game {
             [self.club_id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )?;
-        // Os clubes grandes têm sempre uma parte das receitas para gastar (o saldo do patch
-        // engana: há clubes enormes com pouco dinheiro em caixa)
-        let rep: i32 = self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0))?;
-        let floor = match rep {
-            8000.. => BIG_CLUB_BUDGET.0,
-            6000.. => BIG_CLUB_BUDGET.1,
-            _ => 0.0,
-        };
-        let transfer = if (cash as f64) < -NO_SIGNINGS_DEBT * base {
-            0
-        } else {
-            crate::finance::round_money((cash as f64 * BUDGET_CASH).max(floor * base).max(0.0))
-        };
+        let _ = cash;
+        let transfer = self.funds_now()?;
         let wage_budget = ((base * WAGE_CAP / 52.0) as i64).max(bill * 102 / 100);
         let max_wage = ((top as f64 * MAX_WAGE_OVER_TOP).max(wage_budget as f64 * MAX_WAGE_SHARE)) as i64;
         let round = |v: i64| if v < 10_000 { v / 100 * 100 } else { v / 1000 * 1000 };
@@ -396,6 +430,7 @@ impl Game {
         if !self.date.ends_with("-01") {
             return Ok(());
         }
+        self.sync_funds()?;
         let mut delta = 0;
         let division: Option<i32> =
             self.world.conn.query_row("SELECT division_id FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0))?;
@@ -527,10 +562,12 @@ mod tests {
         assert!(b.transfer_budget > 0 && b.wage_budget >= b.wage_bill && b.max_wage > 0, "{b:?}");
         assert!(g.news().iter().any(|n| n.body.contains(&b.goal)), "a expectativa é a das boas-vindas");
 
-        // As vendas devolvem metade; os gastos descontam
+        // Os fundos são o saldo arredondado; as vendas voltam inteiras e os gastos descontam
+        let cash = g.club_finances(g.club_id).unwrap().cash;
+        assert!(b.transfer_budget <= cash && b.transfer_budget >= cash - 1_000_000, "{} {cash}", b.transfer_budget);
         g.spend_budget(b.transfer_budget / 2).unwrap();
         g.sale_to_budget(1_000_000).unwrap();
-        assert_eq!(g.transfer_budget().unwrap(), b.transfer_budget - b.transfer_budget / 2 + 500_000);
+        assert_eq!(g.transfer_budget().unwrap(), b.transfer_budget - b.transfer_budget / 2 + 1_000_000);
 
         // Confiança da Direcção: os quatro parágrafos; vender um dos valiosos custa confiança e adeptos
         let view = g.board_confidence().unwrap();

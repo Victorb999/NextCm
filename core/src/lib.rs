@@ -27,7 +27,7 @@ mod world;
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry, TableZone};
 pub use engine::{TeamStrength, expected_goals};
-pub use finance::{ClubFinances, FinanceLine, SeasonBooks};
+pub use finance::{ClubFinances, FinanceRow};
 pub use game::ContractExtras;
 pub use game::LineupCheck;
 pub use game::MatchSheet;

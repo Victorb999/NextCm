@@ -132,7 +132,7 @@ impl Game {
                                  club_id, club_job, club_joined, contract_expires, wage,
                                  adaptability, ambition, determination, loyalty, pressure, professionalism, sportsmanship, temperament,
                                  is_player, is_non_player, ability, birth_sort, positions)
-             SELECT ?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10, ?11, ?12, ?13, 500,
+             SELECT ?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10, ?11, ?12, ?13, 1500,
                     adaptability, ambition, determination, loyalty, pressure, professionalism, sportsmanship, temperament,
                     1, 0, ?14, ?7, positions
              FROM people WHERE id = ?15",

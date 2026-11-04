@@ -147,7 +147,7 @@ impl Game {
         let wage: i64 = self.world.conn.query_row("SELECT COALESCE(wage, 0) FROM people WHERE id = ?", [person], |r| r.get(0))?;
         let fine = wage * weeks;
         if fine > 0 {
-            self.book(self.club_id, "player_fines", fine)?;
+            self.book(self.club_id, "other", fine)?;
         }
         let fair = self.reason_happened(person, reason)?;
         let (delta, reaction) = if !fair {

@@ -99,6 +99,8 @@ impl Game {
             let future =
                 conn.query_row("SELECT 1 FROM unhappy WHERE person_id = ? AND reason = 'future'", [p.id], |_| Ok(())).optional()?.is_some();
             let absence = if mine { self.absence(p.id)?.map(|a| a.0) } else { None };
+            // Castigado pelo player_setup.cfg (má conduta, passaporte falso, doping)
+            p.suspended |= self.ban_of(p.id)?.is_some();
             let wanted = self.wanted(p.id)?;
             p.info = if p.injured {
                 Some("Les")
