@@ -72,6 +72,11 @@ pub struct TeamStrength {
 impl TeamStrength {
     /// Cada titular vale o CA ajustado pela nota (1–20) na função onde joga.
     pub fn from_tactics(t: &ClubTactics) -> TeamStrength {
+        TeamStrength::from_tactics_with(t, EMPTY_SLOT)
+    }
+
+    /// Como `from_tactics`, com `empty` em cada função sem jogador (os fantasmas das reservas).
+    pub(crate) fn from_tactics_with(t: &ClubTactics, empty: f64) -> TeamStrength {
         let slots: Vec<SlotRating> = t
             .starters
             .iter()
@@ -79,7 +84,7 @@ impl TeamStrength {
                 role: &slot.role,
                 y: slot.y,
                 run: slot.run,
-                rating: slot.player.as_ref().map_or(EMPTY_SLOT, |p| {
+                rating: slot.player.as_ref().map_or(empty, |p| {
                     let ca = p.current_ability.unwrap_or(1) as f64;
                     ca * fit_factor(p.fit.unwrap_or(10))
                         * p.condition.map_or(1.0, |c| condition_factor(c as f64))

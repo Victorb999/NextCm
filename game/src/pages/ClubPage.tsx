@@ -403,6 +403,12 @@ export default function ClubPage({
       () => {},
     )
   }, [id, date])
+  // Nas reservas, o Calendário é o dos jogos delas (dois dias antes de cada jogo do campeonato)
+  const [reserveFixtures, setReserveFixtures] = useState<Fixture[]>([])
+  useEffect(() => {
+    if (!date || !reserves) return
+    api.reserveFixtures(id).then(setReserveFixtures, () => setReserveFixtures([]))
+  }, [id, date, reserves])
   // No clube do treinador, a escolha da equipa (para as casas GR, DD... SB1 do plantel)
   useEffect(() => {
     if (mine) api.getClubTactics(id).then(setTactics, () => {})
@@ -1012,7 +1018,7 @@ export default function ClubPage({
             )}
             {tab === "transfers" && <TransfersPanel clubId={id} />}
             {tab === "fixtures" && (
-              <ClubFixtureList clubId={id} fixtures={fixtures} />
+              <ClubFixtureList clubId={id} fixtures={reserves ? reserveFixtures : fixtures} />
             )}
           </div>
         )}

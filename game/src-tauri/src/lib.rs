@@ -162,6 +162,7 @@ session_command!(assign_scout(slot: i32, kind: String, target: Option<i32>) -> S
 session_command!(clear_scout(slot: i32) -> ScoutList);
 session_command!(search_clubs(text: String) -> Vec<ClubListItem>);
 session_command!(club_fixtures(id: i32) -> Vec<Fixture>);
+session_command!(reserve_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(live_match() -> LiveView);
 session_command!(live_step(minute: i32) -> LiveView);
 session_command!(live_substitute(out: i32, inn: i32) -> LiveView);
@@ -363,6 +364,7 @@ pub fn run() {
             clear_scout,
             search_clubs,
             club_fixtures,
+            reserve_fixtures,
             preview_tactics,
             set_tactics,
             toggle_player,

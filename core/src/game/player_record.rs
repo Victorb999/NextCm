@@ -521,6 +521,26 @@ impl Game {
                 );
             }
         }
+        // Os jogos das reservas: "Não Competitivos", à cabeça e fora dos Jogos Oficiais (como no CM)
+        let reserve: Vec<(i32, String, i32, i32, f64)> = self
+            .world
+            .conn
+            .prepare_cached("SELECT club, date, goals, assists, rating FROM reserve_apps WHERE person_id = ? ORDER BY date")?
+            .query_map([p.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut friendly: BTreeMap<(i32, i32), Totals> = BTreeMap::new();
+        for (club, day, goals, assists, rating) in reserve {
+            let Some(division) = self.division_of(club)? else { continue };
+            let t = friendly.entry((regulation::season_of(division, &day), club)).or_default();
+            t.add(false, false, goals, assists, 0, 0, 0, 0, 0, 0, rating);
+        }
+        for ((year, club), t) in friendly {
+            if let Some(s) =
+                out.iter_mut().find(|s| s.year == year && s.club.as_ref().is_some_and(|c| c.id == club) && !s.by_kind.is_empty())
+            {
+                s.by_kind.insert(0, ("Não Competitivos".into(), t.line()));
+            }
+        }
         // Como chegou a cada clube durante o jogo: a transferência na linha da época
         let moves: Vec<(i32, String, String, i64)> = self
             .world

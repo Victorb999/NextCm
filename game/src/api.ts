@@ -216,6 +216,8 @@ export const api = {
   /** Entradas e saídas de um clube nos últimos 12 meses. */
   clubTransfers: (id: number) => call<TransferItem[]>('club_transfers', { id }),
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),
+  /** Os jogos das reservas do clube do treinador (véspera de cada jogo do campeonato). */
+  reserveFixtures: (id: number) => call<Fixture[]>('reserve_fixtures', { id }),
   listNews: () => call<NewsItem[]>('list_news'),
   readNews: (id: number) => call<GameInfo>('read_news', { id }),
   previewTactics: (selection: Selection) => call<ClubTactics>('preview_tactics', { selection }),

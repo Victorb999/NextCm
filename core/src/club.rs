@@ -146,6 +146,10 @@ pub struct ClubProfile {
     pub affiliates: Vec<ClubRef>,
 }
 
+/// A competição "Reserve" do banco do CM (87): os clubes "(R)" e, num jogo do CM, os jogos
+/// das reservas.
+const RESERVE_DIVISION: i32 = 87;
+
 /// Sufixos do nome curto dos clubes de reservas e juniores, e os do nome completo.
 const SHORT_SUFFIXES: [&str; 9] = [" (R)", " II", " B", " U21", " U23", " U19", " U20", " U18", " U17"];
 const NAME_SUFFIXES: [&str; 12] =
@@ -448,6 +452,21 @@ impl World {
             }
         }
         Ok(None)
+    }
+
+    /// O clube tem uma equipa B ou II a jogar numa liga (o Barcelona B, o Bayern II): no CM,
+    /// esses clubes não têm jogos de reservas.
+    pub fn has_b_team(&self, id: i32) -> Result<bool> {
+        let Some(club) = self.club_ref(Some(id))? else { return Ok(false) };
+        let nation: Option<i32> = self.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [id], |r| r.get(0))?;
+        for c in self.affiliates(&club, nation)? {
+            let short = squash(&c.short_name);
+            let division: Option<i32> = self.conn.query_row("SELECT division_id FROM clubs WHERE id = ?", [c.id], |r| r.get(0))?;
+            if (short.ends_with(" B") || short.ends_with(" II")) && division.is_some_and(|d| d != RESERVE_DIVISION) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Os clubes de reservas e juniores cujo clube principal é este.

@@ -623,6 +623,11 @@ impl Session {
         self.game_mut()?.set_shortlist(id, on)
     }
 
+    /// O Calendário das reservas (só do clube do treinador; sem jogo, vazio).
+    pub fn reserve_fixtures(&self, id: i32) -> Result<Vec<Fixture>> {
+        Ok(self.game.as_ref().map(|g| g.reserve_fixtures(id)).transpose()?.unwrap_or_default())
+    }
+
     pub fn news_links(&self, id: i32) -> Result<Vec<NewsLink>> {
         self.game()?.news_links(id)
     }
