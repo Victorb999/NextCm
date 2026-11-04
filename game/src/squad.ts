@@ -99,6 +99,43 @@ export const ATTRIBUTE_GROUPS: { key: AttributeGroup; label: string; title: stri
   },
 ]
 
+/** A ordem da moral, da melhor para a pior. */
+export const MORALE_ORDER = ['Excelente', 'Muito Boa', 'Boa', 'Razoável', 'Fraca', 'Muito Fraca', 'Péssima']
+export const moraleRank = (p: SquadPlayer) => (p.morale ? MORALE_ORDER.indexOf(p.morale) : null)
+export const formAverage = (p: SquadPlayer) => (p.form.length ? p.form.reduce((s, x) => s + x, 0) / p.form.length : null)
+
+/** O valor por que uma coluna se ordena; `desc`: do maior para o menor (os números do jogo). */
+export type SortValue = (p: SquadPlayer) => number | string | null | undefined
+export type Sortable = { sort?: SortValue; desc?: boolean }
+/** A ordem pelo cabeçalho clicado: o rótulo da coluna e se vai ao contrário. */
+export type HeaderSort = { label: string; reverse: boolean }
+
+/** As colunas fixas das listas do plantel (as outras trazem a sua ordem). */
+export const FIXED_SORTS: Record<string, Sortable> = {
+  Nome: { sort: (p) => p.listName },
+  Jogador: { sort: (p) => p.listName },
+  'Nº': { sort: (p) => p.squadNumber },
+  Posição: { sort: (p) => p.positionOrder },
+}
+
+/** Ordena pela coluna, com os sem valor no fim e os empates pelo nome. */
+export function sortByColumn(list: SquadPlayer[], col: Sortable, reverse: boolean) {
+  const value = col.sort
+  if (!value) return list
+  const dir = (col.desc ? -1 : 1) * (reverse ? -1 : 1)
+  return list.sort((a, b) => {
+    const x = value(a) ?? null
+    const y = value(b) ?? null
+    if (x === null || y === null) return x === y ? a.listName.localeCompare(b.listName) : x === null ? 1 : -1
+    const c = typeof x === 'string' ? x.localeCompare(String(y)) : x - Number(y)
+    return c * dir || a.listName.localeCompare(b.listName)
+  })
+}
+
+/** O rótulo de um cabeçalho com a seta da ordem, se for o clicado. */
+export const sortLabel = (label: string, s: HeaderSort | null, col: Sortable | undefined) =>
+  s?.label === label && col?.sort ? `${label} ${(!!col.desc !== s.reverse) ? '▼' : '▲'}` : label
+
 /** "Apelido, N" e o `*` dos jogadores-chave. */
 export function squadName(p: SquadPlayer) {
   return `${shortListName(p.listName)}${p.key ? '*' : ''}`

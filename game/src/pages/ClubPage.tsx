@@ -11,7 +11,8 @@ import type { SquadPlayer } from "../bindings/SquadPlayer"
 import CascadeMenu, { type MenuNode } from "../components/CascadeMenu"
 import { ClubFixtureList, MatchInfo } from "../components/Fixtures"
 import FinancesPanel from "../components/FinancesPanel"
-import SquadTable, { InfBadge } from "../components/SquadTable"
+import SquadTable, { HeaderCell, InfBadge, type HeaderProps } from "../components/SquadTable"
+import { headerColumn } from "../squadColumns"
 import TransfersPanel from "../components/TransfersPanel"
 import {
   BottomBar,
@@ -41,7 +42,12 @@ import {
   VIEW_TITLE,
   ATTRIBUTE_GROUPS,
   MORE_COMPETITIONS,
+  formAverage,
+  moraleRank,
+  sortByColumn,
+  sortLabel,
   type AttributeGroup,
+  type HeaderSort,
   nameClass,
   passes,
   squadName,
@@ -119,17 +125,6 @@ const criterionLabel = (c: Criterion) =>
       o !== "separator" && o.key === c,
   )?.label ?? ""
 
-/** A ordem da moral, da melhor para a pior. */
-const MORALE_ORDER = [
-  "Excelente",
-  "Muito Boa",
-  "Boa",
-  "Razoável",
-  "Fraca",
-  "Muito Fraca",
-  "Péssima",
-]
-
 /** Uma linha do plantel: [número] [lugar/Int] Nome ... posição */
 type Entry = {
   id: number
@@ -156,6 +151,7 @@ function SquadGrid({
   onOpen,
   bind,
   onToggle,
+  header,
 }: {
   entries: Entry[]
   selected: number
@@ -165,6 +161,8 @@ function SquadGrid({
   bind?: (spot: Spot, label: string) => Bind
   /** Só no clube do treinador: clicar no número ou na casa põe/tira da equipa. */
   onToggle?: (e: Entry) => void
+  /** Os cabeçalhos que ordenam (fora do Staff). */
+  header?: HeaderProps
 }) {
   const row = (e: Entry, i: number) => {
     const drag = bind && e.spot ? bind(e.spot, e.name) : undefined
@@ -225,11 +223,11 @@ function SquadGrid({
   }
   const head = (
     <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-cm-line bg-black/30 px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#86869a]">
-      <span className="w-8 text-center">Nº</span>
+      <HeaderCell label="Nº" className="w-8 text-center" header={header} />
       <span className="w-10 text-center">Esc</span>
       {entries[0]?.player && <span className="w-9 text-center">Inf</span>}
-      <span className="flex-1">Jogador</span>
-      <span className="w-28 text-right">Posição</span>
+      <HeaderCell label="Jogador" className="flex-1" header={header} />
+      <HeaderCell label="Posição" className="w-28 text-right" header={header} />
     </div>
   )
   const column = (side: 0 | 1) => (
@@ -370,6 +368,7 @@ export default function ClubPage({
   const [view, setView] = useState<View>("traditional")
   const [filter, setFilter] = useState<Filter>(NO_FILTER)
   const [criterion, setCriterion] = useState<Criterion>("position")
+  const [headerSort, setHeaderSort] = useState<HeaderSort | null>(null)
   // Mais Dados (por competição) e Atributos (por grupo): o que vem do core para essas vistas
   const [moreKind, setMoreKind] = useState("")
   const [group, setGroup] = useState<AttributeGroup>("physical")
@@ -461,6 +460,17 @@ export default function ClubPage({
   const nextMatch = fixtures.find((f) => f.homeGoals === null)
   const lastMatch = fixtures.filter((f) => f.homeGoals !== null).at(-1)
 
+  // Ordenar ao clicar num cabeçalho, como no CM (a seta diz o sentido)
+  const columnOf = (label: string) =>
+    headerColumn(view, { more, attributes, group }, label)
+  const clickHeader = (label: string) => {
+    if (!columnOf(label)?.sort) return
+    setHeaderSort((s) => ({ label, reverse: s?.label === label && !s.reverse }))
+    setSelected(0)
+  }
+  const headerText = (label: string) =>
+    sortLabel(label, headerSort, columnOf(label))
+
   // Os jogadores da vista: plantel principal ou reservas (com os séniores, se pedido), filtrados e ordenados
   const players: SquadPlayer[] = useMemo(() => {
     if (!club) return []
@@ -489,8 +499,6 @@ export default function ClubPage({
             : x - Number(y)) || name(a, b)
         )
       }
-    const avg = (v: number[]) =>
-      v.length ? v.reduce((s, x) => s + x, 0) / v.length : null
     const sorters: Record<
       Criterion,
       (a: SquadPlayer, b: SquadPlayer) => number
@@ -498,8 +506,8 @@ export default function ClubPage({
       name,
       position: (a, b) => a.positionOrder - b.positionOrder || name(a, b),
       number: asc((p) => p.squadNumber),
-      form: desc((p) => avg(p.form)),
-      morale: asc((p) => (p.morale ? MORALE_ORDER.indexOf(p.morale) : null)),
+      form: desc(formAverage),
+      morale: asc(moraleRank),
       condition: desc((p) => p.condition),
       nation: asc((p) => p.nation),
       age: asc((p) => p.age),
@@ -516,8 +524,13 @@ export default function ClubPage({
     list.sort(sorters[criterion])
     if (view === "penalties")
       list.sort((a, b) => byNullsLast(a.penaltyOrder, b.penaltyOrder))
+    // Por cima do Critério, o cabeçalho clicado (outra vez: ao contrário)
+    const col =
+      headerSort &&
+      headerColumn(view, { more, attributes, group }, headerSort.label)
+    if (col) sortByColumn(list, col, headerSort.reverse)
     return list
-  }, [club, reserves, filter, criterion, view, more])
+  }, [club, reserves, filter, criterion, view, more, attributes, group, headerSort])
 
   const needMore = view === "more" || criterion === "conceded"
   useEffect(() => {
@@ -808,6 +821,7 @@ export default function ClubPage({
             value={view}
             onChange={(v) => {
               setView(v)
+              setHeaderSort(null)
               setSelected(0)
             }}
           />
@@ -833,6 +847,7 @@ export default function ClubPage({
               disabled={view === "staff"}
               onChange={(c) => {
                 setCriterion(c)
+                setHeaderSort(null)
                 setSelected(0)
               }}
             />
@@ -941,6 +956,7 @@ export default function ClubPage({
                   selected={selected}
                   onSelect={setSelected}
                   onOpen={(pid) => open({ id: pid })}
+                  header={{ text: headerText, onClick: clickHeader }}
                 />
               ) : !table && entries.length ? (
                 <SquadGrid
@@ -948,6 +964,7 @@ export default function ClubPage({
                   selected={selected}
                   onSelect={setSelected}
                   onOpen={open}
+                  header={view === "staff" ? undefined : { text: headerText, onClick: clickHeader }}
                   bind={mine && tactics && !reserves ? drag.bind : undefined}
                   onToggle={
                     mine && tactics && teamView

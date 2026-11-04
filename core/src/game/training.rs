@@ -29,6 +29,12 @@ INSERT INTO training_programs (id, name, fitness, tactics, shooting, technique, 
 CREATE TABLE training_players (person_id INTEGER PRIMARY KEY, program_id INTEGER NOT NULL);
 ";
 
+/// As áreas que cada treinador treina no diálogo Preparadores (save 39): um bit por área, pela
+/// ordem de `AREAS`. Sem linha, as do costume (`default_areas`).
+pub(super) const COACH_AREAS_SCHEMA: &str = "
+CREATE TABLE coach_areas (person_id INTEGER PRIMARY KEY, areas INTEGER NOT NULL);
+";
+
 /// As posições e os lados que se podem treinar, com a coluna de `players`.
 const POSITIONS: [(&str, &str); 8] = [
     ("GR", "pos_goalkeeper"),
@@ -63,6 +69,13 @@ const AREAS: [&[&str]; 5] = [
 const AREA_WEIGHT: [f64; 4] = [0.0, 0.4, 1.0, 1.6];
 /// Probabilidade por mês de +1 num atributo de uma área Média, num jovem com bons treinadores.
 const AREA_GAIN: f64 = 0.15;
+/// Os nomes das áreas no diálogo Preparadores.
+const AREA_NAMES: [&str; 5] = ["Prep. Física", "Táctica", "Finalização", "Técnica", "Goleiro"];
+/// Rendimento de um treinador pelo número de áreas que treina (1 a 5): quem treina tudo
+/// rende menos, como a carga dos preparadores do CM.
+const SPREAD: [f64; 5] = [1.0, 1.0, 1.0, 0.95, 0.9];
+/// Qualidade de uma área sem nenhum treinador (os jogadores treinam sozinhos).
+const NO_COACH: f64 = 0.3;
 /// Os clubes da IA treinam como o "Geral" do patch (os guarda-redes como o "GK").
 const AI_FIELD: [i32; 5] = [2, 2, 2, 2, 0];
 const AI_KEEPER: [i32; 5] = [2, 1, 0, 1, 3];
@@ -122,9 +135,13 @@ pub struct ProgramAssign {
 pub struct TrainingPlan {
     pub programs: Vec<TrainingProgram>,
     pub players: Vec<ProgramAssign>,
+    /// As áreas de cada treinador (Preparadores); sem a lista, ficam como estão.
+    #[serde(default)]
+    #[ts(optional)]
+    pub coaches: Option<Vec<CoachAreas>>,
 }
 
-/// Um treinador do clube (o botão Treinadores).
+/// Um treinador do clube (o diálogo Preparadores).
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -132,10 +149,21 @@ pub struct Coach {
     pub id: i32,
     pub name: String,
     pub job: String,
-    /// O que treina: "Prep. Física", "G-Redes" ou "Táctica e Técnica".
+    /// As áreas que treina, por extenso ("Prep. Física, Táctica...").
     pub works: String,
     /// Qualidade a treinar ("Excelente" … "Fraco").
     pub quality: String,
+    /// As áreas que treina (Prep. Física, Táctica, Finalização, Técnica, Goleiro).
+    pub areas: Vec<bool>,
+}
+
+/// As áreas de um treinador no diálogo Preparadores.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct CoachAreas {
+    pub person: i32,
+    pub areas: Vec<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -184,6 +212,12 @@ fn default_program_name(pos: &[i32; 12], age: i32) -> &'static str {
     } else {
         "Geral"
     }
+}
+
+/// As áreas do costume de um treinador: o de guarda-redes faz o Goleiro; os outros, as quatro
+/// de campo (e o Goleiro, se o clube não tiver quem o faça).
+fn default_areas(keeper: bool, keeper_coach: bool) -> [bool; 5] {
+    if keeper { [false, false, false, false, true] } else { [true, true, true, true, !keeper_coach] }
 }
 
 /// Efeito do treino num jogador do treinador, para a evolução do mês.
@@ -264,44 +298,64 @@ impl Game {
         Ok(assign.get(&person).and_then(|id| programs.iter().find(|p| p.id == *id)).cloned())
     }
 
-    /// Os treinadores do clube do treinador, os melhores primeiro.
+    /// Os treinadores do clube do treinador, os melhores primeiro, com o Treino Jogadores
+    /// Campo e o Treino Guarda-Redes.
     fn coaches_of(&self) -> Result<Vec<(Coach, i32, i32)>> {
-        let rows: Vec<(i32, String, i32, String, i32, i32)> = self
+        type Row = (i32, String, i32, String, i32, i32, Option<i32>);
+        let rows: Vec<Row> = self
             .world
             .conn
             .prepare_cached(
-                "SELECT p.id, p.display_name, j.id, j.name, COALESCE(np.coaching, 1), COALESCE(np.coaching_gks, 1)
+                "SELECT p.id, p.display_name, j.id, j.name, COALESCE(np.coaching, 1), COALESCE(np.coaching_gks, 1),
+                        (SELECT areas FROM coach_areas a WHERE a.person_id = p.id)
                  FROM people p JOIN jobs j ON j.id = p.club_job JOIN non_players np ON np.person_id = p.id
                  WHERE p.club_id = ? AND j.id IN (5, 6, 7, 8, 12, 13) ORDER BY np.coaching DESC, p.id",
             )?
-            .query_map([self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?
+            .query_map([self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?
             .collect::<rusqlite::Result<_>>()?;
+        // O de guarda-redes: mais Treino Guarda-Redes do que Treino Jogadores Campo
+        let keeper_coach = rows.iter().any(|r| r.5 > r.4);
         Ok(rows
             .into_iter()
-            .map(|(id, name, job_id, job, coaching, gks)| {
-                let works = if matches!(job_id, 8 | 13) {
-                    "Prep. Física"
-                } else if gks > coaching {
-                    "G-Redes"
-                } else {
-                    "Táctica e Técnica"
+            .map(|(id, name, _, job, coaching, gks, saved)| {
+                let areas: Vec<bool> = match saved {
+                    Some(bits) => (0..AREAS.len()).map(|a| bits & (1 << a) != 0).collect(),
+                    None => default_areas(gks > coaching, keeper_coach).to_vec(),
                 };
-                let quality = quality_label(if works == "G-Redes" { gks } else { coaching });
-                (Coach { id, name, job, works: works.into(), quality: quality.into() }, coaching, gks)
+                let works: Vec<&str> = AREA_NAMES.iter().zip(&areas).filter(|(_, on)| **on).map(|(n, _)| *n).collect();
+                let works = if works.is_empty() { "Nada".into() } else { works.join(", ") };
+                let quality = quality_label(if gks > coaching { gks } else { coaching });
+                (Coach { id, name, job, works, quality: quality.into(), areas }, coaching, gks)
             })
             .collect())
     }
 
-    /// Qualidade (0–1) dos treinadores: a média dos três melhores a treinar (e o melhor de
-    /// guarda-redes); sem treinadores, 0,5.
-    fn coach_quality(&self) -> Result<(f64, f64)> {
+    /// Qualidade (0–1) de cada área: a média dos três melhores que a treinam (no Goleiro, o
+    /// melhor), cada um a render menos quanto mais áreas tiver, e nunca menos do que sem
+    /// ninguém; um clube sem treinadores, 0,5.
+    fn coach_quality(&self) -> Result<[f64; 5]> {
         let coaches = self.coaches_of()?;
-        let mut outfield: Vec<i32> = coaches.iter().map(|c| c.1).collect();
-        outfield.sort_unstable_by(|a, b| b.cmp(a));
-        let top: Vec<i32> = outfield.into_iter().take(3).collect();
-        let field = if top.is_empty() { 0.5 } else { top.iter().sum::<i32>() as f64 / top.len() as f64 / 20.0 };
-        let keepers = coaches.iter().map(|c| c.2).max().map_or(0.5, |v| v as f64 / 20.0);
-        Ok((field, keepers))
+        if coaches.is_empty() {
+            return Ok([0.5; 5]);
+        }
+        let mut out = [NO_COACH; 5];
+        for (area, q) in out.iter_mut().enumerate() {
+            let mut values: Vec<f64> = coaches
+                .iter()
+                .filter(|c| c.0.areas.get(area) == Some(&true))
+                .map(|c| {
+                    let n = c.0.areas.iter().filter(|a| **a).count().clamp(1, 5);
+                    (if area == 4 { c.2 } else { c.1 }) as f64 / 20.0 * SPREAD[n - 1]
+                })
+                .collect();
+            values.sort_unstable_by(|a, b| b.total_cmp(a));
+            values.truncate(if area == 4 { 1 } else { 3 });
+            // Um treinador fraco não treina pior do que ninguém
+            if !values.is_empty() {
+                *q = (values.iter().sum::<f64>() / values.len() as f64).max(NO_COACH);
+            }
+        }
+        Ok(out)
     }
 
     /// Para a evolução do mês: o efeito do treino em cada jogador do plantel do treinador.
@@ -311,7 +365,7 @@ impl Game {
         }
         let programs = self.training_programs()?;
         let assign = self.assignments(&programs)?;
-        let (field, keepers) = self.coach_quality()?;
+        let quality = self.coach_quality()?;
         let mut out = HashMap::new();
         for (person, program) in assign {
             let Some(p) = programs.iter().find(|p| p.id == program) else { continue };
@@ -319,7 +373,9 @@ impl Game {
                 self.world
                     .conn
                     .query_row("SELECT COALESCE(pos_goalkeeper, 0) >= 15 FROM players WHERE person_id = ?", [person], |r| r.get(0))?;
-            let q = if keeper { keepers } else { field };
+            // A qualidade média das áreas que contam para o jogador
+            let areas: &[usize] = if keeper { &[0, 1, 4] } else { &[0, 1, 2, 3] };
+            let q = areas.iter().map(|&a| quality[a]).sum::<f64>() / areas.len() as f64;
             out.insert(
                 person,
                 Effect { growth: 0.6 + 0.8 * p.load(keeper) * (0.5 + 0.5 * q), decline: 1.25 - 0.5 * p.fitness as f64 / 3.0 },
@@ -345,7 +401,7 @@ impl Game {
                 })
                 .collect()
         };
-        let (field, keepers) = if self.sacked() { (0.5, 0.5) } else { self.coach_quality()? };
+        let coach_quality = if self.sacked() { [0.5; 5] } else { self.coach_quality()? };
         let columns: Vec<&str> = AREAS.iter().flat_map(|a| a.iter().copied()).collect();
         let managed = self.managed_sql(None);
         let sql = format!(
@@ -385,7 +441,6 @@ impl Game {
                 _ if keeper => AI_KEEPER,
                 _ => AI_FIELD,
             };
-            let quality = if own { if keeper { keepers } else { field } } else { 0.5 };
             let age = age_on(birth.as_deref(), birth_year, &today);
             let youth = match age {
                 ..=21 => 1.0,
@@ -404,6 +459,7 @@ impl Game {
                     continue;
                 }
                 let weight = AREA_WEIGHT[load[area].clamp(0, 3) as usize];
+                let quality = if own { coach_quality[area] } else { 0.5 };
                 let chance = AREA_GAIN * weight * youth * room * (0.5 + 0.5 * quality);
                 if chance > 0.0 && uniform(&mut rng) < chance {
                     let open: Vec<usize> = (from..to).filter(|&i| values[i].is_some_and(|v| v < 20)).collect();
@@ -564,6 +620,15 @@ impl Game {
             }
         }
         let squad: Vec<i32> = self.assignments(&self.training_programs()?)?.into_keys().collect();
+        let staff: Vec<i32> = self.coaches_of()?.into_iter().map(|c| c.0.id).collect();
+        for c in plan.coaches.iter().flatten() {
+            if !staff.contains(&c.person) {
+                return Err(Error::Invalid("Esse treinador não é do clube.".into()));
+            }
+            if c.areas.len() != AREAS.len() {
+                return Err(Error::Invalid("Áreas de treino inválidas.".into()));
+            }
+        }
         let conn = &self.world.conn;
         let keep: Vec<i32> = plan.programs.iter().map(|p| p.id).filter(|id| *id > 0).collect();
         let existing: Vec<i32> =
@@ -600,6 +665,10 @@ impl Game {
                 return Err(Error::Invalid("Programa de treino desconhecido.".into()));
             };
             conn.execute("INSERT OR REPLACE INTO training_players (person_id, program_id) VALUES (?, ?)", params![a.person, program])?;
+        }
+        for c in plan.coaches.iter().flatten() {
+            let bits: i32 = c.areas.iter().enumerate().filter(|(_, on)| **on).map(|(a, _)| 1 << a).sum();
+            conn.execute("INSERT OR REPLACE INTO coach_areas (person_id, areas) VALUES (?, ?)", params![c.person, bits])?;
         }
         self.unsaved = true;
         self.training_view()

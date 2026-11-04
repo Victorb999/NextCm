@@ -13,8 +13,8 @@ import { useNav } from '../nav'
 import { ATTRIBUTE_GROUPS, FILTER_OPTIONS, NO_FILTER, nameClass, passes, squadName, type AttributeGroup, type Filter } from '../squad'
 
 // "<Clube> - Treinos", como no CM: uma aba com todos e uma por programa (com quantos
-// jogadores tem); Programa dá um programa ao jogador escolhido, Editar abre o diálogo do
-// programa e Treinadores mostra o staff. Cancelar / Ok, como nas Tácticas: o core valida e
+// jogadores tem); Programa (ou o programa na linha do jogador) muda o programa do jogador,
+// Editar abre o diálogo do programa e Preparadores escolhe o que cada treinador treina. Cancelar / Ok, como nas Tácticas: o core valida e
 // grava tudo no Ok.
 
 /** Abas por linha (as restantes vão para a de baixo, como no CLZ). */
@@ -40,6 +40,7 @@ export default function TrainingPage() {
   const [view, setView] = useState<TrainingView | null>(null)
   const [programs, setPrograms] = useState<TrainingProgram[]>([])
   const [assign, setAssign] = useState<Map<number, number>>(new Map())
+  const [coachAreas, setCoachAreas] = useState<Map<number, boolean[]>>(new Map())
   const [tab, setTab] = useState('all')
   const [filter, setFilter] = useState<Filter>(NO_FILTER)
   const [selected, setSelected] = useState(0)
@@ -52,6 +53,7 @@ export default function TrainingPage() {
     setView(v)
     setPrograms(v.programs)
     setAssign(new Map(v.assign.map((a) => [a.person, a.program])))
+    setCoachAreas(new Map(v.coaches.map((c) => [c.id, c.areas])))
   }
   useEffect(() => {
     api.trainingView().then(load, (e) => setError(String(e)))
@@ -70,13 +72,13 @@ export default function TrainingPage() {
 
   const tabs = [{ key: 'all', label: 'Programa' }, ...programs.map((p) => ({ key: String(p.id), label: `${p.name} (${count(p.id)})` }))]
 
-  const giveProgram = (key: string) => {
+  const giveProgram = (key: string, player = current) => {
     if (key === 'new') {
       setDialog({ kind: 'program', program: blank(nextId) })
       return
     }
-    if (!current) return
-    setAssign((m) => new Map(m).set(current.id, Number(key)))
+    if (!player) return
+    setAssign((m) => new Map(m).set(player.id, Number(key)))
   }
   const programMenu: MenuOption<string>[] = [
     ...programs.map((p) => ({ key: String(p.id), label: p.name })),
@@ -102,7 +104,8 @@ export default function TrainingPage() {
   const ok = async () => {
     try {
       const players = [...assign].map(([person, program]) => ({ person, program }))
-      await api.setTraining({ programs, players })
+      const coaches = [...coachAreas].map(([person, areas]) => ({ person, areas }))
+      await api.setTraining({ programs, players, coaches })
       nav.back()
     } catch (e) {
       setError(String(e))
@@ -149,7 +152,15 @@ export default function TrainingPage() {
         </div>
       )}
       <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
-        <PurpleMenu label="Programa" options={programMenu} value={String(assign.get(current?.id ?? -1) ?? '')} onChange={giveProgram} disabled={!view} />
+        <div title={current ? `Mudar o programa de ${squadName(current)}` : undefined}>
+          <PurpleMenu
+            label="Programa"
+            options={programMenu}
+            value={String(assign.get(current?.id ?? -1) ?? '')}
+            onChange={(k) => giveProgram(k)}
+            disabled={!current}
+          />
+        </div>
         <button
           className="cm-purple h-6 w-40"
           disabled={!editing}
@@ -168,7 +179,7 @@ export default function TrainingPage() {
         />
         {columns === 'attributes' && <PurpleMenu label="Atributos" options={ATTRIBUTE_GROUPS} value={group} onChange={setGroup} />}
         <button className="cm-purple h-6 w-40" disabled={!view} onClick={() => setDialog({ kind: 'coaches' })}>
-          Treinadores
+          Preparadores
         </button>
         <div className="flex-1" />
         <PurpleMenu
@@ -197,7 +208,7 @@ export default function TrainingPage() {
         <ErrorBox className="mb-2">{error}</ErrorBox>
         <div className="min-h-0 flex-1 overflow-auto">
           {rows.length ? (
-            <div className="overflow-hidden rounded-md bg-cm-surface">
+            <div className="rounded-md bg-cm-surface">
               <div className={`flex h-7 items-center gap-2 border-b border-cm-line bg-black/30 px-2 ${head}`}>
                 <span className="w-24">Programa</span>
                 <span className="w-10 text-center">Inf</span>
@@ -226,7 +237,22 @@ export default function TrainingPage() {
                     onClick={() => setSelected(i)}
                     className={`flex h-6 items-center gap-2 px-2 ${i === selected ? '!bg-cm-sel' : ''}`}
                   >
-                    <span className={`w-24 ${cell(i)} !font-sans font-semibold`}>{programName(assign.get(p.id))}</span>
+                    {/* O programa na linha: um clique abre a lista para o mudar */}
+                    <span className="w-24 shrink-0" onClick={() => setSelected(i)}>
+                      <PurpleMenu
+                        label="Programa"
+                        options={programMenu}
+                        value={String(assign.get(p.id) ?? '')}
+                        onChange={(k) => giveProgram(k, p)}
+                        buttonClass={`flex w-24 items-center gap-0.5 !font-sans font-semibold hover:text-white ${cell(i)}`}
+                        trigger={
+                          <>
+                            <span className="min-w-0 flex-1 truncate text-left">{programName(assign.get(p.id))}</span>
+                            <span className="text-[10px] text-cm-purplelight">▼</span>
+                          </>
+                        }
+                      />
+                    </span>
                     <span className="w-10 shrink-0 text-center font-mono text-[12px]">
                       <InfBadge info={p.info} />
                     </span>
@@ -269,7 +295,17 @@ export default function TrainingPage() {
           onDelete={() => deleteProgram(dialog.program.id)}
         />
       )}
-      {dialog?.kind === 'coaches' && view && <CoachesDialog coaches={view.coaches} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'coaches' && view && (
+        <CoachesDialog
+          coaches={view.coaches}
+          areas={coachAreas}
+          onCancel={() => setDialog(null)}
+          onOk={(a) => {
+            setCoachAreas(a)
+            setDialog(null)
+          }}
+        />
+      )}
     </div>
   )
 }

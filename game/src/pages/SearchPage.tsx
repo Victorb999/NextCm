@@ -452,6 +452,19 @@ export default function SearchPage({ active }: { active: boolean }) {
                 </span>
               ))}
             </div>
+            {chips.length > 0 && (
+              <button
+                className={barButton}
+                title="Tirar todos os filtros"
+                onClick={() => {
+                  setStatus("all")
+                  applyFilters(EMPTY_FILTERS)
+                  nameRef.current?.focus()
+                }}
+              >
+                Limpar Filtros
+              </button>
+            )}
             {shortlist && game.mode === "game" && (
               <ListFileButtons
                 slot={0}

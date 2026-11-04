@@ -130,23 +130,58 @@ export function ProgramDialog({
   )
 }
 
-/** Os treinadores do clube: função, o que treinam e a qualidade. */
-export function CoachesDialog({ coaches, onClose }: { coaches: Coach[]; onClose: () => void }) {
-  useDialogKeys(onClose, onClose)
+/** As áreas do diálogo Preparadores, pela ordem do core. */
+const COACH_AREAS = ['Prep. Física', 'Táctica', 'Finalização', 'Técnica', 'Goleiro']
+
+/** Preparadores, como no CM: o que cada treinador do clube treina (moldura amarela nas áreas
+ * escolhidas). Grava-se no Ok da tela de Treinos. */
+export function CoachesDialog({
+  coaches,
+  areas: initial,
+  onCancel,
+  onOk,
+}: {
+  coaches: Coach[]
+  areas: Map<number, boolean[]>
+  onCancel: () => void
+  onOk: (areas: Map<number, boolean[]>) => void
+}) {
+  const [areas, setAreas] = useState(initial)
+  const ok = () => onOk(areas)
+  useDialogKeys(onCancel, ok)
+  const flip = (id: number, i: number) =>
+    setAreas((m) => {
+      const next = [...(m.get(id) ?? COACH_AREAS.map(() => false))]
+      next[i] = !next[i]
+      return new Map(m).set(id, next)
+    })
   return (
     <Overlay>
-      <DialogFrame title="Treinadores" width={640} onOk={onClose}>
+      <DialogFrame title="Preparadores" width={760} onCancel={onCancel} onOk={ok}>
         {coaches.length ? (
-          <div className="cm-zebra py-1">
-            {coaches.map((c) => (
-              <div key={c.id} className="flex h-7 items-center gap-3 px-1 text-[15px]">
-                <span className="min-w-0 flex-1 truncate font-semibold text-white">{c.name}</span>
-                <span className="w-40 shrink-0 text-[#bfe6c4]">{c.job}</span>
-                <span className="w-40 shrink-0 text-cm-yellow">{c.works}</span>
-                <span className="w-24 shrink-0 text-right text-white">{c.quality}</span>
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="cm-zebra py-1">
+              {coaches.map((c) => (
+                <div key={c.id} className="flex h-7 items-center gap-1 px-1 text-[15px]">
+                  <span className="min-w-0 flex-1 truncate font-semibold text-white" title={`${c.job} · ${c.works}`}>
+                    {c.name}
+                  </span>
+                  <span className="w-20 shrink-0 text-[12px] text-[#bfe6c4]" title="Qualidade a treinar">
+                    {c.quality}
+                  </span>
+                  {COACH_AREAS.map((label, i) => (
+                    <Option key={label} selected={!!areas.get(c.id)?.[i]} onClick={() => flip(c.id, i)}>
+                      {label}
+                    </Option>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div className="pt-1 text-[12px] text-[#bfe6c4]">
+              Clique numa área para a dar ou tirar a um treinador. Quem treina muitas áreas rende menos; uma área sem
+              ninguém treina-se mal.
+            </div>
+          </>
         ) : (
           <div className="py-2 text-white">O clube não tem treinadores: o treino rende menos.</div>
         )}

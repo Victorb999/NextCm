@@ -1,5 +1,5 @@
 import type { ManagerDialog } from "./managerMenu"
-import { Globe, Search, Settings, Trophy, User } from "lucide-react"
+import { Globe, Mail, Search, Settings, Trophy, User } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import { api, hasBackend } from "../api"
@@ -253,16 +253,19 @@ export default function SideBar({
       )}
       {/* "Tem Notícias" no fundo da coluna, como no CM: atalho para a Caixa de Mensagens */}
       {info && info.unreadNews > 0 && (
-        <button
-          className="mt-auto p-2 text-center font-bold font-mono animate-pulse
-           text-white hover:text-red-100 disabled:opacity-50
-          rounded border border-red-500 bg-red-500 hover:bg-red-700"
+        <SideButton
+          icon={<Mail size={16} />}
           disabled={!browsing}
+          active={nav.current.kind === "news"}
           onClick={() => nav.go({ kind: "news" })}
+          className="mt-auto !text-cm-yellow"
           title={`${info.unreadNews} por ler`}
         >
-          Tem Notícias
-        </button>
+          <span className="font-bold">Tem Notícias</span>
+          <span className="ml-auto shrink-0 rounded bg-cm-purple px-1.5 font-mono text-[11px] font-bold text-white">
+            {info.unreadNews}
+          </span>
+        </SideButton>
       )}
     </aside>
   )

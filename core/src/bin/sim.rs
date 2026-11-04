@@ -144,7 +144,7 @@ fn training(world: &Path, club_id: i32, seed: i64, days: u32) {
                 p
             })
             .collect();
-        game.set_training(&TrainingPlan { programs, players: Vec::new() }).expect("programas");
+        game.set_training(&TrainingPlan { programs, players: Vec::new(), coaches: None }).expect("programas");
         let ca = |game: &Game| -> HashMap<i32, i32> {
             let club = game.world().get_club(club_id).expect("clube");
             club.players.iter().map(|p| (p.id, p.current_ability.unwrap_or(0))).collect()

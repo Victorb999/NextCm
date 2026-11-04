@@ -307,7 +307,7 @@ function Profile({ p }: { p: PersonProfile }) {
         </div>
       </div>
       {p.knowledge && p.knowledge !== 'known' && (
-        <div className="shrink-0 text-center text-cm-magenta">
+        <div className="shrink-0 rounded border border-cm-line bg-cm-panel px-3 py-1 text-center text-cm-yellow">
           {p.reportOn
             ? `Os seus olheiros estão a observá-lo: o relatório chega a ${cmDate(p.reportOn)}.`
             : p.knowledge === 'unknown'
