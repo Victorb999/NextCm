@@ -138,20 +138,20 @@ impl ContractExtras {
 impl Game {
     /// O que o jogador exige e os valores que o jogo sugere para o resto, para um salário.
     pub(super) fn extras_demand(&self, person: i32, f: &Facts, wage: i64) -> Result<(ContractExtras, ContractExtras)> {
-        let (finishing, passing, keeper, defender): (i32, i32, bool, bool) = self.world.conn.query_row(
-            "SELECT COALESCE(finishing, 10), COALESCE(passing, 10), COALESCE(pos_goalkeeper, 0) >= 15,
-                    MAX(COALESCE(pos_defender, 0), COALESCE(pos_sweeper, 0), COALESCE(pos_wing_back, 0)) >= 15
-             FROM players WHERE person_id = ?",
+        let (finishing, passing): (i32, i32) = self.world.conn.query_row(
+            "SELECT COALESCE(finishing, 10), COALESCE(passing, 10) FROM players WHERE person_id = ?",
             [person],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
+        let keeper = self.is_keeper(person)?;
         let mut rng = self.deal_rng(person, 0xC1A5);
         let mut roll = |p: f64| (rng.next_u32() % 1000) as f64 / 1000.0 < p;
         let bonus = |share: f64| round_wage(wage as f64 * share).max(100);
         let suggested = ContractExtras {
             goal_bonus: bonus(GOAL_BONUS),
             assist_bonus: bonus(ASSIST_BONUS),
-            clean_sheet_bonus: bonus(CLEAN_SHEET_BONUS),
+            // O prémio por jogo sem sofrer golos é só dos guarda-redes (0 = não aparece na proposta)
+            clean_sheet_bonus: if keeper { bonus(CLEAN_SHEET_BONUS) } else { 0 },
             min_fee: Some(finance::round_money(f.value.max(100_000) as f64 * MIN_FEE_SUGGESTED)),
             relegation: false,
             non_promotion: false,
@@ -171,7 +171,7 @@ impl Game {
         let asks = ContractExtras {
             goal_bonus: if !keeper && finishing >= SCORER && roll(0.6) { suggested.goal_bonus } else { 0 },
             assist_bonus: if !keeper && passing >= PROVIDER && roll(0.5) { suggested.assist_bonus } else { 0 },
-            clean_sheet_bonus: if (keeper || defender) && roll(0.4) { suggested.clean_sheet_bonus } else { 0 },
+            clean_sheet_bonus: if keeper && roll(0.4) { suggested.clean_sheet_bonus } else { 0 },
             min_fee: (f.ambition >= 14.0 && roll(0.5)).then(|| finance::round_money(f.value.max(100_000) as f64 * MIN_FEE_ASKED)),
             relegation: f.ambition >= 12.0 && !lower_division && roll(0.35),
             non_promotion: ambitious && lower_division && roll(0.5),
@@ -187,8 +187,22 @@ impl Game {
         Ok(text.flatten().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default())
     }
 
+    /// Guarda-redes (para o prémio por jogo sem sofrer golos).
+    fn is_keeper(&self, person: i32) -> Result<bool> {
+        Ok(self
+            .world
+            .conn
+            .query_row("SELECT COALESCE(pos_goalkeeper, 0) >= 15 FROM players WHERE person_id = ?", [person], |r| r.get(0))
+            .optional()?
+            .unwrap_or(false))
+    }
+
     pub(super) fn set_talk_extras(&self, person: i32, extras: &ContractExtras) -> Result<()> {
-        let text = serde_json::to_string(extras).unwrap_or_default();
+        let mut extras = extras.clone();
+        if !self.is_keeper(person)? {
+            extras.clean_sheet_bonus = 0;
+        }
+        let text = serde_json::to_string(&extras).unwrap_or_default();
         self.world.conn.execute("UPDATE contract_talks SET extras = ? WHERE person_id = ?", params![text, person])?;
         Ok(())
     }
@@ -232,7 +246,7 @@ impl Game {
         for l in lines {
             let Some(e) = self.contract_extras(l.id)? else { continue };
             total += e.goal_bonus * l.goals as i64 + e.assist_bonus * l.assists as i64;
-            if conceded == 0 && !l.sub {
+            if conceded == 0 && !l.sub && self.is_keeper(l.id)? {
                 total += e.clean_sheet_bonus;
             }
         }
@@ -368,8 +382,8 @@ mod tests {
         assert_eq!(g.answer_offer(offer.id, "accept", None).unwrap().status, "done");
         assert_eq!(g.contract_extras(p).unwrap().unwrap().missing(&t.asks), Vec::<&str>::new());
 
-        // Prémios pagos depois do jogo: 2 golos e um jogo sem sofrer golos
-        let scorer = squad.iter().copied().find(|&x| x != p).unwrap();
+        // Prémios pagos depois do jogo: 2 golos e um jogo sem sofrer golos (de um guarda-redes)
+        let scorer = squad.iter().copied().find(|&x| x != p && g.is_keeper(x).unwrap()).unwrap();
         let extras =
             ContractExtras { goal_bonus: 1000, clean_sheet_bonus: 500, min_fee: Some(1_000_000), relegation: true, ..Default::default() };
         let text = serde_json::to_string(&extras).unwrap();

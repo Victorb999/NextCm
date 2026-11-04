@@ -84,10 +84,10 @@ export function DialogRow({
   )
 }
 
-/** Fundo escurecido que centra um diálogo sobre a área principal. */
+/** Fundo escurecido que centra um diálogo sobre a área principal (por cima do dia de jogo, z-50). */
 export function Overlay({ children }: { children: ReactNode }) {
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
+    <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
       {children}
     </div>
   )

@@ -96,7 +96,8 @@ export default function ContractExtrasPanel({
       </div>
       <div className="cm-zebra py-1">
         {tab === 'bonuses' ? (
-          BONUSES.map(([k]) => money_(k))
+          // Sem valor sugerido o prémio não é para ele (o sem sofrer golos é só dos guarda-redes)
+          BONUSES.filter(([k]) => suggested[k] > 0 || value[k] > 0).map(([k]) => money_(k))
         ) : (
           <>
             {flag('nonPromotion', 'Cláusula de rescisão (se o clube não subir)')}

@@ -54,7 +54,7 @@ use crate::person::ClubRef;
 use crate::regulation::{self, SeasonKind};
 use crate::search::fold;
 use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
-use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, PlayerOrder, Selection, Tackling, Takers};
+use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, PlayerOrder, PlayerOrders, Selection, Tackling, Takers};
 use crate::{Error, Result, World, date};
 pub use board::{BoardConfidence, BoardView};
 pub use board_meeting::BoardRequest;
@@ -1424,39 +1424,13 @@ impl Game {
         let mut games = Vec::new();
         let mut user = None;
         for &i in &today {
-            let (home, away) = (self.matches[i].home_id, self.matches[i].away_id);
-            let comp = self.matches[i].competition_id;
-            let (home_t, home_changes) = self.lineup(home, comp)?;
-            let (away_t, away_changes) = self.lineup(away, comp)?;
-            let fixture = self.matches[i].id;
-            self.record_lineup(&home_t, away, fixture)?;
-            self.record_lineup(&away_t, home, fixture)?;
-            if let Some(changes) = home_changes.or(away_changes)
+            let (mut live, side, changes) = self.prepare_match(i)?;
+            if let Some(changes) = changes
                 && !changes.is_empty()
                 && !quiet
             {
                 fresh.push(self.changes_news(next_id, &changes)?);
                 next_id += 1;
-            }
-            let side = if self.sacked() {
-                None
-            } else if home == self.club_id {
-                Some(0)
-            } else if away == self.club_id {
-                Some(1)
-            } else {
-                None
-            };
-            let user_ai = self.selection.as_ref().is_none_or(|s| s.auto);
-            let rng = engine::match_rng(self.seed, self.matches[i].id);
-            let occasion = self.occasion(&self.matches[i])?;
-            let mut live =
-                LiveMatch::new(&self.world, self.fixture(&self.matches[i]), home_t, away_t, side, user_ai, rng)?.with_occasion(occasion);
-            // O treinador provocou-os na conferência antes do jogo: o adversário vem mais motivado
-            if let Some(s) = side
-                && self.provoked(self.matches[i].id)?
-            {
-                live.motivate_side(1 - s, 1.0 + press::PROVOKED_BOOST);
             }
             if side.is_some() && self.watch {
                 user = Some(games.len());
@@ -1476,6 +1450,56 @@ impl Game {
             return Ok(Vec::new());
         }
         self.live_finish()
+    }
+
+    /// A partida `i` de hoje com as equipas de agora: a partida, o lado do treinador e as
+    /// trocas do adjunto no clube do treinador.
+    #[allow(clippy::type_complexity)]
+    fn prepare_match(&self, i: usize) -> Result<(LiveMatch, Option<usize>, Option<Vec<(Option<i32>, i32)>>)> {
+        let (home, away) = (self.matches[i].home_id, self.matches[i].away_id);
+        let comp = self.matches[i].competition_id;
+        let (home_t, home_changes) = self.lineup(home, comp)?;
+        let (away_t, away_changes) = self.lineup(away, comp)?;
+        let fixture = self.matches[i].id;
+        self.record_lineup(&home_t, away, fixture)?;
+        self.record_lineup(&away_t, home, fixture)?;
+        let side = if self.sacked() {
+            None
+        } else if home == self.club_id {
+            Some(0)
+        } else if away == self.club_id {
+            Some(1)
+        } else {
+            None
+        };
+        let user_ai = self.selection.as_ref().is_none_or(|s| s.auto);
+        let rng = engine::match_rng(self.seed, self.matches[i].id);
+        let occasion = self.occasion(&self.matches[i])?;
+        let mut live =
+            LiveMatch::new(&self.world, self.fixture(&self.matches[i]), home_t, away_t, side, user_ai, rng)?.with_occasion(occasion);
+        // O treinador provocou-os na conferência antes do jogo: o adversário vem mais motivado
+        if let Some(s) = side
+            && self.provoked(self.matches[i].id)?
+        {
+            live.motivate_side(1 - s, 1.0 + press::PROVOKED_BOOST);
+        }
+        Ok((live, side, home_changes.or(away_changes)))
+    }
+
+    /// No dia do jogo, antes do apito e da palestra, a escolha nova do treinador (feita no
+    /// Plantel ou nas Tácticas) entra na partida dele: refaz-se com a mesma seed.
+    fn refresh_user_match(&mut self) -> Result<()> {
+        let Some(day) = &self.live else { return Ok(()) };
+        let Some((i, m)) = day.games.get(day.user) else { return Ok(()) };
+        if m.started() || !day.talks.is_empty() {
+            return Ok(());
+        }
+        let i = *i;
+        let (live, ..) = self.prepare_match(i)?;
+        let live = live.detailed(engine::match_rng(self.seed ^ 0x0F1A_7E55, self.matches[i].id));
+        let day = self.live.as_mut().expect("dia de jogo");
+        day.games[day.user].1 = live;
+        Ok(())
     }
 
     /// Acaba os jogos do dia (o do treinador até ao fim, se ainda corre), guarda os
@@ -1725,6 +1749,7 @@ impl Game {
         let t = self.preview_selection(&sel)?;
         self.selection = Some(sel);
         self.unsaved = true;
+        self.refresh_user_match()?;
         Ok(t)
     }
 
@@ -2330,6 +2355,13 @@ impl Game {
         self.live_day()?;
         let day = self.live.as_mut().expect("dia de jogo");
         day.games[day.user].1.apply_selection(&self.world, sel)?;
+        // As instruções individuais mudadas no jogo ficam também na escolha do treinador
+        if let Some(own) = &mut self.selection {
+            let changed: Vec<i32> = sel.starters.iter().flatten().chain(&sel.bench).copied().collect();
+            own.orders.retain(|o| !changed.contains(&o.person_id));
+            own.orders.extend(sel.orders.iter().filter(|o| o.orders != PlayerOrders::default() && changed.contains(&o.person_id)).copied());
+            self.unsaved = true;
+        }
         self.live_view()
     }
 
@@ -2899,6 +2931,37 @@ mod tests {
             g.advance_to_next_event().unwrap();
         }
         (g, dir)
+    }
+
+    #[test]
+    fn match_day_takes_the_latest_selection() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (mut g, dir) = until_kickoff(&world, "escolha-no-dia", 3, true, true);
+        assert!(g.info().unwrap().live);
+        let side = g.live_day().unwrap().games[g.live_day().unwrap().user].1.user_side().unwrap() as i32;
+        // No dia do jogo, antes do apito, o treinador muda a equipa no Plantel: três reservas
+        // entram no onze e um deles leva instruções individuais
+        let t = g.club_tactics(7568).unwrap();
+        let mut sel = t.selection();
+        for (i, r) in [3usize, 6, 9].iter().zip(t.reserves.iter().filter(|r| !r.injured && !r.suspended)) {
+            sel.starters[*i] = Some(r.id);
+        }
+        let orders = PlayerOrders { long_shots: true, ..Default::default() };
+        sel.orders = vec![PlayerOrder { person_id: sel.starters[9].unwrap(), orders }];
+        g.set_selection(sel.clone()).unwrap();
+        let live = g.live_tactics(side).unwrap();
+        let on: Vec<_> = live.starters.iter().map(|s| s.player.as_ref().map(|p| p.id)).collect();
+        assert_eq!(on, sel.starters, "joga a equipa escolhida");
+        assert_eq!(live.orders, sel.orders);
+        // Instruções mudadas a meio do jogo ficam para o jogo seguinte
+        g.live_step(10).unwrap();
+        let mut mid = g.live_tactics(side).unwrap().selection();
+        let runner = PlayerOrders { forward_runs: true, ..Default::default() };
+        mid.orders = vec![PlayerOrder { person_id: mid.starters[5].unwrap(), orders: runner }];
+        g.live_set_tactics(&mid).unwrap();
+        assert_eq!(g.selection.as_ref().unwrap().orders, mid.orders);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

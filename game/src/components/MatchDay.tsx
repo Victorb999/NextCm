@@ -1001,6 +1001,13 @@ function LiveScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // De volta ao dia de jogo antes do apito: a equipa pode ter mudado no Plantel ou nas Tácticas
+  const kickedOff = !!view && view.minute > 0
+  useEffect(() => {
+    if (active && !kickedOff) api.liveMatch().then(accept, () => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
+
   // O relato e o relógio: primeiro mostra as frases por dizer, uma de cada vez; com
   // tudo dito e o jogo a correr, joga o minuto seguinte
   useEffect(() => {

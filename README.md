@@ -133,7 +133,8 @@ A CLI mostra a classificação, golos por jogo, vitórias em casa, remates, cart
 | ✅ | **3.16** | Plantel completo (Vêr, Filtrar, reservas e clubes B) |
 | ✅ | **3.17** | Treino |
 | ⏳ | **3.18** | Selecções: datas FIFA, convocatórias e competições de selecções |
-| ⏳ | **3.19** | Editor de jogos salvos |
+| ⏳ | **3.19** | Testes de 1 a 3/11: reservas, treino, plantel, perfil, notícias, busca e bugs das Tácticas |
+| ⏳ | **3.20** | Editor de jogos salvos |
 
 O plano está no [ROADMAP.md](ROADMAP.md); o detalhe de cada marco — decisões, regras e números — está em [docs/roadmap/](docs/roadmap/), um ficheiro por marco.
 

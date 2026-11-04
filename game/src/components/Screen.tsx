@@ -104,7 +104,8 @@ export function PanelTitle({
           {chip}
         </span>
       )}
-      <span className="ml-auto flex min-w-0 items-center gap-1.5 truncate normal-case tracking-normal">
+      {/* Sem `truncate`: o overflow escondido cortava a lista dos menus (Vêr) */}
+      <span className="ml-auto flex min-w-0 items-center gap-1.5 whitespace-nowrap normal-case tracking-normal">
         {right}
       </span>
     </div>
