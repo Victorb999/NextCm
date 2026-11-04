@@ -713,6 +713,8 @@ impl Game {
             tx.execute_batch(PROVOKE_SCHEMA)?;
             tx.execute_batch(MASKING_SCHEMA)?;
             tx.execute_batch(LAST_LINEUP_SCHEMA)?;
+            // O saldo do 1.º dia, como no CM (as dívidas ficam como estão)
+            tx.execute("UPDATE clubs SET cash = CAST(cash * ? AS INTEGER) WHERE cash > 0", [crate::finance::START_CASH])?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
             // O treinador anterior fica sem clube, como no CM
             tx.execute(
@@ -3152,7 +3154,7 @@ mod tests {
         // Vêr Mais Dados e Atributos: quem jogou tem jogos e resultado; todos os do plantel têm atributos
         let more = g.squad_more(7568, "").unwrap();
         assert!(more.iter().any(|m| m.apps > 0 && m.wins + m.losses <= m.apps && m.rating.is_some()));
-        assert!(g.squad_more(7568, "Continentais").unwrap().iter().all(|m| m.apps == 0) || more.len() > 0);
+        assert!(g.squad_more(7568, "Continentais").unwrap().iter().all(|m| m.apps == 0) || !more.is_empty());
         // O Último Jogo das Tácticas: a escalação do jogo que já se jogou
         let last = g.last_lineup(7568).unwrap().expect("último jogo");
         assert_eq!(last.tactics.starters.len(), 11);

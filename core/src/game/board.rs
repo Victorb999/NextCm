@@ -15,9 +15,10 @@ use crate::{Result, World};
 const START_CONFIDENCE: i32 = 60;
 const WARNING_AT: i32 = 35;
 const ULTIMATUM_AT: i32 = 15;
-/// O orçamento de transferências: metade de (saldo + esta parte das receitas de uma época);
-/// as vendas devolvem esta parte do que renderam.
-const BUDGET_REVENUE: f64 = 0.2;
+/// O orçamento de transferências: esta parte do saldo, como no CM (o Bayern começa com €171M
+/// de fundos para ~€173M de saldo; o Real Madrid a meio da época, €195M para €227M); as
+/// vendas devolvem esta parte do que renderam.
+const BUDGET_CASH: f64 = 0.9;
 const SALES_BACK: f64 = 0.5;
 /// Teto da folha salarial (sobre as receitas de uma época) e salário máximo de um jogador
 /// (sobre o maior salário do plantel ou sobre a folha permitida).
@@ -139,9 +140,9 @@ impl Game {
         self.refresh_budgets()
     }
 
-    /// Orçamentos de uma janela, pela situação financeira: metade de (saldo + 20% das receitas
-    /// de uma época), nada com dívidas grandes; a folha até 90% das receitas (nunca abaixo da
-    /// atual) e um salário máximo por jogador.
+    /// Orçamentos de uma janela, pela situação financeira: 90% do saldo (os clubes grandes com
+    /// um mínimo pelas receitas), nada com dívidas grandes; a folha até 90% das receitas (nunca
+    /// abaixo da atual) e um salário máximo por jogador.
     pub(super) fn refresh_budgets(&mut self) -> Result<()> {
         let base = self.club_base(self.club_id)?;
         let (cash, bill, top): (i64, i64, i64) = self.world.conn.query_row(
@@ -162,7 +163,7 @@ impl Game {
         let transfer = if (cash as f64) < -NO_SIGNINGS_DEBT * base {
             0
         } else {
-            crate::finance::round_money(((cash as f64 + BUDGET_REVENUE * base) * 0.5).max(floor * base).max(0.0))
+            crate::finance::round_money((cash as f64 * BUDGET_CASH).max(floor * base).max(0.0))
         };
         let wage_budget = ((base * WAGE_CAP / 52.0) as i64).max(bill * 102 / 100);
         let max_wage = ((top as f64 * MAX_WAGE_OVER_TOP).max(wage_budget as f64 * MAX_WAGE_SHARE)) as i64;

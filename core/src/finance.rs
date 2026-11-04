@@ -33,6 +33,9 @@ pub const EXPENSES: [(&str, &str); 9] = [
 pub const REVENUE_OVER_WAGES: f64 = 1.3;
 /// Receitas mínimas de uma época (clubes do patch sem salários).
 pub const MIN_REVENUE: f64 = 300_000.0;
+/// O saldo de um clube no 1.º dia de um jogo novo, sobre o do banco: o CM 01/02 (patch CLZ)
+/// começa com cerca de 3× (o Bayern tem €56M no banco e ~€173M no 1.º dia).
+pub const START_CASH: f64 = 3.1;
 
 /// Partes das receitas de uma época normal.
 pub const TV_SHARE: f64 = 0.40;
