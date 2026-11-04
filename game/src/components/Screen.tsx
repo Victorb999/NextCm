@@ -148,11 +148,15 @@ export function Tabs({
   tabs,
   active,
   onChange,
+  onDrop,
 }: {
   tabs: Tab[]
   active: string
   onChange: (key: string) => void
+  /** Largar algo arrastado numa aba (os jogadores nos programas do Treino); devolve se aceita. */
+  onDrop?: (key: string, data: string) => void
 }) {
+  const [over, setOver] = useState<string | null>(null)
   return (
     <div className="flex shrink-0 gap-1.5 px-2" role="tablist">
       {tabs.map((t) => (
@@ -162,7 +166,23 @@ export function Tabs({
           aria-selected={t.key === active}
           disabled={t.disabled}
           onClick={() => onChange(t.key)}
-          className="cm-tab"
+          onDragOver={
+            onDrop &&
+            ((e) => {
+              e.preventDefault()
+              setOver(t.key)
+            })
+          }
+          onDragLeave={onDrop && (() => setOver((k) => (k === t.key ? null : k)))}
+          onDrop={
+            onDrop &&
+            ((e) => {
+              e.preventDefault()
+              setOver(null)
+              onDrop(t.key, e.dataTransfer.getData("text/plain"))
+            })
+          }
+          className={`cm-tab ${over === t.key ? "!border-cm-yellow !text-cm-yellow" : ""}`}
         >
           {t.label}
         </button>

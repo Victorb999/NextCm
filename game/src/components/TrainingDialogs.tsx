@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Coach } from '../bindings/Coach'
 import type { TrainingProgram } from '../bindings/TrainingProgram'
+import { useNav } from '../nav'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
+import { Link } from './Screen'
 
 // Os diálogos verdes da tela de Treinos: o programa (intensidades, nova posição e novo lado)
 // e os treinadores do clube.
@@ -146,6 +148,7 @@ export function CoachesDialog({
   onCancel: () => void
   onOk: (areas: Map<number, boolean[]>) => void
 }) {
+  const nav = useNav()
   const [areas, setAreas] = useState(initial)
   const ok = () => onOk(areas)
   useDialogKeys(onCancel, ok)
@@ -164,7 +167,8 @@ export function CoachesDialog({
               {coaches.map((c) => (
                 <div key={c.id} className="flex h-7 items-center gap-1 px-1 text-[15px]">
                   <span className="min-w-0 flex-1 truncate font-semibold text-white" title={`${c.job} · ${c.works}`}>
-                    {c.name}
+                    {/* O perfil do treinador (sai do diálogo e da tela sem gravar) */}
+                    <Link onClick={() => nav.go({ kind: 'person', id: c.id })}>{c.name}</Link>
                   </span>
                   <span className="w-20 shrink-0 text-[12px] text-[#bfe6c4]" title="Qualidade a treinar">
                     {c.quality}

@@ -14,7 +14,8 @@ import { ATTRIBUTE_GROUPS, FILTER_OPTIONS, NO_FILTER, nameClass, passes, squadNa
 
 // "<Clube> - Treinos", como no CM: uma aba com todos e uma por programa (com quantos
 // jogadores tem); Programa (ou o programa na linha do jogador) muda o programa do jogador,
-// Editar abre o diálogo do programa e Preparadores escolhe o que cada treinador treina. Cancelar / Ok, como nas Tácticas: o core valida e
+// Editar abre o diálogo do programa e Preparadores escolhe o que cada treinador treina. Como no
+// CM, arrastar um jogador para a aba de um programa muda-o para esse programa. Cancelar / Ok, como nas Tácticas: o core valida e
 // grava tudo no Ok.
 
 /** Abas por linha (as restantes vão para a de baixo, como no CLZ). */
@@ -70,6 +71,12 @@ export default function TrainingPage() {
   }, [view, tab, assign, filter])
   const current = rows[selected]
 
+  // Largar um jogador (arrastado da lista) numa aba de programa
+  const dropOnTab = (key: string, data: string) => {
+    const player = Number(data)
+    if (key === 'all' || !Number.isFinite(player) || !programs.some((p) => String(p.id) === key)) return
+    setAssign((m) => new Map(m).set(player, Number(key)))
+  }
   const tabs = [{ key: 'all', label: 'Programa' }, ...programs.map((p) => ({ key: String(p.id), label: `${p.name} (${count(p.id)})` }))]
 
   const giveProgram = (key: string, player = current) => {
@@ -145,10 +152,10 @@ export default function TrainingPage() {
   return (
     <div className="relative flex h-full flex-col">
       <ScreenHeader club={view?.club} eyebrow={<span className="text-cm-orange">Treino</span>} title={view ? `${view.club.name} - Treinos` : ''} />
-      <Tabs tabs={tabs.slice(0, TABS_PER_ROW)} active={tab} onChange={(k) => (setTab(k), setSelected(0))} />
+      <Tabs tabs={tabs.slice(0, TABS_PER_ROW)} active={tab} onChange={(k) => (setTab(k), setSelected(0))} onDrop={dropOnTab} />
       {tabs.length > TABS_PER_ROW && (
         <div className="mt-1">
-          <Tabs tabs={tabs.slice(TABS_PER_ROW)} active={tab} onChange={(k) => (setTab(k), setSelected(0))} />
+          <Tabs tabs={tabs.slice(TABS_PER_ROW)} active={tab} onChange={(k) => (setTab(k), setSelected(0))} onDrop={dropOnTab} />
         </div>
       )}
       <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
@@ -235,7 +242,14 @@ export default function TrainingPage() {
                   <div
                     key={p.id}
                     onClick={() => setSelected(i)}
-                    className={`flex h-6 items-center gap-2 px-2 ${i === selected ? '!bg-cm-sel' : ''}`}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', String(p.id))
+                      e.dataTransfer.effectAllowed = 'move'
+                      setSelected(i)
+                    }}
+                    title="Arraste para a aba de um programa para o mudar"
+                    className={`flex h-6 cursor-grab items-center gap-2 px-2 ${i === selected ? '!bg-cm-sel' : ''}`}
                   >
                     {/* O programa na linha: um clique abre a lista para o mudar */}
                     <span className="w-24 shrink-0" onClick={() => setSelected(i)}>

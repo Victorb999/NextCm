@@ -1,5 +1,6 @@
 # Dados originais do CM / patch (pesados e não redistribuíveis)
 *.dat
+data/raw/**/*.cfg
 *.sqlite
 *.sqlite-journal
 scripts/jogadores_db.json

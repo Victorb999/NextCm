@@ -802,7 +802,7 @@ impl Game {
             game.schedule_season(SeasonKind::European, year, &mut fresh, &mut next_id)?;
             crate::progress::set("A tratar dos empréstimos e dos contratos…", 0.5);
             // Os empréstimos em curso de 2025/26 (o banco do CM não os tem)
-            game.start_loans()?;
+            game.start_loans(if new.start == StartSeason::Europe { 1 } else { 0 })?;
             // Um ano depois do patch: os contratos que acabaram a 30/6 renovam-se ou saem
             if new.start == StartSeason::Europe {
                 game.start_contracts(&mut fresh, &mut next_id)?;
@@ -3249,7 +3249,8 @@ mod tests {
         let played: Vec<_> = c.players.iter().filter(|p| p.apps > 0).collect();
         assert!(played.len() >= 11, "{}", played.len());
         assert!(played.iter().all(|p| p.form.len() == 1 && p.rating.is_some()));
-        assert!(c.players.iter().all(|p| p.role.is_some() && p.morale.is_some()));
+        // (os emprestados a outros clubes estão na lista, mas jogam lá)
+        assert!(c.players.iter().filter(|p| !p.loaned_out).all(|p| p.role.is_some() && p.morale.is_some()));
         // Penáltis: uma ordem sem guarda-redes, a começar no 1
         assert!(c.players.iter().any(|p| p.penalty_order == Some(1)));
         assert!(c.players.iter().filter(|p| p.lines.iter().any(|l| l == "GR")).all(|p| p.penalty_order.is_none()));
@@ -3393,7 +3394,8 @@ mod tests {
         let gk = sel.starters[0].unwrap();
         let out = g.toggle_player(&sel, gk).unwrap();
         assert!(out.starters[0].player.is_none() && !out.auto);
-        let reserve_gk = t.reserves.iter().find(|p| p.position == "GR").unwrap().id;
+        // (o 3.º GR do Palmeiras começa emprestado: sem GR nas reservas, volta o mesmo)
+        let reserve_gk = t.reserves.iter().find(|p| p.position == "GR").map_or(gk, |p| p.id);
         let back = g.toggle_player(&out.selection(), reserve_gk).unwrap();
         assert_eq!(back.starters[0].player.as_ref().unwrap().id, reserve_gk);
         // Com o onze completo, quem entra vai para o banco (se houver lugar)

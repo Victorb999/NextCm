@@ -1,8 +1,14 @@
 //! Empréstimos em curso quando o jogo começa (época 2025/26). O banco do CM 01/02 só guarda
-//! o clube com contrato, por isso os empréstimos conhecidos dos clubes grandes vêm de uma
-//! lista feita à mão (`core/data/loans_2025.json`). Quem está no clube dono vai para o clube
-//! do empréstimo; quem o patch já pôs no clube do empréstimo fica com o dono registado, para
-//! voltar no fim. Os que o patch tem noutro clube ficam como estão.
+//! o clube com contrato: o CM põe os empréstimos ao começar o jogo, pelas linhas "LOAN" do
+//! `player_setup.cfg` do patch. `scripts/setup_loans.py` cruza-as com a base e grava
+//! `core/data/setup_loans.json` (o jogador, o dono, o clube do empréstimo e o fim). Quem está
+//! no clube dono vai para o clube do empréstimo; quem o patch já pôs no clube do empréstimo
+//! fica com o dono registado, para voltar no fim. Os que o patch tem noutro clube ficam como
+//! estão.
+//!
+//! Começando em 2026/27 (Europa), o jogo usa os plantéis do patch como os dessa época (renova
+//! os contratos que acabavam a 30/6/2026), por isso os empréstimos também acabam um ano depois:
+//! senão os que o patch tem no clube do empréstimo ficavam lá de vez, sem empréstimo.
 
 use rusqlite::{OptionalExtension, params};
 use serde::Deserialize;
@@ -10,7 +16,7 @@ use serde::Deserialize;
 use super::Game;
 use crate::{Error, Result};
 
-const LOANS: &str = include_str!("../../data/loans_2025.json");
+const LOANS: &str = include_str!("../../data/setup_loans.json");
 
 #[derive(Deserialize)]
 struct StartLoan {
@@ -21,13 +27,19 @@ struct StartLoan {
 }
 
 impl Game {
-    /// Aplica a lista ao criar o jogo; devolve quantos empréstimos ficaram.
-    pub(super) fn start_loans(&mut self) -> Result<usize> {
+    /// Aplica a lista ao criar o jogo, com o fim `years_later` anos depois do da lista; devolve
+    /// quantos empréstimos ficaram.
+    pub(super) fn start_loans(&mut self, years_later: i32) -> Result<usize> {
         let loans: Vec<StartLoan> =
             serde_json::from_str(LOANS).map_err(|e| Error::Invalid(format!("Lista de empréstimos inválida: {e}")))?;
         let mut done = 0;
-        // Começando um ano depois do patch, os que acabavam em 2026 já voltaram
-        for l in loans.into_iter().filter(|l| l.until > self.date) {
+        for mut l in loans {
+            if let Some(year) = l.until.get(..4).and_then(|y| y.parse::<i32>().ok()) {
+                l.until = format!("{}{}", year + years_later, &l.until[4..]);
+            }
+            if l.until <= self.date {
+                continue;
+            }
             let club: Option<Option<i32>> =
                 self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [l.player], |r| r.get(0)).optional()?;
             match club.flatten() {
@@ -65,7 +77,7 @@ mod tests {
             last_name: "Araujo".into(),
             birth_date: None,
             nation_id: None,
-            club_id: 6271,
+            club_id: 1350,
             leagues: Vec::new(),
             start: Default::default(),
             license: 0,
@@ -73,18 +85,38 @@ mod tests {
             masking: true,
         };
         let g = Game::create(&path, &dir, &new, 3).unwrap();
-        // Onana (Man Utd) joga no Trabzonspor e volta ao United no fim da época
-        let (club, parent): (Option<i32>, i32) = g
-            .world
-            .conn
-            .query_row("SELECT p.club_id, l.parent_id FROM people p JOIN loans l ON l.person_id = p.id WHERE p.id = 26601", [], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
-            .unwrap();
-        assert_eq!((club, parent), (Some(10294), 6271));
-        // Højlund já estava no Napoli: fica emprestado pelo United
-        let parent: i32 = g.world.conn.query_row("SELECT parent_id FROM loans WHERE person_id = 63632", [], |r| r.get(0)).unwrap();
-        assert_eq!(parent, 6271);
+        let at = |g: &Game, id: i32| -> (Option<i32>, i32, String) {
+            g.world
+                .conn
+                .query_row(
+                    "SELECT p.club_id, l.parent_id, l.until FROM people p JOIN loans l ON l.person_id = p.id WHERE p.id = ?",
+                    [id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .unwrap()
+        };
+        // Como no CM: Zaragoza no Espanyol e Boey no Galatasaray, emprestados pelo Bayern até
+        // 15/6/2026; Onana no Trabzonspor, pelo United
+        let espanyol: i32 = g.world.conn.query_row("SELECT id FROM clubs WHERE name = 'R.C.D. Espanyol'", [], |r| r.get(0)).unwrap();
+        assert_eq!(at(&g, 123625), (Some(espanyol), 1350, "2026-06-15".to_string()));
+        assert_eq!(at(&g, 36829).1, 1350);
+        assert_eq!(at(&g, 26601), (Some(10294), 6271, "2026-06-15".to_string()));
+        // O Rashford, sem linha no player_setup.cfg, fica no United
+        let rashford: Option<i32> = g.world.conn.query_row("SELECT club_id FROM people WHERE id = 67186", [], |r| r.get(0)).unwrap();
+        assert_eq!(rashford, Some(6271));
+        assert!(g.world.conn.query_row("SELECT COUNT(*) FROM loans", [], |r| r.get::<_, i64>(0)).unwrap() > 5000);
+        // E aparecem no plantel do dono como emprestados (a azul), como no print do Bayern
+        let mut bayern = g.world.get_club(1350).unwrap();
+        g.fill_squad(&mut bayern).unwrap();
+        assert!(bayern.players.iter().any(|p| p.id == 123625 && p.loaned_out));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+
+        // Começando em 2026/27, os empréstimos continuam, um ano mais tarde
+        let dir = std::env::temp_dir().join(format!("nextcm-emprestimos-2026-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let g = Game::create(&path, &dir, &crate::NewGame { start: crate::StartSeason::Europe, ..new }, 3).unwrap();
+        assert_eq!(at(&g, 26601), (Some(10294), 6271, "2027-06-15".to_string()));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

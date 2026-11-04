@@ -597,7 +597,9 @@ impl Game {
             self.assignments(&programs)?.into_iter().map(|(person, program)| ProgramAssign { person, program }).collect();
         assign.sort_by_key(|a| a.person);
         let coaches = self.coaches_of()?.into_iter().map(|c| c.0).collect();
-        Ok(TrainingView { club: club.club, programs, players: club.players, assign, coaches })
+        // Os emprestados a outros clubes aparecem no plantel, mas não treinam cá
+        let players = club.players.into_iter().filter(|p| !p.loaned_out).collect();
+        Ok(TrainingView { club: club.club, programs, players, assign, coaches })
     }
 
     /// O Ok da tela: grava os programas (novos com id 0, os que faltam são apagados) e o

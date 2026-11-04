@@ -141,9 +141,10 @@ export function squadName(p: SquadPlayer) {
   return `${shortListName(p.listName)}${p.key ? '*' : ''}`
 }
 
-/** O Filtrar: posição, lado, disponibilidade e (nas reservas) incluir os séniores. */
-export type Filter = { line: string; side: string; avail: '' | 'yes' | 'no'; seniors: boolean }
-export const NO_FILTER: Filter = { line: '', side: '', avail: '', seniors: false }
+/** O Filtrar: posição, lado, disponibilidade, (nas reservas) incluir os séniores e (no plantel
+ * principal) incluir as reservas, ligado como no CM. */
+export type Filter = { line: string; side: string; avail: '' | 'yes' | 'no'; seniors: boolean; reserves: boolean }
+export const NO_FILTER: Filter = { line: '', side: '', avail: '', seniors: false, reserves: true }
 
 export const FILTER_OPTIONS: MenuOption<string>[] = [
   { key: 'line:', label: 'Todas Posições' },

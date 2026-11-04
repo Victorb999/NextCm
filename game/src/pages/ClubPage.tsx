@@ -153,6 +153,7 @@ function SquadGrid({
   bind,
   onToggle,
   header,
+  numbers,
 }: {
   entries: Entry[]
   selected: number
@@ -164,6 +165,8 @@ function SquadGrid({
   onToggle?: (e: Entry) => void
   /** Os cabeçalhos que ordenam (fora do Staff). */
   header?: HeaderProps
+  /** A coluna Nº (com o Critério Numeração ou Idade); o CM não a mostra. */
+  numbers?: boolean
 }) {
   const row = (e: Entry, i: number) => {
     const drag = bind && e.spot ? bind(e.spot, e.name) : undefined
@@ -179,29 +182,32 @@ function SquadGrid({
         onDoubleClick={() => onOpen(e)}
         className={`flex h-6 items-center gap-1.5 px-2 ${i === selected ? "!bg-cm-sel" : ""} ${drag ? "cursor-grab" : ""}`}
       >
-        <span
-          onMouseDown={stop}
-          onClick={toggle}
-          className={`w-8 shrink-0 text-center font-mono text-[13px] text-[#c8c8d0] ${onToggle ? "cursor-pointer" : ""}`}
-        >
-          {e.number}
-        </span>
+        {numbers && (
+          <span
+            onMouseDown={stop}
+            onClick={toggle}
+            className={`w-8 shrink-0 text-center font-mono text-[13px] text-[#c8c8d0] ${onToggle ? "cursor-pointer" : ""}`}
+          >
+            {e.number}
+          </span>
+        )}
+        {/* A casa na equipa e a sigla Inf em caixas escuras, vazias quando não há, como no CM */}
         <span
           onMouseDown={stop}
           onClick={toggle}
           title={onToggle ? "Clique para pôr/tirar da equipa" : undefined}
           className={`w-10 shrink-0 text-center font-mono text-[12px] 
-            font-bold cm-chip ${onToggle ? "cursor-pointer" : ""}`}
+            font-bold ${e.badge ? "cm-chip" : "h-[18px] rounded bg-black/50"} ${onToggle ? "cursor-pointer" : ""}`}
         >
-          {e.badge || <span className="text-[#5a5a66]">-</span>}
+          {e.badge}
         </span>
         {e.player && (
-          <span className="w-9 shrink-0 text-center font-mono text-[12px]">
-            <InfBadge info={e.player.info} />
+          <span className="flex h-[18px] w-10 shrink-0 items-center justify-center rounded bg-black/50 font-mono text-[12px]">
+            {e.player.info && <InfBadge info={e.player.info} />}
           </span>
         )}
         <span
-          className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${e.player ? nameClass(e.player) : "text-white"}`}
+          className={`min-w-0 flex-1 truncate text-[16px] font-semibold ${e.player ? nameClass(e.player) : "text-white"}`}
           title={
             e.player?.ghost
               ? "Jogador de enchimento"
@@ -215,7 +221,7 @@ function SquadGrid({
           <Link onClick={() => onOpen(e)}>{e.name}</Link>
         </span>
         <span
-          className={`w-28 shrink-0 truncate text-right font-mono text-[12.5px] ${i === selected ? "text-white" : "text-cm-yellow"}`}
+          className={`w-28 shrink-0 truncate text-left font-mono text-[12.5px] ${i === selected ? "text-white" : "text-cm-yellow"}`}
         >
           {e.detail}
         </span>
@@ -224,11 +230,11 @@ function SquadGrid({
   }
   const head = (
     <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-cm-line bg-black/30 px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#86869a]">
-      <HeaderCell label="Nº" className="w-8 text-center" header={header} />
+      {numbers && <HeaderCell label="Nº" className="w-8 text-center" header={header} />}
       <span className="w-10 text-center">Esc</span>
-      {entries[0]?.player && <span className="w-9 text-center">Inf</span>}
+      {entries[0]?.player && <span className="w-10 text-center">Inf</span>}
       <HeaderCell label="Jogador" className="flex-1" header={header} />
-      <HeaderCell label="Posição" className="w-28 text-right" header={header} />
+      <HeaderCell label="Posição" className="w-28 text-left" header={header} />
     </div>
   )
   const column = (side: 0 | 1) => (
@@ -502,7 +508,7 @@ export default function ClubPage({
     if (!club) return []
     const list = club.players.filter(
       (p) =>
-        (reserves ? p.reserve || filter.seniors : !p.reserve) &&
+        (reserves ? p.reserve || filter.seniors : !p.reserve || filter.reserves) &&
         passes(p, filter),
     )
     const name = (a: { listName: string }, b: { listName: string }) =>
@@ -739,9 +745,12 @@ export default function ClubPage({
         "separator",
         { key: "seniors", label: "Incluir Séniores" },
       ]
-    : FILTER_OPTIONS
+    : mine
+      ? [...FILTER_OPTIONS, "separator", { key: "reserves", label: "Incluir Reservas" }]
+      : FILTER_OPTIONS
   const filterChecked = (key: string) => {
     if (key === "seniors") return filter.seniors
+    if (key === "reserves") return filter.reserves
     const [group, value] = key.split(":")
     return group === "line"
       ? filter.line === value
@@ -754,7 +763,9 @@ export default function ClubPage({
     setFilter((f) =>
       key === "seniors"
         ? { ...f, seniors: !f.seniors }
-        : group === "line"
+        : key === "reserves"
+          ? { ...f, reserves: !f.reserves }
+          : group === "line"
           ? { ...f, line: value }
           : group === "side"
             ? { ...f, side: value }
@@ -1004,12 +1015,13 @@ export default function ClubPage({
                   onSelect={setSelected}
                   onOpen={open}
                   header={view === "staff" ? undefined : { text: headerText, onClick: clickHeader }}
+                  numbers={criterion === "number" || criterion === "age" || headerSort?.label === "Nº"}
                   bind={mine && tactics && !reserves ? drag.bind : undefined}
                   onToggle={
                     reserveView
                       ? toggleReserve
                       : mine && tactics && teamView
-                      ? (e) => void toggle(e)
+                      ? (e) => void (e.player?.reserve ? undefined : toggle(e))
                       : undefined
                   }
                 />

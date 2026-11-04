@@ -766,7 +766,61 @@ impl Game {
         if requested {
             future.push("Pediu para ser transferido".into());
         }
+        // Quem está bem no clube diz porquê, como no CM, no lugar do papel no plantel
+        let unhappy = mine && !self.unhappy_reasons(person)?.is_empty();
+        let listed = listing.is_some_and(|l| l.0 || l.1);
+        if future.len() == 1 && !unhappy && !listed && loan.is_none() && !ghost {
+            let content = self.content_lines(person, club, rank, f)?;
+            if !content.is_empty() {
+                future = content;
+            }
+        }
         Ok((availability, future))
+    }
+
+    /// As frases do Futuro de um jogador satisfeito (até três): o ambiente, o orgulho no clube,
+    /// a forma, o colega que admira, o contrato longo e a situação no clube.
+    fn content_lines(&self, person: i32, club: i32, rank: usize, f: &Facts) -> Result<Vec<String>> {
+        let today = date::parse(&self.date).unwrap_or(0);
+        let years_here = f.joined.as_deref().and_then(date::parse).map_or(0, |j| (today - j) / 365);
+        let years_left = f.expires.as_deref().and_then(date::parse).map_or(0, |e| (e - today) / 365);
+        let morale = self.squads.states.get(&person).map(|s| s.morale);
+        let form = self.form_of(person)?;
+        let form = (!form.is_empty()).then(|| form.iter().sum::<f64>() / form.len() as f64);
+        let mut out: Vec<String> = Vec::new();
+        if morale.is_none_or(|m| m >= 12) {
+            out.push("Entende que o clube tem um bom ambiente no vestiário".into());
+        }
+        if f.loyalty >= 14.0 || years_here >= 4 {
+            out.push(format!("Está orgulhoso por jogar {}", self.club(club).short_name));
+        }
+        if form.is_some_and(|v| v >= 7.0) {
+            out.push("Está a ter prazer em jogar no clube".into());
+        }
+        // O melhor do plantel, para quem não está entre os três primeiros
+        if rank >= 3 && f.age <= 25 {
+            let best: Option<i32> = self
+                .world
+                .conn
+                .query_row(
+                    "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id
+                     WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC, p.id LIMIT 1",
+                    [club],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(b) = best.filter(|b| *b != person) {
+                out.push(format!("Pensa que {} é um membro essencial ao elenco", self.person_name(b)?));
+            }
+        }
+        if years_left >= 3 {
+            out.push("Feliz pelo compromisso de futuro com o clube".into());
+        }
+        if rank < 16 || f.age <= 21 {
+            out.push("Contente com situação no clube".into());
+        }
+        out.truncate(3);
+        Ok(out)
     }
 
     /// Possíveis Despesas de um jogador do plantel do treinador: os prémios do contrato.
@@ -827,7 +881,7 @@ impl Game {
                 }
                 "agreed" => (
                     format!("{name} aceitou o contrato. Confirme até {until} para fechar o negócio."),
-                    vec![action("confirm", "Confirmar Contratação"), action("withdraw", "Desistir")],
+                    vec![action("confirm", "Confirmar"), action("withdraw", "Desistir")],
                 ),
                 "countered" => (
                     format!("{name} fez uma contraproposta. Responda até {until}."),
@@ -874,11 +928,11 @@ impl Game {
             ),
             (false, "agreed") if o.seller.is_none() => (
                 format!("{name} está livre: negoceie o contrato até {until}."),
-                vec![action("negotiate", "Negociar Contrato"), action("withdraw", "Desistir")],
+                vec![action("negotiate", "Propôr Contrato"), action("withdraw", "Desistir")],
             ),
             (false, "agreed") => (
                 format!("O {seller_name} aceitou {terms} por {name}. Falta o contrato com o jogador (até {until})."),
-                vec![action("negotiate", "Negociar Contrato"), action("withdraw", "Desistir")],
+                vec![action("negotiate", "Propôr Contrato"), action("withdraw", "Desistir")],
             ),
             (false, "bored") => (format!("O {seller_name} não quer voltar a negociar {name} até {until}."), Vec::new()),
             (true, "pending") if loan => (

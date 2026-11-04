@@ -150,10 +150,11 @@ pub struct ClubProfile {
 /// das reservas.
 const RESERVE_DIVISION: i32 = 87;
 
-/// Sufixos do nome curto dos clubes de reservas e juniores, e os do nome completo.
-const SHORT_SUFFIXES: [&str; 9] = [" (R)", " II", " B", " U21", " U23", " U19", " U20", " U18", " U17"];
-const NAME_SUFFIXES: [&str; 12] =
-    [" U19", " U21", " U23", " U20", " B", " II", " Amateure", " Reserves", " Primavera", " Juniors", " Olympic", " Reservas"];
+/// Sufixos do nome curto das equipas B, e os do nome completo. Como no CM, só a equipa B (ou
+/// II, "Amateure") fica ligada ao clube principal (o "Bayern Munich II" no menu do Bayern); os
+/// sub-19, sub-21 e "(R)" são outros clubes.
+const SHORT_SUFFIXES: [&str; 2] = [" II", " B"];
+const NAME_SUFFIXES: [&str; 3] = [" B", " II", " Amateure"];
 
 /// Espaços repetidos do banco ("Botafogo  U21") contam como um.
 fn squash(s: &str) -> String {
@@ -524,16 +525,16 @@ mod tests {
     fn reserve_clubs_link_to_the_main_club() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let w = World::open(&path).unwrap();
-        // Palmeiras U21 (7570) -> Palmeiras (7568); Alavés B (302) e Alavés (R) (301) -> Alavés
-        let u21 = w.get_club(7570).unwrap();
-        assert_eq!(u21.parent.as_ref().map(|c| c.id), Some(7568));
-        let palmeiras = w.get_club(7568).unwrap();
-        assert!(palmeiras.parent.is_none());
-        assert!(palmeiras.affiliates.iter().any(|c| c.id == 7570));
-        let alaves = w.get_club(302).unwrap().parent.unwrap();
-        assert_eq!(w.get_club(301).unwrap().parent.map(|c| c.id), Some(alaves.id));
-        // "Botafogo  U21", com o espaço duplo do banco
-        assert!(w.get_club(1674).unwrap().parent.is_some());
+        // Só as equipas B: Bayern Munich II (1353) -> Bayern (1350); o U19 (1351) e o U17 são outros
+        // clubes, como o Palmeiras U21 (7570) e o Alavés (R) (301); Alavés B (302) -> Alavés
+        assert_eq!(w.get_club(1353).unwrap().parent.map(|c| c.id), Some(1350));
+        let bayern = w.get_club(1350).unwrap();
+        assert_eq!(bayern.affiliates.iter().map(|c| c.id).collect::<Vec<_>>(), vec![1353]);
+        assert!(w.get_club(1351).unwrap().parent.is_none());
+        assert!(w.get_club(7570).unwrap().parent.is_none());
+        assert!(w.get_club(7568).unwrap().affiliates.iter().all(|c| c.id != 7570));
+        assert!(w.get_club(302).unwrap().parent.is_some());
+        assert!(w.get_club(301).unwrap().parent.is_none());
     }
 
     #[test]
