@@ -1,0 +1,52 @@
+{
+  "competition": 455,
+  "name": "Liga das Nações",
+  "order": 10,
+  "season": "international",
+  "cycle": {
+    "every": 2,
+    "from": 2026
+  },
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "Liga A",
+      "legs": 2,
+      "group_size": 4,
+      "draw": "pots",
+      "entrants": {
+        "nations": [
+          {
+            "continent": 2,
+            "count": 16
+          }
+        ]
+      },
+      "dates": "w36 m37 w41 m42 w46 m47"
+    },
+    {
+      "kind": "knockout",
+      "name": "Final a quatro",
+      "pairing": "bracket",
+      "entrants": {
+        "previous": {
+          "group_top": 1
+        }
+      },
+      "rounds": [
+        {
+          "name": "Meias-finais",
+          "legs": 1,
+          "dates": "w23",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "m24",
+          "neutral": true
+        }
+      ]
+    }
+  ]
+}

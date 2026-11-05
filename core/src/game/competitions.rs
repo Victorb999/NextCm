@@ -171,6 +171,10 @@ impl Game {
             if self.comp_mode(reg.competition) == super::leagues::LeagueMode::Off {
                 continue;
             }
+            // Selecções: só nas épocas do ciclo; as fases finais sorteiam-se mais tarde
+            if !reg.in_cycle(year) || reg.draw.is_some() {
+                continue;
+            }
             self.create_stage(reg, 0, year, fresh, next_id)?;
         }
         Ok(())
@@ -209,7 +213,24 @@ impl Game {
             add(&mut out, self.clubs_where("reserve_division_id = ? AND is_national_team = 0", reg.competition)?);
         }
         if let Some(p) = &e.previous {
-            add(&mut out, self.pick(reg, p, stage.saturating_sub(1), year)?);
+            add(&mut out, self.pick(reg.competition, p, stage.saturating_sub(1), year)?);
+        }
+        // Selecções: os anfitriões, os apurados de outras competições e as de mais reputação
+        for name in &e.teams {
+            add(&mut out, self.senior_team_of(name)?.into_iter().collect());
+        }
+        for q in &e.qualified {
+            add(&mut out, self.pick(q.competition, &q.pick, 0, year)?);
+        }
+        for n in &e.nations {
+            let ids: Vec<i32> = self
+                .senior_teams(n.continent)?
+                .into_iter()
+                .filter(|(id, nation)| !n.exclude.contains(nation) && !out.contains(id))
+                .take(n.count)
+                .map(|(id, _)| id)
+                .collect();
+            add(&mut out, ids);
         }
         let excluded: HashSet<i32> = e.exclude.iter().flat_map(|&c| self.clubs_in(c, year)).collect();
         if let Some(l) = &e.league {
@@ -389,8 +410,7 @@ impl Game {
     }
 
     /// Clubes escolhidos pelos resultados de uma fase (a de `p.stage` ou `default_stage`).
-    pub(super) fn pick(&self, reg: &Regulation, p: &Pick, default_stage: usize, year: i32) -> Result<Vec<i32>> {
-        let comp = reg.competition;
+    pub(super) fn pick(&self, comp: i32, p: &Pick, default_stage: usize, year: i32) -> Result<Vec<i32>> {
         let stage = p.stage.unwrap_or(default_stage);
         if let Some(n) = p.top {
             return Ok(self.stage_table(comp, year, stage, None).iter().take(n).map(|r| r.club.id).collect());
@@ -410,12 +430,34 @@ impl Game {
                     }
                 }
             }
+            if let Some(b) = &p.best_place {
+                out.extend(self.best_at_place(comp, year, stage, b.place, b.count));
+            }
             return Ok(out);
+        }
+        if let Some(b) = &p.best_place {
+            return Ok(self.best_at_place(comp, year, stage, b.place, b.count));
         }
         if let Some(r) = p.round_winners {
             return Ok(self.round_winners(comp, year, stage, r as i32 + 1).unwrap_or_default());
         }
         Err(Error::Invalid(format!("regulamento da competição {comp}: escolha de clubes vazia")))
+    }
+
+    /// Os `count` melhores no lugar `place` (a partir de 1) de todos os grupos de uma fase:
+    /// pontos, saldo, golos marcados (os melhores 3ºs do Mundial).
+    fn best_at_place(&self, comp: i32, year: i32, stage: usize, place: usize, count: usize) -> Vec<i32> {
+        let mut rows: Vec<StandingRow> = (0..self.group_count(comp, year, stage))
+            .filter_map(|g| self.stage_table(comp, year, stage, Some(g)).into_iter().nth(place.saturating_sub(1)))
+            .collect();
+        rows.sort_by(|a, b| {
+            b.points
+                .cmp(&a.points)
+                .then((b.goals_for - b.goals_against).cmp(&(a.goals_for - a.goals_against)))
+                .then(b.goals_for.cmp(&a.goals_for))
+                .then(a.club.id.cmp(&b.club.id))
+        });
+        rows.into_iter().take(count).map(|r| r.club.id).collect()
     }
 
     fn group_count(&self, comp: i32, year: i32, stage: usize) -> u8 {
@@ -436,10 +478,15 @@ impl Game {
         league::standings(&ms, &clubs)
     }
 
-    /// Reputação e nação dos clubes (para os potes e para evitar a mesma nação num grupo).
+    /// Reputação e nação dos clubes (para os potes e para evitar a mesma nação num grupo). Nas
+    /// selecções, o continente no lugar da nação (evita-se o mesmo continente num grupo).
     fn club_facts(&self, ids: &[i32]) -> Result<HashMap<i32, (i32, Option<i32>, Option<i32>)>> {
         let mut out = HashMap::new();
-        let mut stmt = self.world.conn.prepare_cached("SELECT COALESCE(reputation, 0), nation_id, division_id FROM clubs WHERE id = ?")?;
+        let mut stmt = self.world.conn.prepare_cached(
+            "SELECT COALESCE(c.reputation, 0),
+                    CASE WHEN c.is_national_team = 1 THEN 1000 + n.continent_id ELSE c.nation_id END, c.division_id
+             FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id WHERE c.id = ?",
+        )?;
         for &id in ids {
             out.insert(id, stmt.query_row([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?);
         }
@@ -535,6 +582,7 @@ impl Game {
                 let mut ms = league::round_robin(comp, &entrants, &dates, st.legs, self.next_match_id(), &mut rng)?;
                 for m in &mut ms {
                     m.stage = stage as u8;
+                    m.neutral = st.neutral;
                 }
                 self.matches.extend(ms);
             }
@@ -546,6 +594,7 @@ impl Game {
                     for m in &mut ms {
                         m.stage = stage as u8;
                         m.group = Some(g as u8);
+                        m.neutral = st.neutral;
                     }
                     self.matches.extend(ms);
                     if clubs.contains(&self.club_id) {

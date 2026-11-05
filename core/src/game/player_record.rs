@@ -356,8 +356,8 @@ impl Game {
         let year: i32 = self.date[0..4].parse().unwrap_or(0);
         Ok(match kind {
             SeasonKind::Calendar => format!("{year}-01-01"),
-            SeasonKind::European if &self.date[5..] >= "07-01" => format!("{year}-07-01"),
-            SeasonKind::European => format!("{}-07-01", year - 1),
+            SeasonKind::European | SeasonKind::International if &self.date[5..] >= "07-01" => format!("{year}-07-01"),
+            SeasonKind::European | SeasonKind::International => format!("{}-07-01", year - 1),
         })
     }
 

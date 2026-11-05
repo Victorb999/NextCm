@@ -1,0 +1,27 @@
+{
+  "competition": 441,
+  "name": "Eliminatórias do Mundial (CONMEBOL)",
+  "order": 10,
+  "season": "international",
+  "cycle": {
+    "every": 4,
+    "from": 2025
+  },
+  "stages": [
+    {
+      "kind": "league",
+      "name": "",
+      "legs": 1,
+      "entrants": {
+        "nations": [
+          {
+            "continent": 5,
+            "count": 10
+          }
+        ]
+      },
+      "dates": "w36 m37 w41 m42 w46 m47 w12 m13 w23"
+    }
+  ],
+  "qualifying": true
+}

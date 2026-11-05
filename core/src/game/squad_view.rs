@@ -78,6 +78,7 @@ impl Game {
             c.players.extend(out);
         }
         let conn = &self.world.conn;
+        let away: std::collections::HashSet<i32> = self.away_internationals().into_iter().collect();
         for p in &mut c.players {
             p.ghost = self.is_ghost(p.id);
             if let Some(st) = self.player_status(p.id) {
@@ -106,6 +107,9 @@ impl Game {
                 Some("Les")
             } else if p.suspended {
                 Some("Sus")
+            } else if away.contains(&p.id) {
+                // Fora na selecção
+                Some("Int")
             } else if absence.as_deref() == Some("awol") {
                 // Ausente sem permissão (faltou com saudades de casa), como o "Fit" do CM
                 Some("Fit")
@@ -133,7 +137,6 @@ impl Game {
             } else if unhappy {
                 Some("Ins")
             } else {
-                // "Int" (fora na selecção) fica para quando houver convocatórias
                 None
             }
             .map(Into::into);

@@ -1,0 +1,52 @@
+{
+  "competition": 456,
+  "name": "Liga das Nações da CONCACAF",
+  "order": 10,
+  "season": "international",
+  "cycle": {
+    "every": 2,
+    "from": 2026
+  },
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "Liga A",
+      "legs": 2,
+      "group_size": 4,
+      "draw": "pots",
+      "entrants": {
+        "nations": [
+          {
+            "continent": 3,
+            "count": 8
+          }
+        ]
+      },
+      "dates": "w36 m37 w41 m42 w46 m47"
+    },
+    {
+      "kind": "knockout",
+      "name": "Final a quatro",
+      "pairing": "cross",
+      "entrants": {
+        "previous": {
+          "group_top": 2
+        }
+      },
+      "rounds": [
+        {
+          "name": "Meias-finais",
+          "legs": 1,
+          "dates": "w12",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "m13",
+          "neutral": true
+        }
+      ]
+    }
+  ]
+}

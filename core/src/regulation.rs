@@ -21,6 +21,9 @@ pub enum SeasonKind {
     Calendar,
     /// Agosto a maio (Europa, Arábia Saudita): a época é o ano em que começa ("2025/26" = 2025).
     European,
+    /// Selecções (marco 3.18): de agosto a julho, sorteada a 1/8; nas datas, as semanas abaixo
+    /// da 32 são do ano seguinte (o Mundial de junho de 2026 é da época 2025/26).
+    International,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -99,6 +102,40 @@ pub struct Pick {
     /// Os vencedores da eliminatória com este índice.
     #[serde(default)]
     pub round_winners: Option<usize>,
+    /// Os N melhores num lugar de todos os grupos (os melhores 3ºs); junta-se a `group_top`.
+    #[serde(default)]
+    pub best_place: Option<BestPlace>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BestPlace {
+    pub place: usize,
+    pub count: usize,
+}
+
+/// As selecções de mais reputação de um continente (marco 3.18).
+#[derive(Debug, Clone, Deserialize)]
+pub struct NationsPick {
+    pub continent: i32,
+    pub count: usize,
+    /// Sem estas nações (os anfitriões, que entram direto).
+    #[serde(default)]
+    pub exclude: Vec<String>,
+}
+
+/// Os apurados de outra competição na mesma época.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Qualified {
+    pub competition: i32,
+    #[serde(flatten)]
+    pub pick: Pick,
+}
+
+/// Uma competição que só se sorteia de `every` em `every` épocas, a partir de `from`.
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct Cycle {
+    pub every: i32,
+    pub from: i32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -164,6 +201,15 @@ pub struct Entrants {
     /// Sem os clubes que já estão nestas competições nesta época.
     #[serde(default)]
     pub exclude: Vec<i32>,
+    /// Selecções: as de mais reputação de cada continente.
+    #[serde(default)]
+    pub nations: Vec<NationsPick>,
+    /// Selecções pelo nome da nação.
+    #[serde(default)]
+    pub teams: Vec<String>,
+    /// Os apurados de outras competições na mesma época.
+    #[serde(default)]
+    pub qualified: Vec<Qualified>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -195,6 +241,9 @@ pub struct Stage {
     /// Fase de liga: quantas jornadas.
     #[serde(default)]
     pub matchdays: usize,
+    /// Pontos corridos e grupos em campo neutro (as fases finais de selecções).
+    #[serde(default)]
+    pub neutral: bool,
 }
 
 fn two() -> u8 {
@@ -243,9 +292,30 @@ pub struct Regulation {
     pub relegation: Option<Movement>,
     #[serde(default)]
     pub draw_up: Option<DrawUp>,
+    /// Só nas épocas do ciclo (selecções).
+    #[serde(default)]
+    pub cycle: Option<Cycle>,
+    /// A 1ª fase sorteia-se nesta data (uma fase final, depois das eliminatórias), não no início da época.
+    #[serde(default)]
+    pub draw: Option<String>,
+    /// Eliminatórias: sem campeão (nem notícia, historial ou títulos).
+    #[serde(default)]
+    pub qualifying: bool,
 }
 
-const FILES: [&str; 39] = [
+impl Regulation {
+    /// A competição joga-se na época `year` (o ciclo das selecções).
+    pub fn in_cycle(&self, year: i32) -> bool {
+        self.cycle.is_none_or(|c| (year - c.from).rem_euclid(c.every) == 0)
+    }
+
+    /// Uma competição de selecções.
+    pub fn is_national(&self) -> bool {
+        self.season == SeasonKind::International
+    }
+}
+
+const FILES: [&str; 57] = [
     include_str!("../regulations/serie_a.json"),
     include_str!("../regulations/serie_b.json"),
     include_str!("../regulations/serie_c.json"),
@@ -285,6 +355,24 @@ const FILES: [&str; 39] = [
     include_str!("../regulations/saudi_first_division.json"),
     include_str!("../regulations/champions_league.json"),
     include_str!("../regulations/europa_league.json"),
+    include_str!("../regulations/wcq_europe.json"),
+    include_str!("../regulations/wcq_africa.json"),
+    include_str!("../regulations/wcq_asia.json"),
+    include_str!("../regulations/wcq_south_america.json"),
+    include_str!("../regulations/wcq_concacaf.json"),
+    include_str!("../regulations/wcq_oceania.json"),
+    include_str!("../regulations/world_cup.json"),
+    include_str!("../regulations/nations_league.json"),
+    include_str!("../regulations/concacaf_nations_league.json"),
+    include_str!("../regulations/euro_qualifying.json"),
+    include_str!("../regulations/euro.json"),
+    include_str!("../regulations/copa_america.json"),
+    include_str!("../regulations/afcon_qualifying.json"),
+    include_str!("../regulations/afcon.json"),
+    include_str!("../regulations/asian_cup_qualifying.json"),
+    include_str!("../regulations/asian_cup.json"),
+    include_str!("../regulations/gold_cup.json"),
+    include_str!("../regulations/oceania_cup.json"),
 ];
 
 /// Uma faixa da classificação, como as linhas do CM: as vagas noutra competição (pela
@@ -365,14 +453,22 @@ pub fn season_of(competition: i32, day: &str) -> i32 {
                 year - 1
             }
         }
+        SeasonKind::International => {
+            if day.get(5..7).unwrap_or("08") >= "08" {
+                year
+            } else {
+                year - 1
+            }
+        }
     }
 }
 
-/// "2026" ou "2025/26".
+/// "2026" ou "2025/26". Uma fase final de selecções leva o ano em que se joga ("Mundial 2026").
 pub fn season_label(competition: i32, season: i32) -> String {
     match season_kind(competition) {
         SeasonKind::Calendar => season.to_string(),
-        SeasonKind::European => format!("{season}/{:02}", (season + 1) % 100),
+        SeasonKind::International if get(competition).is_some_and(|r| r.draw.is_some()) => (season + 1).to_string(),
+        SeasonKind::European | SeasonKind::International => format!("{season}/{:02}", (season + 1) % 100),
     }
 }
 
@@ -408,7 +504,11 @@ pub fn dates_in(year: i32, spec: &str, kind: SeasonKind) -> Vec<String> {
         };
         assert_eq!(weekend, weekend2, "intervalo misturado no regulamento: {part}");
         for week in from..=to {
-            let y = if kind == SeasonKind::European && week < 27 { year + 1 } else { year };
+            let y = match kind {
+                SeasonKind::European if week < 27 => year + 1,
+                SeasonKind::International if week < 32 => year + 1,
+                _ => year,
+            };
             days.push(iso_week_one(y) + 7 * (week - 1) + if weekend { 5 } else { 2 });
         }
     }

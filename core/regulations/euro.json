@@ -1,0 +1,70 @@
+{
+  "competition": 450,
+  "name": "Euro",
+  "order": 20,
+  "season": "international",
+  "cycle": {
+    "every": 4,
+    "from": 2027
+  },
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "Fase de grupos",
+      "legs": 1,
+      "group_size": 4,
+      "draw": "pots",
+      "entrants": {
+        "qualified": [
+          {
+            "competition": 444,
+            "group_top": 2
+          }
+        ]
+      },
+      "dates": "w24 m25 w25",
+      "neutral": true
+    },
+    {
+      "kind": "knockout",
+      "name": "Fase final",
+      "pairing": "bracket",
+      "entrants": {
+        "previous": {
+          "group_top": 2,
+          "best_place": {
+            "place": 3,
+            "count": 4
+          }
+        }
+      },
+      "rounds": [
+        {
+          "name": "Oitavos de final",
+          "legs": 1,
+          "dates": "w26",
+          "neutral": true
+        },
+        {
+          "name": "Quartos de final",
+          "legs": 1,
+          "dates": "m27",
+          "neutral": true
+        },
+        {
+          "name": "Meias-finais",
+          "legs": 1,
+          "dates": "w27",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w28",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "draw": "m15"
+}

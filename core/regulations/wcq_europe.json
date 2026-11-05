@@ -1,0 +1,29 @@
+{
+  "competition": 443,
+  "name": "Eliminatórias do Mundial (UEFA)",
+  "order": 10,
+  "season": "international",
+  "cycle": {
+    "every": 4,
+    "from": 2025
+  },
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "Fase de grupos",
+      "legs": 2,
+      "group_size": 4,
+      "draw": "pots",
+      "entrants": {
+        "nations": [
+          {
+            "continent": 2,
+            "count": 48
+          }
+        ]
+      },
+      "dates": "w36 m37 w41 m42 w46 m47"
+    }
+  ],
+  "qualifying": true
+}

@@ -92,6 +92,7 @@ impl Game {
             }
             "06-10" => self.season_end_with_clauses(SeasonKind::European, fresh, next_id)?,
             "07-01" => self.new_season(SeasonKind::European, fresh, next_id)?,
+            "08-01" => self.new_international_season(fresh, next_id)?,
             "12-20" => self.season_end_with_clauses(SeasonKind::Calendar, fresh, next_id)?,
             "01-01" => self.new_season(SeasonKind::Calendar, fresh, next_id)?,
             _ => {}
@@ -291,14 +292,14 @@ impl Game {
             let played = self.year_matches(div, year).next().is_some();
             // Quem sobe não desce por dívidas (um clube não pode ir para dois lados)
             let promoted = match &reg.promotion {
-                Some(mv) if played => self.pick(reg, &mv.pick, 0, year)?,
+                Some(mv) if played => self.pick(reg.competition, &mv.pick, 0, year)?,
                 _ => Vec::new(),
             };
             for (mv, up) in [(&reg.relegation, false), (&reg.promotion, true)] {
                 let Some(mv) = mv else { continue };
                 let count = mv.count.unwrap_or(SWAP);
                 let clubs = if played {
-                    self.pick(reg, &mv.pick, 0, year)?
+                    self.pick(reg.competition, &mv.pick, 0, year)?
                 } else if let Some(c) = c_virtual.as_ref().filter(|_| div == SERIE_C) {
                     let ids = c.iter().map(|r| r.club.id);
                     if up { ids.take(count).collect() } else { ids.rev().take(count).collect() }
@@ -990,14 +991,16 @@ mod tests {
         }
         // Todas as competições acabaram, com campeão no historial: as do ano civil em 2026 e as
         // europeias na época de 2025/26 (o historial guarda o ano em que acaba, 2026)
-        for r in regulation::all() {
+        // (sem as de selecções, que seguem o ciclo de 4 anos)
+        let clubs: Vec<&Regulation> = regulation::all().iter().filter(|r| !r.is_national()).collect();
+        for r in &clubs {
             let season = if r.season == SeasonKind::European { 2025 } else { 2026 };
             assert!(g.podium(r.competition, season).is_some(), "competição {} sem campeão", r.competition);
         }
-        let ids: Vec<String> = regulation::all().iter().map(|r| r.competition.to_string()).collect();
+        let ids: Vec<String> = clubs.iter().map(|r| r.competition.to_string()).collect();
         let sql = format!("SELECT COUNT(*) FROM competition_history WHERE year = 2026 AND competition_id IN ({})", ids.join(","));
         let history: i64 = g.world.conn.query_row(&sql, [], |r| r.get(0)).unwrap();
-        assert_eq!(history as usize, regulation::all().len());
+        assert_eq!(history as usize, clubs.len());
         // Liga dos Campeões: 36 clubes na fase de liga, 8 jogos cada, 4 em casa e 4 fora
         let phase = g.stage_table(crate::CHAMPIONS_LEAGUE, 2025, 0, None);
         assert_eq!(phase.len(), 36);

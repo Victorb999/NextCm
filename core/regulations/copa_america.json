@@ -1,0 +1,64 @@
+{
+  "competition": 451,
+  "name": "Copa América",
+  "order": 20,
+  "season": "international",
+  "cycle": {
+    "every": 4,
+    "from": 2027
+  },
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "Fase de grupos",
+      "legs": 1,
+      "group_size": 4,
+      "draw": "pots",
+      "entrants": {
+        "nations": [
+          {
+            "continent": 5,
+            "count": 10
+          },
+          {
+            "continent": 3,
+            "count": 6
+          }
+        ]
+      },
+      "dates": "w24 m25 w25",
+      "neutral": true
+    },
+    {
+      "kind": "knockout",
+      "name": "Fase final",
+      "pairing": "cross",
+      "entrants": {
+        "previous": {
+          "group_top": 2
+        }
+      },
+      "rounds": [
+        {
+          "name": "Quartos de final",
+          "legs": 1,
+          "dates": "w26",
+          "neutral": true
+        },
+        {
+          "name": "Meias-finais",
+          "legs": 1,
+          "dates": "m27",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w27",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "draw": "m15"
+}

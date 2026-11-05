@@ -169,6 +169,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **3.17** Treino | A tela "<Clube> - Treinos": programas por grupo de jogadores (intensidade de Prep. Física, Táctica, Remate, Técnica e G-Redes, nova posição e novo lado), os treinadores, e o efeito no core (condição, evolução dos atributos, aprender uma posição) | Mudar o programa de um grupo muda a evolução numa época na CLI, e um jogador aprende uma posição nova |
 | **3.18** Selecções | Datas FIFA com os jogos das selecções (Eliminatórias, Nations League, amigáveis e as fases finais), convocatórias pelos seleccionadores, os convocados fora do clube com "Int" e de volta com lesões e cansaço, internacionalizações no perfil, classificações das competições de selecções; treinar uma selecção | Numa época com as janelas FIFA, os internacionais do treinador saem com "Int", jogam pela selecção e voltam, e as médias dos clubes continuam na CLI |
 | **3.19** Testes de 1 a 3/11 | Os pontos anotados a jogar: reservas (clubes ligados, jogos das reservas, jovens que aceitam as reservas até aos 24 e o "Fut", saudades de casa), treino, plantel (ordenar, lista do CM), perfil (Futuro, Vêr do Historial), notícias com links, menu Procurar, os bugs das Tácticas e do Gravar, prémios, sons e a arrumação do front | Os bugs corrigidos e testados, e as reservas a jogar e a pesar na moral dos jovens como no CM |
+| **3.19.1** Pendências | O que ficou por fazer no 3.15, no 3.15c e no 3.19, num sítio só, com dificuldade e prioridade | Os itens de prioridade alta feitos |
 | **3.20** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
 
 #### Detalhe de cada marco
@@ -202,8 +203,9 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Passo 3.15c — Pendências por complexidade (compilado de 31/10)](docs/roadmap/3.15c-pendencias.md)
 - [Marco 3.16 — Plantel completo (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.16-plantel-completo.md)
 - [Marco 3.17 — Treino (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.17-treino.md)
-- [Marco 3.18 — Selecções (por detalhar)](docs/roadmap/3.18-seleccoes.md)
+- [Marco 3.18 — Selecções (passo 1 feito: calendário, convocatórias e jogos)](docs/roadmap/3.18-seleccoes.md)
 - [Marco 3.19 — Testes de 1 a 3/11 (por fazer)](docs/roadmap/3.19-teste-01-03-11.md)
+- [Passo 3.19.1 — Pendências do 3.15 e do 3.19, com dificuldade e prioridade](docs/roadmap/3.19.1-pendencias.md)
 - [Marco 3.20 — Editor de jogos salvos (por detalhar)](docs/roadmap/3.20-editor-de-saves.md)
 
 ---

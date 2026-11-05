@@ -219,7 +219,7 @@ pub(super) fn role_of(gk: i32, def: i32, mid: i32, att: i32) -> usize {
 /// Janela de transferências de um tipo de época num dia ("MM-DD").
 pub(super) fn window_open(kind: SeasonKind, md: &str) -> bool {
     match kind {
-        SeasonKind::European => ("07-01"..="08-31").contains(&md) || ("01-01"..="01-31").contains(&md),
+        SeasonKind::European | SeasonKind::International => ("07-01"..="08-31").contains(&md) || ("01-01"..="01-31").contains(&md),
         SeasonKind::Calendar => ("01-01"..="03-15").contains(&md) || ("07-01"..="08-15").contains(&md),
     }
 }
@@ -227,7 +227,7 @@ pub(super) fn window_open(kind: SeasonKind, md: &str) -> bool {
 /// O último dia de uma janela (dispensas).
 fn window_closing(kind: SeasonKind, md: &str) -> bool {
     match kind {
-        SeasonKind::European => md == "08-31" || md == "01-31",
+        SeasonKind::European | SeasonKind::International => md == "08-31" || md == "01-31",
         SeasonKind::Calendar => md == "03-15" || md == "08-15",
     }
 }
@@ -242,7 +242,7 @@ pub(super) fn loan_until(kind: SeasonKind, today: &str) -> String {
     let year: i32 = today[0..4].parse().unwrap_or(0);
     match kind {
         SeasonKind::Calendar => format!("{year}-12-31"),
-        SeasonKind::European => {
+        SeasonKind::European | SeasonKind::International => {
             if &today[5..] >= "07-01" {
                 format!("{}-06-30", year + 1)
             } else {
@@ -257,7 +257,7 @@ pub(super) fn contract_until(kind: SeasonKind, today: &str, years: i32) -> Strin
     let year: i32 = today[0..4].parse().unwrap_or(0);
     match kind {
         SeasonKind::Calendar => format!("{}-12-31", year + years - 1),
-        SeasonKind::European => format!("{}-06-30", year + years - if &today[5..] >= "07-01" { 0 } else { 1 }),
+        SeasonKind::European | SeasonKind::International => format!("{}-06-30", year + years - if &today[5..] >= "07-01" { 0 } else { 1 }),
     }
 }
 

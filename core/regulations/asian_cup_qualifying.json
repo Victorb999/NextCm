@@ -1,0 +1,29 @@
+{
+  "competition": 445,
+  "name": "Qualificação da Taça da Ásia",
+  "order": 10,
+  "season": "international",
+  "cycle": {
+    "every": 4,
+    "from": 2027
+  },
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "Fase de grupos",
+      "legs": 2,
+      "group_size": 4,
+      "draw": "pots",
+      "entrants": {
+        "nations": [
+          {
+            "continent": 1,
+            "count": 36
+          }
+        ]
+      },
+      "dates": "w36 m37 w41 m42 w46 m47"
+    }
+  ],
+  "qualifying": true
+}
