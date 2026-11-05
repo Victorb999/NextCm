@@ -7,7 +7,7 @@ use ts_rs::TS;
 
 use super::Game;
 use crate::Result;
-use crate::date;
+
 use crate::tactics::BENCH;
 
 /// O que o Continuar Jogo tem de mostrar antes de entrar no dia de jogo.
@@ -39,8 +39,7 @@ fn names(list: &[String]) -> String {
 impl Game {
     /// O treinador joga amanhã com a equipa escolhida por ele: o que falta ou o que confirmar.
     pub fn lineup_check(&self) -> Result<LineupCheck> {
-        let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
-        let plays = self.matches.iter().any(|m| m.date == tomorrow && (m.home_id == self.club_id || m.away_id == self.club_id));
+        let plays = self.own_match_soon().is_some();
         let Some(sel) = self.selection.as_ref().filter(|s| !s.auto) else { return Ok(LineupCheck::default()) };
         if !plays || self.sacked() || self.live.is_some() {
             return Ok(LineupCheck::default());
@@ -84,6 +83,7 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::date;
 
     #[test]
     fn empty_team_is_refused_and_short_bench_asks() {

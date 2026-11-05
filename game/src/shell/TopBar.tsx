@@ -1,4 +1,5 @@
 import { Play } from 'lucide-react'
+import { partLabel } from '../format'
 import { useGame } from '../game'
 import { START_DATE, WEEKDAYS } from './types'
 
@@ -24,7 +25,9 @@ export default function TopBar({ onContinue, busy }: { onContinue: () => void; b
           Next<span className="text-[#4edea3]">CM</span>
         </span>
       </div>
-      <span className="font-bold text-cm-yellow">{barDate(info?.date ?? START_DATE)}</span>
+      <span className="font-bold text-cm-yellow">
+        {barDate(info?.date ?? START_DATE)} {partLabel(info?.part ?? 0)}
+      </span>
       {info && (
         <>
           <span className="text-cm-tabline">|</span>

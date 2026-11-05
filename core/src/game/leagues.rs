@@ -201,6 +201,12 @@ mod tests {
         assert!(g.matches.iter().any(|m| m.competition_id == PREMIER && m.result.is_some()));
         assert_eq!(rows(PREMIER), 0);
         assert!(rows(crate::league::SERIE_A) > 0);
+        // Pelo motor rápido: sem registo do jogo, golos plausíveis
+        let premier: Vec<_> = g.matches.iter().filter(|m| m.competition_id == PREMIER && m.result.is_some()).collect();
+        assert!(premier.iter().all(|m| g.records.iter().all(|r| r.fixture_id != m.id)));
+        let goals = premier.iter().map(|m| m.result.map_or(0, |(h, a)| h as i32 + a as i32)).sum::<i32>() as f64 / premier.len() as f64;
+        eprintln!("Premier de fundo: {} jogos, {goals:.2} golos por jogo", premier.len());
+        assert!((1.5..4.0).contains(&goals), "{goals}");
         // Ao carregar, a escolha continua
         g.save().unwrap();
         let file = g.path().to_path_buf();

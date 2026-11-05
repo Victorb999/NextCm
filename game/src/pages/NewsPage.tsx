@@ -7,6 +7,7 @@ import type { NewsItem } from '../bindings/NewsItem'
 import type { OfferView } from '../bindings/OfferView'
 import { BottomBar, Empty, Panel, ScreenHeader, Tabs } from '../components/Screen'
 import { OfferButtons } from '../components/TransferTab'
+import { partLabel } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -48,10 +49,10 @@ const KIND_LABEL: Record<string, [string, string]> = {
 }
 
 /** "2025-07-01" -> "Ter 1 Jul", como na lista de notícias do CM. */
-function newsDate(iso: string) {
+function newsDate(iso: string, part: number) {
   const [y, m, d] = iso.split('-').map(Number)
   const wd = new Date(y, m - 1, d).getDay()
-  return `${WEEKDAYS[wd]} ${d} ${MONTHS[m - 1]}`
+  return `${WEEKDAYS[wd]} ${d} ${MONTHS[m - 1]} ${partLabel(part)}`
 }
 
 /** As notícias de uma aba, da mais recente (em cima) para a mais antiga, como o core as guarda. */
@@ -164,7 +165,7 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
                   data-current={n.id === current?.id || undefined}
                   className={`flex h-6 cursor-pointer items-center gap-3 px-3 text-[14px] ${n.id === current?.id ? '!bg-cm-sel' : ''}`}
                 >
-                  <span className="cm-cell w-24 shrink-0 text-center font-mono text-[12px] text-white">{newsDate(n.date)}</span>
+                  <span className="cm-cell w-28 shrink-0 text-center font-mono text-[12px] text-white">{newsDate(n.date, n.part)}</span>
                   <span className={`min-w-0 flex-1 truncate ${n.read ? 'text-white' : 'font-bold text-cm-yellow'}`}>{n.title}</span>
                   {n.awaiting && <span className="shrink-0 text-[13px] font-bold text-cm-magenta">Responder</span>}
                   <span className={`w-28 shrink-0 rounded px-1.5 text-center font-mono text-[10.5px] font-bold uppercase tracking-wider ${colour}`}>{label}</span>
@@ -173,7 +174,7 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
             })}
           </div>
         </Panel>
-        <Panel title={current ? newsDate(current.date) : 'Mensagem'} className="min-h-0 flex-1">
+        <Panel title={current ? newsDate(current.date, current.part) : 'Mensagem'} className="min-h-0 flex-1">
           <div className="min-h-0 flex-1 overflow-auto px-5 py-3">
             {current && (
               <>

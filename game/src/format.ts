@@ -78,6 +78,11 @@ export function longDate(iso: string, today?: string): string {
   return days === 0 ? `${long} (hoje)` : days === 1 ? `${long} (amanhã)` : days > 1 ? `${long} (${days} dias)` : long
 }
 
+/** A parte do dia, como na data do CM: manhã, tarde e noite. */
+export function partLabel(part: number): string {
+  return ['MNH', 'TAR', 'NTE'][part] ?? ''
+}
+
 /** Penáltis de uma eliminatória empatada: " (4-3 g.p.)". */
 export function pensText(f: { homePens: number | null; awayPens: number | null }): string {
   return f.homePens !== null && f.awayPens !== null ? ` (${f.homePens}-${f.awayPens} g.p.)` : ''

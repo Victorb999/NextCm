@@ -4,7 +4,11 @@ import type { ClubRef } from "./ClubRef";
 /**
  * O que a coluna esquerda e o menu do treinador precisam.
  */
-export type GameInfo = { name: string, date: string, managerId: number, managerName: string, club: ClubRef, unreadNews: number, 
+export type GameInfo = { name: string, date: string, 
+/**
+ * A parte do dia: 0 manhã, 1 tarde, 2 noite (MNH, TAR, NTE na coluna).
+ */
+part: number, managerId: number, managerName: string, club: ClubRef, unreadNews: number, 
 /**
  * Há mudanças desde a última gravação.
  */

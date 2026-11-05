@@ -12,12 +12,62 @@
 //! Passo 3.15c: `sim -- <clube> economia <seed> [meses]` joga desde 1/7/2025 e mostra, no fim
 //! de cada mês, as finanças do Bayern, do Hoffenheim, do 1860 e do Viktoria Köln (os prints do
 //! CM) e do clube escolhido; no fim, as rubricas da época de cada um.
+//! Passo 3.15c (13): `sim -- <clube> fundo <seed>` joga a Premier League 2025/26 a jogar e de
+//! fundo (motor rápido) com a mesma seed e compara os golos, as vitórias em casa, o tempo e a
+//! classificação.
 
 use std::collections::HashMap;
 use std::path::Path;
 use std::time::Instant;
 
-use nextcm_core::{Game, NewGame, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, StandingRow, TrainingPlan, World, regulation};
+use nextcm_core::{
+    Game, LeagueChoice, LeagueMode, NewGame, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, StandingRow, TrainingPlan, World, regulation,
+};
+
+/// `sim -- <clube> fundo <seed>`: a Premier League a jogar e de fundo, lado a lado.
+fn background(world: &Path, club_id: i32, seed: i64) {
+    for mode in [LeagueMode::Play, LeagueMode::Background] {
+        let dir = std::env::temp_dir().join(format!("nextcm-fundo-{}-{mode:?}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = NewGame {
+            save_name: "fundo".into(),
+            first_name: "Treinador".into(),
+            last_name: "Sim".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id,
+            // Brasil a jogar (o clube do treinador), Inglaterra como pedido
+            leagues: vec![LeagueChoice { nation_id: 27, mode: LeagueMode::Play }, LeagueChoice { nation_id: 61, mode }],
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+        };
+        let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
+        let t = Instant::now();
+        while game.date() < "2026-06-01" && !game.sacked() {
+            game.advance_day().expect("falhou ao avançar o dia");
+        }
+        let fx: Vec<_> = game.fixtures(PREMIER_LEAGUE).into_iter().filter(|f| f.home_goals.is_some()).collect();
+        let n = fx.len().max(1) as f64;
+        let goals: i32 = fx.iter().map(|f| f.home_goals.unwrap_or(0) + f.away_goals.unwrap_or(0)).sum();
+        let home = fx.iter().filter(|f| f.home_goals > f.away_goals).count() as f64;
+        let draws = fx.iter().filter(|f| f.home_goals == f.away_goals).count() as f64;
+        println!(
+            "{mode:?}: {} jogos, {:.2} golos por jogo, {:.0}% vitórias em casa, {:.0}% empates, {:.1}s até 31/5/2026",
+            fx.len(),
+            goals as f64 / n,
+            100.0 * home / n,
+            100.0 * draws / n,
+            t.elapsed().as_secs_f64()
+        );
+        for r in game.table(PREMIER_LEAGUE) {
+            println!("  {:>2}. {:<24} {:>3} pts  {:>3}-{:<3}", r.position, r.club.short_name, r.points, r.goals_for, r.goals_against);
+        }
+        drop(game);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
 
 /// `sim -- <clube> carreira <seed> <épocas>`: um só jogo por várias épocas seguidas (marco 3.5).
 fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
@@ -293,6 +343,14 @@ fn main() {
         let seed = args.get(3).and_then(|a| a.parse().ok()).unwrap_or(1);
         let months = args.get(4).and_then(|a| a.parse().ok()).unwrap_or(12);
         return economy(&world, club_id, seed, months);
+    }
+    if args.get(2).map(String::as_str) == Some("fundo") {
+        let world = World::locate(&std::env::current_dir().unwrap())
+            .or_else(|| World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))))
+            .expect("data/world.sqlite não encontrado");
+        let club_id = args.get(1).and_then(|a| a.parse().ok()).unwrap_or(7568);
+        let seed = args.get(3).and_then(|a| a.parse().ok()).unwrap_or(1);
+        return background(&world, club_id, seed);
     }
     if args.get(2).map(String::as_str) == Some("treino") {
         let world = World::locate(&std::env::current_dir().unwrap())

@@ -18,4 +18,8 @@ link: string | null,
 /**
  * A proposta ligada espera uma resposta do treinador (calculado ao listar).
  */
-awaiting: boolean, };
+awaiting: boolean, 
+/**
+ * A parte do dia em que chegou ([`MORNING`], [`AFTERNOON`], [`NIGHT`]).
+ */
+part: number, };

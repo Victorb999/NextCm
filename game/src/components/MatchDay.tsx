@@ -1373,7 +1373,13 @@ export default function MatchDay({
   useEffect(() => {
     activeRef.current = active
   })
-  const [phase, setPhase] = useState<"list" | "play" | "results">("list")
+  // Os jogos da tarde já acabados (o jogo do treinador é à noite): primeiro os resultados deles
+  const earlier = dayGames.filter((f) => f.homeGoals !== null)
+  const pending = dayGames.filter((f) => f.homeGoals === null)
+  const night = game.mode === "game" && game.info?.part === 2
+  const [phase, setPhase] = useState<"earlier" | "list" | "play" | "results">(
+    earlier.length > 0 ? "earlier" : "list",
+  )
   const [results, setResults] = useState<{
     games: Fixture[]
     table: StandingRow[]
@@ -1424,7 +1430,8 @@ export default function MatchDay({
   }
 
   const next = () => {
-    if (phase === "list") setPhase("play")
+    if (phase === "earlier") setPhase("list")
+    else if (phase === "list") setPhase("play")
     else if (phase === "play") live.current?.main()
     else if (others.length > 0) void nextCompetition()
     else onDone()
@@ -1452,12 +1459,25 @@ export default function MatchDay({
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
+  if (phase === "earlier") {
+    return (
+      <DayList
+        title="Resultados da Tarde"
+        fixture={fixture}
+        games={earlier}
+        table={table}
+        own={own}
+        scores
+        onNext={next}
+      />
+    )
+  }
   if (phase === "list") {
     return (
       <DayList
-        title="Jogos de Hoje"
+        title={night ? "Jogos da Noite" : "Jogos da Tarde"}
         fixture={fixture}
-        games={dayGames}
+        games={pending}
         table={table}
         own={own}
         scores={false}
@@ -1468,7 +1488,7 @@ export default function MatchDay({
   if (phase === "results" && results) {
     return (
       <DayList
-        title="Resultados de Hoje"
+        title={night ? "Resultados da Noite" : "Resultados da Tarde"}
         fixture={results.games[0] ?? fixture}
         games={results.games}
         table={results.table}

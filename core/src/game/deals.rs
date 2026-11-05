@@ -1322,6 +1322,7 @@ impl Game {
             offer_id: None,
             link: None,
             awaiting: false,
+            part: self.part,
         });
         *next_id += 1;
     }

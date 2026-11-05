@@ -123,7 +123,16 @@ pub use training::{TrainingPlan, TrainingView};
 /// 33: o treino (`training_programs`, `training_players`), marco 3.17.
 /// 34: os prémios e cláusulas dos contratos (`contract_talks.extras`, `contract_extras`) e os
 /// minutos e cartões de cada jogo (`player_matches`), para a ficha da partida.
-pub const SAVE_VERSION: i32 = 43;
+pub const SAVE_VERSION: i32 = 44;
+
+/// As três partes do dia, como no CM (MNH, TAR, NTE): de manhã o mercado e o calendário, à
+/// tarde os jogos do fim de semana, à noite os jogos da semana, as respostas e o treino.
+pub const MORNING: i32 = 0;
+pub const AFTERNOON: i32 = 1;
+pub const NIGHT: i32 = 2;
+/// A parte do dia do jogo e a de cada notícia (save 44; os saves antigos ficam à noite).
+const DAY_PARTS_SCHEMA: &str = "ALTER TABLE game ADD COLUMN part INTEGER NOT NULL DEFAULT 2;
+ALTER TABLE news ADD COLUMN part INTEGER NOT NULL DEFAULT 0;";
 
 /// Os jogadores de enchimento (save 32): criados para completar os plantéis dos clubes
 /// pequenos, só jogam pelo clube deles (sem mercado, contratos nem olheiros), como os do CM.
@@ -531,6 +540,8 @@ pub struct NewsItem {
     pub link: Option<String>,
     /// A proposta ligada espera uma resposta do treinador (calculado ao listar).
     pub awaiting: bool,
+    /// A parte do dia em que chegou ([`MORNING`], [`AFTERNOON`], [`NIGHT`]).
+    pub part: i32,
 }
 
 /// O que a coluna esquerda e o menu do treinador precisam.
@@ -540,6 +551,8 @@ pub struct NewsItem {
 pub struct GameInfo {
     pub name: String,
     pub date: String,
+    /// A parte do dia: 0 manhã, 1 tarde, 2 noite (MNH, TAR, NTE na coluna).
+    pub part: i32,
     pub manager_id: i32,
     pub manager_name: String,
     pub club: ClubRef,
@@ -596,6 +609,8 @@ pub struct Game {
     path: PathBuf,
     name: String,
     date: String,
+    /// A parte do dia já jogada ([`MORNING`], [`AFTERNOON`], [`NIGHT`]).
+    part: i32,
     seed: i64,
     manager_id: i32,
     club_id: i32,
@@ -630,6 +645,8 @@ pub struct Game {
 struct LiveDay {
     /// (índice em `matches`, partida)
     games: Vec<(usize, LiveMatch)>,
+    /// Os jogos das ligas de fundo, pelo motor rápido: (índice em `matches`, resultado).
+    quick: Vec<(usize, (u8, u8))>,
     /// Posição do jogo do treinador em `games`.
     user: usize,
     /// Notícias do início do dia (recuperações, alterações do adjunto).
@@ -726,6 +743,7 @@ impl Game {
             tx.execute_batch(training::TRAINING_SCHEMA)?;
             tx.execute_batch(contract_extras::EXTRAS_SCHEMA)?;
             tx.execute_batch(LICENSE_SCHEMA)?;
+            tx.execute_batch(DAY_PARTS_SCHEMA)?;
             tx.execute_batch(PROVOKE_SCHEMA)?;
             tx.execute_batch(MASKING_SCHEMA)?;
             tx.execute_batch(LAST_LINEUP_SCHEMA)?;
@@ -785,6 +803,8 @@ impl Game {
                 path: path.clone(),
                 name: new.save_name.trim().into(),
                 date: start,
+                // O jogo começa de manhã, como no CM
+                part: MORNING,
                 seed,
                 manager_id,
                 club_id: new.club_id,
@@ -1140,6 +1160,11 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 43", [])?;
             version = 43;
         }
+        if version == 43 {
+            world.conn.execute_batch(DAY_PARTS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 44", [])?;
+            version = 44;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1147,7 +1172,7 @@ impl Game {
         }
         let news = world
             .conn
-            .prepare("SELECT id, date, kind, title, body, read, offer_id, link FROM news ORDER BY date DESC, id DESC")?
+            .prepare("SELECT id, date, kind, title, body, read, offer_id, link, part FROM news ORDER BY date DESC, id DESC")?
             .query_map([], |r| {
                 Ok(NewsItem {
                     id: r.get(0)?,
@@ -1159,6 +1184,7 @@ impl Game {
                     offer_id: r.get(6)?,
                     link: r.get(7)?,
                     awaiting: false,
+                    part: r.get(8)?,
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -1221,6 +1247,7 @@ impl Game {
         }
         world.conn.execute_batch("BEGIN")?;
         let selection = load_selection(&world, club_id)?;
+        let part: i32 = world.conn.query_row("SELECT part FROM game", [], |r| r.get(0))?;
         let mut world = world;
         world.start_year = season_of(&date);
         let mut game = Game {
@@ -1228,6 +1255,7 @@ impl Game {
             path: path.to_path_buf(),
             name,
             date,
+            part,
             seed,
             manager_id,
             club_id,
@@ -1287,13 +1315,13 @@ impl Game {
         };
         // O save vive numa transação aberta (ver `create`): aqui grava a memória e faz o commit
         let tx = &self.world.conn;
-        tx.execute("UPDATE game SET date = ?, seed = ?, club_id = ?", params![self.date, self.seed, self.club_id])?;
+        tx.execute("UPDATE game SET date = ?, part = ?, seed = ?, club_id = ?", params![self.date, self.part, self.seed, self.club_id])?;
         tx.execute("DELETE FROM news", [])?;
         {
-            let mut stmt =
-                tx.prepare("INSERT INTO news (id, date, kind, title, body, read, offer_id, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
+            let mut stmt = tx
+                .prepare("INSERT INTO news (id, date, kind, title, body, read, offer_id, link, part) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")?;
             for n in pending.iter().rev().chain(&self.news) {
-                stmt.execute(params![n.id, n.date, n.kind, n.title, n.body, n.read as i32, n.offer_id, n.link])?;
+                stmt.execute(params![n.id, n.date, n.kind, n.title, n.body, n.read as i32, n.offer_id, n.link, n.part])?;
             }
         }
         tx.execute("DELETE FROM fixtures", [])?;
@@ -1420,7 +1448,44 @@ impl Game {
     /// Avança um dia e joga as partidas desse dia; devolve as notícias novas. Com `watch`
     /// e um jogo do treinador hoje, pára antes dele (ver [`Game::live_view`]); chamar de
     /// novo nesse estado acaba o jogo e fecha o dia, sem mudar a data.
+    /// Avança o resto do dia, parte a parte, até à noite (a CLI e os testes); com o jogo do
+    /// treinador visto ao vivo, pára nele (`live`). As notícias vêm da mais nova para a mais
+    /// antiga.
     pub fn advance_day(&mut self) -> Result<Vec<NewsItem>> {
+        let mut all = Vec::new();
+        loop {
+            let mut news = self.advance_part()?;
+            news.append(&mut all);
+            all = news;
+            if self.live.is_some() || self.part == NIGHT {
+                return Ok(all);
+            }
+        }
+    }
+
+    /// A parte do dia de um jogo: à semana, à noite; ao fim de semana, à tarde, menos um em
+    /// cada quatro (o "Jogo da Noite" do CM).
+    pub(super) fn match_part(m: &Match) -> i32 {
+        match date::weekday(&m.date) {
+            Some(0 | 6) if m.id % 4 != 0 => AFTERNOON,
+            _ => NIGHT,
+        }
+    }
+
+    /// O jogo do treinador que vem já a seguir: mais logo, hoje, ou amanhã.
+    pub(super) fn own_match_soon(&self) -> Option<&Match> {
+        let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
+        self.matches.iter().find(|m| {
+            m.result.is_none()
+                && (m.home_id == self.club_id || m.away_id == self.club_id)
+                && (m.date == tomorrow || (m.date == self.date && Self::match_part(m) > self.part))
+        })
+    }
+
+    /// Passa à parte seguinte do dia (da noite, à manhã do dia seguinte), como o Continuar
+    /// Jogo do CM: de manhã o calendário, o dinheiro e o mercado; à noite o treino, as
+    /// respostas às propostas, a direcção e a imprensa; à tarde e à noite, os jogos dessa parte.
+    pub fn advance_part(&mut self) -> Result<Vec<NewsItem>> {
         if self.live.is_some() {
             return self.live_finish();
         }
@@ -1437,67 +1502,96 @@ impl Game {
             let auto = self.auto_squad_numbers(&current)?;
             self.set_squad_numbers(&auto)?;
         }
-        self.date = date::add_days(&self.date, 1).ok_or_else(|| Error::Invalid("data do jogo inválida".into()))?;
+        self.part = (self.part + 1) % 3;
+        if self.part == MORNING {
+            self.date = date::add_days(&self.date, 1).ok_or_else(|| Error::Invalid("data do jogo inválida".into()))?;
+        }
         self.unsaved = true;
 
         let mut fresh = Vec::new();
         let mut next_id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+        match self.part {
+            MORNING => self.morning(unemployed, &mut fresh, &mut next_id)?,
+            NIGHT => self.night(unemployed, &mut fresh, &mut next_id)?,
+            _ => {}
+        }
+        self.start_day_matches(fresh, next_id, false)
+    }
 
+    /// A manhã: recuperações, calendário, dinheiro, mercado, olheiros, empregos e reservas.
+    fn morning(&mut self, unemployed: bool, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         // Recuperação do dia; quem do clube do treinador voltou de lesão vira notícia
         for id in self.squads.new_day(&self.date.clone()) {
             if self.squads.traits.get(&id).is_some_and(|t| t.club_id == self.club_id) {
                 let name = self.person_name(id)?;
                 fresh.push(self.news_item(
-                    next_id,
+                    *next_id,
                     "injury",
                     format!("{name} recuperado"),
                     format!("{name} já está recuperado da lesão e pode voltar a jogar."),
                 ));
-                next_id += 1;
+                *next_id += 1;
             }
         }
-        // O treino do dia (condição e lesões) no plantel do treinador
-        if !unemployed {
-            self.training_day(&mut fresh, &mut next_id)?;
-        }
         // Evolução do CA, juniores, fim de época e nova época
-        self.calendar_events(&mut fresh, &mut next_id)?;
+        self.calendar_events(fresh, next_id)?;
         // Salários à segunda-feira, receitas mensais no dia 1; o mercado nas janelas
         self.daily_finances()?;
         for (title, body) in self.payments_day()? {
-            fresh.push(self.news_item(next_id, "message", title, body));
-            next_id += 1;
+            fresh.push(self.news_item(*next_id, "message", title, body));
+            *next_id += 1;
         }
-        self.market_day(&mut fresh, &mut next_id)?;
+        self.market_day(fresh, next_id)?;
+        self.stadium_works_day(fresh, next_id)?;
         if !unemployed {
-            self.offers_day(&mut fresh, &mut next_id)?;
-        }
-        self.board_day(&mut fresh, &mut next_id)?;
-        self.stadium_works_day(&mut fresh, &mut next_id)?;
-        if !unemployed {
-            self.unhappy_day(&mut fresh, &mut next_id)?;
-            self.press_day(&mut fresh, &mut next_id)?;
-            self.scouting_day(&mut fresh, &mut next_id)?;
+            self.scouting_day(fresh, next_id)?;
             self.scout_tasks_day()?;
         }
-        self.jobs_day(&mut fresh, &mut next_id)?;
+        self.jobs_day(fresh, next_id)?;
         // As transferências acertadas e as reformas do player_setup.cfg
-        self.setup_day(&mut fresh, &mut next_id)?;
+        self.setup_day(fresh, next_id)?;
         // As reservas jogam na véspera do jogo do campeonato
-        self.reserve_day()?;
+        self.reserve_day()
+    }
 
-        self.start_day_matches(fresh, next_id, false)
+    /// A noite: o treino do dia, as respostas às propostas (uma proposta da tarde tem
+    /// resposta à noite), a direcção, a insatisfação e a imprensa.
+    fn night(&mut self, unemployed: bool, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        // O treino do dia (condição e lesões) no plantel do treinador
+        if !unemployed {
+            self.training_day(fresh, next_id)?;
+            self.offers_day(fresh, next_id)?;
+        }
+        self.board_day(fresh, next_id)?;
+        if !unemployed {
+            self.unhappy_day(fresh, next_id)?;
+            self.press_day(fresh, next_id)?;
+        }
+        Ok(())
     }
 
     /// Os jogos de hoje: decide os dos outros e prepara o do treinador (com `watch`, fica à
     /// espera em `live`). `quiet` não repete as notícias das trocas do adjunto (ao retomar
     /// um dia de jogo gravado, elas já estão nas notícias).
     fn start_day_matches(&mut self, mut fresh: Vec<NewsItem>, mut next_id: i32, quiet: bool) -> Result<Vec<NewsItem>> {
-        let today: Vec<usize> =
-            (0..self.matches.len()).filter(|&i| self.matches[i].date == self.date && self.matches[i].result.is_none()).collect();
+        // Os jogos desta parte do dia (e os de antes que ficaram por jogar)
+        let today: Vec<usize> = (0..self.matches.len())
+            .filter(|&i| {
+                let m = &self.matches[i];
+                m.date == self.date && m.result.is_none() && Self::match_part(m) <= self.part
+            })
+            .collect();
         let mut games = Vec::new();
+        let mut quick = Vec::new();
         let mut user = None;
         for &i in &today {
+            // As ligas de fundo jogam pelo motor rápido (sem o treinador)
+            let m = &self.matches[i];
+            if self.comp_mode(m.competition_id) == leagues::LeagueMode::Background && m.home_id != self.club_id && m.away_id != self.club_id
+            {
+                quick.push((i, self.quick_result(i)?));
+                continue;
+            }
             let (mut live, side, changes) = self.prepare_match(i)?;
             if let Some(changes) = changes
                 && !changes.is_empty()
@@ -1519,11 +1613,29 @@ impl Game {
             Some(u) => Some(self.match_extras(games[u].0)?),
             None => None,
         };
-        self.live = Some(LiveDay { games, user: user.unwrap_or(usize::MAX), news: fresh, extras, talks: Vec::new() });
+        self.live = Some(LiveDay { games, quick, user: user.unwrap_or(usize::MAX), news: fresh, extras, talks: Vec::new() });
         if user_match {
             return Ok(Vec::new());
         }
         self.live_finish()
+    }
+
+    /// O motor rápido (o v1) das ligas de fundo: a força dos dois onzes que o adjunto
+    /// escolheria hoje dá os golos esperados (com a torcida e o peso da camisa, como no motor
+    /// por lances) e o resultado sai de um Poisson. Sem lances, notas nem lesões: só o
+    /// resultado, para os dias passarem depressa.
+    fn quick_result(&self, i: usize) -> Result<(u8, u8)> {
+        let m = &self.matches[i];
+        let strength = |club: i32| -> Result<engine::TeamStrength> {
+            let state = self.club_state(club, Some(m.competition_id));
+            Ok(engine::TeamStrength::from_tactics(&self.world.auto_tactics(club, Some(&state), Instructions::default())?))
+        };
+        let (home, away) = (strength(m.home_id)?, strength(m.away_id)?);
+        let (xh, xa) = if m.neutral { engine::expected_goals_neutral(&home, &away) } else { engine::expected_goals(&home, &away) };
+        let o = self.occasion(m)?;
+        let (xh, xa) = (xh * o.crowd * (1.0 + 0.03 * o.shirt), xa * (1.0 - 0.03 * o.shirt));
+        let mut rng = engine::match_rng(self.seed ^ 0x0FA5_7000, m.id);
+        Ok((engine::poisson(xh, &mut rng), engine::poisson(xa, &mut rng)))
     }
 
     /// A partida `i` de hoje com as equipas de agora: a partida, o lado do treinador e as
@@ -1635,8 +1747,16 @@ impl Game {
                 self.post_match_press(fixture, opp, (ours as i32, theirs as i32), sent_off, &ratings, &mut fresh, &mut next_id)?;
             }
         }
+        // As ligas de fundo: só o resultado
+        for &(i, score) in &day.quick {
+            self.matches[i].result = Some(score);
+            self.settle_tie(i);
+            let played = self.matches[i].clone();
+            self.gate(&played)?;
+        }
         // Rondas e fases que acabaram hoje passam à seguinte; as competições que acabaram têm campeão
-        let mut played: Vec<i32> = day.games.iter().map(|(i, _)| self.matches[*i].competition_id).collect();
+        let mut played: Vec<i32> =
+            day.games.iter().map(|(i, _)| *i).chain(day.quick.iter().map(|(i, _)| *i)).map(|i| self.matches[i].competition_id).collect();
         played.sort_unstable();
         played.dedup();
         for comp in self.progress(&played, &mut fresh, &mut next_id)? {
@@ -1659,7 +1779,7 @@ impl Game {
     /// de uma competição...), até à véspera de um jogo do treinador (para ver o Próximo
     /// Jogo antes de o jogar) ou até [`MAX_IDLE_DAYS`] dias sem nada.
     pub fn advance_to_next_event(&mut self) -> Result<Vec<NewsItem>> {
-        for idle in 0..MAX_IDLE_DAYS {
+        for idle in 0..MAX_IDLE_DAYS * 3 {
             let (news, stop) = self.advance_step(idle)?;
             if stop {
                 return Ok(news);
@@ -1673,14 +1793,16 @@ impl Game {
     /// o Continuar Jogo pára aqui: notícias que não são transferências, o jogo do treinador
     /// (hoje ou amanhã) ou [`MAX_IDLE_DAYS`] dias sem nada.
     pub fn advance_step(&mut self, idle: i32) -> Result<(Vec<NewsItem>, bool)> {
-        let news = self.advance_day()?;
+        let news = self.advance_part()?;
         // As transferências do dia ficam nas notícias mas não param o Continuar Jogo
         if news.iter().any(|n| n.kind != "transfer") || self.live.is_some() {
             return Ok((news, true));
         }
+        // À noite, na véspera de um jogo do treinador
         let tomorrow = date::add_days(&self.date, 1).unwrap_or_default();
-        let ours_tomorrow = self.matches.iter().any(|m| m.date == tomorrow && (m.home_id == self.club_id || m.away_id == self.club_id));
-        Ok((Vec::new(), ours_tomorrow || idle + 1 >= MAX_IDLE_DAYS))
+        let ours_tomorrow = self.part == NIGHT
+            && self.matches.iter().any(|m| m.date == tomorrow && (m.home_id == self.club_id || m.away_id == self.club_id));
+        Ok((Vec::new(), ours_tomorrow || idle + 1 >= MAX_IDLE_DAYS * 3))
     }
 
     /// Os resultados de hoje para a barra do "Processando" ("Série A: Santos 2-1 Bahia"),
@@ -1691,7 +1813,7 @@ impl Game {
         let mut out: Vec<(bool, String)> = self
             .matches
             .iter()
-            .filter(|m| m.date == self.date)
+            .filter(|m| m.date == self.date && Self::match_part(m) == self.part)
             .filter_map(|m| {
                 let (h, a) = m.result?;
                 let nation = self.comp_nations.get(&m.competition_id).copied();
@@ -1865,7 +1987,18 @@ impl Game {
     }
 
     fn news_item(&self, id: i32, kind: &str, title: String, body: String) -> NewsItem {
-        NewsItem { id, date: self.date.clone(), kind: kind.into(), title, body, read: false, offer_id: None, link: None, awaiting: false }
+        NewsItem {
+            id,
+            date: self.date.clone(),
+            kind: kind.into(),
+            title,
+            body,
+            read: false,
+            offer_id: None,
+            link: None,
+            awaiting: false,
+            part: self.part,
+        }
     }
 
     /// Lesões e suspensões dos jogadores do treinador.
@@ -2125,6 +2258,7 @@ impl Game {
             offer_id: None,
             link: None,
             awaiting: false,
+            part: self.part,
         }
     }
 
@@ -2169,6 +2303,7 @@ impl Game {
             offer_id: None,
             link: None,
             awaiting: false,
+            part: self.part,
         }))
     }
 
@@ -2217,6 +2352,7 @@ impl Game {
             offer_id: None,
             link: None,
             awaiting: false,
+            part: self.part,
         })
     }
 
@@ -2237,6 +2373,7 @@ impl Game {
         Ok(GameInfo {
             name: self.name.clone(),
             date: self.date.clone(),
+            part: self.part,
             manager_id: self.manager_id,
             manager_name,
             club,
@@ -2317,7 +2454,9 @@ impl Game {
     /// Um save gravado no dia de jogo (antes do apito) tem jogos de hoje por jogar: prepara-os
     /// outra vez (com a mesma seed saem iguais) e volta ao dia de jogo.
     pub fn resume_match_day(&mut self) -> Result<()> {
-        if self.live.is_some() || !self.matches.iter().any(|m| m.date == self.date && m.result.is_none()) {
+        if self.live.is_some()
+            || !self.matches.iter().any(|m| m.date == self.date && m.result.is_none() && Self::match_part(m) <= self.part)
+        {
             return Ok(());
         }
         let next_id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
@@ -2696,6 +2835,7 @@ fn welcome_news(world: &World, club: &ClubRef, manager: &str, date: &str) -> Res
         offer_id: None,
         link: None,
         awaiting: false,
+        part: MORNING,
     })
 }
 
@@ -2807,7 +2947,8 @@ mod tests {
         // Nome repetido é recusado
         assert!(matches!(Game::create(&world, &dir, &new_game(palmeiras), 1), Err(Error::Invalid(_))));
 
-        for _ in 0..62 {
+        // O jogo começa de manhã: o primeiro avança só a tarde e a noite de 1/7
+        for _ in 0..63 {
             g.advance_day().unwrap();
         }
         assert_eq!(g.date(), "2025-09-01");
@@ -2856,15 +2997,25 @@ mod tests {
         // (as propostas dos outros clubes pelos jogadores também param)
         while date::add_days(g.date(), 1).unwrap() < first.date {
             let news = g.advance_to_next_event().unwrap();
-            assert!(news.iter().all(|n| n.offer_id.is_some() || n.kind == "transfer"), "{}", news[0].title);
+            // (e os orçamentos da direcção na noite de 1/7, o dia em que o jogo começa)
+            assert!(
+                news.iter().all(|n| n.offer_id.is_some() || n.kind == "transfer" || n.title == "Orçamentos da Direcção"),
+                "{}",
+                news[0].title
+            );
         }
         assert_eq!(date::add_days(g.date(), 1).unwrap(), first.date);
-        let news = g.advance_to_next_event().unwrap();
+        // No dia do jogo: a manhã (pode parar nas notícias dela) e o jogo, à tarde ou à noite
+        let mut news = Vec::new();
+        while g.matches.iter().any(|m| m.id == first.id && m.result.is_none()) {
+            news.splice(0..0, g.advance_to_next_event().unwrap());
+        }
         assert_eq!(g.date(), first.date);
         // O resultado e a conferência de imprensa depois do jogo (mais as lesões e recuperações,
         // que dependem das lesões iniciais do player_setup.cfg)
         let titles: Vec<&str> = news.iter().map(|n| n.title.as_str()).collect();
-        assert_eq!(news.iter().filter(|n| n.kind != "injury" && n.kind != "transfer").count(), 2, "{titles:?}");
+        // (e as propostas pelos jogadores, que chegam de manhã)
+        assert_eq!(news.iter().filter(|n| n.kind != "injury" && n.kind != "transfer" && n.offer_id.is_none()).count(), 2, "{titles:?}");
         assert!(news.iter().any(|n| n.body.starts_with("Série A, 1ª jornada.")), "{}", news[0].body);
         assert!(news.iter().any(|n| n.link.as_deref().is_some_and(|l| l.starts_with("press:"))));
         let mut days = 0;
@@ -3564,7 +3715,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; DROP TABLE last_lineups; DROP TABLE coach_areas; DROP TABLE reserve_matches; DROP TABLE reserve_apps; DROP TABLE absences; DROP TABLE reserve_picks; DROP TABLE setup_transfers; DROP TABLE setup_retirements; DROP TABLE bans; DROP TABLE finances_month; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; DROP TABLE last_lineups; DROP TABLE coach_areas; DROP TABLE reserve_matches; DROP TABLE reserve_apps; DROP TABLE absences; DROP TABLE reserve_picks; DROP TABLE setup_transfers; DROP TABLE setup_retirements; DROP TABLE bans; DROP TABLE finances_month; ALTER TABLE game DROP COLUMN part; ALTER TABLE news DROP COLUMN part; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

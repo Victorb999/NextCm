@@ -336,6 +336,9 @@ impl Game {
         let day = date::parse(&self.date).unwrap_or(0) as u64;
         let mut rng = self.deal_rng(person, 0x2E91 ^ day);
         let days = lo + (rng.next_u32() % (hi - lo + 1) as u32) as i32;
+        // As respostas chegam à noite: uma proposta feita de manhã ou à tarde pode ter
+        // resposta na noite do mesmo dia
+        let days = if self.part < super::NIGHT { (days - 1).max(0) } else { days };
         date::add_days(&self.date, days).unwrap_or_default()
     }
 

@@ -292,12 +292,7 @@ impl Game {
     /// Convocados sem número para o próximo jogo do treinador (amanhã): o jogo não começa
     /// enquanto houver algum.
     pub(super) fn unnumbered_for_next_match(&self) -> Result<Vec<i32>> {
-        let tomorrow = crate::date::add_days(&self.date, 1).unwrap_or_default();
-        let Some(m) = self
-            .matches
-            .iter()
-            .find(|m| m.date == tomorrow && m.result.is_none() && (m.home_id == self.club_id || m.away_id == self.club_id))
-        else {
+        let Some(m) = self.own_match_soon() else {
             return Ok(Vec::new());
         };
         let (tactics, _) = self.lineup(self.club_id, m.competition_id)?;
