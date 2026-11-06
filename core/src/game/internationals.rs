@@ -6,9 +6,11 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use rand_core::RngCore;
 use rusqlite::{OptionalExtension, params};
 
 use super::{Game, NewsItem, cm_date};
+use crate::league::Match;
 use crate::live::LiveMatch;
 use crate::personality;
 use crate::regulation::{self, SeasonKind};
@@ -21,6 +23,23 @@ pub(super) const CALL_UPS_SCHEMA: &str = "
 CREATE TABLE call_ups (person_id INTEGER PRIMARY KEY, team_id INTEGER NOT NULL, leaves TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_people_national ON people (national_team_id);
 ";
+
+/// Os amigáveis internacionais (save 46): uma competição sem regulamento, criada no save.
+pub(super) use crate::regulation::FRIENDLY;
+
+/// A competição dos amigáveis e os jogos de cada jogador pelas selecções, para o Historial (save 46).
+pub(super) const FRIENDLY_SCHEMA: &str = "
+INSERT OR IGNORE INTO competitions (id, kind, name, short_name, abbreviation, continent_id, nation_id, reputation)
+    VALUES (458, 'national', 'Amigáveis Internacionais', 'Amigáveis', 'AMI', NULL, NULL, 5);
+CREATE TABLE intl_apps (person_id INTEGER NOT NULL, date TEXT NOT NULL, club INTEGER, team INTEGER NOT NULL,
+                        competition INTEGER NOT NULL, goals INTEGER NOT NULL, assists INTEGER NOT NULL, rating REAL NOT NULL);
+CREATE INDEX intl_apps_person ON intl_apps (person_id);
+";
+
+/// As datas FIFA de uma época internacional (sábado e quarta), onde cabem os amigáveis.
+const WINDOWS: [&str; 5] = ["w36 m37", "w41 m42", "w46 m47", "w12 m13", "w23 m24"];
+/// Só as selecções mais fortes marcam amigáveis.
+const FRIENDLY_TEAMS: usize = 120;
 
 /// Dias antes do primeiro jogo da janela em que sai a convocatória.
 const CALL_AHEAD: i32 = 7;
@@ -156,7 +175,90 @@ impl Game {
             st.clear_cards(is_national_comp);
         }
         self.schedule_season(SeasonKind::International, year, fresh, next_id)?;
+        self.schedule_friendlies(year)?;
         self.refresh_live()
+    }
+
+    /// As datas oficiais (em dias) dos jogos por fazer de cada selecção, sem os amigáveis.
+    fn official_days(&self) -> HashMap<i32, Vec<i32>> {
+        let mut out: HashMap<i32, Vec<i32>> = HashMap::new();
+        for m in self.matches.iter().filter(|m| m.result.is_none() && m.competition_id != FRIENDLY && is_national_comp(m.competition_id)) {
+            let Some(d) = date::parse(&m.date) else { continue };
+            for t in [m.home_id, m.away_id] {
+                out.entry(t).or_default().push(d);
+            }
+        }
+        out
+    }
+
+    /// Amigáveis nas datas FIFA da época em que as selecções mais fortes não têm jogo oficial:
+    /// cada uma com uma das seis seguintes pela reputação (de preferência do mesmo continente),
+    /// sem repetir o adversário na mesma janela. Sorteados com a seed, a época e a janela.
+    fn schedule_friendlies(&mut self, year: i32) -> Result<()> {
+        let mut teams: Vec<(i32, i32, i32)> = Vec::new();
+        for continent in 0..6 {
+            for (id, _) in self.senior_teams(continent)? {
+                let rep: i32 = self
+                    .world
+                    .conn
+                    .prepare_cached("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?")?
+                    .query_row([id], |r| r.get(0))?;
+                teams.push((id, rep, continent));
+            }
+        }
+        teams.sort_by_key(|t| (std::cmp::Reverse(t.1), t.0));
+        teams.truncate(FRIENDLY_TEAMS);
+        let official = self.official_days();
+        let mut id = self.next_match_id();
+        for (w, spec) in WINDOWS.iter().enumerate() {
+            let mut rng = self.comp_rng(FRIENDLY, year, w as u64 + 1);
+            let mut met: HashSet<(i32, i32)> = HashSet::new();
+            for (k, day) in regulation::dates_in(year, spec, SeasonKind::International).into_iter().enumerate() {
+                let Some(d) = date::parse(&day) else { continue };
+                let mut open: Vec<(i32, i32, i32)> = teams
+                    .iter()
+                    .copied()
+                    .filter(|t| official.get(&t.0).is_none_or(|days| days.iter().all(|x| (x - d).abs() > 1)))
+                    .collect();
+                while open.len() >= 2 {
+                    let a = open.remove(0);
+                    let near: Vec<usize> =
+                        (0..open.len().min(6)).filter(|&i| !met.contains(&(a.0.min(open[i].0), a.0.max(open[i].0)))).collect();
+                    let same: Vec<usize> = near.iter().copied().filter(|&i| open[i].2 == a.2).collect();
+                    let pool = if same.is_empty() { &near } else { &same };
+                    if pool.is_empty() {
+                        continue;
+                    }
+                    let b = open.remove(pool[(rng.next_u64() % pool.len() as u64) as usize]);
+                    met.insert((a.0.min(b.0), a.0.max(b.0)));
+                    let (home_id, away_id) = if rng.next_u64().is_multiple_of(2) { (a.0, b.0) } else { (b.0, a.0) };
+                    self.matches.push(Match {
+                        id,
+                        competition_id: FRIENDLY,
+                        round: (2 * w + k + 1) as i32,
+                        date: day.clone(),
+                        home_id,
+                        away_id,
+                        ..Default::default()
+                    });
+                    id += 1;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Um amigável que choca com um jogo oficial sorteado depois (uma fase final) sai do calendário.
+    fn drop_clashing_friendlies(&mut self) {
+        let official = self.official_days();
+        let clash = |team: i32, d: i32| official.get(&team).is_some_and(|days| days.iter().any(|x| (x - d).abs() <= 1));
+        self.matches.retain(|m| {
+            if m.competition_id != FRIENDLY || m.result.is_some() {
+                return true;
+            }
+            let Some(d) = date::parse(&m.date) else { return true };
+            !(clash(m.home_id, d) || clash(m.away_id, d))
+        });
     }
 
     /// Os sorteios das fases finais marcados para hoje, com uma notícia dos grupos.
@@ -220,6 +322,7 @@ impl Game {
     /// está lesionado) e as convocatórias para os jogos dos próximos dias.
     pub(super) fn internationals_day(&mut self, unemployed: bool, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         self.international_draws(fresh, next_id)?;
+        self.drop_clashing_friendlies();
         let fixtures = self.national_fixtures();
         let horizon = date::add_days(&self.date, CALL_AHEAD).unwrap_or_default();
         let next_of = |team: i32| fixtures.get(&team).and_then(|d| d.first()).filter(|d| d.as_str() <= horizon.as_str()).cloned();
@@ -379,6 +482,12 @@ impl Game {
                 }
             }
             for line in lines {
+                // Para o Historial: o jogo pela selecção, com o clube de agora
+                self.world.conn.execute(
+                    "INSERT INTO intl_apps (person_id, date, club, team, competition, goals, assists, rating)
+                     VALUES (?, ?, (SELECT club_id FROM people WHERE id = ?), ?, ?, ?, ?, ?)",
+                    params![line.id, self.date, line.id, team, comp, line.goals, line.assists, line.rating],
+                )?;
                 self.world.conn.execute(
                     "UPDATE people SET international_apps = COALESCE(international_apps, 0) + 1,
                                        international_goals = COALESCE(international_goals, 0) + ? WHERE id = ?",
@@ -537,6 +646,24 @@ mod tests {
         }
         let played = g.fixtures(WCQ_EUROPE).iter().filter(|f| f.home_goals.is_some()).count();
         assert_eq!(played, 2 * 24);
+        // Amigáveis para quem não joga as eliminatórias (os anfitriões do Mundial), um por data
+        let friendlies: Vec<_> = g.fixtures(FRIENDLY).into_iter().filter(|f| f.date.as_str() <= "2025-09-11").collect();
+        assert!(friendlies.len() >= 2 && friendlies.iter().all(|f| f.home_goals.is_some()));
+        let usa = g.senior_team_of("United States").unwrap().unwrap();
+        assert_eq!(friendlies.iter().filter(|f| f.home.id == usa || f.away.id == usa).count(), 2);
+        let wcq: HashSet<i32> = g.fixtures(WCQ_EUROPE).iter().flat_map(|f| [f.home.id, f.away.id]).collect();
+        assert!(
+            friendlies.iter().all(|f| !wcq.contains(&f.home.id) && !wcq.contains(&f.away.id)),
+            "quem joga as eliminatórias não faz amigáveis"
+        );
+        assert!(g.fixtures(FRIENDLY).len() > 100, "os amigáveis de março e junho");
+        // O Historial: "Internacionais" na época do clube, fora dos Jogos Oficiais
+        let capped: i32 =
+            count(&g, "SELECT a.person_id FROM intl_apps a JOIN people p ON p.id = a.person_id WHERE p.club_id = 1350 LIMIT 1");
+        let mut person = g.world.get_person(capped).unwrap();
+        g.fill_record(&mut person).unwrap();
+        let line = person.seasons[0].by_kind.iter().find(|(k, _)| k == "Internacionais").map(|(_, l)| l.apps);
+        assert!(line.is_some_and(|n| n >= 1), "{:?}", person.seasons[0].by_kind);
         let stages = g.competition_stages(WCQ_EUROPE);
         assert_eq!(stages[0].tables.len(), 12);
         assert!(stages[0].tables.iter().all(|t| t.rows.iter().all(|r| r.played == 2)));
@@ -577,6 +704,9 @@ mod tests {
             .unwrap();
         assert_eq!(history.1, 2026);
         assert!(teams.contains(&history.0));
+        // Amigáveis antes do Mundial sem chocar com ele
+        let june: Vec<_> = g.fixtures(FRIENDLY).into_iter().filter(|f| f.date.as_str() >= "2026-06-01").collect();
+        assert!(!june.is_empty());
         let stages = g.competition_stages(448);
         assert_eq!(stages.len(), 2);
         assert_eq!(stages[1].rounds.len(), 5, "dos dezasseisavos à final");

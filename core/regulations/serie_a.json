@@ -11,7 +11,8 @@
           65
         ]
       },
-      "dates": "w15-w49 m24 m33 m42"
+      "dates": "w15-w49 m24 m33 m42",
+      "world_cup_dates": "w15-w23 w30-w49 m22 m24 m33 m41 m42 m43 m46 m48 m49"
     }
   ],
   "transition_dates": "w31-w49 m32-m50",

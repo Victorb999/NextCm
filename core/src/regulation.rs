@@ -82,6 +82,9 @@ pub struct KoRound {
     pub dates: String,
     #[serde(default)]
     pub neutral: bool,
+    /// As datas num ano de Mundial (a liga pára durante o Mundial).
+    #[serde(default)]
+    pub world_cup_dates: Option<String>,
 }
 
 /// Uma escolha de clubes a partir dos resultados de uma fase.
@@ -244,6 +247,9 @@ pub struct Stage {
     /// Pontos corridos e grupos em campo neutro (as fases finais de selecções).
     #[serde(default)]
     pub neutral: bool,
+    /// Pontos corridos e grupos: as datas num ano de Mundial (sem jogos durante o Mundial).
+    #[serde(default)]
+    pub world_cup_dates: Option<String>,
 }
 
 fn two() -> u8 {
@@ -436,8 +442,22 @@ pub fn get(competition: i32) -> Option<&'static Regulation> {
     all().iter().find(|r| r.competition == competition)
 }
 
+/// O Mundial (competição 448), que se joga em junho e julho do ano seguinte ao da época.
+pub const WORLD_CUP: i32 = 448;
+
+/// Há Mundial em junho e julho de `year` (as ligas do ano civil param nessas datas).
+pub fn world_cup_year(year: i32) -> bool {
+    get(WORLD_CUP).is_some_and(|r| r.in_cycle(year - 1))
+}
+
+/// Os amigáveis internacionais (competição criada no save, sem regulamento): época internacional.
+pub const FRIENDLY: i32 = 458;
+
 /// Tipo de época de uma competição (as que não têm regulamento contam como ano civil).
 pub fn season_kind(competition: i32) -> SeasonKind {
+    if competition == FRIENDLY {
+        return SeasonKind::International;
+    }
     get(competition).map_or(SeasonKind::Calendar, |r| r.season)
 }
 
@@ -554,10 +574,24 @@ mod tests {
                         for round in &s.rounds {
                             let n = dates_in(2026, &round.dates, r.season).len();
                             assert_eq!(n, round.legs as usize, "{} {}", r.competition, round.name);
+                            if let Some(w) = &round.world_cup_dates {
+                                assert_eq!(dates_in(2026, w, r.season).len(), round.legs as usize, "{} {}", r.competition, round.name);
+                            }
                         }
                     }
                     StageKind::LeaguePhase => assert_eq!(dates_in(2026, &s.dates, r.season).len(), s.matchdays, "{}", r.competition),
                     _ => assert!(!dates_in(2026, &s.dates, r.season).is_empty(), "{} fase {i}", r.competition),
+                }
+                // No ano do Mundial, as mesmas jornadas e nenhuma durante o Mundial (13/6 a 19/7 de 2026)
+                if let Some(w) = &s.world_cup_dates {
+                    let (normal, cup) = (dates_in(2026, &s.dates, r.season), dates_in(2026, w, r.season));
+                    assert_eq!(normal.len(), cup.len(), "{} fase {i}", r.competition);
+                    assert!(cup.iter().all(|d| d.as_str() < "2026-06-11" || d.as_str() > "2026-07-19"), "{} fase {i}", r.competition);
+                }
+                for round in &s.rounds {
+                    if let Some(w) = &round.world_cup_dates {
+                        assert!(dates_in(2026, w, r.season).iter().all(|d| d.as_str() < "2026-06-11" || d.as_str() > "2026-07-19"));
+                    }
                 }
             }
         }

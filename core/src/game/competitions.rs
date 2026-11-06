@@ -138,7 +138,7 @@ fn division_rank(division: Option<i32>) -> i32 {
 }
 
 impl Game {
-    fn comp_rng(&self, comp: i32, year: i32, tag: u64) -> ChaCha8Rng {
+    pub(super) fn comp_rng(&self, comp: i32, year: i32, tag: u64) -> ChaCha8Rng {
         let mix = (self.seed as u64)
             ^ ((year as u64) << 40)
             ^ (comp as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)
@@ -156,7 +156,7 @@ impl Game {
         regulation::season_of(comp, &self.date)
     }
 
-    fn next_match_id(&self) -> i32 {
+    pub(super) fn next_match_id(&self) -> i32 {
         self.matches.iter().map(|m| m.id).max().unwrap_or(0) + 1
     }
 
@@ -572,8 +572,9 @@ impl Game {
             return Ok(());
         }
         let mut rng = self.comp_rng(comp, year, stage as u64 + 1);
-        let spec = match (&reg.transition_dates, stage) {
-            (Some(t), 0) if year == self.first_year => t.as_str(),
+        let spec = match (&reg.transition_dates, &st.world_cup_dates) {
+            (Some(t), _) if stage == 0 && year == self.first_year => t.as_str(),
+            (_, Some(w)) if reg.season == SeasonKind::Calendar && regulation::world_cup_year(year) => w.as_str(),
             _ => st.dates.as_str(),
         };
         match st.kind {
@@ -704,7 +705,11 @@ impl Game {
     ) -> Result<()> {
         let st = &reg.stages[stage];
         let Some(r) = st.rounds.get(round) else { return Ok(()) };
-        let dates = regulation::dates_in(year, &r.dates, reg.season);
+        let spec = match &r.world_cup_dates {
+            Some(w) if reg.season == SeasonKind::Calendar && regulation::world_cup_year(year) => w,
+            _ => &r.dates,
+        };
+        let dates = regulation::dates_in(year, spec, reg.season);
         let comp = reg.competition;
         let mut id = self.next_match_id();
         for (t, &(a, b)) in pairs.iter().enumerate() {
@@ -901,6 +906,9 @@ impl Game {
 
     /// "12ª jornada", "1ª fase · 12ª jornada", "Grupo B · 3ª jornada", "Oitavas de final · 1ª mão".
     pub(super) fn match_label(&self, m: &Match) -> String {
+        if m.competition_id == super::internationals::FRIENDLY {
+            return "Amigável".into();
+        }
         let Some(st) = regulation::get(m.competition_id).and_then(|r| r.stages.get(m.stage as usize).map(|s| (r, s))) else {
             return format!("{}ª jornada", m.round);
         };

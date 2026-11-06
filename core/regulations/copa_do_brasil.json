@@ -37,7 +37,8 @@
         {
           "name": "Quartos de final",
           "legs": 2,
-          "dates": "m26 m27"
+          "dates": "m26 m27",
+          "world_cup_dates": "m30 m34"
         },
         {
           "name": "Meias-finais",

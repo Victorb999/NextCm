@@ -977,6 +977,12 @@ mod tests {
         let year: Vec<&crate::league::Match> = g.matches.iter().filter(|m| m.date.starts_with("2026")).collect();
         assert!(year.len() > 2500, "{} jogos", year.len());
         assert!(year.iter().all(|m| m.result.is_some()), "todos jogados");
+        // O Brasileirão e a Copa do Brasil param durante o Mundial (13/6 a 18/7)
+        let paused = [SERIE_A, crate::league::SERIE_B, crate::league::SERIE_C, 68];
+        assert!(
+            !year.iter().any(|m| paused.contains(&m.competition_id) && m.date.as_str() >= "2026-06-11" && m.date.as_str() <= "2026-07-19"),
+            "jogo do Brasileirão durante o Mundial"
+        );
         // Ninguém joga duas vezes em menos de 3 dias
         let mut by_club: HashMap<i32, Vec<i32>> = HashMap::new();
         for m in &year {
