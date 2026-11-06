@@ -330,9 +330,10 @@ function GeneralInfo({ c, menu }: { c: ClubProfile; menu: ReactNode }) {
         {row(
           "Capacidade",
           c.stadiumCapacity
-            ? `${c.stadiumCapacity}${c.stadiumSeated === c.stadiumCapacity ? " - todos lugares sentados" : c.stadiumSeated ? ` - (${c.stadiumSeated} lugares sentados)` : ""}`
+            ? `${c.stadiumCapacity}${c.stadiumSeated === c.stadiumCapacity ? " - todos lugares sentados" : c.stadiumSeated ? ` - (${c.stadiumSeated} lugares sentados)` : ""}${c.undersoilHeating ? " com aquecimento subterrâneo" : ""}`
             : "-",
         )}
+        {c.facilities && row("Condições Trabalho", c.facilities)}
         {row("Reputação", c.reputation ?? "-")}
         {c.reserveDivision &&
           row(
@@ -831,7 +832,7 @@ export default function ClubPage({
                 {club.stadiumCapacity ? (
                   <>
                     {" "}
-                    · Lotação:{" "}
+                    · Capacidade:{" "}
                     <b className="text-white">
                       {club.stadiumCapacity.toLocaleString("pt-BR")}
                     </b>

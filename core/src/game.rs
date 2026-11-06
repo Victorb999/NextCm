@@ -128,7 +128,9 @@ pub use training::{TrainingPlan, TrainingView};
 /// 45: os convocados das selecções (`call_ups`), marco 3.18.
 /// 46: os amigáveis internacionais (competição 458) e os jogos pelas selecções (`intl_apps`).
 /// 47: os anfitriões das fases finais (`hosts`) e a ficha da partida dos jogos de selecções.
-pub const SAVE_VERSION: i32 = 47;
+/// 48: as instalações de treino (`clubs.training`) e o aquecimento do relvado
+/// (`stadiums.undersoil_heating`), do banco.
+pub const SAVE_VERSION: i32 = 48;
 
 /// As três partes do dia, como no CM (MNH, TAR, NTE): de manhã o mercado e o calendário, à
 /// tarde os jogos do fim de semana, à noite os jogos da semana, as respostas e o treino.
@@ -709,6 +711,8 @@ impl Game {
         }
         crate::progress::set("A copiar a base de dados…", 0.02);
         std::fs::copy(world_path, &path)?;
+        // Um world.sqlite de antes do esquema 8 não tem as instalações nem o aquecimento
+        add_world_columns(&rusqlite::Connection::open(&path)?, world_path)?;
 
         let result = (|| {
             crate::progress::set("A preparar o jogo…", 0.08);
@@ -1189,6 +1193,11 @@ impl Game {
             world.conn.execute_batch(internationals::SHEET_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 47", [])?;
             version = 47;
+        }
+        if version == 47 {
+            add_world_columns(&world.conn, path)?;
+            world.conn.execute("UPDATE game SET version = 48", [])?;
+            version = 48;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -2886,6 +2895,47 @@ fn article(name: &str) -> &'static str {
     }
 }
 
+/// As colunas do banco que vieram depois (esquema 8): as instalações de treino dos clubes e o
+/// aquecimento do relvado dos estádios. Num save (ou banco) sem elas, acrescenta-as e copia-as do
+/// `world.sqlite` que encontrar a partir de `near` (sem ele, ficam vazias).
+fn add_world_columns(conn: &rusqlite::Connection, near: &Path) -> Result<()> {
+    let has = |table: &str, column: &str| -> Result<bool> {
+        Ok(conn
+            .prepare(&format!("SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = ?"))?
+            .query_row([column], |r| r.get::<_, i64>(0))?
+            > 0)
+    };
+    if has("clubs", "training")? && has("stadiums", "undersoil_heating")? {
+        return Ok(());
+    }
+    if !has("clubs", "training")? {
+        conn.execute_batch("ALTER TABLE clubs ADD COLUMN training INTEGER")?;
+    }
+    if !has("stadiums", "undersoil_heating")? {
+        conn.execute_batch("ALTER TABLE stadiums ADD COLUMN undersoil_heating INTEGER NOT NULL DEFAULT 0")?;
+    }
+    let Some(source) = World::locate(near).filter(|p| p.as_path() != near) else { return Ok(()) };
+    conn.execute("ATTACH DATABASE ? AS src", [source.to_string_lossy()])?;
+    let filled = (|| -> rusqlite::Result<()> {
+        let ok: i64 = conn.query_row(
+            "SELECT (SELECT COUNT(*) FROM pragma_table_info('clubs', 'src') WHERE name = 'training')
+                  + (SELECT COUNT(*) FROM pragma_table_info('stadiums', 'src') WHERE name = 'undersoil_heating')",
+            [],
+            |r| r.get(0),
+        )?;
+        if ok == 2 {
+            conn.execute_batch(
+                "UPDATE clubs SET training = (SELECT s.training FROM src.clubs s WHERE s.id = clubs.id);
+                 UPDATE stadiums SET undersoil_heating = COALESCE((SELECT s.undersoil_heating FROM src.stadiums s WHERE s.id = stadiums.id), 0);",
+            )?;
+        }
+        Ok(())
+    })();
+    conn.execute_batch("DETACH DATABASE src")?;
+    filled?;
+    Ok(())
+}
+
 /// "da Série A", "do Mundial", "das Eliminatórias do Mundial (UEFA)".
 pub(super) fn of_name(name: &str) -> String {
     format!("{} {name}", article(name))
@@ -3796,7 +3846,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; DROP TABLE last_lineups; DROP TABLE coach_areas; DROP TABLE reserve_matches; DROP TABLE reserve_apps; DROP TABLE absences; DROP TABLE reserve_picks; DROP TABLE setup_transfers; DROP TABLE setup_retirements; DROP TABLE bans; DROP TABLE finances_month; ALTER TABLE game DROP COLUMN part; ALTER TABLE news DROP COLUMN part; DROP TABLE call_ups; DROP TABLE intl_apps; DROP TABLE hosts; DELETE FROM competitions WHERE id = 458; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; DROP TABLE last_lineups; DROP TABLE coach_areas; DROP TABLE reserve_matches; DROP TABLE reserve_apps; DROP TABLE absences; DROP TABLE reserve_picks; DROP TABLE setup_transfers; DROP TABLE setup_retirements; DROP TABLE bans; DROP TABLE finances_month; ALTER TABLE game DROP COLUMN part; ALTER TABLE news DROP COLUMN part; DROP TABLE call_ups; DROP TABLE intl_apps; DROP TABLE hosts; DELETE FROM competitions WHERE id = 458; ALTER TABLE clubs DROP COLUMN training; ALTER TABLE stadiums DROP COLUMN undersoil_heating; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn
@@ -3815,6 +3865,8 @@ mod tests {
         // Sem jogos disputados, as competições voltam a ser sorteadas no formato novo
         assert_eq!(g.fixtures(SERIE_A).len(), 380);
         assert!(g.fixtures(SERIE_A).iter().all(|f| f.date.as_str() <= "2025-12-10"));
+        // As colunas do banco do esquema 8 voltam (vazias: não há world.sqlite perto do save de teste)
+        assert!(g.world.get_club(palmeiras).is_ok());
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

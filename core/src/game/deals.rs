@@ -144,6 +144,25 @@ pub const SQUAD_ROLES: [(&str, &str, i32); 6] = [
     ("prospect", "Este jogador tem uma excelente perspectiva futura", 2),
     ("youngster", "Este jogador é um jovem com valor", 3),
 ];
+/// O adjectivo da nação para "o estilo de vida Italiano" (as nações das ligas do jogo).
+fn lifestyle(nation: &str) -> Option<&'static str> {
+    Some(match nation {
+        "England" => "Inglês",
+        "France" => "Francês",
+        "Germany" => "Alemão",
+        "Netherlands" => "Holandês",
+        "Italy" => "Italiano",
+        "Portugal" => "Português",
+        "Spain" => "Espanhol",
+        "Argentina" => "Argentino",
+        "Brazil" => "Brasileiro",
+        "Saudi Arabia" => "Saudita",
+        _ => return None,
+    })
+}
+
+/// Lugar na liga até ao qual um jogador satisfeito se orgulha da posição do clube.
+const PROUD_PLACE: i32 = 3;
 /// Idades máximas das funções de jovem (acima, a direção veta).
 pub(super) const PROSPECT_AGE: i32 = 21;
 const YOUNGSTER_AGE: i32 = 23;
@@ -735,7 +754,7 @@ impl Game {
         let outside = rank >= 11;
         // Nas reservas do treinador: os jovens estão contentes; aos 24, querem saber o futuro
         let reserve = mine && self.squads.state(person).reserve;
-        let young_reserve = reserve && f.age <= super::unhappy::YOUNG_AGE;
+        let young_reserve = mine && self.content_in_reserves(person, f.age)?;
         let absence = if mine { self.absence(person)? } else { None };
         match absence.as_ref().map(|a| a.0.as_str()) {
             Some("awol") => future.push("Ausente sem permissão".into()),
@@ -748,6 +767,15 @@ impl Game {
         let homesick = mine && self.unhappy_reasons(person)?.iter().any(|r| r == super::unhappy::reason_text("homesick"));
         if homesick || (!mine && abroad && adaptability.unwrap_or(10) <= 8) {
             future.push("Tem saudades do seu país".into());
+            // "... ao estilo de vida Italiano", pela nação do clube (as das ligas do jogo)
+            let nation: Option<String> = self
+                .world
+                .conn
+                .query_row("SELECT n.name FROM clubs c JOIN nations n ON n.id = c.nation_id WHERE c.id = ?", [club], |r| r.get(0))
+                .optional()?;
+            if let Some(adjective) = nation.as_deref().and_then(lifestyle) {
+                future.push(format!("Está a ter dificuldades em adaptar-se ao estilo de vida {adjective}"));
+            }
         }
         if young_reserve {
             future.push("Entende que o clube tem um bom ambiente no vestiário".into());
@@ -797,6 +825,13 @@ impl Game {
         if form.is_some_and(|v| v >= 7.0) {
             out.push("Está a ter prazer em jogar no clube".into());
         }
+        // O clube nos três primeiros da liga (com quatro jogos ou mais)
+        let division: Option<i32> = self.world.conn.query_row("SELECT division_id FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
+        if let Some(div) = division
+            && self.table(div).iter().any(|r| r.club.id == club && r.played >= 4 && r.position <= PROUD_PLACE)
+        {
+            out.push("Orgulhoso da posição do clube na liga".into());
+        }
         // O melhor do plantel, para quem não está entre os três primeiros
         if rank >= 3 && f.age <= 25 {
             let best: Option<i32> = self
@@ -815,6 +850,23 @@ impl Game {
         }
         if years_left >= 3 {
             out.push("Feliz pelo compromisso de futuro com o clube".into());
+        }
+        // Leal e de moral alta, com o treinador no clube há uma época ou mais
+        if f.loyalty >= 12.0 && morale.is_some_and(|m| m >= 15) {
+            let coach: Option<(i32, Option<String>)> = self
+                .world
+                .conn
+                .query_row(
+                    "SELECT id, club_joined FROM people WHERE club_id = ? AND club_job = ? ORDER BY id LIMIT 1",
+                    params![club, super::HEAD_COACH],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?;
+            if let Some((coach, joined)) = coach
+                && joined.as_deref().and_then(date::parse).is_some_and(|j| today - j >= 365)
+            {
+                out.push(format!("Espera que {} se mantenha no clube", self.person_name(coach)?));
+            }
         }
         if rank < 16 || f.age <= 21 {
             out.push("Contente com situação no clube".into());

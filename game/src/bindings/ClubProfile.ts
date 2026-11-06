@@ -19,6 +19,14 @@ lastDivision: CompetitionRef | null, lastPosition: number | null, stadium: strin
  */
 stadiumCity: string | null, stadiumSeated: number | null, 
 /**
+ * Com aquecimento subterrâneo no relvado.
+ */
+undersoilHeating: boolean, 
+/**
+ * As instalações de treino, como no CM ("Excelentes condições, com academia para Jovens").
+ */
+facilities: string | null, 
+/**
  * "Profissional", "Semi-profissional" ou "Amador".
  */
 status: string | null, reputation: number | null, cash: number | null, rivals: Array<ClubRef>, players: Array<SquadPlayer>, staff: Array<StaffMember>, 

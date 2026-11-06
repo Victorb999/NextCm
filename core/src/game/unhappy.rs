@@ -116,6 +116,28 @@ impl Game {
         s.morale = (s.morale + delta).clamp(1, 20);
     }
 
+    /// Um jovem "com valor" ou de "excelente perspectiva": a função no clube é uma das de jovem
+    /// ou, sem função definida, tem até 23 anos (o estatuto de jovem que o CM dá por defeito).
+    /// Com uma função de adulto (apoio, rotação...), já não aceita as reservas.
+    pub(super) fn valued_youth(&self, person: i32, age: i32) -> Result<bool> {
+        let role: Option<String> = self
+            .world
+            .conn
+            .prepare_cached("SELECT role FROM squad_roles WHERE person_id = ?")?
+            .query_row([person], |r| r.get(0))
+            .optional()?;
+        Ok(match role.as_deref() {
+            Some("prospect" | "youngster") => true,
+            Some(_) => false,
+            None => age <= YOUNG_AGE,
+        })
+    }
+
+    /// Nas reservas, até aos 23 anos e com valor: aceita lá estar e está contente.
+    pub(super) fn content_in_reserves(&self, person: i32, age: i32) -> Result<bool> {
+        Ok(self.squads.state(person).reserve && age <= YOUNG_AGE && self.valued_youth(person, age)?)
+    }
+
     fn squad_unhappy(&self) -> Result<Vec<Unhappy>> {
         type Row = (i32, Option<String>, Option<i32>, Option<String>, Option<String>, [i32; 3], bool, bool, bool, bool);
         let rows: Vec<Row> = self
@@ -191,8 +213,8 @@ impl Game {
             let missed = self.squads.state(p.id).missed;
             let reserve = self.squads.state(p.id).reserve;
             let mut new = Vec::new();
-            // Titular sem jogar (os jovens aceitam as reservas)
-            let young_reserve = reserve && p.age <= YOUNG_AGE;
+            // Titular sem jogar (os jovens com valor aceitam as reservas)
+            let young_reserve = self.content_in_reserves(p.id, p.age)?;
             if p.rank < 11 && p.age >= 20 && missed >= STARTER_MISSED && !young_reserve {
                 if self.add_unhappy(p.id, "starter")? {
                     new.push("starter");
@@ -200,8 +222,9 @@ impl Game {
             } else if missed == 0 || young_reserve {
                 self.remove_unhappy(p.id, "starter")?;
             }
-            // Nas reservas com 24 anos ou mais: quer ver o futuro esclarecido
-            if reserve && p.age > YOUNG_AGE {
+            // Nas reservas com 24 anos ou mais (ou mais novo sem ser um jovem com valor): quer
+            // ver o futuro esclarecido
+            if reserve && !young_reserve {
                 if self.add_unhappy(p.id, "future")? {
                     let name = self.person_name(p.id)?;
                     fresh.push(self.news_item(
@@ -282,7 +305,12 @@ impl Game {
             }
         }
         // Os jovens das reservas sem motivos estão contentes: a moral sobe até à inicial
-        let young: Vec<i32> = squad.iter().filter(|p| p.age <= YOUNG_AGE && self.squads.state(p.id).reserve).map(|p| p.id).collect();
+        let mut young: Vec<i32> = Vec::new();
+        for p in &squad {
+            if self.content_in_reserves(p.id, p.age)? {
+                young.push(p.id);
+            }
+        }
         for id in young {
             if self.unhappy_reasons(id)?.is_empty() {
                 let s = self.squads.states.entry(id).or_default();
@@ -563,6 +591,17 @@ mod tests {
         let future = g.transfer_view(young).unwrap().future;
         assert!(future.iter().any(|f| f == "Contente com situação no clube"), "{future:?}");
 
+        // Com 23 e a função "apoio à primeira equipa", já não é um "jovem com valor": quer ver o
+        // futuro esclarecido; com a função "jovem com valor" (ou sem função), aceita as reservas
+        g.world.conn.execute("UPDATE people SET birth_date = '2002-01-01', birth_year = 2002 WHERE id = ?", [young]).unwrap();
+        g.world.conn.execute("INSERT OR REPLACE INTO squad_roles (person_id, role) VALUES (?, 'backup')", [young]).unwrap();
+        monday(&mut g, "2025-07-07");
+        assert!(g.unhappy_reasons(young).unwrap().contains(&reason_text("future").to_string()));
+        g.world.conn.execute("INSERT OR REPLACE INTO squad_roles (person_id, role) VALUES (?, 'youngster')", [young]).unwrap();
+        monday(&mut g, "2025-07-07");
+        assert!(g.unhappy_reasons(young).unwrap().is_empty());
+        g.world.conn.execute("DELETE FROM squad_roles WHERE person_id = ?", [young]).unwrap();
+
         // Aos 24, nas reservas, quer ver o futuro esclarecido: notícia, "Fut" e o Futuro
         g.world.conn.execute("UPDATE people SET birth_date = '2001-01-01', birth_year = 2001 WHERE id = ?", [young]).unwrap();
         let news = monday(&mut g, "2025-07-14");
@@ -589,6 +628,8 @@ mod tests {
         monday(&mut g, "2025-07-28");
         assert!(g.unhappy_reasons(foreign).unwrap().contains(&reason_text("homesick").to_string()));
         assert!(g.can_give_leave(foreign).unwrap());
+        let future = g.transfer_view(foreign).unwrap().future;
+        assert!(future.iter().any(|f| f == "Está a ter dificuldades em adaptar-se ao estilo de vida Brasileiro"), "{future:?}");
         let mut awol = false;
         for d in ["2025-08-25", "2025-09-01", "2025-09-08", "2025-09-15", "2025-09-22", "2025-09-29", "2025-10-06", "2025-10-13"] {
             monday(&mut g, d);

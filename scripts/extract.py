@@ -201,7 +201,8 @@ CREATE TABLE cities (id INTEGER PRIMARY KEY, name TEXT);
 
 CREATE TABLE stadiums (
     id INTEGER PRIMARY KEY, name TEXT, city_id INTEGER,
-    capacity INTEGER, seating_capacity INTEGER, expansion_capacity INTEGER
+    capacity INTEGER, seating_capacity INTEGER, expansion_capacity INTEGER,
+    undersoil_heating INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE competitions (
@@ -223,6 +224,7 @@ CREATE TABLE clubs (
     division_id INTEGER, last_division_id INTEGER, last_position INTEGER,
     reserve_division_id INTEGER,    -- no patch CLZ: campeonato estadual
     professional_status INTEGER, cash INTEGER, stadium_id INTEGER, reputation INTEGER,
+    training INTEGER,               -- instalações de treino, 1 a 20 (0 = sem dados)
     rival1_id INTEGER, rival2_id INTEGER, rival3_id INTEGER,
     -- Cores do uniforme principal e reserva, em hex ('#rrggbb')
     home_fg TEXT, home_bg TEXT, away_fg TEXT, away_bg TEXT
@@ -331,7 +333,7 @@ def stadiums(r):
     for _, b in r.table(T_STADIUM, 78):
         yield {"id": i32(b, 0), "name": text(b, 4, 51), "city_id": ref(i32(b, 56)),
                "capacity": i32(b, 60), "seating_capacity": i32(b, 64),
-               "expansion_capacity": i32(b, 68)}
+               "expansion_capacity": i32(b, 68), "undersoil_heating": int(u8(b, 77) != 0)}
 
 
 def competitions(r):
@@ -367,7 +369,7 @@ def clubs(r):
                    "last_division_id": ref(i32(b, 91)), "last_position": u8(b, 95) or None,
                    "reserve_division_id": ref(i32(b, 96)), "professional_status": u8(b, 100),
                    "cash": i32(b, 101), "stadium_id": ref(i32(b, 105)),
-                   "reputation": i16(b, 128),
+                   "training": u8(b, 127), "reputation": i16(b, 128),
                    "rival1_id": ref(i32(b, 179)), "rival2_id": ref(i32(b, 183)),
                    "rival3_id": ref(i32(b, 187)),
                    "home_fg": colour(b, 131), "home_bg": colour(b, 135),
@@ -500,7 +502,7 @@ def main():
         "source": os.path.basename(os.path.normpath(args.src)),
         "year_offset": args.year_offset,
         "extracted_at": dt.datetime.now().isoformat(timespec="seconds"),
-        "schema_version": 7,
+        "schema_version": 8,
     }.items()))
     db.commit()
     db.close()

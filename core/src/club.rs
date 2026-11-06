@@ -131,6 +131,10 @@ pub struct ClubProfile {
     /// Cidade do estádio e lugares sentados.
     pub stadium_city: Option<String>,
     pub stadium_seated: Option<i32>,
+    /// Com aquecimento subterrâneo no relvado.
+    pub undersoil_heating: bool,
+    /// As instalações de treino, como no CM ("Excelentes condições, com academia para Jovens").
+    pub facilities: Option<String>,
     /// "Profissional", "Semi-profissional" ou "Amador".
     pub status: Option<String>,
     pub reputation: Option<i32>,
@@ -191,6 +195,19 @@ pub(crate) fn lines_and_sides(p: &[Option<i32>; 12]) -> (Vec<String>, Vec<String
 /// a posição mais defensiva define o lugar na lista.
 fn position_order(mask: i32) -> i32 {
     (0..7).find(|b| mask & (1 << b) != 0).unwrap_or(7)
+}
+
+/// As instalações de treino (1 a 20) pelas frases da Informação Geral do CM; 0 é sem dados.
+pub fn facilities_text(training: i32) -> Option<&'static str> {
+    Some(match training {
+        18.. => "Excelentes condições, com academia para Jovens",
+        15..=17 => "Excelentes condições",
+        11..=14 => "Boas condições",
+        7..=10 => "Condições razoáveis",
+        4..=6 => "Condições fracas",
+        1..=3 => "Condições básicas",
+        _ => return None,
+    })
 }
 
 impl World {
@@ -369,6 +386,16 @@ impl World {
             )?
             .query_row([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
 
+        // Instalações de treino e aquecimento do relvado (num banco de antes do esquema 8, nada)
+        let (training, heating): (Option<i32>, bool) = self
+            .conn
+            .prepare_cached(
+                "SELECT c.training, COALESCE(s.undersoil_heating, 0) <> 0 FROM clubs c
+                 LEFT JOIN stadiums s ON s.id = c.stadium_id WHERE c.id = ?",
+            )
+            .and_then(|mut st| st.query_row([id], |r| Ok((r.get(0)?, r.get(1)?))))
+            .unwrap_or((None, false));
+
         let mut rival_refs = Vec::new();
         for rival in rivals.into_iter().flatten() {
             rival_refs.extend(self.club_ref(Some(rival))?);
@@ -416,6 +443,8 @@ impl World {
             stadium_capacity: capacity.filter(|c| *c > 0),
             stadium_city,
             stadium_seated: seated.filter(|c| *c > 0),
+            undersoil_heating: heating,
+            facilities: training.and_then(facilities_text).map(String::from),
             status: match professional_status {
                 Some(1) => Some("Profissional".into()),
                 Some(2) => Some("Semi-profissional".into()),
@@ -519,6 +548,20 @@ mod tests {
         assert!(club.players.iter().any(|p| p.id == yamal.id));
         assert!(club.staff.iter().any(|s| s.job_id == Some(5)), "tem treinador");
         assert_eq!(club.players.iter().filter(|p| p.key).count(), 3);
+    }
+
+    #[test]
+    fn facilities_and_undersoil_heating() {
+        let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let w = World::open(&path).unwrap();
+        // Bayern: instalações 20 e o Allianz Arena aquecido; o Allianz Parque não tem aquecimento
+        let bayern = w.get_club(1350).unwrap();
+        assert_eq!(bayern.facilities.as_deref(), Some("Excelentes condições, com academia para Jovens"));
+        assert!(bayern.undersoil_heating);
+        let palmeiras = w.get_club(7568).unwrap();
+        assert!(!palmeiras.undersoil_heating);
+        assert_eq!(facilities_text(3), Some("Condições básicas"));
+        assert_eq!(facilities_text(0), None);
     }
 
     #[test]
