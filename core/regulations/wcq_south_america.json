@@ -16,7 +16,8 @@
         "nations": [
           {
             "continent": 5,
-            "count": 10
+            "count": 10,
+            "exclude_hosts": 448
           }
         ]
       },

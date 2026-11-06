@@ -259,15 +259,19 @@ impl Game {
             return Err(Error::Invalid("Este jogo ainda não se jogou.".into()));
         }
         type Row = (i32, i32, String, Option<i32>, f64, i32, i32, bool, Option<i32>, Option<i32>, i32, bool);
+        // Os jogos de selecções ficam em `intl_apps`, com a selecção no lugar do clube
+        let national = super::internationals::is_national_comp(m.competition_id);
+        let (table, side) = if national { ("intl_apps", "team") } else { ("player_matches", "club") };
+        let sql = format!(
+            "SELECT m.person_id, m.{side}, COALESCE((SELECT nickname FROM nicknames n WHERE n.person_id = p.id), p.list_name),
+                    pl.squad_number, ROUND(m.rating, 1), m.goals, m.assists, m.mom, m.minute_on, m.minute_off, m.cards, m.sub
+             FROM {table} m JOIN people p ON p.id = m.person_id LEFT JOIN players pl ON pl.person_id = p.id
+             WHERE m.fixture = ? ORDER BY m.sub, m.rowid"
+        );
         let rows: Vec<Row> = self
             .world
             .conn
-            .prepare_cached(
-                "SELECT m.person_id, m.club, COALESCE((SELECT nickname FROM nicknames n WHERE n.person_id = p.id), p.list_name),
-                        pl.squad_number, m.rating, m.goals, m.assists, m.mom, m.minute_on, m.minute_off, m.cards, m.sub
-                 FROM player_matches m JOIN people p ON p.id = m.person_id LEFT JOIN players pl ON pl.person_id = p.id
-                 WHERE m.fixture = ? ORDER BY m.sub, m.rowid",
-            )?
+            .prepare_cached(&sql)?
             .query_map([fixture], |r| {
                 Ok((
                     r.get(0)?,
@@ -290,7 +294,8 @@ impl Game {
             let line = SheetLine {
                 id,
                 name,
-                number,
+                // O número do clube não é o da selecção
+                number: number.filter(|_| !national),
                 rating,
                 goals,
                 assists,

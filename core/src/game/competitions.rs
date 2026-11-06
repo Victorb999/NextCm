@@ -215,19 +215,34 @@ impl Game {
         if let Some(p) = &e.previous {
             add(&mut out, self.pick(reg.competition, p, stage.saturating_sub(1), year)?);
         }
-        // Selecções: os anfitriões, os apurados de outras competições e as de mais reputação
+        // Selecções: os anfitriões, os apurados de outras competições e as de mais reputação.
+        // Cada anfitrião ocupa uma das vagas do seu continente.
         for name in &e.teams {
             add(&mut out, self.senior_team_of(name)?.into_iter().collect());
         }
+        let hosts = if e.hosts { self.hosts_of(reg.competition, year)? } else { Vec::new() };
+        add(&mut out, hosts.clone());
         for q in &e.qualified {
-            add(&mut out, self.pick(q.competition, &q.pick, 0, year)?);
+            let ids = self.pick(q.competition, &q.pick, 0, year)?;
+            let continent = match ids.first() {
+                Some(&t) => self.team_continent(t)?,
+                None => None,
+            };
+            let slots = ids.len().saturating_sub(self.hosts_in(&hosts, continent)?);
+            let ids: Vec<i32> = ids.into_iter().filter(|id| !out.contains(id)).take(slots).collect();
+            add(&mut out, ids);
         }
         for n in &e.nations {
+            let skip = match n.exclude_hosts {
+                Some(c) => self.hosts_of(c, year)?,
+                None => Vec::new(),
+            };
+            let slots = n.count.saturating_sub(self.hosts_in(&hosts, Some(n.continent))?);
             let ids: Vec<i32> = self
                 .senior_teams(n.continent)?
                 .into_iter()
-                .filter(|(id, nation)| !n.exclude.contains(nation) && !out.contains(id))
-                .take(n.count)
+                .filter(|(id, nation)| !n.exclude.contains(nation) && !skip.contains(id) && !out.contains(id))
+                .take(slots)
                 .map(|(id, _)| id)
                 .collect();
             add(&mut out, ids);

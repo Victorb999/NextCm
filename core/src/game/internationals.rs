@@ -36,6 +36,18 @@ CREATE TABLE intl_apps (person_id INTEGER NOT NULL, date TEXT NOT NULL, club INT
 CREATE INDEX intl_apps_person ON intl_apps (person_id);
 ";
 
+/// A ficha da partida dos jogos de selecções (save 47): o jogo, quem entrou e saiu, cartões e
+/// o homem do jogo de cada linha de `intl_apps`.
+pub(super) const SHEET_SCHEMA: &str = "
+ALTER TABLE intl_apps ADD COLUMN fixture INTEGER;
+ALTER TABLE intl_apps ADD COLUMN sub INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE intl_apps ADD COLUMN mom INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE intl_apps ADD COLUMN minute_on INTEGER;
+ALTER TABLE intl_apps ADD COLUMN minute_off INTEGER;
+ALTER TABLE intl_apps ADD COLUMN cards INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX intl_apps_fixture ON intl_apps (fixture);
+";
+
 /// As datas FIFA de uma época internacional (sábado e quarta), onde cabem os amigáveis.
 const WINDOWS: [&str; 5] = ["w36 m37", "w41 m42", "w46 m47", "w12 m13", "w23 m24"];
 /// Só as selecções mais fortes marcam amigáveis.
@@ -174,6 +186,7 @@ impl Game {
         for st in self.squads.states.values_mut() {
             st.clear_cards(is_national_comp);
         }
+        self.settle_hosts(year)?;
         self.schedule_season(SeasonKind::International, year, fresh, next_id)?;
         self.schedule_friendlies(year)?;
         self.refresh_live()
@@ -321,6 +334,12 @@ impl Game {
     /// A manhã das selecções: os sorteios do dia, quem volta ao clube (a janela acabou ou
     /// está lesionado) e as convocatórias para os jogos dos próximos dias.
     pub(super) fn internationals_day(&mut self, unemployed: bool, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        // Um save de antes dos anfitriões (save 47) fica com os do regulamento
+        let hosts: i32 = self.world.conn.query_row("SELECT COUNT(*) FROM hosts", [], |r| r.get(0))?;
+        if hosts == 0 {
+            self.settle_hosts(regulation::season_of(ANY_NATIONAL, &self.date))?;
+        }
+        self.announce_hosts(fresh, next_id)?;
         self.international_draws(fresh, next_id)?;
         self.drop_clashing_friendlies();
         let fixtures = self.national_fixtures();
@@ -411,6 +430,55 @@ impl Game {
         Ok(())
     }
 
+    /// As notícias de um jogador do treinador que jogou pela selecção: golos e expulsão, e a
+    /// linha do resumo do dia.
+    #[allow(clippy::too_many_arguments)]
+    fn our_international(
+        &self,
+        line: &crate::live::PlayerLine,
+        debut: bool,
+        score: &str,
+        context: &str,
+        played: &mut Vec<String>,
+        fresh: &mut Vec<NewsItem>,
+        next_id: &mut i32,
+    ) -> Result<()> {
+        let name = self.person_name(line.id)?;
+        let minutes = (line.off.map_or(90, i32::from) - i32::from(line.on)).max(1);
+        let mut text = format!("{name}: {score}, {minutes} min, nota {:.1}", line.rating);
+        if line.goals > 0 {
+            text.push_str(&format!(", {} {}", line.goals, if line.goals == 1 { "golo" } else { "golos" }));
+        }
+        if line.red {
+            text.push_str(", expulso");
+        }
+        if debut {
+            text.push_str(" (estreia)");
+        }
+        played.push(text);
+        let first = if debut { " na estreia pela selecção" } else { "" };
+        if line.goals > 0 {
+            let goals = if line.goals == 1 { "um golo".to_string() } else { format!("{} golos", line.goals) };
+            self.push_news(
+                fresh,
+                next_id,
+                "message",
+                format!("{name} marca pela selecção"),
+                format!("{name} marcou {goals}{first} no {score}, {context}."),
+            );
+        }
+        if line.red {
+            self.push_news(
+                fresh,
+                next_id,
+                "injury",
+                format!("{name} expulso ao serviço da selecção"),
+                format!("{name} foi expulso{first} no {score}, {context}. O castigo cumpre-se nos jogos da selecção."),
+            );
+        }
+        Ok(())
+    }
+
     fn player_club(&self, id: i32) -> Result<Option<i32>> {
         Ok(self.world.conn.prepare_cached("SELECT club_id FROM people WHERE id = ?")?.query_row([id], |r| r.get(0)).optional()?.flatten())
     }
@@ -454,18 +522,26 @@ impl Game {
         Ok(pick_squad(&candidates))
     }
 
-    /// Depois de um jogo de selecções: internacionalizações e golos no perfil, a moral pelo
-    /// resultado e, nos jogadores do treinador, a lesão ao serviço da selecção (volta ao clube).
+    /// Depois de um jogo de selecções: internacionalizações e golos no perfil, a ficha da
+    /// partida, a moral pelo resultado e, nos jogadores do treinador, as notícias (golos,
+    /// expulsão, lesão ao serviço da selecção, que o manda de volta ao clube) e uma linha em
+    /// `played` para o resumo do dia.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn international_match_done(
         &mut self,
         live: &LiveMatch,
         events: &[Event],
         unemployed: bool,
+        played: &mut Vec<String>,
         fresh: &mut Vec<NewsItem>,
         next_id: &mut i32,
     ) -> Result<()> {
         let (h, a) = live.score();
         let comp = live.fixture.competition_id;
+        let fixture = live.fixture.id;
+        let score = format!("{} {h}-{a} {}", self.club(live.fixture.home.id).short_name, self.club(live.fixture.away.id).short_name);
+        let context = if comp == FRIENDLY { "num amigável".to_string() } else { format!("a contar para {}", self.the_competition(comp)) };
+        let mom = (0..2).flat_map(|s| live.player_lines(s)).max_by(|x, y| x.rating.total_cmp(&y.rating)).map(|l| l.id);
         for side in 0..2 {
             let result = if side == 0 { h.cmp(&a) as i32 } else { a.cmp(&h) as i32 };
             // Os castigados cumprem o jogo (o estado do clube não os vê como da selecção)
@@ -482,12 +558,36 @@ impl Game {
                 }
             }
             for line in lines {
-                // Para o Historial: o jogo pela selecção, com o clube de agora
+                let ours = !unemployed && self.player_club(line.id)? == Some(self.club_id);
+                let caps_before: i32 =
+                    self.world
+                        .conn
+                        .query_row("SELECT COALESCE(international_apps, 0) FROM people WHERE id = ?", [line.id], |r| r.get(0))?;
+                // Para o Historial e a ficha da partida: o jogo pela selecção, com o clube de agora
                 self.world.conn.execute(
-                    "INSERT INTO intl_apps (person_id, date, club, team, competition, goals, assists, rating)
-                     VALUES (?, ?, (SELECT club_id FROM people WHERE id = ?), ?, ?, ?, ?, ?)",
-                    params![line.id, self.date, line.id, team, comp, line.goals, line.assists, line.rating],
+                    "INSERT INTO intl_apps (person_id, date, club, team, competition, goals, assists, rating,
+                                            fixture, sub, mom, minute_on, minute_off, cards)
+                     VALUES (?, ?, (SELECT club_id FROM people WHERE id = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    params![
+                        line.id,
+                        self.date,
+                        line.id,
+                        team,
+                        comp,
+                        line.goals,
+                        line.assists,
+                        line.rating,
+                        fixture,
+                        line.sub,
+                        mom == Some(line.id),
+                        line.on,
+                        line.off,
+                        if line.red { 2 } else { line.yellow as i32 }
+                    ],
                 )?;
+                if ours {
+                    self.our_international(&line, caps_before == 0, &score, &context, played, fresh, next_id)?;
+                }
                 self.world.conn.execute(
                     "UPDATE people SET international_apps = COALESCE(international_apps, 0) + 1,
                                        international_goals = COALESCE(international_goals, 0) + ? WHERE id = ?",
@@ -664,6 +764,14 @@ mod tests {
         g.fill_record(&mut person).unwrap();
         let line = person.seasons[0].by_kind.iter().find(|(k, _)| k == "Internacionais").map(|(_, l)| l.apps);
         assert!(line.is_some_and(|n| n >= 1), "{:?}", person.seasons[0].by_kind);
+        // A ficha da partida de um jogo das eliminatórias, com as selecções
+        let fx = g.fixtures(WCQ_EUROPE).into_iter().find(|f| f.home_goals.is_some()).unwrap();
+        let sheet = g.match_sheet(fx.id).unwrap();
+        assert!(sheet.home.len() >= 11 && sheet.away.len() >= 11, "{} e {}", sheet.home.len(), sheet.away.len());
+        assert_eq!(sheet.home.iter().chain(&sheet.away).filter(|l| l.mom).count(), 1);
+        assert!(sheet.home.iter().map(|l| l.goals).sum::<i32>() <= fx.home_goals.unwrap() as i32, "golos na ficha");
+        // Os internacionais do clube em campo
+        assert!(g.news.iter().any(|n| n.body.starts_with("Jogaram hoje pelas selecções")));
         let stages = g.competition_stages(WCQ_EUROPE);
         assert_eq!(stages[0].tables.len(), 12);
         assert!(stages[0].tables.iter().all(|t| t.rows.iter().all(|r| r.played == 2)));
@@ -716,6 +824,43 @@ mod tests {
             println!("{}", st.name);
         }
         println!("campeão do mundo: {}", g.club(history.0).name);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn hosts_known_then_drawn_years_before() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-test-hosts-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut g = Game::create(&world, &dir, &bayern(), 3).unwrap();
+        g.settle_hosts(2025).unwrap();
+        let names = |g: &Game, comp: i32, season: i32| -> Vec<String> {
+            g.hosts_of(comp, season).unwrap().into_iter().map(|t| g.world.club_ref(Some(t)).unwrap().unwrap().name).collect()
+        };
+        assert_eq!(g.hosts_of(448, 2025).unwrap().len(), 3);
+        assert_eq!(g.hosts_of(448, 2029).unwrap().len(), 3, "{:?}", names(&g, 448, 2029));
+        assert_eq!(g.hosts_of(448, 2033).unwrap().len(), 1);
+        assert_eq!(g.hosts_of(450, 2027).unwrap().len(), 4);
+        assert!(g.hosts_of(451, 2027).unwrap().is_empty(), "a Copa América de 2028 escolhe-se em abril de 2026");
+
+        // Os anúncios: a Copa América de 2028 em abril de 2026, com notícia
+        let (mut fresh, mut next) = (Vec::new(), 1000);
+        g.date = "2026-04-15".into();
+        g.announce_hosts(&mut fresh, &mut next).unwrap();
+        let copa = g.hosts_of(451, 2027).unwrap();
+        assert!(!copa.is_empty() && copa.iter().all(|&t| g.team_continent(t).unwrap() == Some(5)));
+        assert!(fresh.iter().any(|n| n.title.contains("Copa América 2028")), "{:?}", fresh.iter().map(|n| &n.title).collect::<Vec<_>>());
+        // O Mundial de 2038 em dezembro de 2029, longe dos continentes de 2030 e 2034
+        g.date = "2029-12-11".into();
+        g.announce_hosts(&mut fresh, &mut next).unwrap();
+        let wc = g.hosts_of(448, 2037).unwrap();
+        assert!(!wc.is_empty());
+        assert!(wc.iter().all(|&t| matches!(g.team_continent(t).unwrap(), Some(3 | 5))), "{:?}", names(&g, 448, 2037));
+        assert!(fresh.iter().any(|n| n.title.contains("Mundial 2038")));
+        for n in &fresh {
+            println!("{}: {}", n.title, n.body);
+        }
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

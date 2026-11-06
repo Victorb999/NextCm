@@ -15,11 +15,7 @@
       "group_size": 4,
       "draw": "pots",
       "entrants": {
-        "teams": [
-          "United States",
-          "Mexico",
-          "Canada"
-        ],
+        "hosts": true,
         "qualified": [
           {
             "competition": 443,
@@ -51,7 +47,11 @@
           },
           {
             "competition": 439,
-            "group_top": 1
+            "group_top": 1,
+            "best_place": {
+              "place": 2,
+              "count": 3
+            }
           },
           {
             "competition": 438,
@@ -112,5 +112,47 @@
       ]
     }
   ],
-  "draw": "m24"
+  "draw": "m24",
+  "hosts": {
+    "by": "A FIFA",
+    "continents": [
+      0,
+      1,
+      2,
+      3,
+      5
+    ],
+    "years": 8,
+    "on": "12-11",
+    "count": [
+      60,
+      25,
+      15
+    ],
+    "pool": 30,
+    "known": [
+      {
+        "season": 2025,
+        "teams": [
+          "United States",
+          "Mexico",
+          "Canada"
+        ]
+      },
+      {
+        "season": 2029,
+        "teams": [
+          "Spain",
+          "Portugal",
+          "Morocco"
+        ]
+      },
+      {
+        "season": 2033,
+        "teams": [
+          "Saudi Arabia"
+        ]
+      }
+    ]
+  }
 }

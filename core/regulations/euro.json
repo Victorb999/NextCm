@@ -15,10 +15,15 @@
       "group_size": 4,
       "draw": "pots",
       "entrants": {
+        "hosts": true,
         "qualified": [
           {
             "competition": 444,
-            "group_top": 2
+            "group_top": 1,
+            "best_place": {
+              "place": 2,
+              "count": 12
+            }
           }
         ]
       },
@@ -66,5 +71,36 @@
       ]
     }
   ],
-  "draw": "m15"
+  "draw": "m15",
+  "hosts": {
+    "by": "A UEFA",
+    "continents": [
+      2
+    ],
+    "years": 6,
+    "on": "10-10",
+    "count": [
+      55,
+      45
+    ],
+    "pool": 20,
+    "known": [
+      {
+        "season": 2027,
+        "teams": [
+          "England",
+          "Scotland",
+          "Wales",
+          "Republic of Ireland"
+        ]
+      },
+      {
+        "season": 2031,
+        "teams": [
+          "Italy",
+          "Turkey"
+        ]
+      }
+    ]
+  }
 }

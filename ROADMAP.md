@@ -203,7 +203,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Passo 3.15c — Pendências por complexidade (compilado de 31/10)](docs/roadmap/3.15c-pendencias.md)
 - [Marco 3.16 — Plantel completo (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.16-plantel-completo.md)
 - [Marco 3.17 — Treino (pelos prints do CLZ 26, 28/10)](docs/roadmap/3.17-treino.md)
-- [Marco 3.18 — Selecções (passos 1 e 2 feitos: calendário, convocatórias, jogos, amigáveis, pausa do Brasileirão e Historial)](docs/roadmap/3.18-seleccoes.md)
+- [Marco 3.18 — Selecções (passos 1 a 3 feitos: calendário, convocatórias, jogos, amigáveis, pausa do Brasileirão, Historial, anfitriões, ficha da partida e notícias dos internacionais)](docs/roadmap/3.18-seleccoes.md)
 - [Marco 3.19 — Testes de 1 a 3/11 (por fazer)](docs/roadmap/3.19-teste-01-03-11.md)
 - [Passo 3.19.1 — Pendências do 3.15 e do 3.19, com dificuldade e prioridade](docs/roadmap/3.19.1-pendencias.md)
 - [Marco 3.20 — Editor de jogos salvos (por detalhar)](docs/roadmap/3.20-editor-de-saves.md)

@@ -15,6 +15,7 @@
       "group_size": 4,
       "draw": "pots",
       "entrants": {
+        "hosts": true,
         "nations": [
           {
             "continent": 5,
@@ -60,5 +61,18 @@
       ]
     }
   ],
-  "draw": "m15"
+  "draw": "m15",
+  "hosts": {
+    "by": "A CONMEBOL",
+    "continents": [
+      5
+    ],
+    "years": 3,
+    "on": "04-15",
+    "count": [
+      80,
+      20
+    ],
+    "pool": 10
+  }
 }

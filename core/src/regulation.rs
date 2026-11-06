@@ -124,6 +124,36 @@ pub struct NationsPick {
     /// Sem estas nações (os anfitriões, que entram direto).
     #[serde(default)]
     pub exclude: Vec<String>,
+    /// Sem os anfitriões desta competição na mesma época (as eliminatórias de uma fase final).
+    #[serde(default)]
+    pub exclude_hosts: Option<i32>,
+}
+
+/// Os anfitriões de uma edição já decididos antes do jogo começar.
+#[derive(Debug, Clone, Deserialize)]
+pub struct KnownHosts {
+    /// A época internacional da fase final (2025 = o Mundial de 2026).
+    pub season: i32,
+    pub teams: Vec<String>,
+}
+
+/// Como se escolhem os anfitriões de uma fase final: anos antes, com notícia.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Hosts {
+    /// Quem decide ("A FIFA"), para a notícia.
+    pub by: String,
+    /// Os continentes de onde podem ser (com mais de um, roda: nunca o das duas edições anteriores).
+    pub continents: Vec<i32>,
+    /// Com quantas épocas de antecedência se escolhem.
+    pub years: i32,
+    /// O dia do anúncio ("12-11").
+    pub on: String,
+    /// Pesos de 1, 2, 3... anfitriões (candidaturas conjuntas, do mesmo continente).
+    pub count: Vec<u32>,
+    /// Candidatas: as N selecções de mais reputação.
+    pub pool: usize,
+    #[serde(default)]
+    pub known: Vec<KnownHosts>,
 }
 
 /// Os apurados de outra competição na mesma época.
@@ -210,6 +240,10 @@ pub struct Entrants {
     /// Selecções pelo nome da nação.
     #[serde(default)]
     pub teams: Vec<String>,
+    /// Os anfitriões da edição, primeiro; cada um ocupa uma vaga do seu continente em
+    /// `qualified` e `nations`.
+    #[serde(default)]
+    pub hosts: bool,
     /// Os apurados de outras competições na mesma época.
     #[serde(default)]
     pub qualified: Vec<Qualified>,
@@ -307,6 +341,9 @@ pub struct Regulation {
     /// Eliminatórias: sem campeão (nem notícia, historial ou títulos).
     #[serde(default)]
     pub qualifying: bool,
+    /// Fase final com anfitriões escolhidos anos antes.
+    #[serde(default)]
+    pub hosts: Option<Hosts>,
 }
 
 impl Regulation {

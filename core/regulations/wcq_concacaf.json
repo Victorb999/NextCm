@@ -19,11 +19,7 @@
           {
             "continent": 3,
             "count": 12,
-            "exclude": [
-              "United States",
-              "Mexico",
-              "Canada"
-            ]
+            "exclude_hosts": 448
           }
         ]
       },
