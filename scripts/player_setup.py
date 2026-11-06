@@ -9,11 +9,10 @@ jogo:
   - `core/data/setup_loans.json`: "LOAN" (jogador, dono, clube do empréstimo, fim).
   - `core/data/setup_events.json`: "INJURY" (lesionado ao começar, com a duração do tipo),
     "FUTURE_TRANSFER" (mudança acertada para uma data, com valor, salário e anos), "RETIREMENT"
-    (reforma numa data) e os castigos "MISCONDUCT", "FALSE_PASSPORT" e "DRUGS" (sem jogar até
-    uma data).
+    (reforma numa data), os castigos "MISCONDUCT", "FALSE_PASSPORT" e "DRUGS" (sem jogar até
+    uma data) e "INT_RETIREMENT" (retirado da selecção: nunca mais é convocado).
 
-Ficam de fora "INT_RETIREMENT" (retirada da selecção: ainda não há convocatórias),
-"MANAGER_CONF" e "PRESET_TACTICS".
+Ficam de fora "MANAGER_CONF" e "PRESET_TACTICS".
 
 Uso:
     python scripts/player_setup.py
@@ -173,6 +172,15 @@ def main():
                     continue
                 events.append({"kind": "transfer", "player": p[0], "from": p[2], "to": tos[0], "date": day,
                                "fee": int(fee), "wage": int(wage), "years": max(1, int(years))})
+            elif kind == "INT_RETIREMENT" and len(x) == 5:
+                _, first, common, second, club = x
+                p = base.person(first, common, second, base.club(club) or None) or base.person(first, common, second)
+                if not p:
+                    missing.append(line.strip())
+                    continue
+                # O patch repete algumas linhas
+                if {"kind": "intl_retirement", "player": p[0]} not in events:
+                    events.append({"kind": "intl_retirement", "player": p[0]})
             elif (kind == "RETIREMENT" or kind in BANS) and len(x) == 8:
                 _, first, common, second, club, d, m, y = x
                 p = base.person(first, common, second, base.club(club) or None)

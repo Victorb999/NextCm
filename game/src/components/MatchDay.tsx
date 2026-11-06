@@ -1034,8 +1034,15 @@ function LiveScreen({
             (v) => {
               accept(v)
               if (v.halfTime || v.finished) setRunning(false)
+              // Tácticas pedidas: o intervalo abre-as (sem retomar ao sair); o fim cancela-as
+              if (waiting && v.finished) setWaiting(null)
+              else if (waiting && v.halfTime) {
+                resumeAfter.current = false
+                setTactics(waiting.side)
+                setWaiting(null)
+              }
               // Sem nenhuma paragem em 3 minutos, as Tácticas abrem na mesma
-              if (waiting && v.minute - waiting.since >= 3)
+              else if (waiting && v.minute - waiting.since >= 3)
                 openWaiting(waiting.side)
             },
             (e) => {

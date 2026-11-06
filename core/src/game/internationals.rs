@@ -491,7 +491,8 @@ impl Game {
     }
 
     /// Os 23 que o seleccionador chama para os jogos a partir de `first`: os de mais CA da
-    /// nação com clube, por sectores, sem os lesionados até lá, os castigados e os de enchimento.
+    /// nação com clube, por sectores, sem os lesionados até lá, os castigados, os retirados da
+    /// selecção e os de enchimento.
     fn choose_call_up(&self, team: i32, first: &str) -> Result<Vec<i32>> {
         let banned: HashSet<i32> = self.banned_players().into_iter().collect();
         let rows: Vec<(i32, [i32; 8])> = self
@@ -515,7 +516,7 @@ impl Game {
             .collect::<rusqlite::Result<_>>()?;
         let candidates: Vec<(i32, usize)> = rows
             .into_iter()
-            .filter(|(id, _)| !banned.contains(id))
+            .filter(|(id, _)| !banned.contains(id) && !super::player_setup::intl_retired().contains(id))
             .filter(|(id, _)| self.squads.state(*id).injury_until.as_deref().is_none_or(|u| u <= first))
             .map(|(id, p)| (id, sector(p[0], p[1].max(p[2]).max(p[3]), p[4].max(p[5]).max(p[6]), p[7])))
             .collect();
@@ -861,6 +862,24 @@ mod tests {
         for n in &fresh {
             println!("{}: {}", n.title, n.body);
         }
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn retired_from_the_national_team_is_not_called() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-test-intret-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let g = Game::create(&world, &dir, &bayern(), 3).unwrap();
+        // O Courtois, o de mais CA da Bélgica, retirou-se da selecção no player_setup.cfg
+        const COURTOIS: i32 = 24472;
+        assert!(super::super::player_setup::intl_retired().contains(&COURTOIS));
+        assert!(super::super::player_setup::intl_retired().len() >= 75);
+        let belgium = g.senior_team_of("Belgium").unwrap().unwrap();
+        let squad = g.choose_call_up(belgium, "2025-09-06").unwrap();
+        assert_eq!(squad.len(), SQUAD_SIZE);
+        assert!(!squad.contains(&COURTOIS));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

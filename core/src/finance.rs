@@ -76,6 +76,9 @@ pub const STADIUM_SHARE: f64 = 0.04;
 /// ~€220M no banco).
 pub const MONTHLY_INTEREST: f64 = 0.01;
 pub const SAVINGS_INTEREST: f64 = 0.0025;
+/// Dividendos aos accionistas, a 1/7: esta parte do saldo acima da reserva (épocas de receitas).
+pub const DIVIDEND_SHARE: f64 = 0.25;
+pub const DIVIDEND_RESERVE: f64 = 1.0;
 
 /// Preço médio de um bilhete pela reputação do clube da casa: €4 nos clubes sem nome, ~€25
 /// com 7000 e €54 com 10 000 (o Bayern do CM fez €80,9M de bilheteira numa época).

@@ -68,7 +68,24 @@ pub(super) fn join_names(names: &[String]) -> String {
     }
 }
 
+/// Idade até à qual uma renovação da IA sobe o salário.
+const RAISE_UNTIL: i32 = 30;
+
 impl Game {
+    /// Uma renovação da IA: o salário passa ao que o jogador pede pelo valor de hoje.
+    fn renewal_raise(&self, id: i32, club: i32) -> Result<()> {
+        let (wage, ca): (i64, i32) = self.world.conn.query_row(
+            "SELECT COALESCE(p.wage, 0), COALESCE(pl.current_ability, 1) FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        let value = self.world.market_value_of(id, &self.date)?.unwrap_or(0);
+        let rep: i32 = self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
+        let ask = crate::finance::wage_demand(value.max(ca as i64 * 20_000), wage, rep);
+        self.world.conn.execute("UPDATE people SET wage = ? WHERE id = ?", params![ask.max(wage), id])?;
+        Ok(())
+    }
+
     /// RNG de um acontecimento do calendário: a seed do jogo, a data e uma etiqueta.
     pub(super) fn season_rng(&self, tag: u64) -> ChaCha8Rng {
         let day = self.date.bytes().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(b as u64));
@@ -477,6 +494,11 @@ impl Game {
                     } as i32;
                     let until = format!("{}-06-30", year + years);
                     self.world.conn.execute("UPDATE people SET contract_expires = ? WHERE id = ?", params![until, id])?;
+                    // O salário novo: até aos 30, o que pede pelo valor de hoje (pelo menos +10%);
+                    // os mais velhos ficam com o que têm
+                    if age <= RAISE_UNTIL {
+                        self.renewal_raise(id, club)?;
+                    }
                     renewed.push(format!("{name} (até {})", super::cm_date(&until)));
                 } else {
                     self.world

@@ -37,7 +37,7 @@ const SETTLE_DAYS: i32 = 180;
 /// Idade a partir da qual um jogador conta para o plantel.
 const SENIOR_AGE: i32 = 21;
 /// Entradas e saídas por clube numa janela (sem contar empréstimos e dispensas).
-const MAX_DEALS: usize = 3;
+const MAX_DEALS: usize = 4;
 /// Empréstimos de jovens por clube numa janela.
 const MAX_LOANS_OUT: usize = 2;
 /// O clube que recebe um emprestado: até isto de reputação abaixo do que empresta.
@@ -52,6 +52,19 @@ pub(super) const BANKRUPT_DEBT: f64 = 0.6;
 /// Parte das receitas de uma época que entra no orçamento mesmo sem saldo.
 const BUDGET_REVENUE: f64 = 0.2;
 const WAGE_CAP: f64 = 0.90;
+/// Parte do saldo que um clube rico aceita gastar por época em salários, além do teto (o
+/// dinheiro que junta espalhado por quatro épocas): sem isto o saldo crescia sem parar.
+const CASH_WAGES: f64 = 0.4;
+/// A contratação bombástica, como no CM: um clube com o saldo acima de `SPLURGE_CASH` épocas de
+/// receitas, de vez em quando (`SPLURGE_CHANCE` por tentativa de compra), vai ao melhor que
+/// encontrar acima do nível da equipa (até `SPLURGE_CEILING` de CA), precise ou não da posição,
+/// e paga 1,5 a 2,5× o valor com até `SPLURGE_BUDGET` do saldo e mais 20% de salário.
+const SPLURGE_CASH: f64 = 2.0;
+const SPLURGE_CHANCE: f64 = 0.04;
+const SPLURGE_BUDGET: f64 = 0.8;
+const SPLURGE_CEILING: i32 = 50;
+/// Um titular este CA abaixo do nível da equipa (a média dos 11 melhores) é para trocar.
+const WEAK_STARTER: i32 = 6;
 /// Listas da IA: quantos na de transferências e na de empréstimos, o preço dos listados (parte
 /// do valor) e a vantagem (em CA) que têm na escolha de quem compra.
 const MAX_LISTED: usize = 3;
@@ -274,6 +287,8 @@ pub(super) fn contract_years(age: i32, rng: &mut ChaCha8Rng) -> i32 {
 struct Buyer {
     rep: i32,
     kind: SeasonKind,
+    cash: i64,
+    base: f64,
     budget: f64,
     wage_room: f64,
     squad: usize,
@@ -547,8 +562,10 @@ impl Game {
         Ok(Buyer {
             rep,
             kind,
+            cash,
+            base,
             budget: ((cash as f64 + base * BUDGET_REVENUE) * BUDGET_SHARE).max(0.0),
-            wage_room: base * WAGE_CAP / 52.0 - bill as f64,
+            wage_room: (base * WAGE_CAP + cash.max(0) as f64 * CASH_WAGES) / 52.0 - bill as f64,
             squad,
             count,
             weakest,
@@ -643,12 +660,26 @@ impl Game {
         if b.squad >= MAX_SQUAD {
             return Ok(None);
         }
+        // A contratação bombástica: um clube muito rico, de vez em quando
+        let splurge = b.cash as f64 >= SPLURGE_CASH * b.base && uniform(rng) < SPLURGE_CHANCE;
+        let (premium, budget, wage_room) = if splurge {
+            (1.5 + uniform(rng), b.cash as f64 * SPLURGE_BUDGET, b.wage_room.max(0.0) + b.cash as f64 * CASH_WAGES / 52.0)
+        } else {
+            (1.0, b.budget, b.wage_room)
+        };
         // A posição: a que tem menos jogadores do que o mínimo ou, senão, o titular mais fraco
+        // (na bombástica, o titular mais fraco mesmo sem precisar)
         let short = (0..ROLES).filter(|&r| b.count[r] < MIN_ROLE[r]).max_by_key(|&r| MIN_ROLE[r] - b.count[r]);
-        let weak = (0..ROLES).filter(|&r| b.weakest[r] < b.level - 8).min_by_key(|&r| b.weakest[r]);
-        let Some(role) = short.or(weak) else { return Ok(None) };
-        let floor = if short == Some(role) { b.level - 20 } else { b.weakest[role] + 5 };
-        let ceiling = b.level + 30;
+        let weak = (0..ROLES).filter(|&r| splurge || b.weakest[r] < b.level - WEAK_STARTER).min_by_key(|&r| b.weakest[r]);
+        let Some(role) = (if splurge { weak } else { short.or(weak) }) else { return Ok(None) };
+        let floor = if splurge {
+            b.weakest[role].max(b.level) + 5
+        } else if short == Some(role) {
+            b.level - 20
+        } else {
+            b.weakest[role] + 5
+        };
+        let ceiling = b.level + if splurge { SPLURGE_CEILING } else { 30 };
         let mut candidates: Vec<(&Listing, i64, i64)> = Vec::new();
         for &i in &market.by_role[role] {
             let l = &market.listings[i];
@@ -692,11 +723,12 @@ impl Game {
             let key = if market.key.contains(&l.id) { 1.4 } else { 1.0 };
             let fee = match l.club {
                 None => 0,
-                Some(_) if market.listed.contains(&l.id) => (value as f64 * LISTED_FEE) as i64,
-                Some(_) => (value as f64 * key * personality::loyalty_fee(l.loyalty)) as i64,
+                Some(_) if market.listed.contains(&l.id) => (value as f64 * LISTED_FEE * premium) as i64,
+                Some(_) => (value as f64 * key * personality::loyalty_fee(l.loyalty) * premium) as i64,
             };
             let wage = wage_demand(value.max(l.ca as i64 * 20_000), l.wage, b.rep);
-            if fee as f64 > b.budget || wage as f64 > b.wage_room {
+            let wage = if splurge { (wage as f64 * 1.2) as i64 } else { wage };
+            if fee as f64 > budget || wage as f64 > wage_room {
                 continue;
             }
             candidates.push((l, fee, wage));
@@ -712,7 +744,9 @@ impl Game {
         let score = |l: &Listing| l.ca + if market.listed.contains(&l.id) { LISTED_EDGE } else { 0 };
         candidates.sort_by(|x, y| score(y.0).cmp(&score(x.0)).then(x.1.cmp(&y.1)).then(x.0.id.cmp(&y.0.id)));
         candidates.truncate(5);
-        let (pick, fee, wage) = candidates[(rng.next_u64() % candidates.len() as u64) as usize];
+        // A bombástica vai ao melhor
+        let at = if splurge { 0 } else { (rng.next_u64() % candidates.len() as u64) as usize };
+        let (pick, fee, wage) = candidates[at];
         // Contrato: 2 a 5 anos, menos para os mais velhos
         let years = contract_years(pick.age, rng);
         let from = pick.club;

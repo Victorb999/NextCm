@@ -49,7 +49,50 @@ const GRACE_TARGET: i32 = 3;
 const PUSHY_BELOW: i32 = 40;
 const PUSHY_COST: i32 = 3;
 
+/// Obras da IA: um clube amplia o estádio com o saldo acima disto (sobre as receitas de uma
+/// época) e a obra até esta parte do saldo, enquanto a lotação estiver abaixo do teto da reputação.
+const AI_STADIUM_CASH: f64 = 1.0;
+const AI_STADIUM_SPEND: f64 = 0.3;
+/// O teto da lotação: 15.000 lugares mais 9 por ponto de reputação (10.000 → 105.000).
+fn capacity_cap(reputation: i32) -> i32 {
+    15_000 + 9 * reputation.max(0)
+}
+
 impl Game {
+    /// Dia 1 do mês: um clube da IA rico e com o estádio pequeno para a reputação amplia-o, pelas
+    /// regras do pedido à direcção (lugares, custo e dias da obra).
+    pub(super) fn ai_stadium_works(&self, club: i32, cash: i64) -> Result<()> {
+        if club == self.club_id && !self.sacked() {
+            return Ok(());
+        }
+        let base = self.club_base(club)?;
+        if (cash as f64) < AI_STADIUM_CASH * base {
+            return Ok(());
+        }
+        let Some((stadium, seats, cost, capacity)) = self.stadium_plan_of(club)? else { return Ok(()) };
+        let reputation: i32 =
+            self.world.conn.prepare_cached("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?")?.query_row([club], |r| r.get(0))?;
+        // Um estádio partilhado com o clube do treinador fica com as obras dele
+        let shared: bool = self.world.conn.query_row(
+            "SELECT COUNT(*) FROM clubs WHERE id = ? AND stadium_id = ?",
+            params![self.club_id, stadium],
+            |r| r.get::<_, i64>(0),
+        )? > 0;
+        if shared
+            || capacity >= capacity_cap(reputation)
+            || cost as f64 > AI_STADIUM_SPEND * cash as f64
+            || self.stadium_in_works(stadium)?
+        {
+            return Ok(());
+        }
+        let done = date::add_days(&self.date, STADIUM_DAYS).unwrap_or_default();
+        self.book(club, "stadium", cost)?;
+        self.world
+            .conn
+            .execute("INSERT INTO stadium_works (stadium_id, seats, done_on) VALUES (?, ?, ?)", params![stadium, seats, done])?;
+        Ok(())
+    }
+
     fn last_request(&self, key: &str) -> Result<Option<String>> {
         Ok(self.world.conn.query_row("SELECT last FROM board_requests WHERE kind = ?", [key], |r| r.get(0)).optional()?)
     }
@@ -63,28 +106,47 @@ impl Game {
         Ok((confidence, cash, self.club_base(self.club_id)?.max(1.0), grace, youth))
     }
 
-    /// Lugares e custo de uma ampliação do estádio do clube.
-    fn stadium_plan(&self) -> Result<Option<(i32, i32, i64)>> {
+    /// Lugares e custo de uma ampliação do estádio de um clube (estádio, lugares, custo, lotação).
+    pub(super) fn stadium_plan_of(&self, club: i32) -> Result<Option<(i32, i32, i64, i32)>> {
         let row: Option<(Option<i32>, Option<i32>)> = self
             .world
             .conn
             .query_row(
                 "SELECT c.stadium_id, s.capacity FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id WHERE c.id = ?",
-                [self.club_id],
+                [club],
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .optional()?;
         Ok(row.and_then(|(stadium, capacity)| {
             let stadium = stadium?;
-            let seats = ((capacity.unwrap_or(15_000) as f64 * STADIUM_SHARE) as i32).clamp(STADIUM_SEATS.0, STADIUM_SEATS.1) / 100 * 100;
-            Some((stadium, seats, seats as i64 * SEAT_COST))
+            let capacity = capacity.unwrap_or(15_000);
+            let seats = ((capacity as f64 * STADIUM_SHARE) as i32).clamp(STADIUM_SEATS.0, STADIUM_SEATS.1) / 100 * 100;
+            Some((stadium, seats, seats as i64 * SEAT_COST, capacity))
         }))
+    }
+
+    /// Lugares e custo de uma ampliação do estádio do clube do treinador.
+    fn stadium_plan(&self) -> Result<Option<(i32, i32, i64)>> {
+        Ok(self.stadium_plan_of(self.club_id)?.map(|(s, seats, cost, _)| (s, seats, cost)))
+    }
+
+    /// Um estádio já em obras.
+    pub(super) fn stadium_in_works(&self, stadium: i32) -> Result<bool> {
+        Ok(self
+            .world
+            .conn
+            .prepare_cached("SELECT COUNT(*) FROM stadium_works WHERE stadium_id = ?")?
+            .query_row([stadium], |r| r.get::<_, i64>(0))?
+            > 0)
     }
 
     /// Os pedidos da reunião, com o que está disponível agora.
     pub fn board_requests(&self) -> Result<Vec<BoardRequest>> {
         let (confidence, cash, base, grace, youth) = self.board_numbers()?;
-        let works: bool = self.world.conn.query_row("SELECT COUNT(*) FROM stadium_works", [], |r| r.get::<_, i64>(0))? > 0;
+        let works = match self.stadium_plan()? {
+            Some((stadium, ..)) => self.stadium_in_works(stadium)?,
+            None => false,
+        };
         let mut out = Vec::new();
         for (key, label, cooldown) in REQUESTS {
             let recent =
@@ -263,6 +325,15 @@ impl Game {
         for (row, stadium, seats) in done {
             self.world.conn.execute("UPDATE stadiums SET capacity = COALESCE(capacity, 0) + ? WHERE id = ?", params![seats, stadium])?;
             self.world.conn.execute("DELETE FROM stadium_works WHERE rowid = ?", [row])?;
+            // A notícia só do estádio do treinador (os clubes da IA também fazem obras)
+            let ours: bool = self.world.conn.query_row(
+                "SELECT COUNT(*) FROM clubs WHERE id = ? AND stadium_id = ?",
+                params![self.club_id, stadium],
+                |r| r.get::<_, i64>(0),
+            )? > 0;
+            if !ours || self.sacked() {
+                continue;
+            }
             let capacity: i32 = self.world.conn.query_row("SELECT capacity FROM stadiums WHERE id = ?", [stadium], |r| r.get(0))?;
             let body = format!("As obras de ampliação acabaram: o estádio tem agora {capacity} lugares ({seats} novos).");
             fresh.push(self.news_item(*next_id, "message", "Estádio ampliado".into(), body));
@@ -343,6 +414,63 @@ mod tests {
         g.change_confidence(-10, &mut fresh, &mut id).unwrap();
         assert_eq!(g.board_view().unwrap().confidence, 25);
         assert!(g.news().iter().any(|n| n.title == "Pedido à Direcção aceite"));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rich_ai_club_grows_its_stadium_quietly() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-obras-ia-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Obras".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: PALMEIRAS,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+        };
+        let mut g = Game::create(&path, &dir, &new, 17).unwrap();
+        // Um clube da Série A com estádio próprio (não o do Palmeiras), pequeno para a reputação
+        let (club, stadium, capacity): (i32, i32, i32) = g
+            .world
+            .conn
+            .query_row(
+                "SELECT c.id, c.stadium_id, s.capacity FROM clubs c JOIN stadiums s ON s.id = c.stadium_id
+                 WHERE c.division_id = (SELECT division_id FROM clubs WHERE id = ?1) AND c.id <> ?1
+                   AND c.stadium_id <> (SELECT stadium_id FROM clubs WHERE id = ?1)
+                   AND (SELECT COUNT(*) FROM clubs o WHERE o.stadium_id = c.stadium_id) = 1
+                   AND s.capacity < 15000 + 9 * c.reputation ORDER BY c.id LIMIT 1",
+                [PALMEIRAS],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        let base = g.club_base(club).unwrap();
+        // Pobre: nada
+        g.ai_stadium_works(club, (0.5 * base) as i64).unwrap();
+        assert!(!g.stadium_in_works(stadium).unwrap());
+        // Rico: paga a obra e o estádio cresce ao fim de 300 dias, sem notícia para o treinador
+        let rich = (3.0 * base) as i64 + 100_000_000;
+        g.world.conn.execute("UPDATE clubs SET cash = ? WHERE id = ?", params![rich, club]).unwrap();
+        g.ai_stadium_works(club, rich).unwrap();
+        assert!(g.stadium_in_works(stadium).unwrap());
+        let cash: i64 = g.world.conn.query_row("SELECT cash FROM clubs WHERE id = ?", [club], |r| r.get(0)).unwrap();
+        assert!(cash < rich);
+        // O pedido do treinador não fica bloqueado pelas obras dos outros
+        g.world.conn.execute("UPDATE clubs SET cash = 500000000 WHERE id = ?", [PALMEIRAS]).unwrap();
+        assert!(g.board_requests().unwrap().iter().find(|r| r.key == "stadium").unwrap().available);
+        g.date = date::add_days(&g.date, STADIUM_DAYS).unwrap();
+        let (mut fresh, mut id) = (Vec::new(), 1000);
+        g.stadium_works_day(&mut fresh, &mut id).unwrap();
+        let after: i32 = g.world.conn.query_row("SELECT capacity FROM stadiums WHERE id = ?", [stadium], |r| r.get(0)).unwrap();
+        assert!(after > capacity);
+        assert!(fresh.is_empty());
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

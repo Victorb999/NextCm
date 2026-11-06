@@ -9,8 +9,12 @@
 //!   equipa principal, como o Primavera do Parma para o Parma).
 //! - **Reformas**: no dia, deixa o clube e termina a carreira.
 //! - **Castigos** (má conduta, passaporte falso, doping): não joga em clube nenhum até ao dia.
+//! - **Retirados da selecção**: nunca são convocados (lidos da lista embutida, sem tabela no save).
 //!
 //! Começando em 2026/27 (Europa), as datas vêm um ano depois, como os empréstimos.
+
+use std::collections::HashSet;
+use std::sync::OnceLock;
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::SeedableRng;
@@ -34,10 +38,53 @@ CREATE TABLE bans (person_id INTEGER PRIMARY KEY, kind TEXT NOT NULL, until TEXT
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 enum Event {
-    Injury { player: i32, injury: String, min: i32, max: i32 },
-    Transfer { player: i32, from: Option<i32>, to: i32, date: String, fee: i64, wage: i64, years: i32 },
-    Retirement { player: i32, date: String },
-    Ban { player: i32, ban: String, date: String },
+    Injury {
+        player: i32,
+        injury: String,
+        min: i32,
+        max: i32,
+    },
+    Transfer {
+        player: i32,
+        from: Option<i32>,
+        to: i32,
+        date: String,
+        fee: i64,
+        wage: i64,
+        years: i32,
+    },
+    Retirement {
+        player: i32,
+        date: String,
+    },
+    Ban {
+        player: i32,
+        ban: String,
+        date: String,
+    },
+    #[serde(rename = "intl_retirement")]
+    IntlRetirement {
+        player: i32,
+    },
+}
+
+fn events() -> Result<Vec<Event>> {
+    serde_json::from_str(EVENTS).map_err(|e| Error::Invalid(format!("Lista do player_setup inválida: {e}")))
+}
+
+/// Os que se retiraram da selecção no `player_setup.cfg` (não voltam a ser convocados).
+pub(super) fn intl_retired() -> &'static HashSet<i32> {
+    static SET: OnceLock<HashSet<i32>> = OnceLock::new();
+    SET.get_or_init(|| {
+        events()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|e| match e {
+                Event::IntlRetirement { player } => Some(player),
+                _ => None,
+            })
+            .collect()
+    })
 }
 
 /// O texto de cada castigo.
@@ -60,8 +107,7 @@ fn later(day: &str, years: i32) -> String {
 impl Game {
     /// Ao criar o jogo: as lesões já e o resto marcado (datas `years_later` anos depois).
     pub(super) fn start_setup(&mut self, years_later: i32) -> Result<()> {
-        let events: Vec<Event> =
-            serde_json::from_str(EVENTS).map_err(|e| Error::Invalid(format!("Lista do player_setup inválida: {e}")))?;
+        let events = events()?;
         let mut rng = ChaCha8Rng::seed_from_u64(self.seed as u64 ^ 0x0005_E70F);
         let today = self.date.clone();
         for e in events {
@@ -89,6 +135,7 @@ impl Game {
                         params![player, later(&date, years_later)],
                     )?;
                 }
+                Event::IntlRetirement { .. } => {}
                 Event::Ban { player, ban, date } => {
                     let until = later(&date, years_later);
                     if until > today {

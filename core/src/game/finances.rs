@@ -157,6 +157,18 @@ impl Game {
                 self.book(club, "merchandising", month(finance::MERCH_SHARE))?;
                 self.book(club, "stadium", month(finance::STADIUM_SHARE))?;
                 let cash: i64 = self.world.conn.query_row("SELECT COALESCE(cash, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
+                // 1/7: os dividendos aos accionistas, sobre o saldo acima da reserva
+                let reserve = finance::DIVIDEND_RESERVE * revenue;
+                let dividends = if self.date[5..].starts_with("07-01") && cash as f64 > reserve {
+                    ((cash as f64 - reserve) * finance::DIVIDEND_SHARE).round() as i64
+                } else {
+                    0
+                };
+                if dividends > 0 {
+                    self.book(club, "dividends", dividends)?;
+                }
+                let cash = cash - dividends;
+                self.ai_stadium_works(club, cash)?;
                 if cash < 0 {
                     self.book(club, "interest", (-cash as f64 * finance::MONTHLY_INTEREST).round() as i64)?;
                 } else {
@@ -332,6 +344,56 @@ mod tests {
     use std::path::Path;
 
     use crate::{Game, NewGame, World};
+
+    #[test]
+    fn dividends_on_the_first_of_july() {
+        let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-dividendos-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = NewGame {
+            save_name: "Dividendos".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 7568,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+        };
+        let mut g = Game::create(&path, &dir, &new, 6).unwrap();
+        let base = g.club_base(7568).unwrap();
+        let cash = |g: &Game| -> i64 { g.world.conn.query_row("SELECT cash FROM clubs WHERE id = 7568", [], |r| r.get(0)).unwrap() };
+        let dividends = |g: &Game| -> i64 {
+            g.world
+                .conn
+                .query_row("SELECT COALESCE(SUM(amount), 0) FROM finances WHERE club_id = 7568 AND category = 'dividends'", [], |r| {
+                    r.get(0)
+                })
+                .unwrap()
+        };
+        // Com o saldo abaixo da reserva, nada
+        g.world.conn.execute("UPDATE clubs SET cash = ? WHERE id = 7568", [(0.5 * base) as i64]).unwrap();
+        g.date = "2026-07-01".into();
+        g.daily_finances().unwrap();
+        assert_eq!(dividends(&g), 0);
+        // Com três épocas de receitas, um quarto do que passa da reserva (duas épocas)
+        g.world.conn.execute("UPDATE clubs SET cash = ? WHERE id = 7568", [(3.0 * base) as i64]).unwrap();
+        g.date = "2027-07-01".into();
+        g.daily_finances().unwrap();
+        let paid = dividends(&g);
+        // (as receitas e despesas do dia 1 entram antes)
+        assert!((paid as f64 / (0.5 * base) - 1.0).abs() < 0.05, "{paid} contra {}", 0.5 * base);
+        assert!(cash(&g) < (3.0 * base) as i64);
+        // Noutro dia 1, nada
+        g.date = "2027-08-01".into();
+        g.daily_finances().unwrap();
+        assert_eq!(dividends(&g), paid);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn books_add_up_after_two_months() {

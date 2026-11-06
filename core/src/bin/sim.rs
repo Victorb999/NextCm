@@ -115,12 +115,13 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         let before = game.news().len();
         // Até 31/12, para ver os jogos da época antes de a seguinte os esconder
         let last_day = format!("{year}-12-31");
-        while game.date() < last_day.as_str() && !game.sacked() {
+        // Despedido, o mundo continua (as médias e o mercado das épocas seguintes contam na mesma)
+        let employed = !game.sacked();
+        while game.date() < last_day.as_str() {
             game.advance_day().expect("falhou ao avançar o dia");
         }
-        if game.sacked() {
-            println!("\nO treinador foi despedido a {}.", game.date());
-            break;
+        if employed && game.sacked() {
+            println!("\nO treinador foi despedido ({}); o mundo continua.", game.date());
         }
         let mut goals_report = Vec::new();
         for r in regulation::all() {
