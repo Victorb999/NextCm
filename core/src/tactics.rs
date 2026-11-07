@@ -307,18 +307,20 @@ impl PlayerOrders {
     }
 }
 
-/// As instruções individuais de um jogador da escolha.
+/// As instruções individuais de uma posição da escolha.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerOrder {
-    pub person_id: i32,
+    /// A posição na táctica (0 a 10, a ordem dos titulares): as instruções são da função, e
+    /// quem entra nela (uma substituição, outra escolha) fica com elas, como no CM.
+    pub slot: usize,
     pub orders: PlayerOrders,
 }
 
-/// O que se diz das ordens de um jogador (com as da equipa por omissão).
-pub fn orders_of(orders: &[PlayerOrder], person: i32) -> PlayerOrders {
-    orders.iter().find(|o| o.person_id == person).map(|o| o.orders).unwrap_or_default()
+/// As ordens de uma posição (com as da equipa por omissão).
+pub fn orders_of(orders: &[PlayerOrder], slot: usize) -> PlayerOrders {
+    orders.iter().find(|o| o.slot == slot).map(|o| o.orders).unwrap_or_default()
 }
 
 /// Instruções à Equipa. Os batedores de bolas paradas e o organizador ficam em [`Takers`].
@@ -797,7 +799,7 @@ impl World {
             auto: sel.auto,
             custom: sel.positions.len() == 11,
             takers: sel.takers,
-            orders: sel.orders.iter().filter(|o| o.orders != PlayerOrders::default() && seen.contains(&o.person_id)).copied().collect(),
+            orders: sel.orders.iter().filter(|o| o.orders != PlayerOrders::default() && o.slot < 11).copied().collect(),
         })
     }
 

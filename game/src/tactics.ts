@@ -185,12 +185,27 @@ export const NO_ORDERS: PlayerOrders = {
   marking: 'zonal',
 }
 
-/** As instruções individuais de um jogador da escolha. */
-export const ordersOf = (t: ClubTactics, id: number) => t.orders.find((o) => o.personId === id)?.orders ?? NO_ORDERS
+// As instruções individuais são da posição na táctica, não do jogador: quem entra na função
+// (uma troca, uma substituição) fica com elas, como no CM. Aqui procura-se pela posição dele.
+const slotOf = (t: ClubTactics, id: number) => t.starters.findIndex((s) => s.player?.id === id)
 
-/** A escolha com as instruções individuais de um jogador mudadas. */
+/** As instruções individuais da posição onde o jogador está (fora do onze, as da equipa). */
+export const ordersOf = (t: ClubTactics, id: number) => {
+  const slot = slotOf(t, id)
+  return t.orders.find((o) => o.slot === slot)?.orders ?? NO_ORDERS
+}
+
+/** A posição do jogador tem instruções individuais. */
+export const hasOrders = (t: ClubTactics, id: number) => {
+  const slot = slotOf(t, id)
+  return slot >= 0 && t.orders.some((o) => o.slot === slot)
+}
+
+/** A escolha com as instruções individuais da posição do jogador mudadas (só no onze). */
 export function withOrders(sel: Selection, id: number, orders: PlayerOrders): Selection {
-  return { ...sel, orders: [...sel.orders.filter((o) => o.personId !== id), { personId: id, orders }] }
+  const slot = sel.starters.indexOf(id)
+  if (slot < 0) return sel
+  return { ...sel, orders: [...sel.orders.filter((o) => o.slot !== slot), { slot, orders }] }
 }
 
 /** "Sobrenome, Nome" -> "Sobrenome" (como os nomes no campo do CM). */

@@ -390,9 +390,9 @@ impl Team {
         cands.last().map(|c| c.0)
     }
 
-    /// As instruções individuais de um jogador do jogo.
+    /// As instruções individuais de um jogador do jogo: as da posição onde joga.
     fn orders(&self, i: usize) -> PlayerOrders {
-        orders_of(&self.tactics.orders, self.players[i].info.id)
+        self.players[i].slot.map_or_else(PlayerOrders::default, |s| orders_of(&self.tactics.orders, s))
     }
 
     /// Quem bate (penáltis, livres, cantos): o escolhido nas Tácticas, se estiver em campo;
@@ -876,7 +876,7 @@ impl LiveMatch {
             };
             let maker = if playmaker == Some(p.info.id) { 0.9 } else { 1.0 };
             w * (4.0 + p.prof.finishing + 0.5 * p.prof.long_shots + 0.3 * p.prof.heading)
-                * orders_of(&orders, p.info.id).shot_weight()
+                * p.slot.map_or_else(PlayerOrders::default, |s| orders_of(&orders, s)).shot_weight()
                 * maker
         }) else {
             return;
@@ -941,7 +941,9 @@ impl LiveMatch {
                         _ => 0.1,
                     };
                     let maker = if playmaker == Some(p.info.id) { 1.5 } else { 1.0 };
-                    w * (4.0 + p.prof.passing + p.prof.vision) * orders_of(&orders, p.info.id).assist_weight() * maker
+                    w * (4.0 + p.prof.passing + p.prof.vision)
+                        * p.slot.map_or_else(PlayerOrders::default, |s| orders_of(&orders, s)).assist_weight()
+                        * maker
                 })
             } else {
                 None
@@ -1077,7 +1079,9 @@ impl LiveMatch {
         let orders = self.teams[side].tactics.orders.clone();
         let team_tackling = self.teams[side].tactics.instructions.tackling;
         let booking = |role: &str, p: &MatchPlayer| {
-            p.prof.temper * if sector(role) == 0 { 0.3 } else { 1.0 } * orders_of(&orders, p.info.id).booking_weight(team_tackling)
+            p.prof.temper
+                * if sector(role) == 0 { 0.3 } else { 1.0 }
+                * p.slot.map_or_else(PlayerOrders::default, |s| orders_of(&orders, s)).booking_weight(team_tackling)
         };
         if uniform(&mut self.rng) < YELLOWS_PER_90 * tackle * temper / 90.0
             && let Some(i) = self.teams[side].pick(&mut self.rng, None, booking)

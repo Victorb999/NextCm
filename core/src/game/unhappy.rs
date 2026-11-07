@@ -264,7 +264,8 @@ impl Game {
             }
             // Nas reservas com 24 anos ou mais (ou mais novo sem ser um jovem com valor): quer
             // ver o futuro esclarecido
-            if reserve && !young_reserve {
+            // Na lista (de transferências ou de empréstimos) o futuro já está esclarecido
+            if reserve && !young_reserve && !self.on_any_list(p.id)? {
                 if self.add_unhappy(p.id, "future")? {
                     let name = self.person_name(p.id)?;
                     fresh.push(self.news_item(

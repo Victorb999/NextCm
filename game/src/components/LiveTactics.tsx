@@ -10,7 +10,7 @@ import InstructionsDialog from './InstructionsDialog'
 import PlayerOrdersDialog from './PlayerOrdersDialog'
 import { BottomBar, ErrorBox, PanelTitle, PurpleMenu, ScreenHeader } from './Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from './TacticsBoard'
-import { TACTICS_MENU, TACTICS_VIEWS, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, viewLabel, viewValue, withOrders, type TacticsView } from '../tactics'
+import { TACTICS_MENU, TACTICS_VIEWS, fullName, hasOrders, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, viewLabel, viewValue, withOrders, type TacticsView } from '../tactics'
 
 /**
  * "Tácticas <clube>" a meio do jogo: a mesma tela de Tácticas (arrastar na lista ou no
@@ -209,7 +209,7 @@ export default function LiveTactics({
                       place={shortRole(s.role)}
                       bind={drag.bind(spot, label(s))}
                       onOrders={editable ? () => setOrdersFor(s.player!) : undefined}
-                      ordered={t.orders.some((o) => o.personId === s.player!.id)}
+                      ordered={hasOrders(t, s.player!.id)}
                       captain={t.takers.captain === s.player.id}
                       rating={ratings.get(s.player.id) ?? null}
                       note={entered(s.player.id)}

@@ -19,6 +19,7 @@ fn role_label(role: &str) -> &'static str {
         "key" | "important" => "Importante",
         "rotation" => "Rotação",
         "prospect" | "youngster" => "Aposta",
+        "notneeded" => "Dispensável",
         _ => "Reserva",
     }
 }

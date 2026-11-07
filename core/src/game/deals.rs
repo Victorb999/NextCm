@@ -149,6 +149,24 @@ pub const SQUAD_ROLES: [(&str, &str, i32); 6] = [
     ("prospect", "Este jogador tem uma excelente perspectiva futura", 2),
     ("youngster", "Este jogador é um jovem com valor", 3),
 ];
+/// A função de quem vai para a lista de transferências (ou o treinador põe de lado): fora
+/// das funções do contrato, "Dispensável" no plantel.
+pub const NOT_NEEDED: (&str, &str) = ("notneeded", "Este jogador não é necessário para o clube");
+/// O degrau de [`NOT_NEEDED`], abaixo do apoio e dos jovens (para a moral ao mudar de função).
+const NOT_NEEDED_STEP: i32 = 4;
+
+/// "Definir Função no Plantel": as funções (as do contrato e a de dispensável) e a de agora.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SquadRoleView {
+    pub person_id: i32,
+    pub name: String,
+    /// A função gravada (`None`: pelo lugar no plantel).
+    pub current: Option<String>,
+    pub roles: Vec<RoleOption>,
+}
+
 /// O adjectivo da nação para "o estilo de vida Italiano" (as nações das ligas do jogo).
 fn lifestyle(nation: &str) -> Option<&'static str> {
     Some(match nation {
@@ -796,8 +814,9 @@ impl Game {
         } else {
             None
         };
-        let mut future = vec![match role.and_then(|k| SQUAD_ROLES.iter().find(|r| r.0 == k)) {
+        let mut future = vec![match role.as_deref().and_then(|k| SQUAD_ROLES.iter().find(|r| r.0 == k)) {
             Some(r) => r.1.to_string(),
+            None if role.as_deref() == Some(NOT_NEEDED.0) => NOT_NEEDED.1.to_string(),
             None => match rank {
                 0..3 => "Pensa que é um membro essencial ao plantel".into(),
                 3..11 => "Pensa que é importante para a equipa principal".into(),
@@ -842,7 +861,8 @@ impl Game {
         if young_reserve {
             future.push("Entende que o clube tem um bom ambiente no vestiário".into());
             future.push("Contente com situação no clube".into());
-        } else if reserve {
+        } else if reserve && !self.on_any_list(person)? {
+            // Na lista (de transferências ou de empréstimos) o futuro já está esclarecido
             future.push("Deseja ver o seu futuro esclarecido".into());
         } else if outside && f.age <= 23 {
             future.push("Está a tentar conquistar um lugar na equipa principal".into());
@@ -1673,6 +1693,94 @@ Confirme até {}.",
     // ---------------------------------------------------------------- lista de transferências
 
     /// Põe ou tira um jogador do plantel das listas de transferências e de empréstimos.
+    /// Na lista de transferências ou na de empréstimos.
+    pub(super) fn on_any_list(&self, person: i32) -> Result<bool> {
+        Ok(self
+            .world
+            .conn
+            .query_row("SELECT 1 FROM transfer_list WHERE person_id = ? AND (transfer = 1 OR loan = 1)", [person], |_| Ok(()))
+            .optional()?
+            .is_some())
+    }
+
+    /// Um jogador do plantel do treinador (não os emprestados por outros nem os de enchimento).
+    fn own_squad_player(&self, person: i32) -> Result<Facts> {
+        let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só os jogadores têm função no plantel.".into()))?;
+        if f.club != Some(self.club_id) || self.loaned_in_from(person, &f)?.is_some() {
+            return Err(Error::Invalid("Só os jogadores do seu plantel.".into()));
+        }
+        if self.is_ghost(person) {
+            return Err(Error::Invalid(GHOST_ONLY.into()));
+        }
+        Ok(f)
+    }
+
+    /// O degrau de uma função (0 = indispensável); sem função gravada, a que ele espera.
+    fn role_step(&self, person: i32, f: &Facts, key: Option<&str>) -> Result<i32> {
+        Ok(match key {
+            Some(k) if k == NOT_NEEDED.0 => NOT_NEEDED_STEP,
+            Some(k) => SQUAD_ROLES[Self::role_index(k)?].2,
+            None => SQUAD_ROLES[self.expected_role(person, f)?].2,
+        })
+    }
+
+    fn stored_role(&self, person: i32) -> Result<Option<String>> {
+        Ok(self.world.conn.query_row("SELECT role FROM squad_roles WHERE person_id = ?", [person], |r| r.get(0)).optional()?)
+    }
+
+    /// "Definir Função no Plantel" (o "Set Squad Status" do FM): as funções que pode ter.
+    pub fn squad_role_view(&self, person: i32) -> Result<SquadRoleView> {
+        let f = self.own_squad_player(person)?;
+        let mut roles: Vec<RoleOption> = SQUAD_ROLES
+            .iter()
+            .enumerate()
+            .map(|(i, r)| {
+                let allowed = Self::role_allowed(i, f.age);
+                RoleOption {
+                    key: r.0.into(),
+                    label: r.1.into(),
+                    youth: i >= 4,
+                    allowed,
+                    veto: (!allowed).then(|| "Não é possível pela idade do jogador".into()),
+                }
+            })
+            .collect();
+        roles.push(RoleOption { key: NOT_NEEDED.0.into(), label: NOT_NEEDED.1.into(), youth: false, allowed: true, veto: None });
+        Ok(SquadRoleView { person_id: person, name: self.person_name(person)?, current: self.stored_role(person)?, roles })
+    }
+
+    /// Muda a função no plantel sem mexer no contrato: subir agrada-lhe (+1 de moral), descer
+    /// custa 2 por degrau. Devolve a frase para o perfil.
+    pub fn set_squad_role(&mut self, person: i32, role: &str) -> Result<String> {
+        let f = self.own_squad_player(person)?;
+        let label = if role == NOT_NEEDED.0 {
+            NOT_NEEDED.1
+        } else {
+            let i = Self::role_index(role)?;
+            if !Self::role_allowed(i, f.age) {
+                return Err(Error::Invalid("Essa função não é possível pela idade do jogador.".into()));
+            }
+            SQUAD_ROLES[i].1
+        };
+        let before = self.stored_role(person)?;
+        let (old, new) = (self.role_step(person, &f, before.as_deref())?, self.role_step(person, &f, Some(role))?);
+        self.world.conn.execute("INSERT OR REPLACE INTO squad_roles (person_id, role) VALUES (?, ?)", params![person, role])?;
+        let name = self.person_name(person)?;
+        let mood = match new.cmp(&old) {
+            std::cmp::Ordering::Less => {
+                self.change_morale(person, 1);
+                " Ficou satisfeito."
+            }
+            std::cmp::Ordering::Greater => {
+                self.change_morale(person, -2 * (new - old));
+                " Não gostou de perder importância."
+            }
+            std::cmp::Ordering::Equal => "",
+        };
+        self.unsaved = true;
+        Ok(format!("{label}: {name}.{mood}"))
+    }
+
     pub fn set_listing(&mut self, person: i32, transfer: bool, loan: bool, asking: Option<i64>) -> Result<TransferView> {
         let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só os jogadores vão para a lista.".into()))?;
         if f.club != Some(self.club_id) || self.loan_of(person)?.is_some() {
@@ -1701,6 +1809,16 @@ Confirme até {}.",
         // Posto na lista sem pedir perde moral; tirado da lista depois de pedir fica frustrado
         if transfer && !was_listed {
             self.change_morale(person, -super::unhappy::LISTED_MORALE);
+        }
+        // Na lista de transferências deixa de ser necessário (como no CM); tirado, volta à função
+        // pelo lugar no plantel. Numa das listas, o futuro fica esclarecido
+        if transfer {
+            self.world.conn.execute("INSERT OR REPLACE INTO squad_roles (person_id, role) VALUES (?, ?)", params![person, NOT_NEEDED.0])?;
+        } else if was_listed {
+            self.world.conn.execute("DELETE FROM squad_roles WHERE person_id = ? AND role = ?", params![person, NOT_NEEDED.0])?;
+        }
+        if transfer || loan {
+            self.remove_unhappy(person, "future")?;
         }
         if requested && !transfer {
             self.refuse_request(person)?;
@@ -2310,6 +2428,59 @@ mod tests {
                     .then(|| (id, g.asking_price(id, &f, FLAMENGO).unwrap()))
             })
             .collect()
+    }
+
+    #[test]
+    fn listing_and_squad_roles() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-funcoes-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Funções".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: PALMEIRAS,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+        };
+        let mut g = Game::create(&path, &dir, &new, 3).unwrap();
+        let id: i32 = g
+            .world
+            .conn
+            .query_row(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ? AND p.is_player = 1
+                   AND p.id NOT IN (SELECT person_id FROM ghosts) AND p.id NOT IN (SELECT person_id FROM loans)
+                 ORDER BY pl.current_ability LIMIT 1",
+                [PALMEIRAS],
+                |r| r.get(0),
+            )
+            .unwrap();
+        // Quer ver o futuro esclarecido; posto na lista, deixa de ser necessário e já não pede
+        g.add_unhappy(id, "future").unwrap();
+        let v = g.set_listing(id, true, false, None).unwrap();
+        assert_eq!(v.future.first().map(String::as_str), Some(NOT_NEEDED.1));
+        assert!(!v.future.iter().any(|t| t.contains("esclarecido")), "{:?}", v.future);
+        assert!(!g.unhappy_reasons(id).unwrap().iter().any(|r| r.contains("esclarecido")));
+        // Tirado da lista, volta à função pelo lugar no plantel
+        g.set_listing(id, false, false, None).unwrap();
+        assert_eq!(g.stored_role(id).unwrap(), None);
+        // Definir Função no Plantel: subir agrada, descer custa moral
+        let view = g.squad_role_view(id).unwrap();
+        assert_eq!(view.roles.len(), SQUAD_ROLES.len() + 1);
+        let before = g.squads.state(id).morale;
+        g.set_squad_role(id, "key").unwrap();
+        assert_eq!(g.squads.state(id).morale, (before + 1).min(20));
+        let up = g.squads.state(id).morale;
+        assert!(g.set_squad_role(id, NOT_NEEDED.0).unwrap().contains("perder importância"));
+        assert!(g.squads.state(id).morale < up);
+        assert!(g.set_squad_role(id, "nada").is_err());
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

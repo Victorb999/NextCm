@@ -65,7 +65,7 @@ pub use board::{BoardConfidence, BoardView};
 pub use board_meeting::BoardRequest;
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use contract_extras::ContractExtras;
-pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, TransferView};
+pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, SquadRoleView, TransferView};
 pub use discipline::DisciplineOptions;
 pub use jobs::{JobNation, JobRow, JobsView};
 pub use leagues::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
@@ -132,7 +132,17 @@ pub use training::{TrainingPlan, TrainingView};
 /// 47: os anfitriões das fases finais (`hosts`) e a ficha da partida dos jogos de selecções.
 /// 48: as instalações de treino (`clubs.training`) e o aquecimento do relvado
 /// (`stadiums.undersoil_heating`), do banco.
-pub const SAVE_VERSION: i32 = 48;
+/// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
+pub const SAVE_VERSION: i32 = 49;
+
+/// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
+/// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
+const ORDERS_BY_SLOT: &str = "
+UPDATE player_orders SET person_id = COALESCE((SELECT sp.slot FROM selection_players sp WHERE sp.club_id = player_orders.club_id
+                                               AND sp.person_id = player_orders.person_id AND sp.slot BETWEEN 0 AND 10), -person_id - 1000);
+DELETE FROM player_orders WHERE person_id < 0;
+ALTER TABLE player_orders RENAME COLUMN person_id TO slot;
+";
 
 /// As três partes do dia, como no CM (MNH, TAR, NTE): de manhã o mercado e o calendário, à
 /// tarde os jogos do fim de semana, à noite os jogos da semana, as respostas e o treino.
@@ -768,6 +778,7 @@ impl Game {
             tx.execute_batch(internationals::FRIENDLY_SCHEMA)?;
             tx.execute_batch(hosts::HOSTS_SCHEMA)?;
             tx.execute_batch(internationals::SHEET_SCHEMA)?;
+            tx.execute_batch(ORDERS_BY_SLOT)?;
             // O saldo do 1.º dia, como no CM (as dívidas ficam como estão)
             tx.execute("UPDATE clubs SET cash = CAST(cash * ? AS INTEGER) WHERE cash > 0", [crate::finance::START_CASH])?;
             // Os salários do CM: os do banco × WAGE_SCALE
@@ -1201,6 +1212,11 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 48", [])?;
             version = 48;
         }
+        if version == 48 {
+            world.conn.execute_batch(ORDERS_BY_SLOT)?;
+            world.conn.execute("UPDATE game SET version = 49", [])?;
+            version = 49;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1453,8 +1469,8 @@ impl Game {
             for o in &sel.orders {
                 let json = serde_json::to_string(&o.orders).unwrap_or_default();
                 tx.execute(
-                    "INSERT OR REPLACE INTO player_orders (club_id, person_id, orders) VALUES (?, ?, ?)",
-                    params![self.club_id, o.person_id, json],
+                    "INSERT OR REPLACE INTO player_orders (club_id, slot, orders) VALUES (?, ?, ?)",
+                    params![self.club_id, o.slot as i32, json],
                 )?;
             }
             let mut stmt =
@@ -1974,7 +1990,6 @@ impl Game {
             }
         }
         sel.bench.retain(|p| squad.contains(p));
-        sel.orders.retain(|o| squad.contains(&o.person_id));
         let mut tactics = self.world.tactics_from_selection(club, &sel, None)?;
         self.mark_key_players(&mut tactics)?;
         Ok(Some(LastLineup { opponent: self.club(opponent), date, tactics }))
@@ -2022,11 +2037,7 @@ impl Game {
         let mut out = crate::tactic_file::apply(t, sel);
         self.world.place_starters(self.club_id, &mut out)?;
         if !t.orders.is_empty() {
-            out.orders = t
-                .orders
-                .iter()
-                .filter_map(|&(slot, orders)| Some(crate::tactics::PlayerOrder { person_id: (*out.starters.get(slot)?)?, orders }))
-                .collect();
+            out.orders = t.orders.iter().filter(|o| o.0 < 11).map(|&(slot, orders)| crate::tactics::PlayerOrder { slot, orders }).collect();
         }
         Ok(out)
     }
@@ -2668,11 +2679,10 @@ impl Game {
         self.live_day()?;
         let day = self.live.as_mut().expect("dia de jogo");
         day.games[day.user].1.apply_selection(&self.world, sel)?;
-        // As instruções individuais mudadas no jogo ficam também na escolha do treinador
+        // As instruções individuais mudadas no jogo ficam também na escolha do treinador (são
+        // das posições da táctica)
         if let Some(own) = &mut self.selection {
-            let changed: Vec<i32> = sel.starters.iter().flatten().chain(&sel.bench).copied().collect();
-            own.orders.retain(|o| !changed.contains(&o.person_id));
-            own.orders.extend(sel.orders.iter().filter(|o| o.orders != PlayerOrders::default() && changed.contains(&o.person_id)).copied());
+            own.orders = sel.orders.iter().filter(|o| o.orders != PlayerOrders::default()).copied().collect();
             self.unsaved = true;
         }
         self.live_view()
@@ -2815,10 +2825,10 @@ fn load_selection(world: &World, club_id: i32) -> Result<Option<Selection>> {
     )?;
     let orders = world
         .conn
-        .prepare("SELECT person_id, orders FROM player_orders WHERE club_id = ? ORDER BY person_id")?
+        .prepare("SELECT slot, orders FROM player_orders WHERE club_id = ? AND slot BETWEEN 0 AND 10 ORDER BY slot")?
         .query_map([club_id], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, String>(1)?)))?
         .filter_map(|r| r.ok())
-        .filter_map(|(person_id, json)| serde_json::from_str(&json).ok().map(|orders| PlayerOrder { person_id, orders }))
+        .filter_map(|(slot, json)| serde_json::from_str(&json).ok().map(|orders| PlayerOrder { slot: slot as usize, orders }))
         .collect();
     Ok(Some(Selection { formation, starters, bench, instructions, auto, positions, runs, takers, orders }))
 }
@@ -3217,7 +3227,7 @@ mod tests {
         sel.takers =
             Takers { penalty: Some(pool[10]), free_kick: None, corner: Some(pool[9]), playmaker: Some(pool[8]), captain: Some(pool[0]) };
         let orders = crate::tactics::PlayerOrders { long_shots: true, tackling: Some(Tackling::Hard), ..Default::default() };
-        sel.orders = vec![PlayerOrder { person_id: pool[10], orders }];
+        sel.orders = vec![PlayerOrder { slot: 10, orders }];
         let weak = g.set_selection(sel.clone()).unwrap();
         assert_eq!(weak.orders, sel.orders);
         assert!(!weak.auto);
@@ -3331,7 +3341,7 @@ mod tests {
             sel.starters[*i] = Some(r.id);
         }
         let orders = PlayerOrders { long_shots: true, ..Default::default() };
-        sel.orders = vec![PlayerOrder { person_id: sel.starters[9].unwrap(), orders }];
+        sel.orders = vec![PlayerOrder { slot: 9, orders }];
         g.set_selection(sel.clone()).unwrap();
         let live = g.live_tactics(side).unwrap();
         let on: Vec<_> = live.starters.iter().map(|s| s.player.as_ref().map(|p| p.id)).collect();
@@ -3341,9 +3351,32 @@ mod tests {
         g.live_step(10).unwrap();
         let mut mid = g.live_tactics(side).unwrap().selection();
         let runner = PlayerOrders { forward_runs: true, ..Default::default() };
-        mid.orders = vec![PlayerOrder { person_id: mid.starters[5].unwrap(), orders: runner }];
+        mid.orders = vec![PlayerOrder { slot: 5, orders: runner }];
         g.live_set_tactics(&mid).unwrap();
         assert_eq!(g.selection.as_ref().unwrap().orders, mid.orders);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn orders_belong_to_the_position() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (mut g, dir) = until_kickoff(&world, "ordens-da-posicao", 6, true, false);
+        let side = g.live_day().unwrap().games[g.live_day().unwrap().user].1.user_side().unwrap() as i32;
+        // Remates de longe na posição 9 (o avançado)
+        let mut sel = g.live_tactics(side).unwrap().selection();
+        let shots = PlayerOrders { long_shots: true, ..Default::default() };
+        sel.orders = vec![PlayerOrder { slot: 9, orders: shots }];
+        g.live_set_tactics(&sel).unwrap();
+        g.live_step(10).unwrap();
+        // Sai o da posição 9 e entra um do banco: fica com as instruções da posição
+        let t = g.live_tactics(side).unwrap();
+        let out = t.starters[9].player.as_ref().unwrap().id;
+        let inn = t.bench[0].id;
+        g.live_substitute(out, inn).unwrap();
+        let after = g.live_tactics(side).unwrap();
+        assert_eq!(after.starters[9].player.as_ref().map(|p| p.id), Some(inn));
+        assert_eq!(crate::tactics::orders_of(&after.orders, 9), shots, "quem entra herda as instruções");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

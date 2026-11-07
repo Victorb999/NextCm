@@ -13,7 +13,7 @@ import PlayerOrdersDialog from '../components/PlayerOrdersDialog'
 import TextDialog from '../components/TextDialog'
 import { BottomBar, ErrorBox, Link, PanelTitle, PurpleMenu } from '../components/Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from '../components/TacticsBoard'
-import { TACTICS_MENU, TACTICS_VIEWS, fullName, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, viewLabel, viewValue, withOrders, type TacticsView } from '../tactics'
+import { TACTICS_MENU, TACTICS_VIEWS, fullName, hasOrders, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, viewLabel, viewValue, withOrders, type TacticsView } from '../tactics'
 import { initials } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -246,7 +246,7 @@ export default function TacticsPage({ id }: { id: number }) {
                       onToggle={picking ? undefined : toggler(s.player)}
                       onOpen={() => nav.go({ kind: 'person', id: s.player!.id })}
                       onOrders={editable ? () => setOrdersFor(s.player!) : undefined}
-                      ordered={t.orders.some((o) => o.personId === s.player!.id)}
+                      ordered={hasOrders(t, s.player!.id)}
                       captain={t.takers.captain === s.player.id}
                       highlight={mark(spot)}
                       action={

@@ -19,6 +19,7 @@ use crate::MatchAnalysis;
 use crate::MatchSheet;
 use crate::NewsLink;
 use crate::PressView;
+use crate::SquadRoleView;
 use crate::WorldTransfers;
 use crate::tactic_file::{self, SavedFile};
 use crate::{DealTerms, LoanTerms};
@@ -546,6 +547,16 @@ impl Session {
         let r = g.make_offer(id, &terms)?;
         g.set_shortlist(id, true)?;
         Ok(r)
+    }
+
+    /// "Definir Função no Plantel": as funções de um jogador do plantel.
+    pub fn squad_role_view(&self, id: i32) -> Result<SquadRoleView> {
+        self.game()?.squad_role_view(id)
+    }
+
+    /// Muda a função no plantel de um jogador do treinador.
+    pub fn set_squad_role(&mut self, id: i32, role: String) -> Result<String> {
+        self.game_mut()?.set_squad_role(id, &role)
     }
 
     /// Oferecer a Clubes: manda a proposta de um jogador do plantel a todos os clubes.

@@ -125,15 +125,8 @@ fn check(t: SavedTactic) -> Result<SavedTactic> {
 
 /// A táctica de uma escolha: as posições e as setas de cada função como estão na tela.
 pub fn from_view(name: &str, t: &crate::ClubTactics) -> SavedTactic {
-    let orders = t
-        .starters
-        .iter()
-        .enumerate()
-        .filter_map(|(i, s)| {
-            let pid = s.player.as_ref()?.id;
-            t.orders.iter().find(|o| o.person_id == pid).map(|o| (i, o.orders))
-        })
-        .collect();
+    // As instruções já são de cada posição
+    let orders = t.orders.iter().filter(|o| o.slot < t.starters.len()).map(|o| (o.slot, o.orders)).collect();
     SavedTactic {
         name: name.to_string(),
         positions: t.starters.iter().map(|s| [s.x, s.y]).collect(),

@@ -2,6 +2,11 @@
 import type { PlayerOrders } from "./PlayerOrders";
 
 /**
- * As instruções individuais de um jogador da escolha.
+ * As instruções individuais de uma posição da escolha.
  */
-export type PlayerOrder = { personId: number, orders: PlayerOrders, };
+export type PlayerOrder = { 
+/**
+ * A posição na táctica (0 a 10, a ordem dos titulares): as instruções são da função, e
+ * quem entra nela (uma substituição, outra escolha) fica com elas, como no CM.
+ */
+slot: number, orders: PlayerOrders, };

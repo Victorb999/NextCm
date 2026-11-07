@@ -11,6 +11,7 @@ use nextcm_core::MatchSheet;
 use nextcm_core::NewsLink;
 use nextcm_core::PressView;
 use nextcm_core::ReserveLineup;
+use nextcm_core::SquadRoleView;
 use nextcm_core::WorldTransfers;
 use nextcm_core::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem,
@@ -132,6 +133,8 @@ session_command!(set_training(plan: TrainingPlan) -> TrainingView);
 session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
 session_command!(exchange_candidates(id: i32) -> Vec<i32>);
+session_command!(squad_role_view(id: i32) -> SquadRoleView);
+session_command!(set_squad_role(id: i32, role: String) -> String);
 session_command!(offer_to_clubs(id: i32, loan: bool, fee: i64, exclude_rivals: bool) -> String);
 session_command!(ask_loan(id: i32, terms: LoanTerms) -> TransferView);
 session_command!(exercise_option(id: i32) -> TransferView);
@@ -342,6 +345,8 @@ pub fn run() {
             make_offer,
             exchange_candidates,
             offer_to_clubs,
+            squad_role_view,
+            set_squad_role,
             ask_loan,
             exercise_option,
             lineup_check,

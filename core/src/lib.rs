@@ -32,6 +32,7 @@ pub use game::ContractExtras;
 pub use game::LineupCheck;
 pub use game::MatchSheet;
 pub use game::NewsLink;
+pub use game::SquadRoleView;
 pub use game::WorldTransfers;
 pub use game::{
     BoardConfidence, BoardRequest, BoardView, ContractReply, ContractTerms, DisciplineOptions, DivisionStats, Game, GameInfo, GroupTable,

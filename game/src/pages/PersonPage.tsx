@@ -8,6 +8,7 @@ import { DialogFrame, Overlay } from '../components/Dialog'
 import DisciplineDialog from '../components/DisciplineDialog'
 import PlayerHistory, { SeasonTable } from '../components/PlayerHistory'
 import ReportDialog from '../components/ReportDialog'
+import SquadRoleDialog from '../components/SquadRoleDialog'
 import { BottomBar, Empty, ErrorBox, Link, Panel, PurpleMenu, Tabs } from '../components/Screen'
 import type { PositionTag } from '../bindings/PositionTag'
 import type { TransferView } from '../bindings/TransferView'
@@ -476,6 +477,7 @@ export default function PersonPage({ id }: { id: number }) {
   const [confirm, setConfirm] = useState(false)
   const [report, setReport] = useState<'medical' | 'fitness' | null>(null)
   const [discipline, setDiscipline] = useState(false)
+  const [roleDialog, setRoleDialog] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   // A situação de mercado do jogador (para o menu Acção) e o diálogo aberto
   const [market, setMarket] = useState<TransferView | null>(null)
@@ -517,7 +519,7 @@ export default function PersonPage({ id }: { id: number }) {
   const actions = groups.slice(0, -1)
   // Os botões da aba Contrato & Transferência: os principais, iguais aos do menu
   const pick = (keys: string[]) => actions.flat().filter((a) => keys.includes(a.key))
-  const contractButtons = pick(['renew', 'contract'])
+  const contractButtons = pick(['renew', 'role', 'contract'])
   const marketButtons = pick(['list', 'unlist', 'price', 'loanlist', 'unloanlist', 'shop', 'offer', 'loan', 'option', 'shortlist', 'unshortlist', 'scout'])
   const buttonRow = (list: { key: string; label: string }[]) =>
     list.length > 0 && (
@@ -620,6 +622,7 @@ export default function PersonPage({ id }: { id: number }) {
       })
     else if (k === 'scout') setConfirm(true)
     else if (k === 'discipline') setDiscipline(true)
+    else if (k === 'role') setRoleDialog(true)
     else if (k === 'praise' || k === 'criticise') void comment(k)
     else if (k === 'promote' || k === 'demote') void moveSquad(k === 'demote')
     else if (k === 'leave') void giveLeave()
@@ -729,6 +732,18 @@ export default function PersonPage({ id }: { id: number }) {
               setTab('contract')
               void reload()
             } else nav.go({ kind: 'news', latest: true })
+          }}
+        />
+      )}
+      {roleDialog && (
+        <SquadRoleDialog
+          personId={id}
+          onCancel={() => setRoleDialog(false)}
+          onDone={(message) => {
+            setRoleDialog(false)
+            setNotice(message)
+            setError(null)
+            void reload()
           }}
         />
       )}

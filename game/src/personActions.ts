@@ -49,6 +49,8 @@ export function personActions({
             : { key: 'demote', label: 'Despromover para Reservas' },
           // Saudades de casa: duas semanas no seu país
           ...(person.status?.canLeave ? [{ key: 'leave', label: 'Dar Folga' }] : []),
+          // A função sem mexer no contrato (os emprestados por outros não têm)
+          ...(loanedIn ? [] : [{ key: 'role', label: 'Definir Função no Plantel' }]),
           { key: 'discipline', label: 'Disciplinar Jogador' },
           ...(loanedIn ? [] : [{ key: 'release', label: 'Dispensar' }]),
         ],

@@ -38,6 +38,7 @@ import type { Fixture } from './bindings/Fixture'
 import type { GameInfo } from './bindings/GameInfo'
 import type { ContractReply } from './bindings/ContractReply'
 import type { ContractTerms } from './bindings/ContractTerms'
+import type { SquadRoleView } from './bindings/SquadRoleView'
 import type { Instructions } from './bindings/Instructions'
 import type { LiveView } from './bindings/LiveView'
 import type { MatchPreview } from './bindings/MatchPreview'
@@ -197,6 +198,8 @@ export const api = {
   /** Aba Transferência do perfil de um jogador (jogo em curso). */
   transferView: (id: number) => call<TransferView>('transfer_view', { id }),
   makeOffer: (id: number, terms: DealTerms) => call<TransferView>('make_offer', { id, terms }),
+  squadRoleView: (id: number) => call<SquadRoleView>('squad_role_view', { id }),
+  setSquadRole: (id: number, role: string) => call<string>('set_squad_role', { id, role }),
   offerToClubs: (id: number, loan: boolean, fee: number, excludeRivals: boolean) =>
     call<string>('offer_to_clubs', { id, loan, fee, excludeRivals }),
   exchangeCandidates: (id: number) => call<number[]>('exchange_candidates', { id }),
