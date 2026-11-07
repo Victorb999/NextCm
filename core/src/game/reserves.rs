@@ -90,6 +90,7 @@ impl Game {
         let nation: Option<i32> = self.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0))?;
         let mut rng = self.season_rng(0x0005_E7E5);
         let mut factory = self.player_factory()?;
+        let mut created = false;
         for position in need {
             let ca = (level * (0.85 + 0.3 * crate::engine::uniform(&mut rng))).round().clamp(30.0, 170.0) as i32;
             let p = NewPlayer {
@@ -104,9 +105,15 @@ impl Game {
             if let Some((id, _)) = self.create_player(&mut factory, &p, &mut rng)? {
                 self.world.conn.execute("INSERT OR IGNORE INTO ghosts (person_id) VALUES (?)", [id])?;
                 self.squads.states.entry(id).or_default().reserve = true;
+                created = true;
             }
         }
         super::numbers::fix_squad_numbers(&self.world, &[self.club_id], self.seed, None)?;
+        // Os novos entram no estado do plantel já (sem isto, até à época seguinte, ficavam
+        // fora das Reservas e apareciam no plantel principal)
+        if created {
+            self.refresh_live()?;
+        }
         Ok(())
     }
 
@@ -116,6 +123,9 @@ impl Game {
         let Some(rank) = squad.iter().position(|&id| id == person) else {
             return Err(Error::Invalid("Só para os jogadores do seu plantel.".into()));
         };
+        if self.is_ghost(person) {
+            return Err(Error::Invalid(super::deals::GHOST_ONLY.into()));
+        }
         if self.squads.state(person).reserve == reserve {
             return Err(Error::Invalid(if reserve { "Já está nas reservas." } else { "Já está no plantel principal." }.into()));
         }
@@ -174,6 +184,14 @@ mod tests {
         assert!(reserves.len() >= RESERVE_SQUAD.iter().sum::<usize>(), "{} nas reservas", reserves.len());
         assert!(reserves.iter().any(|id| g.is_ghost(*id)));
         assert!(squad.iter().filter(|id| g.is_ghost(**id)).all(|id| g.squads.state(*id).reserve));
+        // Os de enchimento têm estado já (eram esquecidos até à época seguinte e apareciam no
+        // plantel principal) e não se podem promover
+        let ghost = *reserves.iter().find(|id| g.is_ghost(**id)).unwrap();
+        assert!(g.player_status(ghost).is_some_and(|s| s.reserve));
+        let mut club = g.world.get_club(PALMEIRAS).unwrap();
+        g.fill_squad(&mut club).unwrap();
+        assert!(club.players.iter().filter(|p| p.ghost).all(|p| p.reserve), "os de enchimento ficam nas Reservas");
+        assert!(g.set_reserve(ghost, false).is_err());
         let star = squad[0];
         let in_team = |g: &Game, id: i32| {
             let t = g.club_tactics(PALMEIRAS).unwrap();

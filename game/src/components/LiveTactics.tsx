@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import { useNav } from '../nav'
 import type { ClubTactics } from '../bindings/ClubTactics'
 import type { LiveView } from '../bindings/LiveView'
 import type { Selection } from '../bindings/Selection'
@@ -45,6 +46,21 @@ export default function LiveTactics({
   // Como estava ao abrir: quem estava em campo (para contar as substituições) e a escolha
   const [original, setOriginal] = useState<{ on: number[]; sel: Selection } | null>(null)
   const team = side === 0 ? view.home : view.away
+  const nav = useNav()
+  /** "Lautaro 23', Thuram 40'": os golos de um lado pelo relato. */
+  const scorers = (s: 0 | 1) => {
+    const t = s === 0 ? view.home : view.away
+    const name = (id: number | null) => surname([...t.players, ...t.bench, ...t.out].find((p) => p.id === id)?.listName ?? '?')
+    return view.events
+      .filter((e) => e.kind === 'goal' && e.side === s)
+      .map((e) => `${name(e.playerId)} ${e.minute}'`)
+      .join(', ')
+  }
+  /** "ent 46'": quem entrou do banco durante o jogo, como na ficha da partida. */
+  const entered = (id: number) => {
+    const m = live.players.find((p) => p.id === id)?.onMinute
+    return m !== null && m !== undefined ? <span className="text-cm-orange">ent {m}'</span> : undefined
+  }
   const editable = !!t?.editable
 
   useEffect(() => {
@@ -117,7 +133,27 @@ export default function LiveTactics({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ScreenHeader club={team.club} eyebrow={t?.clubName ?? team.club.name} title="Tácticas" />
+      <ScreenHeader
+        club={team.club}
+        eyebrow={t?.clubName ?? team.club.name}
+        title="Tácticas"
+        right={
+          // O resultado e quem marcou (com o minuto), como no placar da partida
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="rounded bg-black/40 px-3 font-title text-[18px] font-bold text-white">
+              {view.home.club.shortName} <span className="text-cm-yellow">{view.homeGoals}-{view.awayGoals}</span> {view.away.club.shortName}
+            </span>
+            {([0, 1] as const).map((s) => {
+              const goals = scorers(s)
+              return goals ? (
+                <span key={s} className="text-[12px] text-[#c8c8d0]">
+                  <b className="text-white">{(s === 0 ? view.home : view.away).club.shortName}:</b> {goals}
+                </span>
+              ) : null
+            })}
+          </div>
+        }
+      />
       <div className="flex shrink-0 items-center gap-1 px-1.5">
         <PurpleMenu
           label="Tácticas"
@@ -159,6 +195,7 @@ export default function LiveTactics({
                   const spot: Spot = { kind: 'starter', index: i }
                   return s.player ? (
                     <Row
+                      onOpen={() => nav.go({ kind: 'person', id: s.player!.id })}
                       key={`s${i}`}
                       p={s.player}
                       column={col(s.player)}
@@ -169,6 +206,7 @@ export default function LiveTactics({
                       ordered={t.orders.some((o) => o.personId === s.player!.id)}
                       captain={t.takers.captain === s.player.id}
                       rating={ratings.get(s.player.id) ?? null}
+                      note={entered(s.player.id)}
                     />
                   ) : (
                     <div key={`s${i}`} {...drag.bind(spot, s.role)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
@@ -189,6 +227,7 @@ export default function LiveTactics({
                   const leaving = view.minute > 0 && !!original?.on.includes(p.id)
                   return leaving ? (
                     <Row
+                      onOpen={() => nav.go({ kind: 'person', id: p.id })}
                       key={`b${p.id}`}
                       p={p}
                       column={col(p)}
@@ -200,6 +239,7 @@ export default function LiveTactics({
                     />
                   ) : (
                     <Row
+                      onOpen={() => nav.go({ kind: 'person', id: p.id })}
                       key={`b${p.id}`}
                       p={p}
                       column={col(p)}

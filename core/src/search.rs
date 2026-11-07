@@ -83,6 +83,8 @@ pub enum SearchSort {
     Ability,
     Name,
     Age,
+    /// Pelo valor de mercado na data do jogo (calculado, não há coluna).
+    Value,
 }
 
 /// Situação no mercado (o "Vêr" da pesquisa do CM).
@@ -416,6 +418,8 @@ impl World {
             SearchSort::Ability => "p.ability DESC NULLS LAST, p.display_name",
             SearchSort::Name => "p.list_name COLLATE NOCASE",
             SearchSort::Age => "p.birth_sort DESC NULLS LAST, p.display_name",
+            // A página sai dos ids já ordenados pelo valor (abaixo)
+            SearchSort::Value => "p.id",
         };
         let limit = q.limit.unwrap_or(50).min(MAX_LIMIT);
         let offset = q.offset.unwrap_or(0);
@@ -444,6 +448,44 @@ impl World {
             args = vec![Box::new(format!("[{}]", ids.iter().map(i32::to_string).collect::<Vec<_>>().join(",")))];
             ids.len() as u32
         };
+
+        // Pelo valor: o valor de cada um dos que passam nos filtros, do maior para o menor, e a
+        // página são esses ids
+        let mut by_value: Option<Vec<i32>> = None;
+        if q.sort == Some(SearchSort::Value) {
+            let sql = format!(
+                "SELECT p.id, COALESCE(pl.current_ability, 1), COALESCE(pl.potential_ability, 0), p.birth_date, p.birth_year,
+                        COALESCE(pl.current_reputation, 0), p.contract_expires, COALESCE(k.reputation, 5), p.is_player
+                 {filter_from} LEFT JOIN players pl ON pl.person_id = p.id
+                 LEFT JOIN clubs vc ON vc.id = p.club_id LEFT JOIN competitions k ON k.id = vc.division_id
+                 {where_sql}"
+            );
+            type Row = (i32, i32, i32, Option<String>, Option<i32>, i32, Option<String>, i32, i32);
+            let rows: Vec<Row> = self
+                .conn
+                .prepare_cached(&sql)?
+                .query_map(params_from_iter(args.iter()), |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?))
+                })?
+                .collect::<rusqlite::Result<_>>()?;
+            let mut valued: Vec<(i64, i32)> = rows
+                .into_iter()
+                .map(|(id, ca, pa, birth, by, rep, exp, league, player)| {
+                    let v = if player == 1 {
+                        crate::finance::value_on(ca, pa, birth.as_deref(), by, rep, exp.as_deref(), league, today)
+                    } else {
+                        -1
+                    };
+                    (v, id)
+                })
+                .collect();
+            valued.sort_by_key(|&(v, id)| (std::cmp::Reverse(v), id));
+            let page: Vec<i32> = valued.into_iter().skip(offset as usize).take(limit as usize).map(|(_, id)| id).collect();
+            where_sql = "WHERE p.id IN (SELECT value FROM json_each(?))".into();
+            args = vec![Box::new(format!("[{}]", page.iter().map(i32::to_string).collect::<Vec<_>>().join(",")))];
+            by_value = Some(page);
+        }
+        let (limit, offset) = if by_value.is_some() { (limit, 0) } else { (limit, offset) };
 
         let sql = format!(
             "WITH page AS (
@@ -497,6 +539,9 @@ impl World {
             if p.value.is_some() {
                 p.value = self.market_value_of(p.id, today)?;
             }
+        }
+        if let Some(page) = by_value {
+            items.sort_by_key(|p| page.iter().position(|&id| id == p.id).unwrap_or(usize::MAX));
         }
 
         Ok(SearchResult { total, items })
@@ -667,6 +712,29 @@ mod tests {
         assert_eq!(r.items[0].list_name, "de Arrascaeta, Giorgian");
         assert_eq!(lucas.club.as_deref(), Some("Flamengo"));
         assert_eq!(lucas.age, Some(27)); // nascido em 27/08/1997, idade em 01/07/2025
+    }
+
+    #[test]
+    fn sort_by_value() {
+        let Some(w) = world() else { return };
+        let q = |offset| SearchQuery {
+            kind: Some(PersonKind::Players),
+            positions: Some(vec![Position::GK]),
+            sort: Some(SearchSort::Value),
+            limit: Some(20),
+            offset: Some(offset),
+            ..Default::default()
+        };
+        let first = w.search_people(&q(0)).unwrap();
+        let second = w.search_people(&q(20)).unwrap();
+        let values: Vec<i64> = first.items.iter().chain(&second.items).map(|p| p.value.unwrap_or(0)).collect();
+        assert_eq!(values.len(), 40);
+        assert!(values.windows(2).all(|v| v[0] >= v[1]), "{values:?}");
+        // Sem filtros (todos os jogadores) continua rápido
+        let t = std::time::Instant::now();
+        let all = w.search_people(&SearchQuery { sort: Some(SearchSort::Value), limit: Some(20), ..Default::default() }).unwrap();
+        println!("todos por valor: {:?} ({} pessoas)", t.elapsed(), all.total);
+        assert!(all.items.windows(2).all(|v| v[0].value.unwrap_or(-1) >= v[1].value.unwrap_or(-1)));
     }
 
     #[test]

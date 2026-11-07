@@ -140,8 +140,11 @@ export function Row({
           {p.key && '*'}
         </span>
         {ordered && (
-          <span className="shrink-0 text-[11px] font-bold text-cm-magenta" title="Instruções individuais">
-            I
+          <span
+            className="shrink-0 rounded-[3px] bg-[#3a1840] px-1 text-[11px] font-bold leading-[16px] text-cm-magenta"
+            title="Tem instruções individuais (as ordens próprias do jogador, no diálogo dele)"
+          >
+            Instr.
           </span>
         )}
         {note && <span className="shrink-0 text-[11px] font-bold text-[#ff6060]">{note}</span>}

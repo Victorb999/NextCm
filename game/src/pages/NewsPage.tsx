@@ -74,7 +74,6 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
   const [tab, setTab] = useState('all')
   const [selected, setSelected] = useState<number | null>(null)
   // Onde os botões da proposta da mensagem aparecem (na barra da lista)
-  const [actionBar, setActionBar] = useState<HTMLElement | null>(null)
 
   // Recarrega quando o dia avança ou uma notícia é lida; ao abrir, fixa a primeira por ler
   // (escolhida uma vez: ler não a faz saltar para a seguinte)
@@ -145,8 +144,6 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
           title="Caixa de Mensagens"
           right={
             <span className="flex items-center gap-1.5">
-              {/* O botão da acção da mensagem (Propor Contrato, Responder, Confirmar...), como na barra do CM */}
-              <span ref={setActionBar} className="flex items-center gap-1" />
               <button className="cm-purple h-6 w-32" disabled={!shown.some((n) => !n.read && n.id !== current?.id)} onClick={readNext}>
                 Ler Próxima
               </button>
@@ -205,7 +202,6 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
                   <div className="mt-4 border-t border-cm-line pt-3">
                     <OfferButtons
                       offer={offer}
-                      actionsTarget={actionBar}
                       onChange={(o) => {
                         setOffer(o)
                         api.listNews().then(setNews, () => {})

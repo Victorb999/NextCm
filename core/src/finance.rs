@@ -186,6 +186,28 @@ pub struct ClubFinances {
     pub result: FinanceRow,
 }
 
+/// O valor de mercado numa data pelas colunas do banco (o perfil e a ordenação da pesquisa).
+#[allow(clippy::too_many_arguments)]
+pub fn value_on(
+    ca: i32,
+    pa: i32,
+    birth: Option<&str>,
+    birth_year: Option<i32>,
+    rep: i32,
+    expires: Option<&str>,
+    league: i32,
+    today: &str,
+) -> i64 {
+    let age = crate::game::age_on(birth, birth_year, today);
+    let years = match (expires.and_then(crate::date::parse), crate::date::parse(today)) {
+        (Some(e), Some(t)) => (e - t) as f64 / 365.25,
+        _ => 0.0,
+    };
+    // PA negativo no banco = "aleatório": conta como um pouco acima do CA
+    let pa = if pa > 0 { pa } else { ca + 10 };
+    market_value(ca, pa, age, rep, league, years)
+}
+
 impl crate::World {
     /// Valor de mercado de um jogador numa data ("AAAA-MM-DD"): pela idade nessa data, pelo
     /// contrato que lhe falta e pela liga do clube dele. `None` se não for jogador.
@@ -203,14 +225,7 @@ impl crate::World {
             .query_row([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))
             .optional()?;
         let Some((ca, pa, birth, birth_year, rep, expires, league)) = row else { return Ok(None) };
-        let age = crate::game::age_on(birth.as_deref(), birth_year, today);
-        let years = match (expires.as_deref().and_then(crate::date::parse), crate::date::parse(today)) {
-            (Some(e), Some(t)) => (e - t) as f64 / 365.25,
-            _ => 0.0,
-        };
-        // PA negativo no banco = "aleatório": conta como um pouco acima do CA
-        let pa = if pa > 0 { pa } else { ca + 10 };
-        Ok(Some(market_value(ca, pa, age, rep, league, years)))
+        Ok(Some(value_on(ca, pa, birth.as_deref(), birth_year, rep, expires.as_deref(), league, today)))
     }
 }
 

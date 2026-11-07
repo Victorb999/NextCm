@@ -88,8 +88,10 @@ impl Game {
         let old = if matches!(party, Party::Renewal) { old_wage } else { 0 };
         if board.wage_bill - old + wage > board.wage_budget {
             return Err(Error::Invalid(format!(
-                "A folha salarial passaria o limite da direcção ({} por semana).",
-                money_text(board.wage_budget)
+                "A folha salarial passaria o limite da direcção: ficaria em {} por semana, com {} autorizados (hoje {}).",
+                money_text(board.wage_bill - old + wage),
+                money_text(board.wage_budget),
+                money_text(board.wage_bill)
             )));
         }
         let fee = if let Party::Transfer(o) = party { o.deal_terms().budget_cost() } else { 0 };
@@ -277,6 +279,10 @@ impl Game {
                 let club = self.club(self.club_id).short_name;
                 let body = format!("{name} está muito satisfeito por ter assinado pelo {club} ({terms}).");
                 self.push_news(fresh, next_id, "contract", format!("{name} aceita proposta {club}"), body);
+                // Já com a proposta: o Confirmar da contratação aparece nesta mensagem também
+                if let Some(n) = fresh.last_mut() {
+                    n.offer_id = Some(o.id);
+                }
                 let body = match &party {
                     Party::Transfer(d) => format!(
                         "O negócio da transferência no valor de {} que corresponde à mudança de {name} {} para {club} pode agora ser concretizado.\n\nConfirme até {}.",

@@ -161,6 +161,8 @@ fn lifestyle(nation: &str) -> Option<&'static str> {
     })
 }
 
+/// O que se responde a uma acção sobre um jogador de enchimento (no CM só se vêem os atributos).
+pub(super) const GHOST_ONLY: &str = "Jogador de enchimento: não pode ser usado para nada.";
 /// Lugar na liga até ao qual um jogador satisfeito se orgulha da posição do clube.
 const PROUD_PLACE: i32 = 3;
 /// Idades máximas das funções de jovem (acima, a direção veta).
@@ -223,6 +225,11 @@ pub struct ContractTerms {
     pub budget: i64,
     #[ts(type = "number")]
     pub max_wage: i64,
+    /// A folha salarial de hoje e o limite da direcção (por semana): quanto sobra para este.
+    #[ts(type = "number")]
+    pub wage_bill: i64,
+    #[ts(type = "number")]
+    pub wage_budget: i64,
     /// Prémios e cláusulas: o que ele exige (o "*" do CM), os valores sugeridos para o resto
     /// e os da proposta em curso (a contraproposta, se houver).
     pub asks: ContractExtras,
@@ -1564,6 +1571,8 @@ Confirme até {}.",
             cash: self.cash_of(self.club_id)?,
             budget: self.transfer_budget()?,
             max_wage: self.board_view()?.max_wage,
+            wage_bill: self.board_view()?.wage_bill,
+            wage_budget: self.board_view()?.wage_budget,
             asks,
             suggested,
             extras: if self.open_contract(person)?.is_some() { self.talk_extras(person)? } else { ContractExtras::default() },
@@ -1577,6 +1586,9 @@ Confirme até {}.",
         let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só os jogadores vão para a lista.".into()))?;
         if f.club != Some(self.club_id) || self.loan_of(person)?.is_some() {
             return Err(Error::Invalid("Só os jogadores do seu plantel.".into()));
+        }
+        if self.is_ghost(person) {
+            return Err(Error::Invalid(GHOST_ONLY.into()));
         }
         let (was_listed, requested): (bool, bool) = self
             .world

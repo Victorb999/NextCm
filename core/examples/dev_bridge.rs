@@ -319,8 +319,11 @@ fn main() {
     // Saves de dev ficam em data/saves (fora do git, como o world.sqlite)
     let saves = path.parent().unwrap().join("saves");
     let mut session = Session::open(&path, &saves).expect("não abriu o world.sqlite");
-    let listener = TcpListener::bind("127.0.0.1:1421").expect("porta 1421 ocupada");
-    println!("dev_bridge em http://127.0.0.1:1421 ({})", path.display());
+    // `--port N` para correr ao lado de outra ponte (por omissão a 1421)
+    let args: Vec<String> = std::env::args().collect();
+    let port = args.iter().position(|a| a == "--port").and_then(|i| args.get(i + 1)).cloned().unwrap_or_else(|| "1421".into());
+    let listener = TcpListener::bind(format!("127.0.0.1:{port}")).expect("porta ocupada");
+    println!("dev_bridge em http://127.0.0.1:{port} ({})", path.display());
 
     // Cada conexão é lida numa thread (o navegador abre conexões ociosas que
     // travariam um loop simples); os comandos rodam aqui, pois `World` não é `Sync`.

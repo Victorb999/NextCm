@@ -35,6 +35,9 @@ const SIDES: [string, string][] = [
   ['C', 'Centro'],
   ['D', 'Direito'],
 ]
+/** Os lados que existem em cada posição: o ala só nas faixas, o guarda-redes e o líbero só ao centro. */
+const sidesOf = (position: string | null) =>
+  position === 'AL' ? SIDES.filter(([k]) => k !== 'C') : position === 'GR' || position === 'L' ? SIDES.filter(([k]) => k === 'C') : SIDES
 
 function Option({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
   return (
@@ -95,7 +98,12 @@ export function ProgramDialog({
           <DialogRow label="Nova Posição">
             <select
               value={p.newPosition ?? ''}
-              onChange={(e) => setP({ ...p, newPosition: e.target.value || null })}
+              onChange={(e) => {
+                const newPosition = e.target.value || null
+                // Um lado que não existe nesta posição (o "ala central") sai
+                const keep = sidesOf(newPosition).some(([k]) => k === p.newSide)
+                setP({ ...p, newPosition, newSide: keep ? p.newSide : null })
+              }}
               className="cm-field min-w-56"
             >
               <option value="">Nenhuma</option>
@@ -109,7 +117,7 @@ export function ProgramDialog({
           <DialogRow label="Novo Lado">
             <select value={p.newSide ?? ''} onChange={(e) => setP({ ...p, newSide: e.target.value || null })} className="cm-field min-w-56">
               <option value="">Nenhum</option>
-              {SIDES.map(([k, label]) => (
+              {sidesOf(p.newPosition).map(([k, label]) => (
                 <option key={k} value={k}>
                   {label}
                 </option>

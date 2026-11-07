@@ -36,6 +36,20 @@ pub const REASONS: [(&str, &str); 9] = [
 const STARTER_MISSED: i32 = 4;
 /// Dias de contrato que faltam para um dos 15 melhores querer renovar.
 const CONTRACT_DAYS: i32 = 365;
+/// Os dias de contrato a partir dos quais quer renovar, pelo lugar no plantel: os 5 melhores
+/// a um ano, até ao 11.º a 300 dias e os outros a 240; a ambição adianta e a lealdade atrasa
+/// (8 dias por ponto acima de 10), entre 120 dias e um ano. Assim não se queixam todos no
+/// mesmo dia (os contratos acabam quase todos a 30/6).
+fn contract_days(rank: usize, ambition: i32, loyalty: i32) -> i32 {
+    let base = match rank {
+        0..5 => CONTRACT_DAYS,
+        5..11 => 300,
+        _ => 240,
+    };
+    (base + 8 * (ambition - 10).max(0) - 8 * (loyalty - 10).max(0)).clamp(120, CONTRACT_DAYS)
+}
+/// Dias de um treinador novo no clube em que ninguém começa a pedir contrato.
+const NEW_MANAGER_GRACE: i32 = 60;
 /// Dias que duram a desilusão de não ir para um clube maior, a de não o deixarem sair, o
 /// castigo injusto e a perda de confiança no treinador.
 const GRUDGE_DAYS: i32 = 120;
@@ -45,6 +59,11 @@ const HOMESICK_ADAPTABILITY: i32 = 7;
 /// Idade até à qual um estrangeiro do plantel, mesmo sem ter chegado durante o jogo, conta como
 /// jovem longe de casa; e até à qual um jogador aceita as reservas sem se queixar.
 pub(super) const YOUNG_AGE: i32 = 23;
+/// As saudades: só até esta idade, depois dos primeiros dias no clube e em quem ainda não
+/// jogou estas épocas fora do seu país.
+const HOMESICK_MAX_AGE: i32 = 30;
+const HOMESICK_SETTLE: i32 = 14;
+const HOMESICK_ABROAD: i64 = 2;
 /// Dias de folga para matar as saudades.
 pub(super) const LEAVE_DAYS: i32 = 14;
 /// Com saudades há este tempo sem folga, pode faltar sem autorização (por segunda-feira).
@@ -138,6 +157,19 @@ impl Game {
         Ok(self.squads.state(person).reserve && age <= YOUNG_AGE && self.valued_youth(person, age)?)
     }
 
+    /// Épocas que um jogador passou em clubes fora do seu país (pelo historial do banco).
+    fn seasons_abroad(&self, person: i32) -> Result<i64> {
+        Ok(self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT COUNT(DISTINCT h.year) FROM career_history h JOIN clubs c ON c.id = h.club_id JOIN people p ON p.id = h.person_id
+             WHERE h.person_id = ? AND c.nation_id IS NOT NULL AND c.nation_id <> p.nation_id
+               AND COALESCE(p.second_nation_id, 0) <> c.nation_id",
+            )?
+            .query_row([person], |r| r.get(0))?)
+    }
+
     fn squad_unhappy(&self) -> Result<Vec<Unhappy>> {
         type Row = (i32, Option<String>, Option<i32>, Option<String>, Option<String>, [i32; 3], bool, bool, bool, bool);
         let rows: Vec<Row> = self
@@ -209,6 +241,14 @@ impl Game {
             .conn
             .execute("DELETE FROM unhappy WHERE reason IN ('bigger', 'blocked', 'unfair', 'manager') AND since < ?", [&grudge])?;
         let squad = self.squad_unhappy()?;
+        // Há quanto tempo o treinador está no clube
+        let manager_days: i32 = self
+            .world
+            .conn
+            .query_row("SELECT club_joined FROM people WHERE id = ?", [self.manager_id], |r| r.get::<_, Option<String>>(0))?
+            .as_deref()
+            .and_then(date::parse)
+            .map_or(i32::MAX, |j| today - j);
         for p in &squad {
             let missed = self.squads.state(p.id).missed;
             let reserve = self.squads.state(p.id).reserve;
@@ -242,9 +282,13 @@ impl Game {
             } else {
                 self.remove_unhappy(p.id, "future")?;
             }
-            // Contrato a acabar
+            // Contrato a acabar (o treinador acabado de chegar tem uns meses; com a renovação em
+            // conversa, espera)
             let left = p.expires.as_deref().and_then(date::parse).map_or(0, |e| e - today);
-            if p.rank < 15 && p.age < 33 && !p.loaned_in && left < CONTRACT_DAYS {
+            let wants = p.rank < 15 && p.age < 33 && !p.loaned_in && left < contract_days(p.rank, p.ambition, p.loyalty);
+            if wants && (manager_days < NEW_MANAGER_GRACE || self.open_offer(p.id)?.is_some()) {
+                // Ainda não se queixa (o motivo que já tinha fica)
+            } else if wants {
                 if self.add_unhappy(p.id, "contract")? {
                     new.push("contract");
                 }
@@ -253,12 +297,16 @@ impl Game {
             }
             // Saudades de casa: o estrangeiro que chegou, ou o jovem estrangeiro, ainda por se
             // adaptar; depois de uma folga não voltam
+            // (os primeiros dias ainda não; os mais velhos e quem já jogou fora não sentem)
             let days = p.joined.as_deref().and_then(date::parse).map_or(i32::MAX, |j| today - j);
             let away = p.moved_abroad || (p.foreign && p.age <= YOUNG_AGE);
             if away
                 && p.adaptability <= HOMESICK_ADAPTABILITY
+                && p.age <= HOMESICK_MAX_AGE
+                && days >= HOMESICK_SETTLE
                 && (days as f64) < personality::adaptation_days(p.adaptability as f64)
                 && !self.had_leave(p.id)?
+                && self.seasons_abroad(p.id)? < HOMESICK_ABROAD
             {
                 if self.add_unhappy(p.id, "homesick")? {
                     new.push("homesick");
@@ -483,6 +531,37 @@ impl Game {
 mod tests {
     use super::*;
 
+    #[test]
+    fn veterans_abroad_are_not_homesick() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let w = crate::World::open(&path).unwrap();
+        // O Kovacic (Croácia) jogou anos em Espanha, Inglaterra e Itália
+        let kovacic: i32 =
+            w.conn.query_row("SELECT id FROM people WHERE display_name = 'Mateo Kovacic' AND is_player = 1", [], |r| r.get(0)).unwrap();
+        let abroad: i64 = w
+            .conn
+            .query_row(
+                "SELECT COUNT(DISTINCT h.year) FROM career_history h JOIN clubs c ON c.id = h.club_id JOIN people p ON p.id = h.person_id
+                 WHERE h.person_id = ? AND c.nation_id <> p.nation_id",
+                [kovacic],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(abroad >= HOMESICK_ABROAD, "{abroad} épocas fora");
+    }
+
+    #[test]
+    fn contract_complaints_are_spread() {
+        // Os 5 melhores a um ano; os outros mais tarde; a lealdade atrasa, a ambição adianta
+        assert_eq!(contract_days(0, 10, 10), 365);
+        assert_eq!(contract_days(7, 10, 10), 300);
+        assert_eq!(contract_days(12, 10, 10), 240);
+        assert_eq!(contract_days(12, 10, 20), 160);
+        assert_eq!(contract_days(12, 20, 10), 320);
+        assert_eq!(contract_days(0, 20, 10), 365, "nunca mais de um ano");
+        assert_eq!(contract_days(14, 1, 20), 160);
+    }
+
     const PALMEIRAS: i32 = 7568;
 
     #[test]
@@ -625,6 +704,8 @@ mod tests {
                 params![PALMEIRAS, foreign],
             )
             .unwrap();
+        // A primeira vez fora do país (sem épocas no estrangeiro no historial)
+        g.world.conn.execute("DELETE FROM career_history WHERE person_id = ?", [foreign]).unwrap();
         monday(&mut g, "2025-07-28");
         assert!(g.unhappy_reasons(foreign).unwrap().contains(&reason_text("homesick").to_string()));
         assert!(g.can_give_leave(foreign).unwrap());

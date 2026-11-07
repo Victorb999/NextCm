@@ -23,6 +23,9 @@ html,
 body,
 #root {
   height: 100%;
+  /* A janela nunca desliza para o lado: um scrollIntoView ou um elemento mais largo por um
+     instante deixava a tela inteira deslocada (a coluna da esquerda escondida) */
+  overflow-x: clip;
 }
 
 body {

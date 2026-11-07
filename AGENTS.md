@@ -89,7 +89,9 @@ Antes de dar uma tarefa por acabada, corra `scripts/check.ps1`.
 
 ## Ver no navegador
 
-`.claude/launch.json` tem `dev-bridge` (porta 1421) e `game-web` (Vite, 5173). Para chegar depressa a
+`.claude/launch.json` tem `dev-bridge` (porta 1421) e `game-web` (Vite, 5173). Com o `web.ps1` do utilizador
+aberto (as portas ocupadas e o `dev_bridge.exe` bloqueado), use `dev-bridge-alt` (porta 1431, compilado em
+`target-alt`) e `game-web-alt` (5183, `NEXTCM_BRIDGE=1431`): não tocam no jogo dele. Para chegar depressa a
 um dia de jogo, crie o jogo pela ponte a partir da página:
 
 ```js

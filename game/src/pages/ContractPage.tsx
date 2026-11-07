@@ -236,6 +236,15 @@ function Proposal({
               {wageText(terms.maxWage, true)} e transferências até{" "}
               {money(terms.budget) || "€0"}.
             </div>
+            {/* A folha de hoje e o que sobra (sem o salário actual dele, numa renovação) */}
+            <div className="mt-1 text-[14px] text-[#c8c8d0]">
+              Folha salarial: {wageText(terms.wageBill, true)} de{" "}
+              {wageText(terms.wageBudget, true)} autorizados · sobram{" "}
+              <b className={terms.wageBudget - terms.wageBill + (terms.renewal ? terms.currentWage : 0) > 0 ? "text-cm-yellow" : "text-[#ff7070]"}>
+                {wageText(Math.max(0, terms.wageBudget - terms.wageBill + (terms.renewal ? terms.currentWage : 0)), true)}
+              </b>
+              .
+            </div>
           </div>
         </Panel>
         {tab !== "basic" && (

@@ -6,7 +6,10 @@ import { currency, moneyNext, moneyOptions } from '../format'
  */
 export default function MoneySelect({ value, onChange, factor = 1 }: { value: number; onChange: (eur: number) => void; factor?: number }) {
   const c = currency()
-  const shown = Math.round(value * factor * c.rate)
+  // O salário guarda-se por semana: no mês (× 52/12) a volta das contas deixa restos ("600.002"),
+  // então a partir de 10 mil mostra-se à centena
+  const raw = value * factor * c.rate
+  const shown = raw >= 10_000 ? Math.round(raw / 100) * 100 : Math.round(raw)
   const set = (v: number) => onChange(Math.max(0, Math.round(v / factor / c.rate)))
   return (
     <div className="flex items-center gap-1">

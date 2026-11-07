@@ -117,10 +117,25 @@ export function moneyOptions(v: number): number[] {
   return [...new Set([0, ...near, v])].sort((a, b) => a - b)
 }
 
-/** O valor redondo seguinte (dir = 1) ou anterior (dir = -1). */
+/** O passo do − / + pela ordem de grandeza: €100 até 10 mil, mil até 100 mil, 10 mil até 1
+ * milhão, 100 mil até 10 milhões e 500 mil acima. */
+function plusStep(v: number): number {
+  if (v < 10_000) return 100
+  if (v < 100_000) return 1_000
+  if (v < 1_000_000) return 10_000
+  if (v < 10_000_000) return 100_000
+  return 500_000
+}
+
+/** O valor seguinte (dir = 1) ou anterior (dir = -1), arredondado ao passo (600.002 + → 610.000). */
 export function moneyNext(v: number, dir: 1 | -1): number {
-  if (dir > 0) return MONEY_LADDER.find((x) => x > v) ?? v
-  return [...MONEY_LADDER].reverse().find((x) => x < v) ?? 0
+  if (dir > 0) {
+    const s = plusStep(v)
+    return (Math.floor(v / s) + 1) * s
+  }
+  if (v <= 0) return 0
+  const s = plusStep(v - 1)
+  return Math.max(0, (Math.ceil(v / s) - 1) * s)
 }
 
 /** "Palmeiras" -> "PA", "Real Madrid" -> "RM": o emblema do clube (placar, Tácticas). */

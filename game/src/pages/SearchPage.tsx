@@ -193,7 +193,7 @@ export default function SearchPage({ active }: { active: boolean }) {
     goPage(0)
   }
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
-  const [sort, setSort] = useState<SearchSort>("ability")
+  const [sort, setSort] = useState<SearchSort>("value")
   const [status, setStatus] = useState<Status>("all")
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState(0)
@@ -553,7 +553,7 @@ export default function SearchPage({ active }: { active: boolean }) {
                     />
                     <Th
                       label="Valor"
-                      sort="ability"
+                      sort="value"
                       current={sort}
                       onSort={setSort}
                     />

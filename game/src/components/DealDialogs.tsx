@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { DealTerms } from '../bindings/DealTerms'
 import type { LoanTerms } from '../bindings/LoanTerms'
-import { currency, money } from '../format'
+import { currency, money, moneyNext } from '../format'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
 import MoneySelect from './MoneySelect'
 
@@ -82,7 +83,7 @@ function Choice<T>({ value, options, onChange }: { value: T; options: [T, string
       <button className="cm-purple h-7 w-8" disabled={i === 0} onClick={() => onChange(options[i - 1][0])}>
         −
       </button>
-      <span className="w-36 text-center text-[17px] text-cm-yellow">{options[i][1]}</span>
+      <span className="w-44 text-center text-[17px] text-cm-yellow">{options[i][1]}</span>
       <button className="cm-purple h-7 w-8" disabled={i === options.length - 1} onClick={() => onChange(options[i + 1][0])}>
         +
       </button>
@@ -97,7 +98,6 @@ const INSTALMENTS: [number, string][] = [
   [24, '24 meses'],
   [36, '36 meses'],
 ]
-const GAMES: [number, string][] = [10, 20, 30, 40, 50].map((n) => [n, `${n} jogos`])
 // Os valores da lista amarela do CM
 const PRESETS = [0, 100_000, 500_000, 1_000_000, 5_000_000, 15_000_000, 30_000_000, 50_000_000, 75_000_000, 100_000_000, 125_000_000, 150_000_000]
 
@@ -128,6 +128,40 @@ function Presets({ onPick }: { onPick: (eur: number) => void }) {
     </div>
   )
 }
+
+/** Uma linha da proposta como no CM: o rótulo (roxo enquanto a linha não conta, branco
+ * quando tem valor) e, à direita, − valor + (e o = do valor do jogador). */
+function OfferRow({ label, active, children }: { label: ReactNode; active: boolean; children: ReactNode }) {
+  return (
+    <div className="flex min-h-[30px] items-center gap-2">
+      <span className={`w-80 shrink-0 font-title text-[19px] leading-none ${active ? 'text-white' : 'text-[#b48cf0]'}`}>{label}</span>
+      <div className="flex items-center gap-1">{children}</div>
+    </div>
+  )
+}
+
+/** − valor ▾ + em euros, com os passos do − / + e a lista amarela do ▾ (na moeda das Definições). */
+function MoneyCell({ value, onChange }: { value: number; onChange: (eur: number) => void }) {
+  const rate = currency().rate
+  const step = (dir: 1 | -1) => onChange(Math.max(0, Math.round(moneyNext(Math.round(value * rate), dir) / rate)))
+  return (
+    <>
+      <button className="cm-purple h-7 w-8" disabled={value <= 0} onClick={() => step(-1)}>
+        −
+      </button>
+      <div className="flex h-7 w-44 items-center justify-end gap-1 rounded border border-[#2f6b52] bg-black px-1 text-[16px] tabular-nums text-cm-yellow">
+        <span className="flex-1 text-right">{value > 0 ? money(value) : `${currency().symbol}0`}</span>
+        <Presets onPick={onChange} />
+      </div>
+      <button className="cm-purple h-7 w-8" onClick={() => step(1)}>
+        +
+      </button>
+    </>
+  )
+}
+
+/** 10 → 20 → ... → 50 → 10 jogos. */
+const nextGames = (n: number) => (n >= 50 ? 10 : n + 10)
 
 const SELL_ON: [number, string][] = Array.from({ length: 11 }, (_, i) => [i * 5, i ? `${i * 5}%` : '-'])
 const LOAN_LENGTH: [number, string][] = [
@@ -185,47 +219,57 @@ export function TransferOfferDialog({
           <br />
           {budgetText}
         </div>
-        <DialogRow wide label="Valor Transferência">
-          <MoneySelect value={t.fee} onChange={(fee) => set({ fee })} />
-          <Presets onPick={(fee) => set({ fee })} />
-          <button className="cm-purple h-7 w-8" title="O valor do jogador" onClick={() => set({ fee: value })}>
-            =
-          </button>
-        </DialogRow>
-        <DialogRow wide label="Prestações Mensais">
-          <Choice value={t.months} options={INSTALMENTS} onChange={(months) => set({ months })} />
-        </DialogRow>
-        <DialogRow wide label="Percentagem da Próxima Venda">
-          <Choice value={t.sellOn} options={SELL_ON} onChange={(sellOn) => set({ sellOn })} />
-        </DialogRow>
-        <DialogRow wide label="Valor após jogos">
-          <MoneySelect value={t.appsBonus} onChange={(appsBonus) => set({ appsBonus })} />
-          <Presets onPick={(appsBonus) => set({ appsBonus })} />
-          <Choice value={t.appsNeeded || 10} options={GAMES} onChange={(appsNeeded) => set({ appsNeeded })} />
-        </DialogRow>
+        <div className="flex flex-col gap-1">
+          <OfferRow label="Valor Transferência" active={t.fee > 0}>
+            <MoneyCell value={t.fee} onChange={(fee) => set({ fee })} />
+            <button className="cm-purple h-7 w-8" title="O valor do jogador" onClick={() => set({ fee: value })}>
+              =
+            </button>
+          </OfferRow>
+          <OfferRow label="Prestações Mensais" active={t.months > 0}>
+            <Choice value={t.months} options={INSTALMENTS} onChange={(months) => set({ months })} />
+          </OfferRow>
+          <OfferRow label="Percentagem da Próxima Venda" active={t.sellOn > 0}>
+            <Choice value={t.sellOn} options={SELL_ON} onChange={(sellOn) => set({ sellOn })} />
+          </OfferRow>
+          <OfferRow
+            label={
+              <>
+                Valor após{' '}
+                <button
+                  className="underline decoration-dotted underline-offset-4 hover:text-cm-yellow"
+                  title="Mudar o número de jogos"
+                  onClick={() => set({ appsNeeded: nextGames(t.appsNeeded || 10) })}
+                >
+                  {t.appsNeeded || 10}
+                </button>{' '}
+                jogos no campeonato
+              </>
+            }
+            active={t.appsBonus > 0}
+          >
+            <MoneyCell value={t.appsBonus} onChange={(appsBonus) => set({ appsBonus })} />
+          </OfferRow>
+          {squad && (
+            <OfferRow label="Tornar proposta pública" active={t.public}>
+              <span className="w-8" />
+              <button className="h-7 w-44 text-center text-[17px] text-cm-yellow hover:text-white" onClick={() => set({ public: !t.public })}>
+                {t.public ? 'Sim' : 'Não'}
+              </button>
+            </OfferRow>
+          )}
+        </div>
         {squad && (
-          <>
-            <DialogRow wide label="Tornar proposta pública">
-              <Choice
-                value={t.public}
-                options={[
-                  [false, 'Não'],
-                  [true, 'Sim'],
-                ]}
-                onChange={(p) => set({ public: p })}
-              />
-            </DialogRow>
-            <DialogRow wide label="Troca">
-              <span className="min-w-40 text-[17px] text-cm-yellow">{exchange?.name ?? '-'}</span>
-              <button className="cm-purple h-7 w-28" onClick={() => setPicking((v) => !v)}>
-                Troca
-              </button>
-              <button className="cm-purple h-7 w-28" disabled={!exchange} onClick={() => set({ exchange: null })}>
-                Remover
-              </button>
-            </DialogRow>
+          <div className="relative mt-3 flex items-center gap-1 rounded bg-black/30 p-1">
+            <button className="cm-purple h-7 w-32" onClick={() => setPicking((v) => !v)}>
+              Troca
+            </button>
+            <button className="cm-purple h-7 w-32" disabled={!exchange} onClick={() => set({ exchange: null })}>
+              Remover
+            </button>
+            <span className="ml-3 truncate text-[17px] text-cm-yellow">{exchange ? `${exchange.name} vai na troca` : ''}</span>
             {picking && (
-              <div className="ml-72 max-h-40 overflow-auto border border-[#7a5a08] bg-[#e7b51f] text-[14px] text-[#1c1400]">
+              <div className="absolute left-1 top-9 z-10 max-h-48 w-64 overflow-auto border border-[#7a5a08] bg-[#e7b51f] text-[14px] text-[#1c1400]">
                 {squad.map((p) => (
                   <div
                     key={p.id}
@@ -240,11 +284,12 @@ export function TransferOfferDialog({
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
-        <DialogRow wide label="Valor Total">
-          <span className="text-[17px] font-bold text-cm-yellow">{money(t.fee + t.appsBonus)}</span>
-        </DialogRow>
+        <div className="mt-3 flex items-center">
+          <span className="w-80 font-title text-[19px] text-white">Valor Total</span>
+          <span className="text-[19px] font-bold text-cm-yellow">{money(t.fee + t.appsBonus)}</span>
+        </div>
         <div className="pt-2 text-[15px] text-white">O {club} responde dentro de alguns dias.</div>
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
       </DialogFrame>

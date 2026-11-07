@@ -40,6 +40,10 @@ fee: number, cash: number,
  */
 budget: number, maxWage: number, 
 /**
+ * A folha salarial de hoje e o limite da direcção (por semana): quanto sobra para este.
+ */
+wageBill: number, wageBudget: number, 
+/**
  * Prémios e cláusulas: o que ele exige (o "*" do CM), os valores sugeridos para o resto
  * e os da proposta em curso (a contraproposta, se houver).
  */

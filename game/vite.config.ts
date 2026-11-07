@@ -5,5 +5,6 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   // Ponte de dev para abrir a UI no navegador (core/examples/dev_bridge.rs)
-  server: { proxy: { '/invoke': 'http://127.0.0.1:1421' } },
+  // NEXTCM_BRIDGE: a porta da ponte (por omissão 1421), para correr dois ao mesmo tempo
+  server: { proxy: { '/invoke': `http://127.0.0.1:${process.env.NEXTCM_BRIDGE ?? '1421'}` } },
 })

@@ -202,12 +202,16 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
                   (<b className="text-cm-yellow">{p.internationalApps}</b> internac. / <b className="text-cm-yellow">{p.internationalGoals}</b> golos)
                 </>
               )}
-              {pl && (
+              {pl && !p.ghost && (
                 <>
                   {dot}Valor: <b className="text-[#4edea3]">{money(pl.value) || '-'}</b>
                 </>
               )}
-              {dot}Salário: <b className="text-white">{wage(p.wage) || '-'}</b>
+              {!p.ghost && (
+                <>
+                  {dot}Salário: <b className="text-white">{wage(p.wage) || '-'}</b>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -508,19 +512,23 @@ export default function PersonPage({ id }: { id: number }) {
   const mine = !!person && person.club?.id === game.info?.club.id
   const canScout = game.mode === 'game' && !!person?.player && !mine && !person.reportOn
   const m = market
+  // Emprestado por outro clube: não é nosso para vender, emprestar ou dispensar
+  const loanedIn = !!m?.loanFrom
   const actions: { key: string; label: string }[][] = mine
     ? [
         // Mercado
-        [
-          ...(m?.canRenew ? [{ key: 'renew', label: 'Oferecer Novo Contrato' }] : []),
-          m?.transferListed
-            ? { key: 'unlist', label: 'Retirar da Lista de Transferências' }
-            : { key: 'list', label: 'Colocar na Lista de Transferências' },
-          m?.loanListed
-            ? { key: 'unloanlist', label: 'Retirar da Lista de Empréstimos' }
-            : { key: 'loanlist', label: 'Colocar na Lista de Empréstimos' },
-          ...(m?.transferListed ? [{ key: 'price', label: 'Definir Preço Pedido' }] : []),
-        ],
+        loanedIn
+          ? []
+          : [
+              ...(m?.canRenew ? [{ key: 'renew', label: 'Oferecer Novo Contrato' }] : []),
+              m?.transferListed
+                ? { key: 'unlist', label: 'Retirar da Lista de Transferências' }
+                : { key: 'list', label: 'Colocar na Lista de Transferências' },
+              m?.loanListed
+                ? { key: 'unloanlist', label: 'Retirar da Lista de Empréstimos' }
+                : { key: 'loanlist', label: 'Colocar na Lista de Empréstimos' },
+              ...(m?.transferListed ? [{ key: 'price', label: 'Definir Preço Pedido' }] : []),
+            ],
         // Plantel
         [
           person?.status?.reserve
@@ -529,7 +537,7 @@ export default function PersonPage({ id }: { id: number }) {
           // Saudades de casa: duas semanas no seu país
           ...(person?.status?.canLeave ? [{ key: 'leave', label: 'Dar Folga' }] : []),
           { key: 'discipline', label: 'Disciplinar Jogador' },
-          { key: 'release', label: 'Dispensar' },
+          ...(loanedIn ? [] : [{ key: 'release', label: 'Dispensar' }]),
         ],
         // Imprensa
         [
@@ -679,7 +687,9 @@ export default function PersonPage({ id }: { id: number }) {
         p={person}
         action={
           game.mode === 'game' &&
-          person?.player && (
+          person?.player &&
+          // O jogador de enchimento só tem os atributos, como no CM
+          !person.ghost && (
             <PurpleMenu
               label="Acção"
               align="right"
@@ -697,13 +707,15 @@ export default function PersonPage({ id }: { id: number }) {
         tabs={
           <Tabs
             tabs={(person?.player ? TABS : TABS.filter((t) => t.key !== 'injuries')).map((t) =>
-              t.key === 'injuries'
-                ? { ...t, label: person?.status?.injury || person?.status?.suspended ? `${t.label} •` : t.label, disabled: !person?.status }
-                : t.key === 'contract' && !person?.player
-                  ? { ...t, label: 'Contrato' }
-                  : t,
+              person?.ghost && t.key !== 'profile'
+                ? { ...t, disabled: true }
+                : t.key === 'injuries'
+                  ? { ...t, label: person?.status?.injury || person?.status?.suspended ? `${t.label} •` : t.label, disabled: !person?.status }
+                  : t.key === 'contract' && !person?.player
+                    ? { ...t, label: 'Contrato' }
+                    : t,
             )}
-            active={tab}
+            active={person?.ghost ? 'profile' : tab}
             onChange={setTab}
           />
         }
@@ -711,8 +723,8 @@ export default function PersonPage({ id }: { id: number }) {
       <div className="mx-2 flex min-h-0 flex-1 flex-col">
         <ErrorBox className="mb-2">{error}</ErrorBox>
         {notice && <div className="mb-2 rounded bg-[#0f3a2a] px-2 py-1 text-center text-cm-yellow">{notice}</div>}
-        {person && tab === 'profile' && <Profile p={person} />}
-        {person && tab === 'contract' && (
+        {person && (tab === 'profile' || person.ghost) && <Profile p={person} />}
+        {person && !person.ghost && tab === 'contract' && (
           <div className="flex min-h-0 flex-1 items-start gap-2 overflow-auto pb-1">
             <Panel title="Contrato" className="w-[42%] shrink-0">
               <Contract p={person} />
@@ -739,8 +751,8 @@ export default function PersonPage({ id }: { id: number }) {
             )}
           </div>
         )}
-        {person && tab === 'injuries' && <Injuries p={person} />}
-        {person && tab === 'history' && <PlayerHistory p={person} />}
+        {person && !person.ghost && tab === 'injuries' && <Injuries p={person} />}
+        {person && !person.ghost && tab === 'history' && <PlayerHistory p={person} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
       {deal && market && person && (

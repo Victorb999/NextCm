@@ -620,6 +620,16 @@ impl Game {
             {
                 return Err(Error::Invalid("Posição ou lado a treinar inválidos.".into()));
             }
+            // Não há ala ao centro, nem guarda-redes ou líbero nas faixas
+            match (p.new_position.as_deref(), p.new_side.as_deref()) {
+                (Some("AL"), Some("C")) => {
+                    return Err(Error::Invalid("O ala joga numa faixa: escolha o lado esquerdo ou o direito.".into()));
+                }
+                (Some("GR" | "L"), Some("E" | "D")) => {
+                    return Err(Error::Invalid("O guarda-redes e o líbero jogam ao centro.".into()));
+                }
+                _ => {}
+            }
         }
         let squad: Vec<i32> = self.assignments(&self.training_programs()?)?.into_keys().collect();
         let staff: Vec<i32> = self.coaches_of()?.into_iter().map(|c| c.0.id).collect();

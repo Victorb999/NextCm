@@ -4,20 +4,75 @@
     {
       "name": "dev-bridge",
       "runtimeExecutable": "cargo",
-      "runtimeArgs": ["run", "-p", "nextcm-core", "--example", "dev_bridge"],
+      "runtimeArgs": [
+        "run",
+        "-p",
+        "nextcm-core",
+        "--example",
+        "dev_bridge"
+      ],
       "port": 1421
     },
     {
       "name": "game-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "game", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "game",
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "docs",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5180", "--bind", "127.0.0.1", "--directory", "docs"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5180",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "docs"
+      ],
       "port": 5180
+    },
+    {
+      "name": "dev-bridge-alt",
+      "runtimeExecutable": "cargo",
+      "runtimeArgs": [
+        "run",
+        "-p",
+        "nextcm-core",
+        "--release",
+        "--example",
+        "dev_bridge",
+        "--target-dir",
+        "target-alt",
+        "--",
+        "--port",
+        "1431"
+      ],
+      "port": 1431
+    },
+    {
+      "name": "game-web-alt",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "game",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5183",
+        "--strictPort"
+      ],
+      "port": 5183,
+      "env": {
+        "NEXTCM_BRIDGE": "1431"
+      }
     }
   ]
 }
