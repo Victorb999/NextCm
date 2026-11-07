@@ -25,8 +25,9 @@ import {
   saveSettings,
   useSettings,
 } from "../settings"
-import { conditionColour } from "../tactics"
+import { conditionColour, MENTALITY, PASSING, TACKLING } from "../tactics"
 import LiveTactics from "./LiveTactics"
+import PitchField from "./PitchField"
 import TalkPanel from "./TalkPanel"
 import MatchLineups from "./MatchLineups"
 import { BottomBar, Link, Panel, ScreenHeader } from "./Screen"
@@ -622,7 +623,99 @@ function Report({ lines }: { lines: Line[] }) {
 
 const fullName = (p: LivePlayer) => p.listName.split(", ").reverse().join(" ")
 
-/** "Dados <clube>": os números de cada jogador. */
+/** A cor de uma nota (1–10): verde das boas, amarela das médias, vermelha das más. */
+const ratingColour = (r: number | null) =>
+  r === null ? "#5a5a6a" : r >= 8 ? "#4edea3" : r >= 7 ? "#b6e35a" : r >= 6 ? "#f2d24b" : r >= 5 ? "#f29a3b" : "#ff5a5a"
+
+/** O campo dos Dados da equipa, deitado (o ataque para a direita): quem está em campo no seu
+ * lugar, com o número e a nota na cor. */
+function TeamPitch({ team }: { team: LiveTeam }) {
+  const on = team.players.filter((p) => p.x !== null && p.y !== null && !p.red)
+  return (
+    <div className="flex min-w-0 flex-[3] flex-col">
+      <div className="h-[18px] bg-cm-head px-2 text-[12px] font-bold uppercase leading-[18px] tracking-wide text-white">
+        Em Campo · {team.formation}
+      </div>
+      <PitchField landscape className="mt-1 w-full">
+        {on.map((p) => (
+          <div
+            key={p.id}
+            className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+            // De pé o ataque é para cima (y pequeno); deitado, para a direita
+            style={{ left: `${100 - (p.y ?? 0)}%`, top: `${p.x}%` }}
+            title={`${fullName(p)} · ${p.role ?? ""}`}
+          >
+            <span
+              className="flex size-7 items-center justify-center rounded-md text-[13px] font-bold text-[#141414] shadow-[0_2px_6px_rgba(0,0,0,0.5)]"
+              style={{ background: ratingColour(p.rating) }}
+            >
+              {p.squadNumber ?? ""}
+            </span>
+            <span className="mt-0.5 whitespace-nowrap rounded bg-black/75 px-1 text-[11px] font-bold leading-[15px] text-white">
+              {shortListName(p.listName)}
+              {p.rating !== null && <span style={{ color: ratingColour(p.rating) }}> {p.rating}</span>}
+              {p.goals > 0 && <span className="text-cm-yellow"> {"●".repeat(p.goals)}</span>}
+              {p.yellow && <span className="text-cm-yellow"> ▮</span>}
+            </span>
+          </div>
+        ))}
+      </PitchField>
+    </div>
+  )
+}
+
+/** As notas de quem jogou em barras, da melhor para a pior (com os golos e os cartões). */
+function RatingBars({ players }: { players: LivePlayer[] }) {
+  const rated = players.filter((p) => p.rating !== null).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+  return (
+    <div className="flex min-w-[220px] flex-[2] flex-col">
+      <div className="h-[18px] bg-cm-head px-2 text-[12px] font-bold uppercase leading-[18px] tracking-wide text-white">
+        Notas
+      </div>
+      <div className="mt-1 flex flex-col gap-[3px]">
+        {rated.map((p) => (
+          <div key={p.id} className="flex h-[19px] items-center gap-2 text-[13px]">
+            <span className="w-32 shrink-0 truncate text-white">{shortListName(p.listName)}</span>
+            <div className="relative h-[13px] min-w-0 flex-1 rounded-sm bg-black/40">
+              <div
+                className="h-full rounded-sm"
+                style={{ width: `${((p.rating ?? 0) / 10) * 100}%`, background: ratingColour(p.rating) }}
+              />
+            </div>
+            <span className="w-5 shrink-0 text-right font-bold" style={{ color: ratingColour(p.rating) }}>
+              {p.rating}
+            </span>
+            <span className="w-10 shrink-0 truncate text-cm-yellow">
+              {p.goals > 0 ? "●".repeat(p.goals) : ""}
+              {p.red ? <span className="text-[#ff2020]"> ▮</span> : p.yellow ? " ▮" : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Uma caixa dos Dados da equipa: o título e as linhas "rótulo ... valor". */
+function DataBox({ title, rows }: { title: string; rows: [string, ReactNode][] }) {
+  return (
+    <div className="min-w-0 flex-1 rounded bg-black/25">
+      <div className="h-[20px] bg-cm-head px-2 text-[12px] font-bold uppercase leading-[20px] tracking-wide text-white">
+        {title}
+      </div>
+      <div className="cm-zebra">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex h-[19px] items-center gap-2 px-2 text-[13px]">
+            <span className="truncate text-[#c9c9d6]">{label}</span>
+            <span className="ml-auto shrink-0 truncate text-cm-yellow">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** "Dados <clube>": os números de cada jogador, os totais, os da equipa, os destaques e a táctica. */
 function TeamData({ team }: { team: LiveTeam }) {
   const cols = [
     "Pas",
@@ -631,6 +724,7 @@ function TeamData({ team }: { team: LiveTeam }) {
     "Gnh",
     "Cab",
     "Gnh",
+    "Dri",
     "Ast",
     "Rem",
     "Bal",
@@ -638,6 +732,19 @@ function TeamData({ team }: { team: LiveTeam }) {
     "Nt",
     "G",
   ]
+  const played = [...team.players, ...team.out]
+  const sum = (f: (p: LivePlayer) => number) => played.reduce((n, p) => n + f(p), 0)
+  // O melhor de cada coisa entre quem jogou ("-" se ninguém tem nada)
+  const best = (f: (p: LivePlayer) => number, show: (p: LivePlayer) => string = (p) => String(f(p))) => {
+    const top = played.reduce<LivePlayer | null>((b, p) => (f(p) > 0 && (!b || f(p) > f(b)) ? p : b), null)
+    return top ? `${shortListName(top.listName)} (${show(top)})` : "-"
+  }
+  const s = team.stats
+  const onPitch = team.players.filter((p) => !p.red)
+  const condition = onPitch.length ? Math.round(onPitch.reduce((n, p) => n + p.condition, 0) / onPitch.length) : 0
+  const scorers = played.filter((p) => p.goals > 0)
+  const i = team.instructions
+  const yes = (v: boolean) => (v ? "Sim" : "Não")
   const row = (p: LivePlayer, played: boolean) => {
     const s = p.stats
     const vals = played
@@ -648,6 +755,7 @@ function TeamData({ team }: { team: LiveTeam }) {
           s.tacklesWon,
           s.headers,
           s.headersWon,
+          s.dribbles,
           p.assists,
           s.shots,
           s.onTarget,
@@ -704,7 +812,9 @@ function TeamData({ team }: { team: LiveTeam }) {
   }
   return (
     <div className="px-3 py-2">
-      <div className="mb-1 flex h-[18px] items-center gap-1 text-[12px]bg]">
+      <div className="flex gap-3">
+      <div className="shrink-0">
+      <div className="mb-1 flex h-[18px] items-center gap-1 text-[12px]">
         <span className="w-7 shrink-0" />
         <span className="w-3 shrink-0" />
         <span className="w-48 shrink-0" />
@@ -718,8 +828,85 @@ function TeamData({ team }: { team: LiveTeam }) {
         ))}
       </div>
       <div className="cm-zebra">
-        {[...team.players, ...team.out].map((p) => row(p, true))}
+        {played.map((p) => row(p, true))}
         {team.bench.map((p) => row(p, false))}
+      </div>
+      {/* Os totais de quem jogou, por baixo das colunas */}
+      <div className="flex h-[20px] items-center gap-1 border-t border-white/20 text-[13px] font-bold">
+        <span className="w-7 shrink-0" />
+        <span className="w-3 shrink-0" />
+        <span className="w-48 shrink-0 text-white">Totais</span>
+        {[
+          s.passes,
+          s.passesOk,
+          s.tackles,
+          s.tacklesWon,
+          s.headers,
+          s.headersWon,
+          sum((p) => p.stats.dribbles),
+          sum((p) => p.assists),
+          s.shots,
+          s.onTarget,
+        ].map((v, k) => (
+          <span key={k} className={`w-9 shrink-0 text-center ${k < 2 ? "text-cm-orange" : "text-cm-yellow"}`}>
+            {v}
+          </span>
+        ))}
+        <span className="w-9 shrink-0 text-center text-[#40a0ff]">{condition || ""}</span>
+        <span className="w-9 shrink-0" />
+        <span className="w-9 shrink-0 text-center text-white">{sum((p) => p.goals) || ""}</span>
+      </div>
+      </div>
+      {/* Ao lado da tabela: o campo com quem está em campo e as notas */}
+      <TeamPitch team={team} />
+      <RatingBars players={played} />
+      </div>
+      <div className="mt-2 flex gap-2">
+        <DataBox
+          title="Equipa"
+          rows={[
+            ["Posse de Bola", `${s.possession}%`],
+            ["Remates (à baliza)", `${s.shots} (${s.onTarget})`],
+            ["Passes Acertados", pct(s.passesOk, s.passes)],
+            ["Cortes Ganhos", pct(s.tacklesWon, s.tackles)],
+            ["Cabeceamentos Ganhos", pct(s.headersWon, s.headers)],
+            ["Dribles", sum((p) => p.stats.dribbles)],
+            ["Cantos", s.corners],
+            ["Faltas", s.fouls],
+            ["Foras de Jogo", s.offsides],
+            ["Cartões", `${s.yellows} ${s.yellows === 1 ? "amarelo" : "amarelos"} · ${s.reds} ${s.reds === 1 ? "vermelho" : "vermelhos"}`],
+          ]}
+        />
+        <DataBox
+          title="Destaques"
+          rows={[
+            ["Melhor Nota", best((p) => p.rating ?? 0)],
+            ["Golos", scorers.length ? scorers.map((p) => `${shortListName(p.listName)}${p.goals > 1 ? ` ${p.goals}` : ""}`).join(", ") : "-"],
+            ["Assistências", best((p) => p.assists)],
+            ["Mais Remates", best((p) => p.stats.shots)],
+            ["Mais Passes", best((p) => p.stats.passes)],
+            ["Melhor Passe", best((p) => (p.stats.passes >= 10 ? p.stats.passesOk / p.stats.passes : 0), (p) => pct(p.stats.passesOk, p.stats.passes))],
+            ["Mais Cortes Ganhos", best((p) => p.stats.tacklesWon)],
+            ["Mais Dribles", best((p) => p.stats.dribbles)],
+            ["Jogo Aéreo", best((p) => p.stats.headersWon)],
+            ["Menos Condição", onPitch.length ? best((p) => 100 - p.condition, (p) => `${p.condition}%`) : "-"],
+          ]}
+        />
+        <DataBox
+          title="Táctica"
+          rows={[
+            ["Formação", team.formation],
+            ["Mentalidade", MENTALITY.find(([k]) => k === i.mentality)?.[1] ?? "-"],
+            ["Passe", PASSING.find(([k]) => k === i.passing)?.[1] ?? "-"],
+            ["Desarme", TACKLING.find(([k]) => k === i.tackling)?.[1] ?? "-"],
+            ["Pressão", yes(i.pressing)],
+            ["Defesa em Linha", yes(i.offsideTrap)],
+            ["Contra-Ataque", yes(i.counterAttack)],
+            ["Defesa Intensa", yes(i.tightMarking)],
+            ["Substituições", `${team.subsLeft} por fazer`],
+            ["Condição Média", condition ? `${condition}%` : "-"],
+          ]}
+        />
       </div>
     </div>
   )

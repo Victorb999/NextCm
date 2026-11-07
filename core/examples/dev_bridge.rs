@@ -263,6 +263,10 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let slot = args["slot"].as_i64().ok_or("falta slot")? as i32;
             out(serde_json::to_value(session.clear_scout(slot).map_err(e)?))
         }
+        "find" => {
+            let text = args["text"].as_str().unwrap_or("").to_string();
+            out(serde_json::to_value(session.find(text).map_err(e)?))
+        }
         "search_clubs" => {
             let text = args["text"].as_str().unwrap_or("").to_string();
             out(serde_json::to_value(session.search_clubs(text).map_err(e)?))

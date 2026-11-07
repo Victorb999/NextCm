@@ -1,6 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import type { BoardConfidence } from './bindings/BoardConfidence'
 import type { ContractExtras } from './bindings/ContractExtras'
+import type { FindResult } from './bindings/FindResult'
 import type { BoardRequest } from './bindings/BoardRequest'
 import type { BoardView } from './bindings/BoardView'
 import type { DealTerms } from './bindings/DealTerms'
@@ -219,6 +220,8 @@ export const api = {
   assignScout: (slot: number, kind: string, target: number | null) => call<ScoutList>('assign_scout', { slot, kind, target }),
   clearScout: (slot: number) => call<ScoutList>('clear_scout', { slot }),
   searchClubs: (text: string) => call<ClubListItem[]>('search_clubs', { text }),
+  /** O Procurar: clubes, nações, competições, jogadores e staff pelo nome. */
+  find: (text: string) => call<FindResult>('find', { text }),
   /** Entradas e saídas de um clube nos últimos 12 meses. */
   clubTransfers: (id: number) => call<TransferItem[]>('club_transfers', { id }),
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),

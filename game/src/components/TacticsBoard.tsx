@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import PitchField from './PitchField'
 import type { ClubTactics } from '../bindings/ClubTactics'
 import type { TacticPlayer } from '../bindings/TacticPlayer'
 import type { Spot } from '../selection'
@@ -199,33 +200,15 @@ export function Pitch({
   run: Run | null
   onRunStart: (index: number) => void
 }) {
-  const line = 'pointer-events-none absolute border-white/25'
   return (
     // O campo mantém a proporção de um campo a sério (68 x 105) e fica centrado no espaço que tiver
     <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden [container-type:size]">
-      <div
+      <PitchField
         data-pitch
         onContextMenu={(e) => e.preventDefault()}
-        className="relative overflow-hidden rounded-md shadow-[inset_0_0_60px_rgba(0,0,0,0.45)]"
-        style={{
-          // O maior campo que cabe no espaço, sempre na mesma proporção
-          width: 'min(100cqw, 100cqh * 0.7)',
-          aspectRatio: '7 / 10',
-          background:
-            'repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 7.5%, transparent 7.5% 15%), radial-gradient(ellipse at 50% 45%, #2a6e47, #173f2b 75%)',
-        }}
+        // O maior campo que cabe no espaço, sempre na mesma proporção
+        style={{ width: 'min(100cqw, 100cqh * 0.7)' }}
       >
-        {/* Linhas do campo */}
-        <div className={`${line} inset-[4%] rounded-[2px] border-2`} />
-        <div className={`${line} left-[4%] right-[4%] top-1/2 border-t-2`} />
-        <div className={`${line} left-1/2 top-1/2 aspect-square w-[26%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2`} />
-        <div className={`${line} left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/40`} />
-        <div className={`${line} left-1/2 top-[4%] h-[16%] w-[54%] -translate-x-1/2 border-2 border-t-0`} />
-        <div className={`${line} left-1/2 top-[4%] h-[6%] w-[26%] -translate-x-1/2 border-2 border-t-0`} />
-        <div className={`${line} left-1/2 top-[20%] aspect-[2/1] w-[20%] -translate-x-1/2 rounded-b-full border-2 border-t-0`} />
-        <div className={`${line} bottom-[4%] left-1/2 h-[16%] w-[54%] -translate-x-1/2 border-2 border-b-0`} />
-        <div className={`${line} bottom-[4%] left-1/2 h-[6%] w-[26%] -translate-x-1/2 border-2 border-b-0`} />
-        <div className={`${line} bottom-[20%] left-1/2 aspect-[2/1] w-[20%] -translate-x-1/2 rounded-t-full border-2 border-b-0`} />
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           {t.starters.map((s, i) => (s.run && run?.index !== i ? <Arrow key={i} from={[s.x, s.y]} to={[s.run[0], s.run[1]]} /> : null))}
           {run && <Arrow from={[t.starters[run.index].x, t.starters[run.index].y]} to={[run.x, run.y]} live />}
@@ -270,7 +253,7 @@ export function Pitch({
             </div>
           )
         })}
-      </div>
+      </PitchField>
     </div>
   )
 }

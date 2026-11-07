@@ -115,9 +115,12 @@ export default function SideBar({
   onOptions,
   onExit,
   onDialog,
+  onFind,
 }: {
   onOptions: () => void
   onExit: () => void
+  /** O Procurar do CM (o diálogo com o nome). */
+  onFind: () => void
   /** Os diálogos do menu do treinador (Gravar, Férias, Rescindir, Retirar-se). */
   onDialog: (d: ManagerDialog) => void
 }) {
@@ -221,7 +224,7 @@ export default function SideBar({
         icon={<Search size={16} />}
         disabled={!browsing}
         active={marked("search")}
-        onClick={() => nav.go({ kind: "search" })}
+        onClick={onFind}
       >
         Procurar
       </SideButton>

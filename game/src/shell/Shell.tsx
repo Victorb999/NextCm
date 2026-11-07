@@ -4,6 +4,7 @@ import type { LineupCheck } from "../bindings/LineupCheck";
 import LineupDialog from "./LineupDialog";
 import { useState } from "react";
 import { hasBackend } from "../api";
+import FindDialog from "../components/FindDialog";
 import Loading from "../components/Loading";
 import MatchDay from "../components/MatchDay";
 import OptionsDialog from "../components/OptionsDialog";
@@ -38,6 +39,7 @@ export default function Shell() {
   // O aviso ou a confirmação da equipa antes do dia de jogo
   const [lineup, setLineup] = useState<{ check: LineupCheck; go: () => void } | null>(null);
   const [dialog, setDialog] = useState<ManagerDialog | null>(null);
+  const [finding, setFinding] = useState(false);
   const browsing = game.mode === "game" || game.mode === "explore";
   const { advance, busy } = useContinueGame({
     notify,
@@ -56,6 +58,7 @@ export default function Shell() {
           onOptions={() => setOptions((o) => !o)}
           onExit={() => setExiting(true)}
           onDialog={setDialog}
+          onFind={() => setFinding(true)}
         />
         <main className="cm-backdrop relative min-w-0 flex-1">
           {!hasBackend && (
@@ -89,6 +92,19 @@ export default function Shell() {
             <ExitDialog onCancel={() => setExiting(false)} notify={notify} />
           )}
           {options && <OptionsDialog onClose={() => setOptions(false)} />}
+          {finding && browsing && (
+            <FindDialog
+              onGo={(s) => {
+                setFinding(false);
+                nav.go(s);
+              }}
+              onAdvanced={() => {
+                setFinding(false);
+                nav.go({ kind: "search" });
+              }}
+              onClose={() => setFinding(false)}
+            />
+          )}
           {processing && (
             <Loading
               title="Continuar Jogo"

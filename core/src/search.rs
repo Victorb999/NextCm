@@ -192,6 +192,65 @@ pub struct SearchResult {
     pub items: Vec<PersonSummary>,
 }
 
+/// O Procurar do CM: tudo o que tem o nome escrito, por grupos.
+#[derive(Debug, Clone, Default, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct FindResult {
+    pub clubs: Vec<crate::ClubListItem>,
+    pub nations: Vec<crate::NationOption>,
+    pub competitions: Vec<crate::CompetitionRef>,
+    pub players: Vec<PersonSummary>,
+    pub staff: Vec<PersonSummary>,
+}
+
+/// Letras mínimas para procurar, e quantos de cada grupo.
+pub const FIND_MIN: usize = 2;
+const FIND_GROUP: usize = 15;
+
+impl World {
+    /// As nações e as competições com o nome escrito (as competições também pelo nome do
+    /// regulamento, "Mundial"); os clubes pela pesquisa de clubes.
+    pub fn find_places(&self, text: &str) -> Result<FindResult> {
+        let text = text.trim();
+        if text.chars().count() < FIND_MIN {
+            return Ok(FindResult::default());
+        }
+        let like = format!("%{text}%");
+        let nations: Vec<crate::NationOption> = self
+            .conn
+            .prepare_cached(
+                "SELECT n.id, n.name FROM nations n WHERE n.name LIKE ?1
+                   AND EXISTS (SELECT 1 FROM people p WHERE p.nation_id = n.id) ORDER BY n.name LIMIT ?2",
+            )?
+            .query_map(rusqlite::params![like, FIND_GROUP as i64], |r| Ok(crate::NationOption { id: r.get(0)?, name: r.get(1)? }))?
+            .collect::<rusqlite::Result<_>>()?;
+        let wanted = fold(text);
+        let rows: Vec<(i32, String, String)> = self
+            .conn
+            .prepare_cached(
+                "SELECT id, COALESCE(name, ''), COALESCE(short_name, '') FROM competitions ORDER BY COALESCE(reputation, 0) DESC, id",
+            )?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut competitions = Vec::new();
+        for (id, name, short) in rows {
+            let ours = crate::regulation::get(id).and_then(|r| r.name.clone());
+            if ![Some(&name), Some(&short), ours.as_ref()].into_iter().flatten().any(|n| fold(n).contains(&wanted)) {
+                continue;
+            }
+            let shown = ours.unwrap_or_else(|| if short.is_empty() { name.clone() } else { short.clone() });
+            competitions.push(crate::CompetitionRef { id, name: shown.clone(), short_name: shown });
+            if competitions.len() >= FIND_GROUP {
+                break;
+            }
+        }
+        let mut clubs = self.search_clubs(text)?;
+        clubs.truncate(FIND_GROUP);
+        Ok(FindResult { clubs, nations, competitions, ..Default::default() })
+    }
+}
+
 /// Minúsculas sem acento, igual ao `fold()` do extract.py.
 pub(crate) fn fold(s: &str) -> String {
     s.nfkd().filter(|c| !unicode_normalization::char::is_combining_mark(*c)).collect::<String>().to_lowercase()
@@ -560,6 +619,20 @@ mod tests {
     fn world() -> Option<World> {
         let path = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR")))?;
         Some(World::open(&path).expect("abrir world.sqlite"))
+    }
+
+    #[test]
+    fn find_by_name() {
+        let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let w = World::open(&path).unwrap();
+        // As competições também pelo nome do regulamento ("Mundial" é o FIFA World Cup)
+        assert!(w.find_places("mundial").unwrap().competitions.iter().any(|c| c.id == 448));
+        let bayern = w.find_places("Bayern").unwrap();
+        assert!(bayern.clubs.iter().any(|c| c.club.id == 1350));
+        assert!(w.find_places("Brazil").unwrap().nations.iter().any(|n| n.name == "Brazil"));
+        // Uma letra só, nada
+        let one = w.find_places("b").unwrap();
+        assert!(one.clubs.is_empty() && one.nations.is_empty() && one.competitions.is_empty());
     }
 
     #[test]

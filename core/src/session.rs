@@ -12,6 +12,7 @@ use crate::{
 
 use crate::CareerClub;
 use crate::ContractExtras;
+use crate::FindResult;
 use crate::LeagueNation;
 use crate::LineupCheck;
 use crate::MatchSheet;
@@ -82,6 +83,21 @@ impl Session {
             }
             None => self.world.search_people(q),
         }
+    }
+
+    /// O Procurar: clubes, nações, competições, jogadores e staff com o nome escrito.
+    pub fn find(&self, text: String) -> Result<FindResult> {
+        let mut out = self.db().find_places(&text)?;
+        if text.trim().chars().count() < crate::search::FIND_MIN {
+            return Ok(out);
+        }
+        let people = |kind| -> Result<Vec<_>> {
+            let q = SearchQuery { text: Some(text.trim().to_string()), kind: Some(kind), limit: Some(15), ..Default::default() };
+            Ok(self.search_people(&q)?.items)
+        };
+        out.players = people(crate::PersonKind::Players)?;
+        out.staff = people(crate::PersonKind::Staff)?;
+        Ok(out)
     }
 
     /// Perfil com o estado do jogador no jogo em curso (condição, moral, lesão...).

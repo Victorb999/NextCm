@@ -54,7 +54,7 @@ pub use live::{LivePlayer, LiveTeam, LiveView, MAX_SUBS, MatchEvent, ScoreLine, 
 pub use nation::{NationListItem, NationProfile};
 pub use person::{Attributes, CareerEntry, ClubRef, Knowledge, PersonProfile, PlayerDetails, SeasonLine, StaffDetails};
 pub use search::{
-    AttributeMin, MarketStatus, PersonKind, PersonSummary, Position, PositionTag, SearchQuery, SearchResult, SearchSort, Side,
+    AttributeMin, FindResult, MarketStatus, PersonKind, PersonSummary, Position, PositionTag, SearchQuery, SearchResult, SearchSort, Side,
 };
 pub use session::{ContinueStep, Session};
 pub use squad::PlayerStatus;

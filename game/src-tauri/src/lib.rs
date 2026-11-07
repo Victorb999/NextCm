@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::ContractExtras;
+use nextcm_core::FindResult;
 use nextcm_core::LeagueNation;
 use nextcm_core::LineupCheck;
 use nextcm_core::MatchSheet;
@@ -165,6 +166,7 @@ session_command!(staff_report(id: i32, kind: String, staff: Vec<i32>) -> usize);
 session_command!(assign_scout(slot: i32, kind: String, target: Option<i32>) -> ScoutList);
 session_command!(clear_scout(slot: i32) -> ScoutList);
 session_command!(search_clubs(text: String) -> Vec<ClubListItem>);
+session_command!(find(text: String) -> FindResult);
 session_command!(club_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(reserve_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(live_match() -> LiveView);
@@ -370,6 +372,7 @@ pub fn run() {
             assign_scout,
             clear_scout,
             search_clubs,
+            find,
             club_fixtures,
             reserve_fixtures,
             preview_tactics,
