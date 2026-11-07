@@ -1174,7 +1174,10 @@ impl LiveMatch {
             let lines = vec![format!("{name} fica caído no relvado"), format!("{name} está lesionado e não pode continuar")];
             self.push_lines("injury", Some(side), Some(id), format!("{name} está lesionado e não pode continuar."), lines);
             let slot = self.teams[side].players[i].slot.unwrap_or(0);
-            match self.teams[side].best_sub(slot) {
+            // Na equipa do treinador, quem decide é ele: o jogo pára nas Tácticas (no front) e,
+            // até trocar, o lesionado fica em campo a coxear, como no CM
+            let best = if self.user == Some(side) { None } else { self.teams[side].best_sub(slot) };
+            match best {
                 Some((sub, _)) if self.teams[side].subs < MAX_SUBS => self.make_sub(side, i, sub),
                 // Sem substituições, fica em campo a coxear
                 _ => {
@@ -1265,6 +1268,20 @@ impl LiveMatch {
             return Err(Error::Invalid("O jogo já acabou.".into()));
         }
         self.user.ok_or_else(|| Error::Invalid("Este jogo não é da sua equipa.".into()))
+    }
+
+    /// Para os testes: todos os jogadores de um lado partem-se quase a cada minuto.
+    #[cfg(test)]
+    pub(crate) fn make_fragile(&mut self, side: usize) {
+        for p in &mut self.teams[side].players {
+            p.prof.injury_proneness = 100_000.0;
+        }
+    }
+
+    /// O resto do jogo sem o treinador a ver (o dia acaba): o adjunto volta a trocar os
+    /// lesionados da equipa dele.
+    pub fn hand_over(&mut self) {
+        self.user = None;
     }
 
     /// O treinador mexeu: a partir daqui o adjunto só substitui lesionados (como nas

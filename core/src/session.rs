@@ -548,6 +548,16 @@ impl Session {
         Ok(r)
     }
 
+    /// Oferecer a Clubes: manda a proposta de um jogador do plantel a todos os clubes.
+    pub fn offer_to_clubs(&mut self, id: i32, loan: bool, fee: i64, exclude_rivals: bool) -> Result<String> {
+        self.game_mut()?.offer_to_clubs(id, loan, fee, exclude_rivals)
+    }
+
+    /// Os jogadores do treinador que o clube do jogador aceita numa troca.
+    pub fn exchange_candidates(&self, id: i32) -> Result<Vec<i32>> {
+        self.game()?.exchange_candidates(id)
+    }
+
     /// Pedido de empréstimo de um jogador de outro clube.
     pub fn ask_loan(&mut self, id: i32, terms: LoanTerms) -> Result<TransferView> {
         let g = self.game_mut()?;

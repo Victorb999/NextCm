@@ -193,7 +193,8 @@ export default function TalkPanel({
           </Panel>
         )}
       </div>
-      {bottom && <BottomBar left="Atrás" onLeft={onClose} />}
+      {/* Depois da palestra, o Seguinte sai da sala e volta à partida */}
+      {bottom && <BottomBar left="Atrás" onLeft={onClose} right="Sair da Sala" onRight={reactions ? onClose : undefined} />}
     </div>
   )
 }

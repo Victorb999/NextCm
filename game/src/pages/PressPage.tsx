@@ -83,7 +83,12 @@ export default function PressPage({ id }: { id: number }) {
           </Panel>
         )}
       </div>
-      <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+      {/* Acabada a conferência, o Seguinte sai da sala e volta às Notícias */}
+      {result || (view && view.status !== 'pending') ? (
+        <BottomBar onLeft={nav.canBack ? nav.back : undefined} right="Sair da Sala" onRight={() => nav.go({ kind: 'news' })} />
+      ) : (
+        <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+      )}
     </div>
   )
 }

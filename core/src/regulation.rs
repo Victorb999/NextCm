@@ -634,4 +634,27 @@ mod tests {
         }
         assert!(get(65).is_some_and(|r| r.transition_dates.is_some()));
     }
+
+    #[test]
+    fn european_leagues_stop_for_fifa_dates_and_european_cups() {
+        // As datas FIFA (sábado e quarta) e as quartas da Champions e da Liga Europa
+        let fifa = dates_in(2025, "w36 m37 w41 m42 w46 m47 w12 m13 w23 m24", SeasonKind::European);
+        let mut busy: Vec<String> = fifa.clone();
+        for cup in [326, 328] {
+            for s in &get(cup).unwrap().stages {
+                busy.extend(dates_in(2025, &s.dates, SeasonKind::European));
+                for round in &s.rounds {
+                    busy.extend(dates_in(2025, &round.dates, SeasonKind::European));
+                }
+            }
+        }
+        // Os campeonatos geridos de época europeia não jogam nelas (o Brasileirão, de época
+        // de calendário, joga: é a excepção do costume)
+        for r in all().iter().filter(|r| r.managed && r.season == SeasonKind::European) {
+            for s in &r.stages {
+                let clash: Vec<_> = dates_in(2025, &s.dates, r.season).into_iter().filter(|d| busy.contains(d)).collect();
+                assert!(clash.is_empty(), "{}: {clash:?}", r.competition);
+            }
+        }
+    }
 }

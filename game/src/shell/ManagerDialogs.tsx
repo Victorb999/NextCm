@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { SaveSummary } from '../bindings/SaveSummary'
 import { DialogFrame, Overlay } from '../components/Dialog'
+import Loading from '../components/Loading'
 import { cmDate } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
@@ -62,15 +63,22 @@ export default function ManagerDialogs({
   if (dialog === 'save')
     return (
       <Overlay>
-        <DialogFrame title="Gravar Jogo" width={620} onCancel={onClose} onOk={busy ? undefined : () => void save(false)} okLabel="Gravar">
+        {/* A gravar: o ecrã de espera por cima e nada para carregar (nem o Cancelar) */}
+        <DialogFrame
+          title="Gravar Jogo"
+          width={620}
+          onCancel={busy ? undefined : onClose}
+          onOk={busy ? undefined : () => void save(false)}
+          okLabel="Gravar"
+        >
           {confirm ? (
             <div className={TEXT}>
               Ficheiro Existe — Substituir?
               <div className="mt-3 flex gap-1">
-                <button className="cm-purple h-8 flex-1" onClick={() => setConfirm(false)}>
+                <button className="cm-purple h-8 flex-1" disabled={busy} onClick={() => setConfirm(false)}>
                   Não
                 </button>
-                <button className="cm-purple h-8 flex-1" onClick={() => void save(true)}>
+                <button className="cm-purple h-8 flex-1" disabled={busy} onClick={() => void save(true)}>
                   Sim
                 </button>
               </div>
@@ -113,6 +121,7 @@ export default function ManagerDialogs({
             </>
           )}
         </DialogFrame>
+        {busy && <Loading title="Gravar Jogo" detail="A gravar o jogo, por favor aguarde…" delay={150} />}
       </Overlay>
     )
   if (dialog === 'holiday')

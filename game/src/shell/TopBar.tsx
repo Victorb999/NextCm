@@ -12,7 +12,7 @@ function barDate(iso: string): string {
 }
 
 /** Barra no topo da janela: a marca, a data, o clube do treinador e o Continuar Jogo. */
-export default function TopBar({ onContinue, busy }: { onContinue: () => void; busy: boolean }) {
+export default function TopBar({ onContinue, busy, label = 'Continuar Jogo' }: { onContinue: () => void; busy: boolean; label?: string }) {
   const game = useGame()
   const info = game.mode === 'game' ? game.info : null
 
@@ -40,7 +40,7 @@ export default function TopBar({ onContinue, busy }: { onContinue: () => void; b
         title={info ? 'Avança até ao próximo evento' : 'Comece ou carregue um jogo'}
         onClick={onContinue}
       >
-        Continuar Jogo
+        {label}
         <Play size={14} strokeWidth={3} fill="currentColor" />
       </button>
     </header>

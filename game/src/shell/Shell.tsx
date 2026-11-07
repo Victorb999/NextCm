@@ -1,3 +1,4 @@
+import PlayerContextMenu from "../components/PlayerContextMenu";
 import ManagerDialogs from "./ManagerDialogs";
 import type { ManagerDialog } from "./managerMenu";
 import type { LineupCheck } from "../bindings/LineupCheck";
@@ -52,9 +53,10 @@ export default function Shell() {
 
   return (
     <div className="flex h-full flex-col">
-      <TopBar onContinue={() => void advance()} busy={busy} />
+      <TopBar onContinue={() => void advance()} busy={busy} label={matchDay.label} />
       <div className="flex min-h-0 flex-1">
         <SideBar
+          locked={matchDay.locked}
           onOptions={() => setOptions((o) => !o)}
           onExit={() => setExiting(true)}
           onDialog={setDialog}
@@ -92,6 +94,8 @@ export default function Shell() {
             <ExitDialog onCancel={() => setExiting(false)} notify={notify} />
           )}
           {options && <OptionsDialog onClose={() => setOptions(false)} />}
+          {/* Botão direito num jogador das listas (data-person): as acções do perfil */}
+          {game.mode === "game" && browsing && <PlayerContextMenu />}
           {finding && browsing && (
             <FindDialog
               onGo={(s) => {
@@ -124,6 +128,7 @@ export default function Shell() {
                 step={matchDay.step}
                 active={!matchDay.hidden}
                 onDone={matchDay.close}
+                onPhase={matchDay.setPhase}
               />
             </div>
           )}

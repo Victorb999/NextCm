@@ -51,7 +51,7 @@ export function DialogFrame({
             {cancelLabel}
           </button>
           <button
-            className="cm-purple h-9 flex-1 font-title text-xl"
+            className="cm-purple h-9 flex-1 font-title text-xl enabled:text-cm-yellow"
             disabled={!onOk}
             onClick={onOk}
           >

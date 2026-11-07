@@ -48,7 +48,7 @@ function List({ title, items, other }: { title: string; items: TransferItem[]; o
             {items.map((t, i) => {
               const club = other(t)
               return (
-                <tr key={`${t.personId}-${t.date}-${i}`} className="h-6">
+                <tr key={`${t.personId}-${t.date}-${i}`} data-person={t.personId} className="h-6">
                   <td className="px-3 text-white">{shortDate(t.date)}</td>
                   <td className="truncate px-3">
                     <Link onClick={() => nav.go({ kind: 'person', id: t.personId })}>{t.name}</Link>

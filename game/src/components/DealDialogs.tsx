@@ -1,17 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import type { DealTerms } from '../bindings/DealTerms'
 import type { LoanTerms } from '../bindings/LoanTerms'
-import { currency, money, moneyNext } from '../format'
+import { currency, money, moneyNext, wage } from '../format'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
 import MoneySelect from './MoneySelect'
 
 // Diálogo verde do mercado: a proposta a um clube (ou o "Pedir Mais", o preço pedido). O
 // valor entra na moeda das Definições; o core recebe sempre euros.
 
-/** Esc cancela e Enter confirma, por cima do resto da tela. */
-function useDialogKeys(onCancel: () => void, onOk: () => void) {
+/** Esc cancela e Enter confirma, por cima do resto da tela (`off` com outro diálogo por cima). */
+function useDialogKeys(onCancel: () => void, onOk: () => void, off = false) {
   useEffect(() => {
+    if (off) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopImmediatePropagation()
@@ -101,31 +104,57 @@ const INSTALMENTS: [number, string][] = [
 // Os valores da lista amarela do CM
 const PRESETS = [0, 100_000, 500_000, 1_000_000, 5_000_000, 15_000_000, 30_000_000, 50_000_000, 75_000_000, 100_000_000, 125_000_000, 150_000_000]
 
-/** O "▾" do CM: escolher o valor numa lista amarela. */
-function Presets({ onPick }: { onPick: (eur: number) => void }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="relative">
-      <button className="cm-purple h-7 w-6" onClick={() => setOpen((o) => !o)}>
-        ▾
-      </button>
-      {open && (
-        <div className="absolute left-0 top-7 z-10 min-w-28 border border-[#7a5a08] bg-[#e7b51f] text-[14px] text-[#1c1400]">
-          {PRESETS.map((v) => (
-            <div
-              key={v}
-              className="cursor-pointer px-2 hover:bg-[#ffe680]"
-              onClick={() => {
-                onPick(v)
-                setOpen(false)
-              }}
-            >
-              {money(v) === '-' ? `${currency().symbol}0` : money(v)}
-            </div>
-          ))}
+/** Lista amarela do CM, com zebra e linhas de clique fácil, presa por baixo do `anchor` (ou
+ *  por cima, sem espaço). Vai para o body por portal: não fica cortada pela rolagem do
+ *  diálogo. Fecha ao clicar fora. */
+export function YellowList<T>({
+  anchor,
+  items,
+  current,
+  label,
+  onPick,
+  onClose,
+}: {
+  anchor: HTMLElement
+  items: T[]
+  current?: T
+  label: (v: T) => ReactNode
+  onPick: (v: T) => void
+  onClose: () => void
+}) {
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const away = (e: MouseEvent) => {
+      if (box.current?.contains(e.target as Node) || anchor.contains(e.target as Node)) return
+      onClose()
+    }
+    document.addEventListener('mousedown', away)
+    return () => document.removeEventListener('mousedown', away)
+  }, [anchor, onClose])
+  const r = anchor.getBoundingClientRect()
+  const below = window.innerHeight - r.bottom - 8
+  const up = below < 160 && r.top > below
+  const room = Math.min(300, up ? r.top - 8 : below)
+  return createPortal(
+    <div
+      ref={box}
+      style={{ left: r.left, width: r.width, maxHeight: room, ...(up ? { bottom: window.innerHeight - r.top + 2 } : { top: r.bottom + 2 }) }}
+      className="fixed z-[80] overflow-auto rounded-sm border border-[#7a5a08] bg-[#e7b51f] py-0.5 text-right text-[15px] text-[#1c1400] shadow-[0_6px_16px_rgba(0,0,0,0.6)]"
+    >
+      {items.map((v, i) => (
+        <div
+          key={i}
+          className={`flex h-7 cursor-pointer items-center justify-end px-3 even:bg-[#d6a414] hover:!bg-[#ffe680] ${v === current ? 'font-bold' : ''}`}
+          onClick={() => {
+            onPick(v)
+            onClose()
+          }}
+        >
+          {label(v)}
         </div>
-      )}
-    </div>
+      ))}
+    </div>,
+    document.body,
   )
 }
 
@@ -144,14 +173,38 @@ function OfferRow({ label, active, children }: { label: ReactNode; active: boole
 function MoneyCell({ value, onChange }: { value: number; onChange: (eur: number) => void }) {
   const rate = currency().rate
   const step = (dir: 1 | -1) => onChange(Math.max(0, Math.round(moneyNext(Math.round(value * rate), dir) / rate)))
+  // O campo que abriu a lista (null = fechada)
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const close = useCallback(() => setAnchor(null), [])
   return (
     <>
       <button className="cm-purple h-7 w-8" disabled={value <= 0} onClick={() => step(-1)}>
         −
       </button>
-      <div className="flex h-7 w-44 items-center justify-end gap-1 rounded border border-[#2f6b52] bg-black px-1 text-[16px] tabular-nums text-cm-yellow">
-        <span className="flex-1 text-right">{value > 0 ? money(value) : `${currency().symbol}0`}</span>
-        <Presets onPick={onChange} />
+      {/* O campo todo abre a lista; a seta fica numa faixa à direita, dentro da borda */}
+      <div>
+        <button
+          className="flex h-7 w-44 items-center overflow-hidden rounded border border-[#2f6b52] bg-black text-[16px] tabular-nums text-cm-yellow hover:border-cm-yellow"
+          onClick={(e) => {
+            const el = e.currentTarget
+            setAnchor((a) => (a ? null : el))
+          }}
+        >
+          <span className="flex-1 px-2 text-right">{value > 0 ? money(value) : `${currency().symbol}0`}</span>
+          <span className="flex h-full w-6 items-center justify-center border-l border-[#2f6b52] bg-cm-purple text-white">
+            <ChevronDown size={15} />
+          </span>
+        </button>
+        {anchor && (
+          <YellowList
+            anchor={anchor}
+            items={PRESETS}
+            current={value}
+            label={(v) => (v > 0 ? money(v) : `${currency().symbol}0`)}
+            onPick={onChange}
+            onClose={close}
+          />
+        )}
       </div>
       <button className="cm-purple h-7 w-8" onClick={() => step(1)}>
         +
@@ -171,6 +224,82 @@ const LOAN_LENGTH: [number, string][] = [
 ]
 const WAGE_SHARE: [number, string][] = [0, 25, 50, 75, 100].map((v) => [v, `${v}%`])
 
+/** Um jogador do treinador que pode ir na troca. */
+export type ExchangeOption = { id: number; name: string; position: string; age: number | null; wage: number | null }
+
+/** "Adicionar Jogador à Proposta" do CM: os jogadores do plantel que o clube aceita na
+ *  troca, ou o aviso de que não tem interesse numa troca. */
+function ExchangePicker({
+  club,
+  squad,
+  exchangeable,
+  current,
+  onCancel,
+  onPick,
+}: {
+  club: string
+  squad: ExchangeOption[]
+  exchangeable: number[] | null
+  current: number | null
+  onCancel: () => void
+  onPick: (id: number) => void
+}) {
+  const [chosen, setChosen] = useState<number | null>(current)
+  const rows = exchangeable ? squad.filter((p) => exchangeable.includes(p.id)) : []
+  useDialogKeys(onCancel, () => chosen !== null && onPick(chosen))
+  return (
+    <Overlay>
+      <DialogFrame
+        title="Adicionar Jogador à Proposta"
+        width={640}
+        onCancel={onCancel}
+        onOk={chosen !== null && rows.some((p) => p.id === chosen) ? () => onPick(chosen) : undefined}
+        cancelLabel="Atrás"
+        okLabel="Escolher"
+      >
+        {exchangeable === null ? (
+          <div className="py-10 text-center text-[17px] text-white">A ver o plantel…</div>
+        ) : rows.length === 0 ? (
+          <div className="px-6 py-14 text-center font-title text-[20px] text-white">
+            O {club} não tem interesse num negócio que envolva troca de jogadores.
+          </div>
+        ) : (
+          <>
+            <div className="pb-1.5 text-[15px] text-white">Os jogadores do seu plantel que o {club} aceita na troca:</div>
+            <div className="max-h-[330px] overflow-auto rounded bg-black/30">
+              <table className="w-full border-collapse text-[15px]">
+                <thead className="sticky top-0 bg-cm-head text-[13px] uppercase tracking-wide text-white">
+                  <tr>
+                    <th className="h-7 px-3 text-left">Nome</th>
+                    <th className="w-28 px-2 text-left">Posição</th>
+                    <th className="w-16 px-2 text-center">Idade</th>
+                    <th className="w-36 px-3 text-right">Salário</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((p) => (
+                    <tr
+                      key={p.id}
+                      className={`h-8 cursor-pointer ${p.id === chosen ? 'bg-cm-sel text-white' : 'text-[#e3e1e9] hover:bg-[#1d4d3a]'}`}
+                      onClick={() => setChosen(p.id)}
+                      onDoubleClick={() => onPick(p.id)}
+                    >
+                      <td className="px-3 font-semibold">{p.name}</td>
+                      <td className="px-2">{p.position}</td>
+                      <td className="px-2 text-center tabular-nums">{p.age ?? '-'}</td>
+                      <td className="px-3 text-right tabular-nums">{wage(p.wage)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </DialogFrame>
+    </Overlay>
+  )
+}
+
 /** "Proposta de transferência" do CM: valor, prestações mensais, percentagem da próxima
  *  venda e um valor depois de 10 jogos. */
 export function TransferOfferDialog({
@@ -181,6 +310,7 @@ export function TransferOfferDialog({
   budgetText,
   initial,
   squad,
+  exchangeable = null,
   okLabel = 'Oferecer',
   error,
   onCancel,
@@ -192,8 +322,10 @@ export function TransferOfferDialog({
   value: number
   budgetText: string
   initial: DealTerms
-  /** Jogadores do plantel que podem ir na troca; sem lista, não há troca nem proposta pública ("Pedir Mais"). */
-  squad?: { id: number; name: string }[]
+  /** Jogadores do plantel para a troca; sem lista, não há troca nem proposta pública ("Pedir Mais"). */
+  squad?: ExchangeOption[]
+  /** Quais deles o clube aceita (null enquanto carrega). */
+  exchangeable?: number[] | null
   okLabel?: string
   error?: string | null
   onCancel: () => void
@@ -202,7 +334,7 @@ export function TransferOfferDialog({
   const [t, setT] = useState(initial)
   const set = (p: Partial<DealTerms>) => setT((old) => ({ ...old, ...p }))
   const [picking, setPicking] = useState(false)
-  useDialogKeys(onCancel, () => onOk(t))
+  useDialogKeys(onCancel, () => onOk(t), picking)
   const exchange = squad?.find((p) => p.id === t.exchange)
   return (
     <Overlay>
@@ -261,29 +393,15 @@ export function TransferOfferDialog({
         </div>
         {squad && (
           <div className="relative mt-3 flex items-center gap-1 rounded bg-black/30 p-1">
-            <button className="cm-purple h-7 w-32" onClick={() => setPicking((v) => !v)}>
+            <button className="cm-purple h-7 w-32" onClick={() => setPicking(true)}>
               Troca
             </button>
             <button className="cm-purple h-7 w-32" disabled={!exchange} onClick={() => set({ exchange: null })}>
               Remover
             </button>
-            <span className="ml-3 truncate text-[17px] text-cm-yellow">{exchange ? `${exchange.name} vai na troca` : ''}</span>
-            {picking && (
-              <div className="absolute left-1 top-9 z-10 max-h-48 w-64 overflow-auto border border-[#7a5a08] bg-[#e7b51f] text-[14px] text-[#1c1400]">
-                {squad.map((p) => (
-                  <div
-                    key={p.id}
-                    className="cursor-pointer px-2 hover:bg-[#ffe680]"
-                    onClick={() => {
-                      set({ exchange: p.id })
-                      setPicking(false)
-                    }}
-                  >
-                    {p.name}
-                  </div>
-                ))}
-              </div>
-            )}
+            <span className="ml-3 truncate text-[17px] text-cm-yellow">
+              {exchange ? `${exchange.name} (${exchange.position}) vai na troca` : <span className="text-[15px] text-[#b48cf0]">Nenhum jogador na troca</span>}
+            </span>
           </div>
         )}
         <div className="mt-3 flex items-center">
@@ -291,6 +409,92 @@ export function TransferOfferDialog({
           <span className="text-[19px] font-bold text-cm-yellow">{money(t.fee + t.appsBonus)}</span>
         </div>
         <div className="pt-2 text-[15px] text-white">O {club} responde dentro de alguns dias.</div>
+        {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
+      </DialogFrame>
+      {picking && squad && (
+        <ExchangePicker
+          club={club}
+          squad={squad}
+          exchangeable={exchangeable}
+          current={t.exchange}
+          onCancel={() => setPicking(false)}
+          onPick={(id) => {
+            set({ exchange: id })
+            setPicking(false)
+          }}
+        />
+      )}
+    </Overlay>
+  )
+}
+
+const SHOP_KIND: [boolean, string][] = [
+  [false, 'Transferência'],
+  [true, 'Empréstimo'],
+]
+
+/** "Oferecer a Clubes" (do FM): transferência ou empréstimo, o valor pedido e se os rivais
+ *  ficam de fora. Os serviços do clube mandam a proposta a todos os clubes. */
+export function ShopDialog({
+  name,
+  value,
+  error,
+  onCancel,
+  onOk,
+}: {
+  name: string
+  value: number
+  error?: string | null
+  onCancel: () => void
+  onOk: (loan: boolean, fee: number, excludeRivals: boolean) => void
+}) {
+  const [loan, setLoan] = useState(false)
+  const [fee, setFee] = useState(value)
+  const [rivals, setRivals] = useState(true)
+  useDialogKeys(onCancel, () => onOk(loan, fee, rivals))
+  return (
+    <Overlay>
+      <DialogFrame
+        title="Oferecer a Clubes"
+        width={680}
+        onCancel={onCancel}
+        onOk={() => onOk(loan, fee, rivals)}
+        cancelLabel="Atrás"
+        okLabel="Fazer Proposta"
+      >
+        <div className="pb-2 text-[17px] leading-tight text-white">
+          {name} está avaliado em {money(value)}.
+        </div>
+        <div className="flex flex-col gap-1">
+          <OfferRow label="Tipo de Proposta" active>
+            <Choice value={loan} options={SHOP_KIND} onChange={setLoan} />
+          </OfferRow>
+          {!loan && (
+            <OfferRow label="Valor Pedido" active={fee > 0}>
+              <MoneyCell value={fee} onChange={setFee} />
+              <button className="cm-purple h-7 w-8" title="O valor do jogador" onClick={() => setFee(value)}>
+                =
+              </button>
+            </OfferRow>
+          )}
+          <OfferRow label="Excluir clubes rivais" active={rivals}>
+            <span className="w-8" />
+            <button className="h-7 w-44 text-center text-[17px] text-cm-yellow hover:text-white" onClick={() => setRivals((r) => !r)}>
+              {rivals ? 'Sim' : 'Não'}
+            </button>
+          </OfferRow>
+        </div>
+        <div className="mt-3 rounded bg-black/30 px-3 py-2 text-[15px] leading-snug text-cm-green">
+          {loan ? (
+            <div>- Um empréstimo: o clube que o quiser diz que parte do salário paga.</div>
+          ) : (
+            <div>- Valor potencial da transferência: {money(fee > 0 ? fee : value)}.</div>
+          )}
+          <div>
+            - Os serviços administrativos do clube vão enviar esta proposta a todos os clubes
+            {rivals ? ' (menos os rivais)' : ''}. Será contactado nos próximos dias se houver interesse.
+          </div>
+        </div>
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
       </DialogFrame>
     </Overlay>

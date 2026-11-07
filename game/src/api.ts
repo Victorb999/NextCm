@@ -197,6 +197,9 @@ export const api = {
   /** Aba Transferência do perfil de um jogador (jogo em curso). */
   transferView: (id: number) => call<TransferView>('transfer_view', { id }),
   makeOffer: (id: number, terms: DealTerms) => call<TransferView>('make_offer', { id, terms }),
+  offerToClubs: (id: number, loan: boolean, fee: number, excludeRivals: boolean) =>
+    call<string>('offer_to_clubs', { id, loan, fee, excludeRivals }),
+  exchangeCandidates: (id: number) => call<number[]>('exchange_candidates', { id }),
   askLoan: (id: number, terms: LoanTerms) => call<TransferView>('ask_loan', { id, terms }),
   /** Exercer a opção de compra de um emprestado. */
   exerciseOption: (id: number) => call<TransferView>('exercise_option', { id }),

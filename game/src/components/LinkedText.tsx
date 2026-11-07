@@ -1,4 +1,5 @@
 import type { NewsLink } from '../bindings/NewsLink'
+import { localText } from '../format'
 import { useNav } from '../nav'
 import { Link } from './Screen'
 
@@ -17,8 +18,9 @@ function findWord(text: string, name: string): number {
 /** Um texto com os nomes de `links` como ligações (jogador → perfil, clube → clube). */
 export default function LinkedText({ text, links }: { text: string; links: NewsLink[] }) {
   const nav = useNav()
-  // Corta o texto nos nomes, o mais comprido primeiro (já vêm assim do core)
-  const parts: (string | NewsLink)[] = [text]
+  // Corta o texto nos nomes, o mais comprido primeiro (já vêm assim do core); os valores na
+  // moeda e no período de salários das Definições
+  const parts: (string | NewsLink)[] = [localText(text)]
   for (const l of links) {
     for (let i = 0; i < parts.length; i++) {
       const p = parts[i]

@@ -1735,6 +1735,9 @@ impl Game {
         let date = self.date.clone();
         let mut internationals_played: Vec<String> = Vec::new();
         for (i, live) in &mut day.games {
+            if !live.finished() {
+                live.hand_over();
+            }
             live.play_until(90);
             self.matches[*i].result = Some(live.score());
             self.settle_tie(*i);
@@ -3341,6 +3344,28 @@ mod tests {
         mid.orders = vec![PlayerOrder { person_id: mid.starters[5].unwrap(), orders: runner }];
         g.live_set_tactics(&mid).unwrap();
         assert_eq!(g.selection.as_ref().unwrap().orders, mid.orders);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn injured_in_the_managers_team_wait_for_him() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (mut g, dir) = until_kickoff(&world, "lesoes-ao-vivo", 4, true, false);
+        let side = g.live_day().unwrap().games[g.live_day().unwrap().user].1.user_side().unwrap();
+        // Os dois lados a partirem-se: o adjunto da IA troca, o treinador decide
+        g.live_match_mut().unwrap().make_fragile(0);
+        g.live_match_mut().unwrap().make_fragile(1);
+        let v = g.live_step(20).unwrap();
+        let (mine, theirs) = if side == 0 { (&v.home, &v.away) } else { (&v.away, &v.home) };
+        let subs = |s: usize| v.events.iter().filter(|e| e.kind == "sub" && e.side == Some(s as i32)).count();
+        let hurt = |s: usize| v.events.iter().filter(|e| e.kind == "injury" && e.side == Some(s as i32)).count();
+        assert!(hurt(side) > 0 && hurt(1 - side) > 0, "lesões dos dois lados");
+        assert_eq!(subs(side), 0, "na equipa do treinador ninguém entra sozinho");
+        assert!(mine.players.iter().any(|p| p.injured), "o lesionado fica em campo");
+        assert!(subs(1 - side) > 0 && !theirs.out.is_empty(), "a IA troca os seus");
+        // Acabar o dia sem ver o resto: o adjunto volta a trocar os lesionados
+        g.live_finish().unwrap();
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -81,6 +81,7 @@ export default function SquadTable({
           <div
             key={p.id}
             data-row={i}
+            data-person={p.id}
             onClick={() => onSelect(i)}
             onDoubleClick={() => onOpen(p.id)}
             className={`flex h-6 items-center gap-2 px-2 ${i === selected ? "!bg-cm-sel" : ""}`}

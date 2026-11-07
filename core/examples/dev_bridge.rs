@@ -162,6 +162,13 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let terms: DealTerms = serde_json::from_value(args["terms"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.make_offer(id()?, terms).map_err(e)?))
         }
+        "offer_to_clubs" => {
+            let loan = args["loan"].as_bool().unwrap_or(false);
+            let fee = args["fee"].as_i64().unwrap_or(0);
+            let rivals = args["excludeRivals"].as_bool().unwrap_or(false);
+            out(serde_json::to_value(session.offer_to_clubs(id()?, loan, fee, rivals).map_err(e)?))
+        }
+        "exchange_candidates" => out(serde_json::to_value(session.exchange_candidates(id()?).map_err(e)?)),
         "ask_loan" => {
             let terms: LoanTerms = serde_json::from_value(args["terms"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.ask_loan(id()?, terms).map_err(e)?))

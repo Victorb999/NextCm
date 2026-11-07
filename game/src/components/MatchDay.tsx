@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { useEffect, useImperativeHandle, useRef, useState } from "react"
 import type { ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { api } from "../api"
 import type { ClubRef } from "../bindings/ClubRef"
 import type { Fixture } from "../bindings/Fixture"
@@ -19,6 +20,7 @@ import { initials, longDate, shortListName } from "../format"
 import { useGame } from "../game"
 import { liveLineup } from "../matchLineup"
 import { useNav } from "../nav"
+import type { MatchPhase } from "../shell/useMatchDay"
 import {
   MATCH_SPEEDS,
   getSettings,
@@ -325,11 +327,14 @@ function Scorers({
 }) {
   const team = side === 0 ? view.home : view.away
   const goals = new Map<string, number[]>()
+  // As lesões também, a verde ("Mendoza lesionado 45"), como no CM
+  const injuries: [string, number][] = []
   for (const l of said) {
-    if (!isGoalLine(l) || l.side !== side) continue
+    if (l.side !== side) continue
     const p = [...team.players, ...team.out].find((p) => p.id === l.playerId)
     const name = p ? p.listName.split(", ")[0] : "?"
-    goals.set(name, [...(goals.get(name) ?? []), l.minute])
+    if (isGoalLine(l)) goals.set(name, [...(goals.get(name) ?? []), l.minute])
+    else if (l.kind === "injury" && l.last) injuries.push([name, l.minute])
   }
   return (
     <div
@@ -342,6 +347,15 @@ function Scorers({
         >
           <span className="text-[#e8e8e8]">{name}</span>
           <span className="text-cm-yellow">{mins.join(", ")}</span>
+        </div>
+      ))}
+      {injuries.map(([name, minute]) => (
+        <div
+          key={`${name}-${minute}`}
+          className={`flex font-title font-bold ${small ? "gap-4 text-[17px] leading-[22px]" : "gap-8 text-[22px]"}`}
+        >
+          <span className="text-[#4ade80]">{name} lesionado</span>
+          <span className="text-cm-yellow">{minute}</span>
         </div>
       ))}
     </div>
@@ -368,7 +382,8 @@ function Panorama({
   said: Line[]
   started: boolean
 }) {
-  const anyGoal = said.some(isGoalLine)
+  // Golos ou lesões: o bloco dos acontecimentos em cima
+  const anyGoal = said.some((l) => isGoalLine(l) || (l.kind === "injury" && l.last))
   const motm = view.finished ? manOfTheMatch(view, said) : null
   const title = !started
     ? "Pontapé Saída"
@@ -777,7 +792,7 @@ function TeamData({ team }: { team: LiveTeam }) {
           ) : null}
         </span>
         <span
-          className={`w-48 shrink-0 truncate ${played ? "text-white" : "text-[#8b5bd6]"}`}
+          className={`w-48 shrink-0 truncate ${!played ? "text-[#8b5bd6]" : p.offMinute !== null && !p.red ? "text-[#c4a8f5]" : "text-white"}`}
         >
           {fullName(p)}
           {p.offMinute !== null && !p.red ? (
@@ -1149,6 +1164,8 @@ function LiveScreen({
     from: number
   } | null>(null)
   const resumeAfter = useRef(false)
+  // O aviso das Tácticas abertas por uma lesão
+  const [injuryNote, setInjuryNote] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [finishing, setFinishing] = useState(false)
   const [lines, setLines] = useState<Line[]>([])
@@ -1215,8 +1232,16 @@ function LiveScreen({
       const t = setTimeout(
         () => {
           setShown(shown + 1)
+          const l = lines[shown]
+          // Um lesionado da equipa do treinador: o jogo pára nas Tácticas, com o aviso (como no CM)
+          if (l.kind === "injury" && l.last && l.side !== null && l.side === view.userSide && !view.finished) {
+            const team = l.side === 0 ? view.home : view.away
+            const p = [...team.players, ...team.out].find((p) => p.id === l.playerId)
+            setInjuryNote(`${p ? p.listName.split(", ").reverse().join(" ") : "Um jogador"} está lesionado e não pode continuar. Faça a substituição.`)
+            openWaiting(l.side as 0 | 1)
+          }
           // Tácticas pedidas: abrem na primeira paragem depois do pedido
-          if (waiting && shown + 1 > waiting.from && isStoppage(lines[shown]))
+          else if (waiting && shown + 1 > waiting.from && isStoppage(l))
             openWaiting(waiting.side)
         },
         shown === 0 ? 0 : speed.ms,
@@ -1277,6 +1302,8 @@ function LiveScreen({
   }
 
   const main = () => {
+    // Na palestra, o Continuar Jogo sai da sala (e não mexe no jogo por trás)
+    if (talk) return setTalk(false)
     if (!view || finishing || tactics !== null) return
     if (view.finished) {
       if (shown < lines.length) return setShown(lines.length)
@@ -1327,6 +1354,7 @@ function LiveScreen({
   }
   const closeTactics = () => {
     setTactics(null)
+    setInjuryNote(null)
     // Se o jogo corria quando as pediu, continua sozinho
     if (resumeAfter.current) setRunning(true)
     resumeAfter.current = false
@@ -1349,9 +1377,12 @@ function LiveScreen({
           ? "1ª Parte"
           : "2ª Parte"
 
-  return (
-    // Por baixo da barra do topo (h-11), que continua à vista com o Continuar Jogo
-    <div className="fixed inset-x-0 bottom-0 top-11 z-50 flex bg-[#121318]">
+  // Por baixo da barra do topo (h-11), que continua à vista com o Continuar Jogo. Vai para o
+  // palco por portal: cobre a coluna sem sair das barras pretas (o `fixed` media-se pela
+  // janela). Escondida, o `hidden` do Shell não chega cá
+  const stage = document.getElementById("stage")
+  const screen = (
+    <div className={`absolute inset-x-0 bottom-0 top-11 z-50 flex bg-[#121318] ${active ? "" : "hidden"}`}>
       <aside className="flex w-[196px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-[#16171c] p-2">
         <div className="flex flex-col items-center rounded bg-[#1e1f25] py-2">
           <span className="text-[11px] font-bold font-mono uppercase tracking-widest text-[#86869a]">
@@ -1446,6 +1477,7 @@ function LiveScreen({
           <LiveTactics
             view={view}
             side={tactics}
+            notice={injuryNote}
             onClose={closeTactics}
             onApplied={accept}
           />
@@ -1550,6 +1582,7 @@ function LiveScreen({
       </main>
     </div>
   )
+  return stage ? createPortal(screen, stage) : screen
 }
 
 /**
@@ -1565,6 +1598,7 @@ export default function MatchDay({
   step,
   active = true,
   onDone,
+  onPhase,
 }: {
   fixture: Fixture
   /** Jogos da competição neste dia (o do treinador incluído), ainda por jogar. */
@@ -1577,6 +1611,8 @@ export default function MatchDay({
   /** Escondido enquanto o treinador navega: fica montado (guarda a fase) mas não reage. */
   active?: boolean
   onDone: () => void
+  /** A fase do dia, a cada mudança. */
+  onPhase?: (p: MatchPhase) => void
 }) {
   const game = useGame()
   const activeRef = useRef(active)
@@ -1587,9 +1623,14 @@ export default function MatchDay({
   const earlier = dayGames.filter((f) => f.homeGoals !== null)
   const pending = dayGames.filter((f) => f.homeGoals === null)
   const night = game.mode === "game" && game.info?.part === 2
-  const [phase, setPhase] = useState<"earlier" | "list" | "pre" | "play" | "results">(
+  const [phase, setPhase] = useState<MatchPhase>(
     earlier.length > 0 ? "earlier" : "list",
   )
+  // O Shell usa a fase para o rótulo do Continuar Jogo e para trancar a coluna
+  useEffect(() => {
+    onPhase?.(phase)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
   const [results, setResults] = useState<{
     games: Fixture[]
     table: StandingRow[]
@@ -1606,8 +1647,9 @@ export default function MatchDay({
         api.listFixtures(fixture.competitionId),
         api.leagueTable(fixture.competitionId),
       ])
+      // Só os já jogados: os da noite (o jogo do treinador foi à tarde) ainda não têm resultado
       setResults({
-        games: all.filter((f) => f.date === fixture.date),
+        games: all.filter((f) => f.date === fixture.date && f.homeGoals !== null),
         table: tableAfter,
       })
       setPhase("results")
@@ -1630,7 +1672,7 @@ export default function MatchDay({
         api.listFixtures(id),
         api.leagueTable(id),
       ])
-      const games = all.filter((f) => f.date === fixture.date)
+      const games = all.filter((f) => f.date === fixture.date && f.homeGoals !== null)
       if (games.length === 0)
         return rest.length ? void nextCompetition() : onDone()
       setResults({ games, table })

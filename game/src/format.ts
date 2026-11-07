@@ -146,3 +146,18 @@ export function initials(name: string): string {
 
 /** As qualificações do treinador no Novo Jogo, pela ordem do core (0 a 4). */
 export const LICENSES = ['Nenhuma', 'Licença C', 'Licença B', 'Licença A', 'Licença Pro']
+
+/**
+ * Um texto do core (notícias, avisos) na moeda e no período de salários das Definições. O core
+ * escreve sempre em euros ("€2,6M", "€266K", "€1.600") e os salários "por semana"; aqui cada
+ * valor passa pela moeda e "€266K por semana" fica, por exemplo, "€1.2M por mês".
+ */
+export function localText(text: string): string {
+  const s = getSettings()
+  if (s.currency === CURRENCIES[0].key && s.wages === WAGES[0].key) return text
+  return text.replace(/€(\d{1,3}(?:\.\d{3})+|\d+(?:,\d+)?)([KM]?)( por semana)?/g, (_, n: string, unit: string, weekly?: string) => {
+    const base = n.includes('.') ? Number(n.replace(/\./g, '')) : Number(n.replace(',', '.'))
+    const eur = base * (unit === 'M' ? 1_000_000 : unit === 'K' ? 1_000 : 1)
+    return weekly ? wage(eur, true) : money(eur)
+  })
+}

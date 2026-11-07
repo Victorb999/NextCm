@@ -131,6 +131,8 @@ session_command!(match_sheet(id: i32) -> MatchSheet);
 session_command!(set_training(plan: TrainingPlan) -> TrainingView);
 session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
+session_command!(exchange_candidates(id: i32) -> Vec<i32>);
+session_command!(offer_to_clubs(id: i32, loan: bool, fee: i64, exclude_rivals: bool) -> String);
 session_command!(ask_loan(id: i32, terms: LoanTerms) -> TransferView);
 session_command!(exercise_option(id: i32) -> TransferView);
 session_command!(lineup_check() -> LineupCheck);
@@ -338,6 +340,8 @@ pub fn run() {
             set_training,
             transfer_view,
             make_offer,
+            exchange_candidates,
+            offer_to_clubs,
             ask_loan,
             exercise_option,
             lineup_check,

@@ -2,7 +2,7 @@ import { ChevronDown } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import type { ClubRef } from "../bindings/ClubRef"
-import { initials } from "../format"
+import { initials, localText } from "../format"
 
 /** As cores de um clube, com o cinzento de sempre quando o patch não as tem. */
 function clubColours(club: Pick<ClubRef, "fg" | "bg">) {
@@ -123,7 +123,8 @@ export function ErrorBox({
   if (!children) return null
   return (
     <div className={`rounded bg-red-900 px-2 py-1 text-white ${className}`}>
-      {children}
+      {/* Os erros do core vêm em euros e por semana */}
+      {typeof children === "string" ? localText(children) : children}
     </div>
   )
 }
@@ -214,8 +215,9 @@ export function BottomBar({
       >
         {left}
       </button>
+      {/* O de avançar distingue-se do Atrás pelo texto amarelo (desligado, fica como o outro) */}
       <button
-        className="cm-purple flex-1 font-title text-lg"
+        className="cm-purple flex-1 font-title text-lg enabled:text-cm-yellow"
         disabled={!onRight}
         onClick={onRight}
       >

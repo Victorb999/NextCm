@@ -78,6 +78,7 @@ function Row({
       onMouseDown={onSelect}
       onDoubleClick={onOpen}
       data-row={index}
+      data-person={p.id}
     >
       <td className="truncate px-3 text-white">
         <Link onClick={onOpen}>{p.listName}</Link>

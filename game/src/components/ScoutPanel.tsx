@@ -167,7 +167,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
             </thead>
             <tbody>
               {shown.map((f) => (
-                <tr key={f.id} className="h-6 text-[14px]">
+                <tr key={f.id} data-person={f.id} className="h-6 text-[14px]">
                   <td className="px-2 text-center text-cm-yellow">{'*'.repeat(f.stars)}</td>
                   <td className="px-1 text-center">
                     {f.injured ? (

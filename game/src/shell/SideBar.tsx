@@ -116,7 +116,10 @@ export default function SideBar({
   onExit,
   onDialog,
   onFind,
+  locked = false,
 }: {
+  /** No dia de jogo, do Pré-Jogo em diante: nada na coluna (a equipa já não muda por aqui). */
+  locked?: boolean
   onOptions: () => void
   onExit: () => void
   /** O Procurar do CM (o diálogo com o nome). */
@@ -151,7 +154,10 @@ export default function SideBar({
     }
 
   return (
-    <aside className="flex w-[150px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-cm-sidedark p-2">
+    <aside
+      className={`flex w-[150px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-cm-sidedark p-2 ${locked ? "pointer-events-none opacity-40" : ""}`}
+      aria-disabled={locked}
+    >
       <HistoryButtons enabled={browsing} />
       {info ? (
         <SideButton

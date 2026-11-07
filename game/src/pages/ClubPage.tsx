@@ -177,6 +177,7 @@ function SquadGrid({
       <div
         key={e.id}
         data-row={i}
+        data-person={e.id}
         data-spot={drag?.["data-spot"]}
         onMouseDown={drag?.onMouseDown}
         onClick={() => onSelect(i)}

@@ -15,6 +15,7 @@ import TransferActions, { type TransferAction } from '../components/TransferActi
 import TextDialog from '../components/TextDialog'
 import TransferTab from '../components/TransferTab'
 import { compareFirst, setCompareFirst } from '../compare'
+import { personActions, takePendingAct } from '../personActions'
 import { cmDate, money, shortListName, wage } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
@@ -510,64 +511,14 @@ export default function PersonPage({ id }: { id: number }) {
   // Menu Acção (num jogo em curso): de outro clube (ou livre), propor contrato e observar; do
   // plantel, disciplina, imprensa e relatórios do staff. Quem pode assinar decide o core.
   const mine = !!person && person.club?.id === game.info?.club.id
-  const canScout = game.mode === 'game' && !!person?.player && !mine && !person.reportOn
   const m = market
-  // Emprestado por outro clube: não é nosso para vender, emprestar ou dispensar
-  const loanedIn = !!m?.loanFrom
-  const actions: { key: string; label: string }[][] = mine
-    ? [
-        // Mercado
-        loanedIn
-          ? []
-          : [
-              ...(m?.canRenew ? [{ key: 'renew', label: 'Oferecer Novo Contrato' }] : []),
-              m?.transferListed
-                ? { key: 'unlist', label: 'Retirar da Lista de Transferências' }
-                : { key: 'list', label: 'Colocar na Lista de Transferências' },
-              m?.loanListed
-                ? { key: 'unloanlist', label: 'Retirar da Lista de Empréstimos' }
-                : { key: 'loanlist', label: 'Colocar na Lista de Empréstimos' },
-              ...(m?.transferListed ? [{ key: 'price', label: 'Definir Preço Pedido' }] : []),
-            ],
-        // Plantel
-        [
-          person?.status?.reserve
-            ? { key: 'promote', label: 'Promover ao Plantel Principal' }
-            : { key: 'demote', label: 'Despromover para Reservas' },
-          // Saudades de casa: duas semanas no seu país
-          ...(person?.status?.canLeave ? [{ key: 'leave', label: 'Dar Folga' }] : []),
-          { key: 'discipline', label: 'Disciplinar Jogador' },
-          ...(loanedIn ? [] : [{ key: 'release', label: 'Dispensar' }]),
-        ],
-        // Imprensa
-        [
-          { key: 'praise', label: 'Elogiar na Imprensa' },
-          { key: 'criticise', label: 'Criticar na Imprensa' },
-        ],
-        // Staff
-        [
-          { key: 'medical', label: 'Pedir Relatório Médico' },
-          { key: 'fitness', label: 'Pedir Relatório Preparador Físico' },
-        ],
-      ]
-    : [
-        [
-          ...(m?.canOffer && !m.free ? [{ key: 'offer', label: 'Abordar Para Comprar' }] : []),
-          ...(m?.canLoan ? [{ key: 'loan', label: 'Propôr Empréstimo' }] : []),
-          ...(m?.canOption ? [{ key: 'option', label: 'Exercer Opção de Compra' }] : []),
-          ...(person?.canContract ? [{ key: 'contract', label: 'Propor Contrato' }] : []),
-        ],
-        [
-          person?.shortlisted
-            ? { key: 'unshortlist', label: 'Retirar da Lista Preferencial' }
-            : { key: 'shortlist', label: 'Adicionar à Lista Preferencial' },
-          ...(canScout ? [{ key: 'scout', label: 'Observar Jogador' }] : []),
-        ],
-      ]
+  const groups = person ? personActions({ person, market, mine, playing: game.mode === 'game' }) : []
+  // O último grupo é o de todos (alcunha, nota, comparar)
+  const actions = groups.slice(0, -1)
   // Os botões da aba Contrato & Transferência: os principais, iguais aos do menu
   const pick = (keys: string[]) => actions.flat().filter((a) => keys.includes(a.key))
   const contractButtons = pick(['renew', 'contract'])
-  const marketButtons = pick(['list', 'unlist', 'price', 'loanlist', 'unloanlist', 'offer', 'loan', 'option', 'shortlist', 'unshortlist', 'scout'])
+  const marketButtons = pick(['list', 'unlist', 'price', 'loanlist', 'unloanlist', 'shop', 'offer', 'loan', 'option', 'shortlist', 'unshortlist', 'scout'])
   const buttonRow = (list: { key: string; label: string }[]) =>
     list.length > 0 && (
       <div className="flex flex-wrap gap-1.5 border-t border-cm-line p-2">
@@ -578,13 +529,7 @@ export default function PersonPage({ id }: { id: number }) {
         ))}
       </div>
     )
-  // Para todos: alcunha, nota e comparar (o 1º escolhido espera pelo 2º)
   const first = compareFirst()
-  const common: { key: string; label: string }[] = [
-    { key: 'nickname', label: 'Definir Alcunha' },
-    { key: 'note', label: 'Criar Nota Treinador' },
-    first && first.id !== id ? { key: 'compare', label: `Comparar com ${first.name}` } : { key: 'compareFirst', label: 'Comparar Jogadores' },
-  ]
   // As mensagens novas contam no "por ler"
   const refreshInfo = () => void api.gameInfo().then((info) => info && game.update(info))
   // Uma acção que deixa uma mensagem volta às Notícias, como no CM (a mensagem nova abre lá)
@@ -647,7 +592,7 @@ export default function PersonPage({ id }: { id: number }) {
 
   const act = (k: string) => {
     if (k === 'contract' || k === 'renew') nav.go({ kind: 'contract', id })
-    else if (k === 'offer' || k === 'loan' || k === 'price') setDeal(k)
+    else if (k === 'offer' || k === 'loan' || k === 'price' || k === 'shop') setDeal(k)
     // A opção de compra deixa a mensagem com o contrato a negociar: volta às Notícias
     else if (k === 'option') void api.exerciseOption(id).then(toNews, (e) => setError(String(e)))
     else if (k === 'nickname' || k === 'note') setText(k)
@@ -681,6 +626,17 @@ export default function PersonPage({ id }: { id: number }) {
     else setReport(k as 'medical' | 'fitness')
   }
 
+  // A acção escolhida no botão direito de uma lista: corre quando o perfil (e, num jogo, o
+  // mercado) chegam
+  const ready = !!person && (!playing || !!market)
+  useEffect(() => {
+    if (!ready) return
+    const k = takePendingAct(id)
+    if (k) act(k)
+    // Só ao abrir: `act` muda a cada render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, id])
+
   return (
     <div className="relative flex h-full flex-col">
       <PersonHeader
@@ -699,7 +655,7 @@ export default function PersonPage({ id }: { id: number }) {
                   Acção <ChevronDown size={14} />
                 </>
               }
-              options={[...actions, common].filter((g) => g.length > 0).flatMap((g, i) => (i ? ['separator' as const, ...g] : g))}
+              options={groups.flatMap((g, i) => (i ? ['separator' as const, ...g] : g))}
               onChange={act}
             />
           )
@@ -761,11 +717,15 @@ export default function PersonPage({ id }: { id: number }) {
           view={market}
           name={person.name}
           onClose={() => setDeal(null)}
-          onDone={(v) => {
+          onDone={(v, message) => {
             setDeal(null)
             setMarket(v)
-            // Uma proposta enviada volta às Notícias, como no CM (a resposta chega lá); o preço pedido fica aqui
-            if (deal === 'price') {
+            // Uma proposta enviada volta às Notícias, como no CM (a resposta chega lá); o preço pedido
+            // e o Oferecer a Clubes (as respostas chegam dias depois) ficam aqui
+            if (deal === 'shop') {
+              setNotice(message ?? null)
+              setError(null)
+            } else if (deal === 'price') {
               setTab('contract')
               void reload()
             } else nav.go({ kind: 'news', latest: true })

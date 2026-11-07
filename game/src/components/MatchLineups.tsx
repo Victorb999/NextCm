@@ -29,7 +29,12 @@ function Side({ club, entries, motm }: { club: ClubRef; entries: LineupEntry[]; 
             <span className="flex w-2.5 shrink-0 justify-center">
               {p.red ? <span className="h-3 w-2 bg-[#ff2020]" /> : p.yellow ? <span className="h-3 w-2 bg-cm-yellow" /> : null}
             </span>
-            <span className={`min-w-0 flex-1 truncate ${p.played ? (p.id === motm ? 'font-bold text-cm-yellow' : 'text-white') : 'text-[#9b6fe8]'}`}>
+            {/* Quem saiu fica num lilás claro, perto do roxo dos suplentes que não jogaram */}
+            <span
+              className={`min-w-0 flex-1 truncate ${
+                p.id === motm ? 'font-bold text-cm-yellow' : !p.played ? 'text-[#9b6fe8]' : p.off !== null ? 'text-[#c4a8f5]' : 'text-white'
+              }`}
+            >
               <Link onClick={() => nav.go({ kind: 'person', id: p.id })}>{fullName(p.name)}</Link>
             </span>
             <span className="w-14 shrink-0 text-right text-[12px]">

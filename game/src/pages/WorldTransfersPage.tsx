@@ -88,7 +88,7 @@ export default function WorldTransfersPage() {
           </thead>
           <tbody>
             {data?.items.map((t, i) => (
-              <tr key={`${t.personId}-${i}`} className="h-6">
+              <tr key={`${t.personId}-${i}`} data-person={t.personId} className="h-6">
                 <td className="px-2 text-white">{cmDate(t.date)}</td>
                 <td className="truncate px-2">
                   <Link onClick={() => nav.go({ kind: 'person', id: t.personId })}>{t.name}</Link>

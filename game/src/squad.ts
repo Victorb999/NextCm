@@ -183,8 +183,8 @@ export const FILTER_OPTIONS: MenuOption<string>[] = [
 ]
 
 export function passes(p: SquadPlayer, f: Filter) {
-  // Os emprestados a outro clube também não estão disponíveis
-  const out = p.injured || p.suspended || p.loanedOut
+  // Os emprestados a outro clube e os que estão fora na selecção ("Int") também não estão disponíveis
+  const out = p.injured || p.suspended || p.loanedOut || p.info === 'Int'
   return (
     (!f.line || p.lines.includes(f.line)) &&
     (!f.side || p.sides.includes(f.side)) &&

@@ -43,6 +43,11 @@ pub(super) const COOLDOWN_DAYS: i32 = 30;
 const LISTED_BID: f64 = 0.35;
 const LOAN_BID: f64 = 0.3;
 const UNLISTED_BID: f64 = 0.12;
+/// Oferecer a Clubes: até quantos clubes respondem e em quantos dias chegam as respostas.
+const SHOP_MAX: usize = 3;
+const SHOP_DAYS: (u64, u64) = (2, 5);
+/// Uma resposta que espera por outra proposta pelo mesmo jogador desiste ao fim destes dias.
+const SHOP_WAIT: i64 = 21;
 /// Dias no clube antes de o clube o vender pelo preço normal (antes, +25%).
 const SETTLE_DAYS: i32 = 180;
 
@@ -433,6 +438,11 @@ impl Game {
             .optional()?)
     }
 
+    /// O emprestado ao clube do treinador: o clube dono dele, a quem se faz a proposta de compra.
+    pub(super) fn loaned_in_from(&self, person: i32, f: &Facts) -> Result<Option<i32>> {
+        Ok(self.loan_of(person)?.map(|l| l.0).filter(|&p| f.club == Some(self.club_id) && p != self.club_id))
+    }
+
     pub(super) fn club_rep(&self, club: i32) -> Result<i32> {
         Ok(self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?)
     }
@@ -690,7 +700,7 @@ impl Game {
         let mut note = None;
         if let Some(b) = &blocked {
             note = Some(format!("Não quer falar de contrato até {}.", cm_date(b)));
-        } else if let (Some(b), Some(club)) = (&bored, f.club) {
+        } else if let (Some(b), Some(club)) = (&bored, loan.as_ref().filter(|_| loaned_in).map(|l| l.0).or(f.club)) {
             note = Some(format!("O {} não quer voltar a negociar até {}.", self.club(club).short_name, cm_date(b)));
         } else if let Some((parent, fee)) = option {
             note = Some(format!("Emprestado com opção de compra: {} ao {}.", money_text(fee), self.club(parent).short_name));
@@ -743,7 +753,11 @@ impl Game {
             cash: self.cash_of(self.club_id)?,
             budget: if mine { self.transfer_budget()? } else { self.budget_for(person)?.0 },
             budget_note: if mine { None } else { self.budget_for(person)?.1 },
-            can_offer: !ghost && f.club != Some(self.club_id) && !busy && bored.is_none() && self.loan_of(person)?.is_none(),
+            // Um emprestado ao treinador compra-se ao clube dono
+            can_offer: !ghost
+                && !busy
+                && bored.is_none()
+                && (loaned_in || (f.club != Some(self.club_id) && self.loan_of(person)?.is_none())),
             can_loan: !ghost && f.club.is_some() && f.club != Some(self.club_id) && !busy && window && self.loan_of(person)?.is_none(),
             can_renew: mine && blocked.is_none() && !busy,
             option_fee: option.map_or(0, |o| o.1),
@@ -1103,6 +1117,38 @@ impl Game {
         Ok(better < 18)
     }
 
+    /// "Adicionar Jogador à Proposta": os jogadores do treinador que o clube do `person`
+    /// aceitaria numa troca (vazio = "não tem interesse num negócio que envolva troca").
+    pub fn exchange_candidates(&self, person: i32) -> Result<Vec<i32>> {
+        let Some(f) = self.facts(person)? else { return Ok(Vec::new()) };
+        let Some(seller) = self.loaned_in_from(person, &f)?.or(f.club.filter(|&c| c != self.club_id)) else {
+            return Ok(Vec::new());
+        };
+        let ids: Vec<i32> = self
+            .world
+            .conn
+            .prepare(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id
+                 WHERE p.club_id = ? AND p.is_player = 1 AND p.id NOT IN (SELECT person_id FROM ghosts)
+                   AND p.id NOT IN (SELECT person_id FROM retired)
+                 ORDER BY pl.current_ability DESC, p.id",
+            )?
+            .query_map([self.club_id], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut out = Vec::new();
+        for id in ids {
+            if self.loan_of(id)?.is_some() {
+                continue;
+            }
+            if let Some(f) = self.facts(id)?
+                && self.wants_exchange(seller, &f)?
+            {
+                out.push(id);
+            }
+        }
+        Ok(out)
+    }
+
     /// O que vale para o clube o jogador da troca (0 se já não é do treinador ou não o quer).
     fn exchange_worth(&self, club: i32, t: &DealTerms) -> Result<f64> {
         let Some(x) = t.exchange else { return Ok(0.0) };
@@ -1121,10 +1167,14 @@ impl Game {
     /// em 1 a 4 dias.
     pub fn make_offer(&mut self, person: i32, terms: &DealTerms) -> Result<TransferView> {
         let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só se fazem propostas por jogadores.".into()))?;
-        if f.club == Some(self.club_id) {
+        // Emprestado ao treinador: a proposta vai para o clube dono
+        let loaned_in = self.loaned_in_from(person, &f)?;
+        if f.club == Some(self.club_id) && loaned_in.is_none() {
             return Err(Error::Invalid("Já é do seu plantel.".into()));
         }
-        if let Some((parent, _)) = self.loan_of(person)? {
+        if loaned_in.is_none()
+            && let Some((parent, _)) = self.loan_of(person)?
+        {
             return Err(Error::Invalid(format!("Está emprestado pelo {}: não pode ser vendido agora.", self.club(parent).short_name)));
         }
         let countered = self.countered(person, "transfer")?;
@@ -1132,7 +1182,7 @@ impl Game {
             return Err(Error::Invalid("Já há uma proposta em curso por este jogador.".into()));
         }
         let created = self.date.clone();
-        match f.club {
+        match loaned_in.or(f.club) {
             None => {
                 let until = date::add_days(&self.date, AGREED_DAYS).unwrap_or_default();
                 self.world.conn.execute(
@@ -1716,6 +1766,7 @@ Confirme até {}.",
         if any_window && matches!(date::weekday(&today), Some(1 | 4)) {
             self.ai_bids(fresh, next_id)?;
         }
+        self.shop_replies(fresh, next_id)?;
         // A janela do país do treinador fechou ontem: o prazo e a confiança da direção (como no CM)
         if !self.sacked() {
             let kind = self.kind_of(self.club_id)?;
@@ -1740,14 +1791,16 @@ Confirme até {}.",
         let seller = o.seller.unwrap_or(0);
         let seller_name = self.club(seller).short_name;
         let f = self.facts(o.person)?;
-        let Some(f) = f.filter(|f| f.club == Some(seller)) else {
+        // O dono: o clube dele ou, emprestado ao treinador, o clube que o emprestou
+        let loaned_to_buyer = self.loan_of(o.person)?.is_some_and(|l| l.0 == seller && f.as_ref().is_some_and(|f| f.club == Some(o.buyer)));
+        let Some(f) = f.filter(|f| f.club == Some(seller) || loaned_to_buyer) else {
             self.set_status(o.id, "collapsed", None)?;
             let body = format!("{name} já não é jogador do {seller_name}.");
             self.offer_news(fresh, next_id, format!("Proposta por {name}"), body, o.id);
             return Ok(());
         };
         let (rank, count) = self.squad_rank(seller, o.person, f.role)?;
-        let on_loan = self.loan_of(o.person)?.is_some();
+        let on_loan = self.loan_of(o.person)?.is_some() && !loaned_to_buyer;
         let deadline = date::add_days(&self.date, AGREED_DAYS).unwrap_or_default();
         let asking = self.asking_price(o.person, &f, seller)?;
         if o.kind == "loan" {
@@ -1791,7 +1844,8 @@ Confirme até {}.",
             }
             return Ok(());
         }
-        if on_loan || count <= MIN_ROLE[f.role] {
+        // O emprestado ao comprador já não conta no plantel do dono
+        if on_loan || (!loaned_to_buyer && count <= MIN_ROLE[f.role]) {
             self.set_status(o.id, "rejected", None)?;
             let body = format!("O {seller_name} recusou a proposta por {name}: não está à venda.");
             self.offer_news(fresh, next_id, format!("Proposta por {name} recusada"), body, o.id);
@@ -1931,33 +1985,7 @@ Confirme até {}.",
         if mine.is_empty() {
             return Ok(());
         }
-        // Os clubes geridos com a janela aberta: reputação, saldo, receitas e nível (média dos 11 melhores)
-        let md = self.date[5..].to_string();
-        let clubs: Vec<(i32, i32, i64, Option<i32>)> = self
-            .world
-            .conn
-            .prepare_cached(&format!(
-                "SELECT id, COALESCE(reputation, 0), COALESCE(cash, 0), division_id FROM clubs WHERE division_id IN ({}) AND id <> ? ORDER BY id",
-                self.managed_ids()
-            ))?
-            .query_map([self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
-            .collect::<rusqlite::Result<_>>()?;
-        let mut buyers: Vec<(i32, i32, f64, i32)> = Vec::new();
-        for (id, rep, cash, division) in clubs {
-            if !window_open(self.club_kind(division), &md) {
-                continue;
-            }
-            let level: f64 = self
-                .world
-                .conn
-                .prepare_cached(
-                    "SELECT COALESCE(AVG(ca), 0) FROM (SELECT pl.current_ability AS ca FROM people p JOIN players pl ON pl.person_id = p.id
-                 WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC LIMIT 11)",
-                )?
-                .query_row([id], |r| r.get(0))?;
-            let budget = (cash as f64 + 0.2 * self.club_base(id)?) * 0.5;
-            buyers.push((id, rep, budget, level as i32));
-        }
+        let buyers = self.bid_clubs()?;
         let my_rep = self.club_rep(self.club_id)?;
         let mut rng = self.season_rng(0xB1D5);
         // Um de fora da lista, de vez em quando
@@ -1987,18 +2015,7 @@ Confirme até {}.",
             } else {
                 finance::round_money(f.value as f64 * (1.0 + 0.3 * uniform(&mut rng))).max(10_000)
             };
-            // Quem compra: um clube onde ele jogue e que ele aceite; quem pede emprestado: um mais pequeno
-            let fits: Vec<i32> = buyers
-                .iter()
-                .filter(|&&(_, rep, budget, level)| {
-                    if as_loan {
-                        rep < my_rep && ca + 10 >= level
-                    } else {
-                        rep + personality::step_down(f.ambition) >= my_rep && ca >= level - 5 && ca <= level + 25 && fee as f64 <= budget
-                    }
-                })
-                .map(|b| b.0)
-                .collect();
+            let fits = fitting_buyers(&buyers, &f, ca, as_loan, fee, my_rep);
             if fits.is_empty() {
                 continue;
             }
@@ -2009,44 +2026,194 @@ Confirme até {}.",
                 params![if as_loan { "loan" } else { "transfer" }, id, buyer, self.club_id, fee, until, self.date],
             )?;
             let offer = self.world.conn.last_insert_rowid() as i32;
-            // Condições variadas: prestações (pagando um pouco mais), valor por jogos; no
-            // empréstimo, parte do salário e às vezes uma taxa ou uma opção de compra
-            let (deal, loan) = if as_loan {
-                let share = [50, 75, 100][(rng.next_u32() % 3) as usize];
-                let monthly = if uniform(&mut rng) < 0.2 { finance::round_money(f.value as f64 * 0.005) } else { 0 };
-                let option = if uniform(&mut rng) < 0.3 { finance::round_money(f.value as f64 * 1.2) } else { 0 };
-                (DealTerms::default(), LoanTerms { months: 0, wage_share: share, monthly_fee: monthly, option_fee: option })
-            } else {
-                let mut d = DealTerms { fee, ..Default::default() };
-                if uniform(&mut rng) < 0.25 {
-                    d.months = [12, 24][(rng.next_u32() % 2) as usize];
-                    d.fee = finance::round_money(fee as f64 * 1.05);
-                }
-                if uniform(&mut rng) < 0.2 {
-                    d.apps_bonus = finance::round_money(fee as f64 * 0.1);
-                }
-                (d, LoanTerms::default())
-            };
+            let (deal, loan) = bid_terms(&f, as_loan, fee, &mut rng);
             self.set_terms(offer, &deal, &loan)?;
-            let name = self.person_name(id)?;
-            let buyer_name = self.club(buyer).short_name;
-            let (title, body) = if as_loan {
-                (
-                    format!("Pedido de empréstimo de {name}"),
-                    format!("O {buyer_name} quer {name} emprestado {}. Responda até {}.", loan.text(), cm_date(&until)),
-                )
-            } else {
-                (
-                    format!("Proposta por {name}"),
-                    format!(
-                        "O {buyer_name} oferece {} por {name} (valor {}). Responda até {}.",
-                        deal.text(),
-                        money_text(f.value),
-                        cm_date(&until)
-                    ),
-                )
+            self.bid_news(fresh, next_id, offer, id, buyer, &f, &deal, &loan, &until)?;
+        }
+        Ok(())
+    }
+
+    /// A notícia de uma proposta da IA por um jogador do treinador.
+    #[allow(clippy::too_many_arguments)]
+    fn bid_news(
+        &mut self,
+        fresh: &mut Vec<NewsItem>,
+        next_id: &mut i32,
+        offer: i32,
+        id: i32,
+        buyer: i32,
+        f: &Facts,
+        deal: &DealTerms,
+        loan: &LoanTerms,
+        until: &str,
+    ) -> Result<()> {
+        let name = self.person_name(id)?;
+        let buyer_name = self.club(buyer).short_name;
+        let (title, body) = if deal.fee == 0 && loan.wage_share > 0 {
+            (
+                format!("Pedido de empréstimo de {name}"),
+                format!("O {buyer_name} quer {name} emprestado {}. Responda até {}.", loan.text(), cm_date(until)),
+            )
+        } else {
+            (
+                format!("Proposta por {name}"),
+                format!(
+                    "O {buyer_name} oferece {} por {name} (valor {}). Responda até {}.",
+                    deal.text(),
+                    money_text(f.value),
+                    cm_date(until)
+                ),
+            )
+        };
+        self.offer_news(fresh, next_id, title, body, offer);
+        Ok(())
+    }
+
+    /// Os clubes geridos com a janela aberta que podem fazer propostas: reputação, quanto podem
+    /// gastar (metade do saldo e de um quinto das receitas) e o nível (média dos 11 melhores).
+    fn bid_clubs(&self) -> Result<Vec<Buyer>> {
+        let md = self.date[5..].to_string();
+        let clubs: Vec<(i32, i32, i64, Option<i32>)> = self
+            .world
+            .conn
+            .prepare_cached(&format!(
+                "SELECT id, COALESCE(reputation, 0), COALESCE(cash, 0), division_id FROM clubs WHERE division_id IN ({}) AND id <> ? ORDER BY id",
+                self.managed_ids()
+            ))?
+            .query_map([self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut buyers: Vec<Buyer> = Vec::new();
+        for (id, rep, cash, division) in clubs {
+            if !window_open(self.club_kind(division), &md) {
+                continue;
+            }
+            let level: f64 = self
+                .world
+                .conn
+                .prepare_cached(
+                    "SELECT COALESCE(AVG(ca), 0) FROM (SELECT pl.current_ability AS ca FROM people p JOIN players pl ON pl.person_id = p.id
+                 WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC LIMIT 11)",
+                )?
+                .query_row([id], |r| r.get(0))?;
+            let budget = (cash as f64 + 0.2 * self.club_base(id)?) * 0.5;
+            buyers.push((id, rep, budget, level as i32));
+        }
+        Ok(buyers)
+    }
+
+    /// "Oferecer a Clubes" (do FM): os serviços do clube mandam a proposta a todos os clubes e,
+    /// dentro de 2 a 5 dias, até 3 interessados respondem com uma proposta (ou chega a notícia
+    /// de que ninguém quis). `fee` é o valor pedido (0 = o valor do jogador); no empréstimo
+    /// não conta. As respostas ficam guardadas com o estado `faxed` até ao dia em que chegam.
+    pub fn offer_to_clubs(&mut self, person: i32, loan: bool, fee: i64, exclude_rivals: bool) -> Result<String> {
+        let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só se oferecem jogadores.".into()))?;
+        if f.club != Some(self.club_id) || self.loan_of(person)?.is_some() || self.is_ghost(person) {
+            return Err(Error::Invalid("Só pode oferecer jogadores do seu plantel.".into()));
+        }
+        if !self.window_open_for(self.club_id)? {
+            return Err(Error::Invalid("A janela de transferências está fechada.".into()));
+        }
+        if self.open_offer(person)?.is_some() {
+            return Err(Error::Invalid("Já há uma proposta em curso por este jogador.".into()));
+        }
+        let waiting: i64 =
+            self.world.conn.query_row("SELECT COUNT(*) FROM offers WHERE person_id = ? AND status = 'faxed'", [person], |r| r.get(0))?;
+        if waiting > 0 {
+            return Err(Error::Invalid("Já foi oferecido aos clubes: espere pelas respostas.".into()));
+        }
+        let fee = if loan { 0 } else { finance::round_money(if fee > 0 { fee } else { f.value } as f64).max(10_000) };
+        let rivals: [Option<i32>; 3] =
+            self.world.conn.query_row("SELECT rival1_id, rival2_id, rival3_id FROM clubs WHERE id = ?", [self.club_id], |r| {
+                Ok([r.get(0)?, r.get(1)?, r.get(2)?])
+            })?;
+        let ca: i32 =
+            self.world.conn.query_row("SELECT COALESCE(current_ability, 1) FROM players WHERE person_id = ?", [person], |r| r.get(0))?;
+        let my_rep = self.club_rep(self.club_id)?;
+        let buyers = self.bid_clubs()?;
+        let mut fits = fitting_buyers(&buyers, &f, ca, loan, fee, my_rep);
+        if exclude_rivals {
+            fits.retain(|c| !rivals.contains(&Some(*c)));
+        }
+        let year: u64 = self.date[0..4].parse().unwrap_or(0);
+        let mut rng = self.deal_rng(person, 0x5809 ^ (year << 8));
+        // Quanto mais acima do valor pede, menos clubes se interessam (o dobro: nenhum)
+        let ratio = fee as f64 / f.value.max(1) as f64;
+        let chance = if loan { 0.4 } else { (0.5 * (2.0 - ratio)).clamp(0.0, 0.5) };
+        let mut picked = Vec::new();
+        while !fits.is_empty() && picked.len() < SHOP_MAX {
+            let c = fits.swap_remove((rng.next_u64() % fits.len() as u64) as usize);
+            if uniform(&mut rng) < chance {
+                picked.push(c);
+            }
+        }
+        let days = |rng: &mut ChaCha8Rng| (SHOP_DAYS.0 + rng.next_u64() % (SHOP_DAYS.1 - SHOP_DAYS.0 + 1)) as i32;
+        if picked.is_empty() {
+            // Ninguém: uma marca para a notícia chegar no dia certo
+            let on = date::add_days(&self.date, days(&mut rng)).unwrap_or_default();
+            self.world.conn.execute(
+                "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created) VALUES ('shop', ?, ?, ?, ?, 'faxed', ?, ?)",
+                params![person, self.club_id, self.club_id, fee, on, self.date],
+            )?;
+        }
+        for buyer in picked {
+            let on = date::add_days(&self.date, days(&mut rng)).unwrap_or_default();
+            // Um clube paga o pedido; outro tenta um pouco menos (dá para pedir mais)
+            let bid = if loan { 0 } else { finance::round_money(fee as f64 * (0.85 + 0.15 * uniform(&mut rng))).max(10_000) };
+            self.world.conn.execute(
+                "INSERT INTO offers (kind, person_id, buyer, seller, fee, status, answer_on, created) VALUES (?, ?, ?, ?, ?, 'faxed', ?, ?)",
+                params![if loan { "loan" } else { "transfer" }, person, buyer, self.club_id, bid, on, self.date],
+            )?;
+            let offer = self.world.conn.last_insert_rowid() as i32;
+            let (deal, loan_terms) = bid_terms(&f, loan, bid, &mut rng);
+            self.set_terms(offer, &deal, &loan_terms)?;
+        }
+        self.unsaved = true;
+        let name = self.person_name(person)?;
+        Ok(if loan {
+            format!(
+                "Os serviços administrativos do clube enviaram a todos os clubes a proposta de empréstimo de {name}. Será contactado nos próximos dias se houver interesse."
+            )
+        } else {
+            format!(
+                "Os serviços administrativos do clube enviaram a todos os clubes a proposta de transferência de {name} por {}. Será contactado nos próximos dias se houver interesse.",
+                money_text(fee)
+            )
+        })
+    }
+
+    /// As respostas ao Oferecer a Clubes que chegam hoje: viram propostas normais (uma de cada
+    /// vez por jogador; as outras esperam que essa acabe) ou a notícia de que ninguém quis.
+    pub(super) fn shop_replies(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        let today = self.date.clone();
+        let due = self.offers_where("seller = ?1 AND status = 'faxed' AND answer_on <= ?2", params![self.club_id, today])?;
+        for o in due {
+            let name = self.person_name(o.person)?;
+            if o.kind == "shop" {
+                self.set_status(o.id, "done", None)?;
+                let body = format!("Nenhum clube mostrou interesse em {name} depois de o ter oferecido.");
+                self.offer_news(fresh, next_id, format!("Sem interessados em {name}"), body, o.id);
+                continue;
+            }
+            let Some(f) = self.facts(o.person)?.filter(|f| f.club == Some(self.club_id)) else {
+                self.set_status(o.id, "collapsed", None)?;
+                continue;
             };
-            self.offer_news(fresh, next_id, title, body, offer);
+            if self.open_offer(o.person)?.is_some() {
+                // Espera pelo fim da proposta em curso (e desiste ao fim de três semanas)
+                let created: String =
+                    self.world.conn.query_row("SELECT COALESCE(created, '') FROM offers WHERE id = ?", [o.id], |r| r.get(0))?;
+                let waited = date::parse(&created).zip(date::parse(&today)).map_or(0, |(c, t)| (t - c) as i64);
+                if waited > SHOP_WAIT {
+                    self.set_status(o.id, "collapsed", None)?;
+                } else {
+                    let next = date::add_days(&today, 1).unwrap_or_default();
+                    self.set_status(o.id, "faxed", Some(&next))?;
+                }
+                continue;
+            }
+            let until = date::add_days(&today, INCOMING_DAYS).unwrap_or_default();
+            self.set_status(o.id, "pending", Some(&until))?;
+            self.bid_news(fresh, next_id, o.id, o.person, o.buyer, &f, &o.deal_terms(), &o.loan_terms(), &until)?;
         }
         Ok(())
     }
@@ -2073,6 +2240,46 @@ Confirme até {}.",
         fresh.push(self.news_item(*next_id, "contract", "Contratos a acabar".into(), body));
         *next_id += 1;
         Ok(())
+    }
+}
+
+/// Um clube que pode fazer propostas: id, reputação, quanto pode gastar e nível.
+type Buyer = (i32, i32, f64, i32);
+
+/// Os clubes que querem um jogador: quem compra, um clube onde ele jogue e que ele aceite (e
+/// que pague `fee`); quem pede emprestado, um mais pequeno.
+fn fitting_buyers(buyers: &[Buyer], f: &Facts, ca: i32, as_loan: bool, fee: i64, my_rep: i32) -> Vec<i32> {
+    buyers
+        .iter()
+        .filter(|&&(_, rep, budget, level)| {
+            if as_loan {
+                rep < my_rep && ca + 10 >= level
+            } else {
+                rep + personality::step_down(f.ambition) >= my_rep && ca >= level - 5 && ca <= level + 25 && fee as f64 <= budget
+            }
+        })
+        .map(|b| b.0)
+        .collect()
+}
+
+/// Condições variadas de uma proposta da IA: prestações (pagando um pouco mais), valor por
+/// jogos; no empréstimo, parte do salário e às vezes uma taxa ou uma opção de compra.
+fn bid_terms(f: &Facts, as_loan: bool, fee: i64, rng: &mut ChaCha8Rng) -> (DealTerms, LoanTerms) {
+    if as_loan {
+        let share = [50, 75, 100][(rng.next_u32() % 3) as usize];
+        let monthly = if uniform(rng) < 0.2 { finance::round_money(f.value as f64 * 0.005) } else { 0 };
+        let option = if uniform(rng) < 0.3 { finance::round_money(f.value as f64 * 1.2) } else { 0 };
+        (DealTerms::default(), LoanTerms { months: 0, wage_share: share, monthly_fee: monthly, option_fee: option })
+    } else {
+        let mut d = DealTerms { fee, ..Default::default() };
+        if uniform(rng) < 0.25 {
+            d.months = [12, 24][(rng.next_u32() % 2) as usize];
+            d.fee = finance::round_money(fee as f64 * 1.05);
+        }
+        if uniform(rng) < 0.2 {
+            d.apps_bonus = finance::round_money(fee as f64 * 0.1);
+        }
+        (d, LoanTerms::default())
     }
 }
 
@@ -2321,6 +2528,71 @@ Palmeiras fez uma nova proposta."
         }
         assert!(news.iter().any(|n| n.title.contains("escolhe o")), "{:?}", news.iter().map(|n| &n.title).collect::<Vec<_>>());
         assert_eq!(g.facts(free).unwrap().unwrap().club, Some(rival));
+
+        // Um emprestado ao treinador compra-se ao clube dono: a proposta vai para o Flamengo
+        let lent = for_sale(&g).into_iter().map(|t| t.0).find(|&id| g.open_offer(id).unwrap().is_none()).unwrap();
+        g.execute_loan(lent, FLAMENGO, PALMEIRAS, &LoanTerms::default()).unwrap();
+        let view = g.transfer_view(lent).unwrap();
+        assert!(view.can_offer && !view.mine, "comprável ao dono");
+        let value = g.facts(lent).unwrap().unwrap().value;
+        g.make_offer(lent, &cash_only(value * 3)).unwrap();
+        let o = g.open_offer(lent).unwrap().unwrap();
+        assert_eq!(o.seller, Some(FLAMENGO));
+        for _ in 0..4 {
+            g.advance_day().unwrap();
+        }
+        assert_eq!(
+            status(&g, lent).as_deref(),
+            Some("agreed"),
+            "o dono vende pelo triplo do valor: {:?}",
+            g.news().iter().filter(|n| n.offer_id == Some(o.id)).map(|n| &n.body).collect::<Vec<_>>()
+        );
+
+        // Oferecer a Clubes: as respostas chegam em 2 a 5 dias (uma proposta ou "sem interessados").
+        // Só com a janela aberta: a data salta para lá
+        for _ in 0..240 {
+            if g.window_open_for(PALMEIRAS).unwrap() {
+                break;
+            }
+            g.date = date::add_days(&g.date, 1).unwrap();
+        }
+        let shopped: Vec<i32> = g
+            .world
+            .conn
+            .prepare(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ? AND p.is_player = 1
+                   AND p.id NOT IN (SELECT person_id FROM loans) AND p.id NOT IN (SELECT person_id FROM ghosts)
+                 ORDER BY pl.current_ability DESC LIMIT 3 OFFSET 12",
+            )
+            .unwrap()
+            .query_map([PALMEIRAS], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        let mut sent = Vec::new();
+        for (i, &p) in shopped.iter().enumerate() {
+            if g.open_offer(p).unwrap().is_some() {
+                continue;
+            }
+            match g.offer_to_clubs(p, i == 2, 0, true) {
+                Ok(text) => {
+                    assert!(text.contains("todos os clubes"), "{text}");
+                    assert!(g.offer_to_clubs(p, false, 0, true).is_err(), "uma vez de cada vez");
+                    sent.push(p);
+                }
+                Err(e) => panic!("{e}"),
+            }
+        }
+        assert!(!sent.is_empty(), "com a janela aberta, há ofertas enviadas");
+        for _ in 0..6 {
+            g.advance_day().unwrap();
+        }
+        for p in sent {
+            let name = g.person_name(p).unwrap();
+            let bid = g.open_offer(p).unwrap().is_some_and(|o| o.seller == Some(PALMEIRAS) && o.status == "pending");
+            let nobody = g.news().iter().any(|n| n.title == format!("Sem interessados em {name}"));
+            assert!(bid || nobody, "{name}: nem proposta nem notícia");
+        }
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

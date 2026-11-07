@@ -21,11 +21,14 @@ import { TACTICS_MENU, TACTICS_VIEWS, fullName, moveOnPitch, ordersOf, shortRole
 export default function LiveTactics({
   view,
   side,
+  notice,
   onClose,
   onApplied,
 }: {
   view: LiveView
   side: 0 | 1
+  /** Um aviso em cima (o lesionado que fez parar o jogo). */
+  notice?: string | null
   onClose: () => void
   onApplied: (v: LiveView) => void
 }) {
@@ -182,6 +185,9 @@ export default function LiveTactics({
           }}
         />
       </div>
+      {notice && (
+        <div className="mx-2 mt-2 rounded bg-[#5a1414] px-2 py-1 text-center font-bold text-white">{notice}</div>
+      )}
       <ErrorBox className="mx-2 mt-2">{error}</ErrorBox>
       {t ? (
         <div className="mx-2 mt-2 flex min-h-0 flex-1 gap-1.5">
