@@ -451,6 +451,45 @@ impl Game {
     }
 
     /// Posição de um jogador no plantel pelo CA (0 = o melhor) e quantos há no papel dele.
+    /// O valor médio dos 11 melhores (pelo CA) de um clube.
+    pub(super) fn core_value(&self, club: i32) -> Result<f64> {
+        let ids: Vec<i32> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id
+                 WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC, p.id LIMIT 11",
+            )?
+            .query_map([club], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut sum = 0i64;
+        for &id in &ids {
+            sum += self.world.market_value_of(id, &self.date)?.unwrap_or(0);
+        }
+        Ok(if ids.is_empty() { 0.0 } else { sum as f64 / ids.len() as f64 })
+    }
+
+    /// O lugar de um jogador entre os da sua posição no clube, pelo CA (0 = o melhor).
+    pub(super) fn role_rank(&self, club: i32, person: i32, role: usize) -> Result<usize> {
+        let rows: Vec<(i32, [i32; 4])> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT p.id, COALESCE(pl.pos_goalkeeper, 1),
+                        MAX(COALESCE(pl.pos_sweeper, 1), COALESCE(pl.pos_defender, 1), COALESCE(pl.pos_wing_back, 1)),
+                        MAX(COALESCE(pl.pos_defensive_midfielder, 1), COALESCE(pl.pos_midfielder, 1), COALESCE(pl.pos_attacking_midfielder, 1)),
+                        COALESCE(pl.pos_attacker, 1)
+                 FROM people p JOIN players pl ON pl.person_id = p.id
+                 WHERE p.club_id = ? AND p.is_player = 1 AND p.id NOT IN (SELECT person_id FROM ghosts)
+                   AND p.id NOT IN (SELECT person_id FROM retired)
+                 ORDER BY pl.current_ability DESC, p.id",
+            )?
+            .query_map([club], |r| Ok((r.get(0)?, [r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?])))?
+            .collect::<rusqlite::Result<_>>()?;
+        let same: Vec<i32> = rows.into_iter().filter(|r| role_of(r.1[0], r.1[1], r.1[2], r.1[3]) == role).map(|r| r.0).collect();
+        Ok(same.iter().position(|&id| id == person).unwrap_or(same.len()))
+    }
+
     fn squad_rank(&self, club: i32, person: i32, role: usize) -> Result<(usize, usize)> {
         let rows: Vec<(i32, [i32; 4])> = self
             .world
@@ -613,6 +652,8 @@ impl Game {
         self.world
             .conn
             .execute("INSERT OR REPLACE INTO loans (person_id, parent_id, until) VALUES (?, ?, ?)", params![person, parent, season_end])?;
+        // Emprestado, sai das listas do clube dono
+        self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [person])?;
         let until = self.loan_terms_start(person, parent, to, terms, &season_end)?;
         self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![to, self.date, person])?;
         self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [person])?;
@@ -1711,10 +1752,15 @@ Confirme até {}.",
         let asking = self.asking_price(o.person, &f, seller)?;
         if o.kind == "loan" {
             let t = o.loan_terms();
-            let reply = if on_loan || self.recent(&f) || !self.window_open_for(self.club_id)? {
+            // Só empresta quem está fora dos planos (depois dos melhores da posição) e não é uma estrela
+            let in_plans = self.role_rank(seller, o.person, f.role)? < MIN_ROLE[f.role];
+            let star = f.value as f64 >= super::market::STAR_SHARE * self.core_value(seller)?;
+            let important = in_plans || star;
+            let reply = if on_loan || important || self.recent(&f) || !self.window_open_for(self.club_id)? {
                 LoanReply::Reject
             } else {
-                loan_reply(&t, rank, f.age, f.value, asking, o.rounds)
+                // Fora dos planos, o lugar no plantel já não o segura
+                loan_reply(&t, rank.max(super::negotiation::LOAN_KEEP), f.age, f.value, asking, o.rounds)
             };
             match reply {
                 LoanReply::Accept => {
@@ -1735,7 +1781,7 @@ Confirme até {}.",
                 }
                 LoanReply::Reject => {
                     self.set_status(o.id, "rejected", None)?;
-                    let body = if rank < 14 {
+                    let body = if rank < 14 || important {
                         format!("O {seller_name} não quer emprestar {name}: é importante para a equipa.")
                     } else {
                         format!("O {seller_name} recusou o pedido de empréstimo de {name}.")

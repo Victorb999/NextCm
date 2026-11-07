@@ -71,6 +71,31 @@ const MAX_LISTED: usize = 3;
 const MAX_LOAN_LISTED: usize = 2;
 const LISTED_FEE: f64 = 0.9;
 const LISTED_EDGE: i32 = 5;
+/// As estrelas: quem vale esta parte do valor médio dos 11 melhores, ou mais, nunca vai para as
+/// listas nem sai por empréstimo, mesmo fora dos planos.
+pub(super) const STAR_SHARE: f64 = 0.75;
+
+/// Quem está fora dos planos de um clube, como no CM: depois dos `MIN_ROLE` melhores da sua
+/// posição (2 guarda-redes, 6 defesas, 6 médios, 3 avançados), pelo CA. É quem o clube vende
+/// (os mais velhos) ou empresta (os jovens), valha o que valer, menos as estrelas.
+fn out_of_plans(squad: &[&Listing]) -> HashSet<i32> {
+    let mut seen = [0usize; ROLES];
+    let mut out = HashSet::new();
+    // A lista vem ordenada pelo CA
+    for l in squad {
+        if seen[l.role] >= MIN_ROLE[l.role] {
+            out.insert(l.id);
+        }
+        seen[l.role] += 1;
+    }
+    out
+}
+
+/// O valor médio dos 11 melhores (pelo CA) de uma lista ordenada.
+fn core_value<'a>(squad: impl Iterator<Item = &'a Listing>) -> f64 {
+    let top: Vec<i64> = squad.take(11).map(|l| l.value()).collect();
+    if top.is_empty() { 0.0 } else { top.iter().sum::<i64>() as f64 / top.len() as f64 }
+}
 
 /// Um jogador no índice do mercado.
 #[derive(Debug, Clone)]
@@ -434,12 +459,14 @@ impl Game {
             if club == self.club_id {
                 continue;
             }
+            // As listas refazem-se mesmo com a janela do clube fechada: os outros continuam a
+            // comprar-lhe jogadores, e uma lista velha deixava titulares listados
+            if trading {
+                self.ai_listings(club, &market, &loaned)?;
+            }
             let kind = self.club_kind(division);
             if !window_open(kind, &md) {
                 continue;
-            }
-            if trading {
-                self.ai_listings(club, &market, &loaned)?;
             }
             if trading && let Some(deal) = self.ai_forced_sale(club, rep, &market, &loaned, &managed, &mut done, &mut rng)? {
                 market.move_player(deal.person_id, deal.to.as_ref().map(|c| c.id));
@@ -476,22 +503,31 @@ impl Game {
     }
 
     /// Listas de transferências e de empréstimos de um clube da IA, refeitas em cada dia de
-    /// mercado: na de transferências os que estão fora dos 18 melhores (23+) e os veteranos
-    /// fora do onze (32+), até 3, sem deixar o papel abaixo do mínimo; na de empréstimos os
-    /// jovens (até 21) fora dos 18 melhores, até 2. Os listados a pedido ficam.
+    /// mercado: na de transferências os que estão fora dos planos (24+) e os veteranos fora do
+    /// onze (32+), até 3, sem deixar o papel abaixo do mínimo; na de empréstimos os jovens (até
+    /// 23) fora dos planos, até 2. As estrelas nunca; os listados a pedido ficam.
     fn ai_listings(&mut self, club: i32, market: &Market, loaned: &HashSet<i32>) -> Result<()> {
         self.world
             .conn
             .execute("DELETE FROM transfer_list WHERE requested = 0 AND person_id IN (SELECT id FROM people WHERE club_id = ?)", [club])?;
-        let squad: Vec<&Listing> = market.squad(club).filter(|l| !loaned.contains(&l.id)).collect();
+        // Os planos contam com todos (os emprestados ao clube também ocupam um lugar); as listas não
+        let all: Vec<&Listing> = market.squad(club).collect();
+        let spare = out_of_plans(&all);
+        let core = core_value(all.iter().copied());
+        let squad: Vec<&Listing> = all.iter().copied().filter(|l| !loaned.contains(&l.id)).collect();
+        let star = |l: &Listing| l.value() as f64 >= STAR_SHARE * core;
         let mut count = [0; ROLES];
         for l in &squad {
             count[l.role] += 1;
         }
         let mut sell: Vec<&Listing> = Vec::new();
         // Do pior para o melhor, os mais velhos primeiro
-        let mut out: Vec<(usize, &Listing)> =
-            squad.iter().copied().enumerate().filter(|(rank, l)| (*rank >= 18 && l.age >= 23) || (*rank >= 11 && l.age >= 32)).collect();
+        let mut out: Vec<(usize, &Listing)> = squad
+            .iter()
+            .copied()
+            .enumerate()
+            .filter(|(rank, l)| ((spare.contains(&l.id) && l.age >= 24) || (*rank >= 11 && l.age >= 32)) && !star(l))
+            .collect();
         out.sort_by_key(|(rank, l)| (std::cmp::Reverse(l.age), std::cmp::Reverse(*rank), l.id));
         for (_, l) in out {
             if sell.len() >= MAX_LISTED || count[l.role] <= MIN_ROLE[l.role] + 1 {
@@ -504,7 +540,7 @@ impl Game {
             .iter()
             .copied()
             .enumerate()
-            .filter(|(rank, l)| *rank >= 18 && l.age <= 21 && !l.recent)
+            .filter(|(_, l)| spare.contains(&l.id) && l.age <= 23 && !l.recent && !star(l))
             .map(|(_, l)| l)
             .take(MAX_LOAN_LISTED)
             .collect();
@@ -783,7 +819,15 @@ impl Game {
         if mine.len() < 26 {
             return Ok(None);
         }
-        let youth: Vec<&Listing> = mine.iter().skip(18).filter(|l| l.age <= 21 && l.ca >= 60 && !loaned.contains(&l.id)).copied().collect();
+        let core = core_value(mine.iter().copied());
+        let spare = out_of_plans(&mine);
+        let youth: Vec<&Listing> = mine
+            .iter()
+            .filter(|l| {
+                spare.contains(&l.id) && l.age <= 21 && l.ca >= 60 && !loaned.contains(&l.id) && (l.value() as f64) < STAR_SHARE * core
+            })
+            .copied()
+            .collect();
         if youth.is_empty() {
             return Ok(None);
         }
@@ -831,6 +875,8 @@ impl Game {
         self.world
             .conn
             .execute("INSERT OR REPLACE INTO loans (person_id, parent_id, until) VALUES (?, ?, ?)", params![player.id, club, until])?;
+        // Emprestado, sai das listas do clube dono (senão aparecia listado no clube que o recebe)
+        self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [player.id])?;
         self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![to, self.date, player.id])?;
         self.number_after_move(player.id, Some(to))?;
         self.log_transfer(player.id, Some(club), Some(to), 0, "loan")?;
@@ -1056,6 +1102,37 @@ mod tests {
     use super::*;
 
     #[test]
+    fn out_of_plans_after_the_best_of_each_position() {
+        // 3 guarda-redes e 8 médios, pelo CA: o 3.º guarda-redes e o 7.º e 8.º médios estão fora
+        let mk = |id: i32, role: usize, ca: i32| Listing {
+            id,
+            club: Some(1),
+            ca,
+            pa: ca,
+            role,
+            age: 22,
+            rep: 0,
+            wage: 0,
+            years_left: 2.0,
+            club_rep: 0,
+            league_rep: 10,
+            ambition: 10.0,
+            loyalty: 10.0,
+            continent: 0,
+            nation: 0,
+            recent: false,
+        };
+        let mut v: Vec<Listing> = (0..3).map(|i| mk(i, 0, 150 - i)).collect();
+        v.extend((0..8).map(|i| mk(10 + i, 2, 160 - i)));
+        v.sort_by_key(|l| std::cmp::Reverse(l.ca));
+        let refs: Vec<&Listing> = v.iter().collect();
+        let out = out_of_plans(&refs);
+        let mut ids: Vec<i32> = out.into_iter().collect();
+        ids.sort_unstable();
+        assert_eq!(ids, vec![2, 16, 17]);
+    }
+
+    #[test]
     fn europeans_rarely_leave_europe() {
         assert!(
             leaving_europe(EUROPE, 5) && !leaving_europe(EUROPE, EUROPE) && !leaving_europe(EUROPE, ASIA) && !leaving_europe(5, EUROPE)
@@ -1145,6 +1222,47 @@ mod tests {
             .query_row("SELECT SUM(transfer), SUM(loan) FROM transfer_list WHERE requested = 0", [], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap();
         assert!(listed >= 50 && lent >= 20, "{listed} {lent}");
+        // Só quem está fora dos planos (depois dos melhores da posição) e nenhuma estrela. As
+        // listas são do último dia de mercado (no fecho os outros ainda compram), então
+        // refazem-se com o plantel de agora antes de as conferir
+        let index = g.market_index().unwrap();
+        let fresh_market = Market::new(index);
+        let loaned = g.loaned_players().unwrap();
+        let clubs: Vec<i32> = g
+            .world
+            .conn
+            .prepare("SELECT DISTINCT p.club_id FROM transfer_list l JOIN people p ON p.id = l.person_id WHERE l.requested = 0 AND p.club_id <> 7568")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        for c in clubs {
+            g.ai_listings(c, &fresh_market, &loaned).unwrap();
+        }
+        let rows: Vec<(i32, i32, bool)> = g
+            .world
+            .conn
+            .prepare(
+                "SELECT l.person_id, p.club_id, l.transfer FROM transfer_list l JOIN people p ON p.id = l.person_id
+                 WHERE l.requested = 0 AND p.club_id IS NOT NULL AND p.club_id <> 7568",
+            )
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get::<_, i32>(2)? != 0)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        for (id, club, _) in rows {
+            let value = g.world.market_value_of(id, g.date()).unwrap().unwrap_or(0) as f64;
+            let core = g.core_value(club).unwrap();
+            assert!(value < STAR_SHARE * core, "jogador {id} do clube {club}: {value} contra {core}");
+            let f = g.facts(id).unwrap().unwrap();
+            // (os veteranos fora do onze também vão para a venda)
+            if f.age < 32 {
+                let rank = g.role_rank(club, id, f.role).unwrap();
+                assert!(rank >= MIN_ROLE[f.role], "jogador {id} nos planos do clube {club}: posição {} lugar {rank}", f.role);
+            }
+        }
         for (_, id, from, to, _, kind) in all_transfers(&g) {
             assert!(from != Some(7568) && to != Some(7568) || kind == "return", "o clube do treinador fica de fora");
             let club: Option<i32> = g.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [id], |r| r.get(0)).unwrap();

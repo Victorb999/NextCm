@@ -49,7 +49,7 @@ pub(super) const REPLY_DAYS: (i32, i32) = (1, 4);
 /// Empréstimos: quem não está nos `LOAN_KEEP` melhores do plantel pode sair; os que estão
 /// fora dos 18 melhores (e jovens, ou fora dos 22) saem com metade do salário pago, os outros
 /// só com o salário todo e 1% do valor por mês.
-const LOAN_KEEP: usize = 14;
+pub(super) const LOAN_KEEP: usize = 14;
 const LOAN_EASY_SHARE: i32 = 50;
 const LOAN_MONTHLY: f64 = 0.01;
 /// A opção de compra tem de chegar a esta parte do que o clube pede.
