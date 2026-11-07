@@ -32,7 +32,14 @@ function Choice({ selected, onClick, children }: { selected: boolean; onClick: (
 /** O que cada jogador ouve: 'team' = as Instruções Gerais, '' = nada, senão uma frase só dele. */
 type Said = Record<number, string>
 
-export default function TalkPanel({ onClose }: { onClose: () => void }) {
+export default function TalkPanel({
+  onClose,
+  bottom = true,
+}: {
+  onClose: () => void
+  /** A barra Atrás em baixo (no Pré-Jogo a barra é a dele). */
+  bottom?: boolean
+}) {
   const [view, setView] = useState<TalkView | null>(null)
   const [tone, setTone] = useState('assertive')
   // As Instruções Gerais (a frase da equipa) e o que cada um ouve
@@ -186,7 +193,7 @@ export default function TalkPanel({ onClose }: { onClose: () => void }) {
           </Panel>
         )}
       </div>
-      <BottomBar left="Atrás" onLeft={onClose} />
+      {bottom && <BottomBar left="Atrás" onLeft={onClose} />}
     </div>
   )
 }

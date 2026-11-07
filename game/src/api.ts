@@ -2,6 +2,8 @@ import { invoke, isTauri } from '@tauri-apps/api/core'
 import type { BoardConfidence } from './bindings/BoardConfidence'
 import type { ContractExtras } from './bindings/ContractExtras'
 import type { FindResult } from './bindings/FindResult'
+import type { MatchAnalysis } from './bindings/MatchAnalysis'
+import type { MatchReview } from './bindings/MatchReview'
 import type { BoardRequest } from './bindings/BoardRequest'
 import type { BoardView } from './bindings/BoardView'
 import type { DealTerms } from './bindings/DealTerms'
@@ -244,6 +246,10 @@ export const api = {
 
   // Jogo do treinador ao vivo (marco 3.4)
   liveMatch: () => call<LiveView>('live_match'),
+  /** A Análise do Pré-Jogo: odds, homem-chave, previsão do jornal e marcos. */
+  matchAnalysis: () => call<MatchAnalysis>('match_analysis'),
+  /** O Pós-Jogo: o jornal a comparar com a previsão, os homens-chave e os marcos cumpridos. */
+  matchReview: () => call<MatchReview>('match_review'),
   /** Joga até ao minuto dado (no máximo 90). */
   liveStep: (minute: number) => call<LiveView>('live_step', { minute }),
   liveSubstitute: (out: number, inn: number) => call<LiveView>('live_substitute', { out, inn }),

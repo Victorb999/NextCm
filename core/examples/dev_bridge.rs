@@ -279,6 +279,8 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "club_fixtures" => out(serde_json::to_value(session.club_fixtures(id()?).map_err(e)?)),
         "reserve_fixtures" => out(serde_json::to_value(session.reserve_fixtures(id()?).map_err(e)?)),
         "live_match" => out(serde_json::to_value(session.live_match().map_err(e)?)),
+        "match_analysis" => out(serde_json::to_value(session.match_analysis().map_err(e)?)),
+        "match_review" => out(serde_json::to_value(session.match_review().map_err(e)?)),
         "live_step" => {
             let minute = args["minute"].as_i64().ok_or("falta minute")? as i32;
             out(serde_json::to_value(session.live_step(minute).map_err(e)?))

@@ -15,6 +15,7 @@ use crate::ContractExtras;
 use crate::FindResult;
 use crate::LeagueNation;
 use crate::LineupCheck;
+use crate::MatchAnalysis;
 use crate::MatchSheet;
 use crate::NewsLink;
 use crate::PressView;
@@ -391,6 +392,16 @@ impl Session {
     /// O jogo do treinador a decorrer (tela da partida).
     pub fn live_match(&self) -> Result<LiveView> {
         self.game()?.live_view()
+    }
+
+    /// A Análise do Pré-Jogo (odds, homem-chave, previsão e marcos).
+    pub fn match_analysis(&self) -> Result<MatchAnalysis> {
+        self.game()?.match_analysis()
+    }
+
+    /// O Pós-Jogo (o jornal, os homens-chave e os marcos cumpridos).
+    pub fn match_review(&self) -> Result<crate::MatchReview> {
+        self.game()?.match_review()
     }
 
     /// Joga o jogo do treinador até ao minuto dado.

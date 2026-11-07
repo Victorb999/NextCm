@@ -5,6 +5,8 @@ use nextcm_core::ContractExtras;
 use nextcm_core::FindResult;
 use nextcm_core::LeagueNation;
 use nextcm_core::LineupCheck;
+use nextcm_core::MatchAnalysis;
+use nextcm_core::MatchReview;
 use nextcm_core::MatchSheet;
 use nextcm_core::NewsLink;
 use nextcm_core::PressView;
@@ -170,6 +172,8 @@ session_command!(find(text: String) -> FindResult);
 session_command!(club_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(reserve_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(live_match() -> LiveView);
+session_command!(match_analysis() -> MatchAnalysis);
+session_command!(match_review() -> MatchReview);
 session_command!(live_step(minute: i32) -> LiveView);
 session_command!(live_substitute(out: i32, inn: i32) -> LiveView);
 session_command!(live_swap(a: i32, b: i32) -> LiveView);
@@ -387,6 +391,8 @@ pub fn run() {
             delete_save,
             match_preview,
             live_match,
+            match_analysis,
+            match_review,
             live_step,
             live_substitute,
             live_swap,

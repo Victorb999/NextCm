@@ -171,6 +171,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | **3.19** Testes de 1 a 3/11 | Os pontos anotados a jogar: reservas (clubes ligados, jogos das reservas, jovens que aceitam as reservas até aos 24 e o "Fut", saudades de casa), treino, plantel (ordenar, lista do CM), perfil (Futuro, Vêr do Historial), notícias com links, menu Procurar, os bugs das Tácticas e do Gravar, prémios, sons e a arrumação do front | Os bugs corrigidos e testados, e as reservas a jogar e a pesar na moral dos jovens como no CM |
 | **3.19.1** Pendências | O que ficou por fazer no 3.15, no 3.15c e no 3.19, num sítio só, com dificuldade e prioridade | Os itens de prioridade alta feitos |
 | **3.20** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
+| **3.21** Pré-Jogo | Antes da partida, como no FM08: as Equipas nos dois campos, a Análise (odds, homem-chave, previsão do jornal, marcos) e a Palestra, e depois o jogo | O Continuar Jogo abre o Pré-Jogo e o resultado é o mesmo com e sem ele |
 
 #### Detalhe de cada marco
 
@@ -207,6 +208,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 3.19 — Testes de 1 a 3/11 (por fazer)](docs/roadmap/3.19-teste-01-03-11.md)
 - [Passo 3.19.1 — Pendências do 3.15 e do 3.19, com dificuldade e prioridade](docs/roadmap/3.19.1-pendencias.md)
 - [Marco 3.20 — Editor de jogos salvos (por detalhar)](docs/roadmap/3.20-editor-de-saves.md)
+- [Marco 3.21 — Pré-Jogo e Pós-Jogo (passo 1 feito; e as ideias dos vídeos do FM08)](docs/roadmap/3.21-pre-jogo.md)
 
 ---
 

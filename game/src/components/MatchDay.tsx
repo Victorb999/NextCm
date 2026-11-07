@@ -28,6 +28,7 @@ import {
 import { conditionColour, MENTALITY, PASSING, TACKLING } from "../tactics"
 import LiveTactics from "./LiveTactics"
 import PitchField from "./PitchField"
+import PreMatch, { AnalysisPane, PostMatchPane } from "./PreMatch"
 import TalkPanel from "./TalkPanel"
 import MatchLineups from "./MatchLineups"
 import { BottomBar, Link, Panel, ScreenHeader } from "./Screen"
@@ -1080,6 +1081,8 @@ type Pane =
   | "results"
   | "table"
   | "awayData"
+  | "analysis"
+  | "post"
 
 function MatchSideButton({
   children,
@@ -1150,6 +1153,15 @@ function LiveScreen({
   const [finishing, setFinishing] = useState(false)
   const [lines, setLines] = useState<Line[]>([])
   const [shown, setShown] = useState(0)
+  // No fim, depois de o relato contar o apito final, abre o Pós-Jogo (uma vez)
+  const postShown = useRef(false)
+  const finishedSaid = !!view?.finished && shown >= lines.length
+  useEffect(() => {
+    if (finishedSaid && !postShown.current) {
+      postShown.current = true
+      setPane("post")
+    }
+  }, [finishedSaid])
   const [stepping, setStepping] = useState(false)
   const settings = useSettings()
   const speed =
@@ -1469,6 +1481,8 @@ function LiveScreen({
                   ["stats", "Estatísticas Jogo"],
                   ["zones", "Zonas Acção"],
                   ["report", "Relatório Jogo"],
+                  ["analysis", "Análise"],
+                  ...(view.finished ? [["post", "Pós-Jogo"]] : []),
                 ] as [Pane, string][]
               ).map(([k, t]) => (
                 <button
@@ -1492,6 +1506,8 @@ function LiveScreen({
               {pane === "stats" && <Stats view={view} />}
               {pane === "zones" && <Zones view={view} />}
               {pane === "report" && <Report lines={said} />}
+              {pane === "analysis" && <AnalysisPane view={view} />}
+              {pane === "post" && <PostMatchPane view={view} />}
               {pane === "homeData" && <TeamData team={view.home} />}
               {pane === "awayData" && <TeamData team={view.away} />}
               {pane === "ratings" && (
@@ -1571,7 +1587,7 @@ export default function MatchDay({
   const earlier = dayGames.filter((f) => f.homeGoals !== null)
   const pending = dayGames.filter((f) => f.homeGoals === null)
   const night = game.mode === "game" && game.info?.part === 2
-  const [phase, setPhase] = useState<"earlier" | "list" | "play" | "results">(
+  const [phase, setPhase] = useState<"earlier" | "list" | "pre" | "play" | "results">(
     earlier.length > 0 ? "earlier" : "list",
   )
   const [results, setResults] = useState<{
@@ -1625,7 +1641,9 @@ export default function MatchDay({
 
   const next = () => {
     if (phase === "earlier") setPhase("list")
-    else if (phase === "list") setPhase("play")
+    else if (phase === "list") setPhase("pre")
+    // O Continuar Jogo no Pré-Jogo vai direto ao jogo
+    else if (phase === "pre") setPhase("play")
     else if (phase === "play") live.current?.main()
     else if (others.length > 0) void nextCompetition()
     else onDone()
@@ -1679,6 +1697,7 @@ export default function MatchDay({
       />
     )
   }
+  if (phase === "pre") return <PreMatch onPlay={() => setPhase("play")} />
   if (phase === "results" && results) {
     return (
       <DayList

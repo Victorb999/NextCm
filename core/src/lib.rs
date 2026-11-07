@@ -41,6 +41,7 @@ pub use game::{
 };
 pub use game::{CareerClub, LastLineup, ManagerStats, SquadAttributes, SquadMore};
 pub use game::{DealTerms, LoanTerms};
+pub use game::{KeyMan, MatchAnalysis, MatchReview, Milestone};
 pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use game::{PressQuestion, PressView};
 pub use game::{ReserveLineup, ReserveSpot};

@@ -735,6 +735,15 @@ impl LiveMatch {
         self.user
     }
 
+    /// Golos esperados de agora (casa, fora) num jogo inteiro, com o que está em campo, o
+    /// estádio e o peso da camisa: as odds do Pré-Jogo (só para mostrar).
+    pub fn expected_now(&self) -> (f64, f64) {
+        let st = [self.teams[0].strength(), self.teams[1].strength()];
+        let (xh, xa) = if self.fixture.neutral { expected_goals_neutral(&st[0], &st[1]) } else { expected_goals(&st[0], &st[1]) };
+        let o = self.occasion;
+        (xh * o.crowd * (1.0 + 0.03 * o.shirt), xa * (1.0 - 0.03 * o.shirt))
+    }
+
     pub fn score(&self) -> (u8, u8) {
         (self.score[0], self.score[1])
     }

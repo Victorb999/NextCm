@@ -33,6 +33,7 @@ mod lineup_check;
 mod manager_career;
 mod market;
 mod market_view;
+mod match_analysis;
 mod negotiation;
 mod news_links;
 mod numbers;
@@ -72,6 +73,7 @@ pub use lineup_check::LineupCheck;
 pub use manager_career::{CareerClub, ManagerStats};
 pub use market::TransferItem;
 pub use market_view::WorldTransfers;
+pub use match_analysis::{KeyMan, MatchAnalysis, MatchReview, Milestone};
 pub use negotiation::{DealTerms, LoanTerms};
 pub use news_links::NewsLink;
 pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
@@ -3368,6 +3370,35 @@ mod tests {
         assert!(expected.iter().all(|r| r.0.is_some()));
         drop(b);
         let _ = std::fs::remove_dir_all(&d1);
+    }
+
+    #[test]
+    fn pre_match_and_review_do_not_change_the_result() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let (mut plain, d1) = until_kickoff(&world, "pre-sem", 7, true, false);
+        let (mut seen, d2) = until_kickoff(&world, "pre-com", 7, true, false);
+        // O Pré-Jogo: odds coerentes, um homem-chave de cada lado e a frase do jornal
+        let a = seen.match_analysis().unwrap();
+        assert!(a.odds.iter().all(|o| *o > 1.0));
+        assert!(a.key_men.iter().all(|k| k.is_some()));
+        assert_eq!(a.paper, "Lance!");
+        assert!(!a.prediction.is_empty());
+        let half = seen.live_step(45).unwrap();
+        assert!(seen.match_review().is_ok(), "o Pós-Jogo também se lê a meio");
+        assert!(half.half_time);
+        let end_seen = seen.live_step(200).unwrap();
+        let review = seen.match_review().unwrap();
+        assert!(!review.analysis.is_empty() && review.key_men.iter().all(|k| k.is_some()));
+        let end_plain = plain.live_step(200).unwrap();
+        assert_eq!(
+            (end_seen.home_goals, end_seen.away_goals),
+            (end_plain.home_goals, end_plain.away_goals),
+            "a Análise e o Pós-Jogo não mexem no jogo"
+        );
+        drop(plain);
+        drop(seen);
+        let _ = std::fs::remove_dir_all(&d1);
+        let _ = std::fs::remove_dir_all(&d2);
     }
 
     #[test]
