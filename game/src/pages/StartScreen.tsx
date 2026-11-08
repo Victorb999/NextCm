@@ -40,6 +40,7 @@ export default function StartScreen({ onOptions }: { onOptions: () => void }) {
           )}
           {item("Opções", onOptions, "Moeda, salários, cores e fundo")}
         </div>
+        <div className="text-right text-[11px] text-[#666]">versão {__APP_VERSION__}</div>
       </DialogFrame>
     </Overlay>
   )
