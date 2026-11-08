@@ -4,4 +4,4 @@ import type { EditorAttribute } from "./EditorAttribute";
 /**
  * Um jogador aberto no editor.
  */
-export type EditorPlayer = { id: number, name: string, club: string | null, ability: number | null, potential: number | null, attributes: Array<EditorAttribute>, };
+export type EditorPlayer = { id: number, name: string, club: string | null, clubId: number | null, ability: number | null, potential: number | null, attributes: Array<EditorAttribute>, };

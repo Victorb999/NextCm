@@ -15,6 +15,7 @@ export function DialogFrame({
   cancelLabel = "Cancelar",
   okLabel = "Ok",
   width = 660,
+  full,
 }: {
   title: ReactNode
   children: ReactNode
@@ -24,12 +25,14 @@ export function DialogFrame({
   cancelLabel?: ReactNode
   okLabel?: ReactNode
   width?: number
+  /** Ocupa toda a área (editor). */
+  full?: boolean
 }) {
   return (
     <div
       className="flex max-h-full max-w-full flex-col 
        rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)] p-2"
-      style={{ width }}
+      style={full ? { width: "100%", height: "100%" } : { width }}
     >
       <div
         className="flex h-12 shrink-0 items-center justify-center rounded

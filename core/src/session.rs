@@ -219,6 +219,30 @@ impl Session {
         crate::editor_set_attributes(&self.saves_dir, self.editor_file(&file)?, id, &values)
     }
 
+    pub fn editor_profile(&self, file: String, id: i32) -> Result<crate::EditorProfileView> {
+        crate::editor_profile(&self.saves_dir, self.editor_file(&file)?, id)
+    }
+
+    pub fn editor_set_profile(&self, file: String, id: i32, profile: crate::EditorProfile) -> Result<crate::EditorProfileView> {
+        crate::editor_set_profile(&self.saves_dir, self.editor_file(&file)?, id, &profile)
+    }
+
+    pub fn editor_search_clubs(&self, file: String, query: String) -> Result<Vec<crate::EditorHit>> {
+        crate::editor_search_clubs(&self.saves_dir, self.editor_file(&file)?, &query)
+    }
+
+    pub fn editor_squad(&self, file: String, club_id: i32) -> Result<Vec<crate::EditorHit>> {
+        crate::editor_squad(&self.saves_dir, self.editor_file(&file)?, club_id)
+    }
+
+    pub fn editor_club(&self, file: String, id: i32) -> Result<crate::EditorClub> {
+        crate::editor_club(&self.saves_dir, self.editor_file(&file)?, id)
+    }
+
+    pub fn editor_set_club(&self, file: String, club: crate::EditorClub) -> Result<crate::EditorClub> {
+        crate::editor_set_club(&self.saves_dir, self.editor_file(&file)?, &club)
+    }
+
     pub fn list_saves(&self) -> Result<Vec<SaveSummary>> {
         list_saves(&self.saves_dir)
     }

@@ -52,7 +52,7 @@ mod staff_reports;
 mod start_loans;
 mod team_talk;
 mod training;
-mod unhappy;
+pub(crate) mod unhappy;
 use crate::league::{self, Fixture, Match, StandingRow};
 use crate::live::{LiveMatch, LiveView, Occasion, TeamStats};
 use crate::person::ClubRef;

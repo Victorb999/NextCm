@@ -208,7 +208,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 3.19 — Testes de 1 a 3/11 (por fazer)](docs/roadmap/3.19-teste-01-03-11.md)
 - [Passo 3.19.1 — Pendências do 3.15 e do 3.19, com dificuldade e prioridade](docs/roadmap/3.19.1-pendencias.md)
 - [Passo 3.19.2 — Reservas e equipas B como no CM (feito)](docs/roadmap/3.19.2-reservas-e-equipas-b.md)
-- [Marco 3.20 — Editor de jogos salvos (por detalhar)](docs/roadmap/3.20-editor-de-saves.md)
+- [Marco 3.20 — Editor de jogos salvos (2 fatias feitas)](docs/roadmap/3.20-editor-de-saves.md)
 - [Marco 3.21 — Pré-Jogo e Pós-Jogo (passo 1 feito; e as ideias dos vídeos do FM08)](docs/roadmap/3.21-pre-jogo.md)
 
 ---

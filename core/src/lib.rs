@@ -27,7 +27,11 @@ mod world;
 
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry, TableZone};
-pub use editor::{EditorAttribute, EditorHit, EditorPlayer, EditorValue};
+pub use editor::{EditorAttribute, EditorClub, EditorHit, EditorNation, EditorPlayer, EditorProfile, EditorProfileView, EditorValue};
+pub use editor::{
+    club as editor_club, profile as editor_profile, search_clubs as editor_search_clubs, set_club as editor_set_club,
+    set_profile as editor_set_profile, squad as editor_squad,
+};
 pub use editor::{player as editor_player, search as editor_search, set_attributes as editor_set_attributes};
 pub use engine::{TeamStrength, expected_goals};
 pub use finance::{ClubFinances, FinanceRow};

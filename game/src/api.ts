@@ -39,8 +39,11 @@ import type { GameInfo } from './bindings/GameInfo'
 import type { ContractReply } from './bindings/ContractReply'
 import type { ContractTerms } from './bindings/ContractTerms'
 import type { SquadRoleView } from './bindings/SquadRoleView'
+import type { EditorClub } from './bindings/EditorClub'
 import type { EditorHit } from './bindings/EditorHit'
 import type { EditorPlayer } from './bindings/EditorPlayer'
+import type { EditorProfile } from './bindings/EditorProfile'
+import type { EditorProfileView } from './bindings/EditorProfileView'
 import type { EditorValue } from './bindings/EditorValue'
 import type { Instructions } from './bindings/Instructions'
 import type { LiveView } from './bindings/LiveView'
@@ -206,6 +209,13 @@ export const api = {
   editorPlayer: (file: string, id: number) => call<EditorPlayer>('editor_player', { file, id }),
   editorSetAttributes: (file: string, id: number, values: EditorValue[]) =>
     call<EditorPlayer>('editor_set_attributes', { file, id, values }),
+  editorProfile: (file: string, id: number) => call<EditorProfileView>('editor_profile', { file, id }),
+  editorSetProfile: (file: string, id: number, profile: EditorProfile) =>
+    call<EditorProfileView>('editor_set_profile', { file, id, profile }),
+  editorSearchClubs: (file: string, query: string) => call<EditorHit[]>('editor_search_clubs', { file, query }),
+  editorSquad: (file: string, clubId: number) => call<EditorHit[]>('editor_squad', { file, clubId }),
+  editorClub: (file: string, id: number) => call<EditorClub>('editor_club', { file, id }),
+  editorSetClub: (file: string, club: EditorClub) => call<EditorClub>('editor_set_club', { file, club }),
   squadRoleView: (id: number) => call<SquadRoleView>('squad_role_view', { id }),
   setSquadRole: (id: number, role: string) => call<string>('set_squad_role', { id, role }),
   offerToClubs: (id: number, loan: boolean, fee: number, excludeRivals: boolean) =>

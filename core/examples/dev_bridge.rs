@@ -176,6 +176,34 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let values: Vec<nextcm_core::EditorValue> = serde_json::from_value(args["values"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.editor_set_attributes(file, id()?, values).map_err(e)?))
         }
+        "editor_profile" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            out(serde_json::to_value(session.editor_profile(file, id()?).map_err(e)?))
+        }
+        "editor_set_profile" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            let profile: nextcm_core::EditorProfile = serde_json::from_value(args["profile"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.editor_set_profile(file, id()?, profile).map_err(e)?))
+        }
+        "editor_search_clubs" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            let query = args["query"].as_str().unwrap_or("").to_string();
+            out(serde_json::to_value(session.editor_search_clubs(file, query).map_err(e)?))
+        }
+        "editor_squad" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            let club_id = args["clubId"].as_i64().ok_or("falta clubId")? as i32;
+            out(serde_json::to_value(session.editor_squad(file, club_id).map_err(e)?))
+        }
+        "editor_club" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            out(serde_json::to_value(session.editor_club(file, id()?).map_err(e)?))
+        }
+        "editor_set_club" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            let club: nextcm_core::EditorClub = serde_json::from_value(args["club"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.editor_set_club(file, club).map_err(e)?))
+        }
         "squad_role_view" => out(serde_json::to_value(session.squad_role_view(id()?).map_err(e)?)),
         "set_squad_role" => {
             let role = args["role"].as_str().ok_or("falta role")?.to_string();

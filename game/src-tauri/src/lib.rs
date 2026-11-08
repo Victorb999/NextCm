@@ -22,7 +22,7 @@ use nextcm_core::{
 };
 use nextcm_core::{CareerClub, ContinueStep, ManagerStats};
 use nextcm_core::{DealTerms, LoanTerms};
-use nextcm_core::{EditorHit, EditorPlayer, EditorValue};
+use nextcm_core::{EditorClub, EditorHit, EditorPlayer, EditorProfile, EditorProfileView, EditorValue};
 use nextcm_core::{SavedFile, TrainingPlan, TrainingView};
 use nextcm_core::{TalkLine, TalkReaction, TalkView};
 use tauri::{Manager, State};
@@ -138,6 +138,12 @@ session_command!(squad_role_view(id: i32) -> SquadRoleView);
 session_command!(editor_search(file: String, query: String) -> Vec<EditorHit>);
 session_command!(editor_player(file: String, id: i32) -> EditorPlayer);
 session_command!(editor_set_attributes(file: String, id: i32, values: Vec<EditorValue>) -> EditorPlayer);
+session_command!(editor_profile(file: String, id: i32) -> EditorProfileView);
+session_command!(editor_set_profile(file: String, id: i32, profile: EditorProfile) -> EditorProfileView);
+session_command!(editor_search_clubs(file: String, query: String) -> Vec<EditorHit>);
+session_command!(editor_squad(file: String, club_id: i32) -> Vec<EditorHit>);
+session_command!(editor_club(file: String, id: i32) -> EditorClub);
+session_command!(editor_set_club(file: String, club: EditorClub) -> EditorClub);
 session_command!(set_squad_role(id: i32, role: String) -> String);
 session_command!(offer_to_clubs(id: i32, loan: bool, fee: i64, exclude_rivals: bool) -> String);
 session_command!(ask_loan(id: i32, terms: LoanTerms) -> TransferView);
@@ -284,10 +290,17 @@ async fn close_game(state: State<'_, AppState>) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())?;
-            }
-            let path = world_path().ok_or("world.sqlite não encontrado. Rode `python scripts/extract.py` ou defina NEXTCM_DB.")?;
+            // Também em release: o ficheiro vai para a pasta de logs da app (os relatos do beta)
+            app.handle().plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())?;
+            log::info!("NextCM {}", app.package_info().version);
+            // No instalador, a base vem como recurso em `data/world.sqlite`
+            let bundled = app.path().resource_dir().ok().map(|d| d.join("data").join("world.sqlite")).filter(|p| p.exists());
+            let path = std::env::var("NEXTCM_DB")
+                .ok()
+                .map(PathBuf::from)
+                .or(bundled)
+                .or_else(world_path)
+                .ok_or("world.sqlite não encontrado. Rode `python scripts/extract.py` ou defina NEXTCM_DB.")?;
             let saves = app.path().app_data_dir()?.join("saves");
             log::info!("abrindo {} (saves em {})", path.display(), saves.display());
             let session = Session::open(&path, &saves)?;
@@ -353,6 +366,12 @@ pub fn run() {
             editor_search,
             editor_player,
             editor_set_attributes,
+            editor_profile,
+            editor_set_profile,
+            editor_search_clubs,
+            editor_squad,
+            editor_club,
+            editor_set_club,
             set_squad_role,
             ask_loan,
             exercise_option,
