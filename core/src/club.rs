@@ -112,6 +112,15 @@ pub struct Honour {
     pub runner_up: Vec<i32>,
 }
 
+/// A equipa B ou II de um clube: o clube, a liga dela e se é uma "II" (a Amateure do Bayern),
+/// que no CM faz de equipa de reservas; as "B" (Barça B, Benfica B) são clubes à parte.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BTeam {
+    pub club: i32,
+    pub division: i32,
+    pub second: bool,
+}
+
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -123,6 +132,9 @@ pub struct ClubProfile {
     pub division: Option<CompetitionRef>,
     /// No patch CLZ: o campeonato estadual.
     pub reserve_division: Option<CompetitionRef>,
+    /// No clube do treinador: o nome do ecrã das reservas ("Reservas Manchester United", ou o
+    /// da II, como a Amateure do Bayern); `None` sem reservas (com uma equipa B à parte).
+    pub reserves_name: Option<String>,
     /// Divisão e posição na temporada anterior.
     pub last_division: Option<CompetitionRef>,
     pub last_position: Option<i32>,
@@ -470,6 +482,7 @@ impl World {
             nation,
             division: self.competition_ref(division)?,
             reserve_division: self.competition_ref(reserve)?,
+            reserves_name: None,
             last_division: self.competition_ref(last_division)?,
             last_position: last_position.filter(|p| *p > 0),
             stadium,
@@ -524,21 +537,26 @@ impl World {
         Ok(None)
     }
 
-    /// O clube tem uma equipa B ou II a jogar numa liga (o Barcelona B, o Bayern II): no CM,
-    /// esses clubes não têm jogos de reservas.
+    /// O clube tem uma equipa B ou II a jogar numa liga (o Barcelona B, o Bayern II).
     pub fn has_b_team(&self, id: i32) -> Result<bool> {
-        Ok(self.b_team_division(id)?.is_some())
+        Ok(self.b_team(id)?.is_some())
     }
 
     /// A liga onde joga a equipa B ou II do clube, se tiver uma.
     pub fn b_team_division(&self, id: i32) -> Result<Option<i32>> {
+        Ok(self.b_team(id)?.map(|b| b.division))
+    }
+
+    /// A equipa B ou II do clube (pelo nome, como no CM: o `club.dat` não as liga).
+    pub fn b_team(&self, id: i32) -> Result<Option<BTeam>> {
         let Some(club) = self.club_ref(Some(id))? else { return Ok(None) };
         let nation: Option<i32> = self.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [id], |r| r.get(0))?;
         for c in self.affiliates(&club, nation)? {
             let short = squash(&c.short_name);
             let division: Option<i32> = self.conn.query_row("SELECT division_id FROM clubs WHERE id = ?", [c.id], |r| r.get(0))?;
-            if (short.ends_with(" B") || short.ends_with(" II")) && division.is_some_and(|d| d != RESERVE_DIVISION) {
-                return Ok(division);
+            let Some(division) = division.filter(|d| *d != RESERVE_DIVISION) else { continue };
+            if short.ends_with(" B") || short.ends_with(" II") {
+                return Ok(Some(BTeam { club: c.id, division, second: short.ends_with(" II") }));
             }
         }
         Ok(None)

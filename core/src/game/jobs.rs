@@ -309,7 +309,7 @@ impl Game {
         self.board_setup()?;
         self.career_join(club)?;
         self.refresh_live()?;
-        self.youth_to_reserves()?;
+        self.start_reserves()?;
         let next_id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
         let (mut fresh, mut id) = (Vec::new(), next_id);
         self.numbers_news(&mut fresh, &mut id)?;

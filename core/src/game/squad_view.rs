@@ -68,6 +68,9 @@ impl Game {
     pub fn fill_squad(&self, c: &mut ClubProfile) -> Result<()> {
         let id = c.club.id;
         let mine = id == self.club_id;
+        if mine {
+            c.reserves_name = self.reserves_name()?;
+        }
         let keys = if c.is_national_team { Vec::new() } else { self.key_players(id)? };
         let start = self.season_start((!c.is_national_team).then_some(id))?;
         // Os emprestados a outros clubes continuam na lista do dono, a azul, como no CM
@@ -75,6 +78,8 @@ impl Game {
             let mut out = self.world.squad_players("p.id IN (SELECT person_id FROM loans WHERE parent_id = ? AND person_id NOT IN (SELECT id FROM people WHERE club_id = loans.parent_id))", id)?;
             for p in &mut out {
                 p.loaned_out = true;
+                // No clube do treinador, nas Reservas (a azul), como no CM
+                p.reserve = mine && c.reserves_name.is_some();
             }
             c.players.extend(out);
         }
@@ -86,7 +91,7 @@ impl Game {
                 p.condition = Some(st.condition);
                 p.injured = st.injury.is_some();
                 p.suspended = st.suspended > 0;
-                p.reserve = st.reserve;
+                p.reserve |= st.reserve;
                 p.morale = Some(st.morale_label);
             }
             if !c.is_national_team {

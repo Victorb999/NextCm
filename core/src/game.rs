@@ -134,7 +134,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// (`stadiums.undersoil_heating`), do banco.
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
-pub const SAVE_VERSION: i32 = 50;
+pub const SAVE_VERSION: i32 = 51;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -587,6 +587,9 @@ pub struct GameInfo {
     pub needs_numbers: bool,
     /// A tela "Números Plantel" está aberta: pré-época ou jogadores sem número.
     pub numbers_open: bool,
+    /// O ecrã das reservas no menu do treinador ("Reservas Manchester United", ou o nome da
+    /// II); `None` com uma equipa B à parte, sem reservas.
+    pub reserves_name: Option<String>,
 }
 
 /// Uma linha da lista "Carregar Jogo".
@@ -898,7 +901,7 @@ impl Game {
                 crate::progress::set("A inventar os nomes dos jogadores…", 0.71);
                 game.invent_names()?;
             }
-            game.youth_to_reserves()?;
+            game.start_reserves()?;
             if new.start == StartSeason::Brazil {
                 game.play_to_brazil_start()?;
             }
@@ -1223,6 +1226,12 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 50", [])?;
             version = 50;
         }
+        // Reservas e equipas B como no CM (passo 3.19.2): arrumadas depois de abrir o jogo
+        let reserves_v51 = version == 50;
+        if version == 50 {
+            world.conn.execute("UPDATE game SET version = 51", [])?;
+            version = 51;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1359,6 +1368,9 @@ impl Game {
             game.unsaved = true;
         }
         game.refresh_live()?;
+        if reserves_v51 {
+            game.migrate_reserves()?;
+        }
         Ok(game)
     }
 
@@ -2485,6 +2497,7 @@ impl Game {
             sacked: self.sacked(),
             needs_numbers: self.live.is_none() && !self.unnumbered_for_next_match()?.is_empty(),
             numbers_open: self.numbers_open()?,
+            reserves_name: self.reserves_name()?,
         })
     }
 

@@ -8,7 +8,8 @@
 //! campeonato, contra as reservas do mesmo adversário e com o campo trocado (a equipa
 //! principal em casa, as reservas fora), sem tabela ("Reservas" no Calendário). Não há jogo se
 //! o clube joga nesse dia ou no seguinte, se as reservas jogaram há três dias ou menos, ou se
-//! um dos clubes tem uma equipa B/II numa liga (como em Espanha e na Alemanha). Não há
+//! um dos clubes tem uma equipa B à parte (como em Espanha e em Portugal; a II alemã faz de
+//! reservas, passo 3.19.2). Não há
 //! calendário guardado: os jogos saem dos do campeonato (seguem os adiamentos), e só o
 //! resultado fica em `reserve_matches`. A IA não despromove ninguém: as reservas do adversário
 //! são quem fica fora dos 18 melhores dele. Há sempre jogo: as funções sem jogador ficam com
@@ -102,13 +103,11 @@ struct Slot {
 }
 
 impl Game {
-    /// O clube tem uma equipa B ou II numa liga que se joga neste jogo (o Barcelona B na
-    /// Segunda, se ela estiver viva): no CM, esses clubes não têm jogos das reservas. Com a liga
-    /// da equipa B fora do jogo (o Bayern II na Regionalliga), as reservas jogam: senão os
-    /// despromovidos nunca jogariam.
+    /// O clube tem uma equipa B à parte (o Barça B, o Benfica B; ou uma II numa liga jogada): no
+    /// CM, esses clubes não têm reservas nem jogos delas. A II numa liga fora do jogo (o Bayern
+    /// II na Regionalliga) faz de reservas e joga-os.
     fn b_team_plays(&self, club: i32) -> Result<bool> {
-        let Some(division) = self.world.b_team_division(club)? else { return Ok(false) };
-        Ok(self.matches.iter().any(|m| m.competition_id == division))
+        Ok(matches!(self.reserve_mode_of(club)?, super::reserves::ReserveMode::BTeam(_)))
     }
 
     /// Os jogos das reservas do clube nesta época, pelos jogos do campeonato dele.
@@ -210,7 +209,7 @@ impl Game {
 
     /// A equipa das reservas de um clube: o adjunto escolhe o onze entre quem joga nelas (os
     /// despromovidos, no clube do treinador; na IA, quem fica fora dos 18 melhores).
-    fn reserve_team(&self, club: i32, comp: i32) -> Result<ClubTactics> {
+    pub(super) fn reserve_team(&self, club: i32, comp: i32) -> Result<ClubTactics> {
         let state = self.club_state(club, Some(comp));
         let players: Vec<i32> = self
             .world
@@ -223,10 +222,15 @@ impl Game {
             .collect::<rusqlite::Result<_>>()?;
         let own = club == self.club_id;
         let fresh = Availability { condition: 100, morale: 12, injured: false, suspended: false, reserve: false };
+        // As reservas relacionadas pelo treinador para a equipa principal não jogam nas reservas
+        let first_team: std::collections::HashSet<i32> = match (&self.selection, own) {
+            (Some(sel), true) => sel.starters.iter().flatten().chain(&sel.bench).copied().collect(),
+            _ => Default::default(),
+        };
         let mut pool = SquadState::new();
         for (rank, id) in players.into_iter().enumerate() {
             let a = state.get(&id).copied().unwrap_or(fresh);
-            let plays = if own { a.reserve } else { rank >= FIRST_TEAM };
+            let plays = if own { a.reserve && !first_team.contains(&id) } else { rank >= FIRST_TEAM };
             // Os castigos são das competições oficiais; quem não joga fica "lesionado" para o adjunto
             pool.insert(id, Availability { injured: a.injured || !plays, suspended: false, reserve: false, ..a });
         }

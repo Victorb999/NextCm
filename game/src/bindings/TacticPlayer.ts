@@ -14,6 +14,10 @@ fit: number | null,
  */
 condition: number | null, morale: number | null, injured: boolean, suspended: boolean, 
 /**
+ * Na equipa de reservas do treinador: só entra pelo filtro "Equipa de Reservas".
+ */
+reserve: boolean, 
+/**
  * Jogador-chave do plantel (o `*` depois do nome); só num jogo em curso.
  */
 key: boolean, 

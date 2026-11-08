@@ -8,6 +8,7 @@ import type { PlayerDetails } from "./PlayerDetails";
 import type { PlayerStatus } from "./PlayerStatus";
 import type { SeasonLine } from "./SeasonLine";
 import type { SeasonRecord } from "./SeasonRecord";
+import type { SquadMove } from "./SquadMove";
 import type { StaffDetails } from "./StaffDetails";
 import type { SuspensionLine } from "./SuspensionLine";
 
@@ -43,6 +44,11 @@ shortlisted: boolean,
  * com o clube dele, ou renovação no plantel).
  */
 canContract: boolean, 
+/**
+ * A acção que o muda de plantel no menu Acção ("Despromover para Reservas", "Relegar
+ * para Equipa 'B'", "Promover à Equipa 'A'"...), pelas reservas do clube do treinador.
+ */
+squadMove: SquadMove | null, 
 /**
  * As últimas notas (a Forma do CM), da mais antiga à mais recente.
  */

@@ -86,6 +86,15 @@ pub struct CareerEntry {
     pub goals: i32,
 }
 
+/// Uma acção do menu Acção: `key` "demote" (descer) ou "promote" (subir) e o texto.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SquadMove {
+    pub key: String,
+    pub label: String,
+}
+
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -131,6 +140,9 @@ pub struct PersonProfile {
     /// O treinador pode propor-lhe um contrato agora (livre, pré-contrato, negócio acordado
     /// com o clube dele, ou renovação no plantel).
     pub can_contract: bool,
+    /// A acção que o muda de plantel no menu Acção ("Despromover para Reservas", "Relegar
+    /// para Equipa 'B'", "Promover à Equipa 'A'"...), pelas reservas do clube do treinador.
+    pub squad_move: Option<SquadMove>,
     /// As últimas notas (a Forma do CM), da mais antiga à mais recente.
     pub form: Vec<f64>,
     /// Os jogos da época por competição.
@@ -370,6 +382,7 @@ impl World {
                         report_on: None,
                         shortlisted: false,
                         can_contract: false,
+                        squad_move: None,
                         form: Vec::new(),
                         season: Vec::new(),
                         nickname: None,

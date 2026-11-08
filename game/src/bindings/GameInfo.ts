@@ -28,4 +28,9 @@ needsNumbers: boolean,
 /**
  * A tela "Números Plantel" está aberta: pré-época ou jogadores sem número.
  */
-numbersOpen: boolean, };
+numbersOpen: boolean, 
+/**
+ * O ecrã das reservas no menu do treinador ("Reservas Manchester United", ou o nome da
+ * II); `None` com uma equipa B à parte, sem reservas.
+ */
+reservesName: string | null, };

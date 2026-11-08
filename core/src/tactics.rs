@@ -482,6 +482,8 @@ pub struct TacticPlayer {
     pub morale: Option<i32>,
     pub injured: bool,
     pub suspended: bool,
+    /// Na equipa de reservas do treinador: só entra pelo filtro "Equipa de Reservas".
+    pub reserve: bool,
     /// Jogador-chave do plantel (o `*` depois do nome); só num jogo em curso.
     pub key: bool,
     /// Golos, as últimas notas e a nota média nesta época (o Vêr das Tácticas); só num jogo em curso.
@@ -604,6 +606,7 @@ impl Candidate {
             morale: self.in_game.then_some(self.state.morale),
             injured: self.state.injured,
             suspended: self.state.suspended,
+            reserve: self.state.reserve,
             key: false,
             goals: 0,
             form: Vec::new(),
@@ -667,8 +670,8 @@ impl World {
                 })
             })?
             .collect::<rusqlite::Result<Vec<Candidate>>>()?;
-        // Os das reservas não entram na equipa principal
-        let pool = pool.into_iter().filter(|c| !c.state.reserve).collect();
+        // Os das reservas ficam no plantel (marcados): o treinador pode relacioná-los e o
+        // adjunto só os usa se faltar gente
         Ok(Squad { club_name, coach, pool })
     }
 
@@ -681,14 +684,22 @@ impl World {
     pub fn auto_tactics(&self, id: i32, state: Option<&SquadState>, instructions: Instructions) -> Result<ClubTactics> {
         let Squad { club_name, coach, pool } = self.squad(id, state)?;
         let formation = coach.as_ref().and_then(|c| c.2).filter(|f| (1..FORMATIONS.len() as i32).contains(f)).unwrap_or(3) as usize;
-        let (mut available, unavailable): (Vec<Candidate>, Vec<Candidate>) = pool.into_iter().partition(|c| c.state.can_play());
+        let (available, unavailable): (Vec<Candidate>, Vec<Candidate>) = pool.into_iter().partition(|c| c.state.can_play());
+        // Os das reservas só entram se faltar gente no plantel principal
+        let (mut available, mut spare): (Vec<Candidate>, Vec<Candidate>) = available.into_iter().partition(|c| !c.state.reserve);
 
         // Escolha gulosa: o melhor par (função, jogador) de todos, até fechar o onze
         let mut layout = slots(formation);
         layout.sort_by_key(slot_order);
         let mut chosen: Vec<Option<TacticPlayer>> = vec![None; layout.len()];
         let mut open: Vec<usize> = (0..layout.len()).collect();
-        while !open.is_empty() && !available.is_empty() {
+        loop {
+            if available.is_empty() && !open.is_empty() && !spare.is_empty() {
+                available.append(&mut spare);
+            }
+            if open.is_empty() || available.is_empty() {
+                break;
+            }
             let layout = &layout;
             let (si, pi) = open
                 .iter()
@@ -703,15 +714,19 @@ impl World {
             chosen[slot] = Some(c.player(Some(c.fit(layout[slot]))));
         }
 
-        // Suplentes: os melhores que sobraram (descansados primeiro), garantindo um GR
-        available.sort_by_key(|c| (c.state.condition < MIN_CONDITION, std::cmp::Reverse(c.ca)));
+        // Suplentes: os melhores que sobraram (descansados primeiro), garantindo um GR; as
+        // reservas só completam o banco
         let mut bench: Vec<TacticPlayer> = Vec::new();
-        if let Some(i) = available.iter().position(|c| c.pos[GR].unwrap_or(1) >= 15) {
-            bench.push(available.remove(i).player(None));
+        for group in [&mut available, &mut spare] {
+            group.sort_by_key(|c| (c.state.condition < MIN_CONDITION, std::cmp::Reverse(c.ca)));
+            let has_keeper = bench.iter().any(|p| p.position.starts_with("GR"));
+            if !has_keeper && let Some(i) = group.iter().position(|c| c.pos[GR].unwrap_or(1) >= 15) {
+                bench.push(group.remove(i).player(None));
+            }
+            let take = BENCH.saturating_sub(bench.len()).min(group.len());
+            bench.extend(group.drain(..take).map(|c| c.player(None)));
         }
-        let take = BENCH.saturating_sub(bench.len()).min(available.len());
-        bench.extend(available.drain(..take).map(|c| c.player(None)));
-        let reserves = available.iter().chain(&unavailable).map(|c| c.player(None)).collect();
+        let reserves = available.iter().chain(&spare).chain(&unavailable).map(|c| c.player(None)).collect();
 
         Ok(ClubTactics {
             club_id: id,

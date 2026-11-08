@@ -42,11 +42,9 @@ export function personActions({
               ...(m?.transferListed ? [{ key: 'price', label: 'Definir Preço Pedido' }] : []),
               ...(m?.windowOpen && !m.offer ? [{ key: 'shop', label: 'Oferecer a Clubes' }] : []),
             ],
-        // Plantel
+        // Plantel: reservas ou equipa B, pelo que o core diz
         [
-          person.status?.reserve
-            ? { key: 'promote', label: 'Promover ao Plantel Principal' }
-            : { key: 'demote', label: 'Despromover para Reservas' },
+          ...(person.squadMove ? [{ key: person.squadMove.key, label: person.squadMove.label }] : []),
           // Saudades de casa: duas semanas no seu país
           ...(person.status?.canLeave ? [{ key: 'leave', label: 'Dar Folga' }] : []),
           // A função sem mexer no contrato (os emprestados por outros não têm)
@@ -72,6 +70,8 @@ export function personActions({
           ...(m?.canOption ? [{ key: 'option', label: 'Exercer Opção de Compra' }] : []),
           ...(person.canContract ? [{ key: 'contract', label: 'Propor Contrato' }] : []),
         ],
+        // Da equipa B do treinador: Promover à Equipa 'A'
+        person.squadMove ? [{ key: person.squadMove.key, label: person.squadMove.label }] : [],
         [
           person.shortlisted
             ? { key: 'unshortlist', label: 'Retirar da Lista Preferencial' }

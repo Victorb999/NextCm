@@ -135,6 +135,7 @@ impl Game {
         p.shortlisted = self.in_shortlist(p.id)?;
         p.ghost = self.is_ghost(p.id);
         p.can_contract = p.player.is_some() && !p.ghost && !self.sacked() && self.contract_party(p.id).is_ok();
+        p.squad_move = self.squad_move(p.id)?.map(|(key, label)| crate::person::SquadMove { key: key.into(), label: label.into() });
         p.report_on = self.world.conn.query_row("SELECT ready_on FROM scouting WHERE person_id = ?", [p.id], |r| r.get(0)).optional()?;
         if let Some(pl) = &mut p.player {
             match k {

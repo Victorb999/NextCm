@@ -11,6 +11,11 @@ export type ClubProfile = { club: ClubRef, isNationalTeam: boolean, nationId: nu
  */
 reserveDivision: CompetitionRef | null, 
 /**
+ * No clube do treinador: o nome do ecrã das reservas ("Reservas Manchester United", ou o
+ * da II, como a Amateure do Bayern); `None` sem reservas (com uma equipa B à parte).
+ */
+reservesName: string | null, 
+/**
  * Divisão e posição na temporada anterior.
  */
 lastDivision: CompetitionRef | null, lastPosition: number | null, stadium: string | null, stadiumCapacity: number | null, 

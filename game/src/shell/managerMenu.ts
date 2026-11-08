@@ -18,7 +18,10 @@ export function managerMenu({
   const club = info.club
   return [
     { label: `Plantel ${club.shortName}`, onSelect: () => go({ kind: 'club', id: club.id }) },
-    { label: `Reservas ${club.shortName}`, onSelect: () => go({ kind: 'club', id: club.id, reserves: true }) },
+    // Sem reservas com uma equipa B à parte (o core diz)
+    ...(info.reservesName
+      ? [{ label: info.reservesName, onSelect: () => go({ kind: 'club', id: club.id, reserves: true }) }]
+      : []),
     // Só na pré-época ou com jogadores sem número (regra no core)
     ...(info.numbersOpen ? [{ label: 'Números Plantel', onSelect: () => go({ kind: 'squadNumbers' }) }] : []),
     { label: 'Tácticas', onSelect: () => go({ kind: 'tactics', id: club.id }) },

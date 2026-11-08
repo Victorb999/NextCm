@@ -737,7 +737,7 @@ export default function ClubPage({
   const clubMenuItems = (): MenuNode[] => {
     if (!club) return []
     const items: MenuNode[] = []
-    if (mine && !reserves)
+    if (mine && !reserves && club.reservesName)
       items.push({
         label: "Plantel de Reservas",
         onSelect: () => nav.go({ kind: "club", id, reserves: true }),
@@ -778,7 +778,9 @@ export default function ClubPage({
         { key: "seniors", label: "Incluir Séniores" },
       ]
     : mine
-      ? [...FILTER_OPTIONS, "separator", { key: "reserves", label: "Incluir Reservas" }]
+      ? club?.reservesName
+        ? [...FILTER_OPTIONS, "separator", { key: "reserves", label: "Equipa de Reservas" }]
+        : FILTER_OPTIONS
       : FILTER_OPTIONS
   const filterChecked = (key: string) => {
     if (key === "seniors") return filter.seniors
@@ -830,7 +832,7 @@ export default function ClubPage({
           )
         }
         title={
-          club ? (reserves ? `Reservas ${club.club.name}` : club.club.name) : ""
+          club ? (reserves ? (club.reservesName ?? `Reservas ${club.club.name}`) : club.club.name) : ""
         }
         right={
           <>

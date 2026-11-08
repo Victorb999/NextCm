@@ -31,6 +31,8 @@ export default function TacticsPage({ id }: { id: number }) {
   const [club, setClub] = useState<ClubProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [instructions, setInstructions] = useState(false)
+  // Filtro "Equipa de Reservas": mostra as reservas no resto do plantel, para as relacionar
+  const [withReserves, setWithReserves] = useState(false)
   // Jogador com o diálogo das instruções individuais aberto
   const [ordersFor, setOrdersFor] = useState<TacticPlayer | null>(null)
   // O Vêr: o que a coluna da direita da lista mostra (posição, condição, golos, instruções...)
@@ -325,10 +327,20 @@ export default function TacticsPage({ id }: { id: number }) {
             </div>
             {editable && t.reserves.length > 0 && (
               <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
-                <PanelTitle title="Resto do Plantel" />
+                <PanelTitle
+                  title="Resto do Plantel"
+                  right={
+                    t.reserves.some((p) => p.reserve) && (
+                      <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#d0bcff]">
+                        <input type="checkbox" checked={withReserves} onChange={(e) => setWithReserves(e.target.checked)} />
+                        Equipa de Reservas
+                      </label>
+                    )
+                  }
+                />
                 <RowHeader place="" column={viewLabel(view)} />
                 <div className="cm-zebra">
-                  {t.reserves.map((p) => {
+                  {t.reserves.filter((p) => withReserves || !p.reserve).map((p) => {
                     const spot: Spot = { kind: 'reserve', id: p.id }
                     return (
                       <Row
