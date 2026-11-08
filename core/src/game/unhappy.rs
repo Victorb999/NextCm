@@ -20,7 +20,7 @@ pub(super) const ABSENCES_SCHEMA: &str =
     "CREATE TABLE absences (person_id INTEGER PRIMARY KEY, kind TEXT NOT NULL, since TEXT NOT NULL, until TEXT NOT NULL);";
 
 /// Motivos de insatisfação: chave gravada em `unhappy.reason` e o texto do CM.
-pub const REASONS: [(&str, &str); 9] = [
+pub const REASONS: [(&str, &str); 13] = [
     ("starter", "Sente que deve ser titular"),
     ("contract", "Quer negociar um novo contrato"),
     ("bigger", "Quer mudar para um clube maior"),
@@ -30,7 +30,45 @@ pub const REASONS: [(&str, &str); 9] = [
     ("manager", "Perdeu a confiança no treinador"),
     ("training", "Infeliz com o treino"),
     ("future", "Deseja ver o seu futuro esclarecido"),
+    ("vented", "Desabafou os seus sentimentos publicamente"),
+    ("subbed", "Descontente por ter sido substituído"),
+    ("position", "Quer jogar numa posição diferente"),
+    ("teammate", "Não se dá com um colega de equipa"),
 ];
+
+/// Queixas sobre o clube (o grupo "Club Unhappiness" do CM): chave com o prefixo `club_`.
+pub const CLUB_REASONS: [(&str, &str); 5] = [
+    ("club_depth", "Acha que o clube precisa de mais profundidade no plantel"),
+    ("club_value", "Acha irrealista a avaliação que o clube faz dele"),
+    ("club_facilities", "Descontente com as instalações de treino do clube"),
+    ("club_ambition", "Duvida das ambições do clube"),
+    ("club_results", "Insatisfeito com os resultados do clube"),
+];
+
+/// Os motivos pessoais de uma queixa antiga que levam o jogador a desabafar na imprensa.
+const GRIEVANCES: &str = "'starter', 'contract', 'bigger', 'blocked', 'unfair', 'manager', 'future'";
+/// Dias de queixa até desabafar na imprensa (só quem tem mau feitio).
+const VENT_AFTER: i32 = 21;
+const VENT_TEMPERAMENT: i32 = 8;
+/// Probabilidade semanal de não se dar com um colega (quem tem pouco espírito desportivo ou mau feitio).
+const TEAMMATE_CHANCE: f64 = 0.04;
+/// Nota (1–20) na função abaixo da qual o jogador sente que não é a posição dele, e a partir da
+/// qual está à vontade.
+const POSITION_BAD: i32 = 10;
+const POSITION_OK: i32 = 13;
+/// Minuto até ao qual sair substituído a jogar bem (nota 7 ou mais) magoa um ambicioso.
+const SUBBED_BEFORE: u8 = 76;
+const SUBBED_RATING: f64 = 7.0;
+/// Menos de tantos jogadores no plantel principal (ou menos de 2 guarda-redes): falta profundidade.
+const MIN_DEPTH: usize = 18;
+/// Pede o preço vezes o valor: a avaliação do clube é irrealista.
+const UNREALISTIC_PRICE: f64 = 1.5;
+/// Instalações de treino (1 a 20) até às quais os melhores se queixam.
+const POOR_FACILITIES: i32 = 6;
+/// Reputação do jogador acima da do clube a partir da qual duvida das ambições do clube.
+const REPUTATION_GAP: i32 = 1500;
+/// Lugares abaixo do objectivo da Direcção a partir dos quais se queixa dos resultados.
+const BEHIND_TARGET: i32 = 4;
 
 /// Jogos seguidos sem jogar (podendo) para um dos 11 melhores se sentir titular a mais.
 const STARTER_MISSED: i32 = 4;
@@ -83,7 +121,17 @@ const REFUSED_MORALE: i32 = 3;
 pub(super) const LISTED_MORALE: i32 = 2;
 
 pub fn reason_text(key: &str) -> &'static str {
-    REASONS.iter().find(|r| r.0 == key).map_or("Está insatisfeito", |r| r.1)
+    REASONS.iter().chain(&CLUB_REASONS).find(|r| r.0 == key).map_or("Está insatisfeito", |r| r.1)
+}
+
+/// O que o clube é hoje, para as queixas sobre ele.
+struct ClubMood {
+    main: usize,
+    keepers: usize,
+    training: i32,
+    reputation: i32,
+    /// Lugares abaixo do objectivo da Direcção na liga (0 sem jogos que cheguem).
+    behind: i32,
 }
 
 /// O que o treinador sabe de um jogador do plantel para os motivos.
@@ -124,10 +172,151 @@ impl Game {
         Ok(self
             .world
             .conn
-            .prepare_cached("SELECT reason FROM unhappy WHERE person_id = ? ORDER BY since, reason")?
+            .prepare_cached("SELECT reason FROM unhappy WHERE person_id = ? AND substr(reason, 1, 5) <> 'club_' ORDER BY since, reason")?
             .query_map([person], |r| r.get::<_, String>(0))?
             .map(|r| r.map(|k| reason_text(&k).to_string()))
             .collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// As queixas sobre o clube de um jogador (o "Club Unhappiness" do CM).
+    pub fn club_unhappy_reasons(&self, person: i32) -> Result<Vec<String>> {
+        Ok(self
+            .world
+            .conn
+            .prepare_cached("SELECT reason FROM unhappy WHERE person_id = ? AND substr(reason, 1, 5) = 'club_' ORDER BY since, reason")?
+            .query_map([person], |r| r.get::<_, String>(0))?
+            .map(|r| r.map(|k| reason_text(&k).to_string()))
+            .collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// Põe ou tira um motivo; devolve se é novo.
+    fn set_unhappy(&self, person: i32, reason: &str, on: bool) -> Result<bool> {
+        if on {
+            return self.add_unhappy(person, reason);
+        }
+        self.remove_unhappy(person, reason)?;
+        Ok(false)
+    }
+
+    /// Mau feitio, espírito desportivo e reputação do jogador, para as queixas.
+    fn mood_traits(&self, person: i32) -> Result<(i32, i32, i32)> {
+        Ok(self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT COALESCE(p.temperament, 10), COALESCE(p.sportsmanship, 10), COALESCE(pl.current_reputation, 0)
+                 FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
+            )?
+            .query_row([person], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?)
+    }
+
+    /// O clube hoje: plantel principal, guarda-redes, instalações, reputação e a tabela face ao
+    /// objectivo da Direcção.
+    fn club_mood(&self, squad: &[Unhappy]) -> Result<ClubMood> {
+        let main: Vec<i32> = squad.iter().filter(|p| !self.squads.state(p.id).reserve).map(|p| p.id).collect();
+        let mut keepers = 0;
+        for &id in &main {
+            keepers += usize::from(self.is_keeper(id)?);
+        }
+        let (training, reputation, division): (Option<i32>, Option<i32>, Option<i32>) =
+            self.world.conn.query_row("SELECT training, reputation, division_id FROM clubs WHERE id = ?", [self.club_id], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })?;
+        let target: Option<i32> = self.world.conn.query_row("SELECT target FROM board WHERE id = 1", [], |r| r.get(0)).optional()?;
+        let behind = match (division, target) {
+            (Some(div), Some(target)) => {
+                self.table(div).iter().find(|r| r.club.id == self.club_id && r.played >= 8).map_or(0, |r| (r.position - target).max(0))
+            }
+            _ => 0,
+        };
+        Ok(ClubMood { main: main.len(), keepers, training: training.unwrap_or(0), reputation: reputation.unwrap_or(0), behind })
+    }
+
+    /// Desabafo na imprensa, não se dar com um colega e as queixas do clube de um jogador.
+    /// Devolve as queixas do clube que ele passou a ter hoje.
+    fn mood_reasons(&self, p: &Unhappy, mood: &ClubMood, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<Vec<&'static str>> {
+        let (temperament, sportsmanship, reputation) = self.mood_traits(p.id)?;
+        // Queixa antiga e mau feitio: vai à imprensa
+        let old = date::add_days(&self.date, -VENT_AFTER).unwrap_or_default();
+        let stale: bool = self
+            .world
+            .conn
+            .query_row(
+                &format!("SELECT 1 FROM unhappy WHERE person_id = ? AND reason IN ({GRIEVANCES}) AND since <= ?"),
+                params![p.id, old],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some();
+        if self.set_unhappy(p.id, "vented", stale && temperament <= VENT_TEMPERAMENT)? {
+            let name = self.person_name(p.id)?;
+            fresh.push(self.news_item(
+                *next_id,
+                "press",
+                format!("{name} desabafa na imprensa"),
+                format!("{name}, farto de esperar, deu a sua opinião aos jornais: a situação dele no clube está por resolver."),
+            ));
+            *next_id += 1;
+            self.change_fans(-1)?;
+        }
+        // Um colega com quem não se dá (por semana, sorteado; passa com o tempo)
+        if p.rank < 15 && (sportsmanship <= 8 || temperament <= 6) {
+            let mut rng = match_rng(self.seed ^ 0xA_402, p.id ^ date::parse(&self.date).unwrap_or(0));
+            if uniform(&mut rng) < TEAMMATE_CHANCE {
+                self.add_unhappy(p.id, "teammate")?;
+            }
+        }
+        // As queixas do clube
+        let asking: Option<Option<i64>> = self
+            .world
+            .conn
+            .query_row("SELECT asking FROM transfer_list WHERE person_id = ? AND transfer = 1", [p.id], |r| r.get(0))
+            .optional()?;
+        let unrealistic = match asking {
+            Some(Some(asking)) => {
+                self.world.market_value_of(p.id, &self.date)?.is_some_and(|v| asking as f64 > UNREALISTIC_PRICE * v as f64)
+            }
+            _ => false,
+        };
+        let conditions = [
+            ("club_depth", p.rank < 14 && (mood.main < MIN_DEPTH || mood.keepers < 2)),
+            ("club_value", unrealistic),
+            ("club_facilities", p.rank < 11 && p.ambition >= 11 && (1..=POOR_FACILITIES).contains(&mood.training)),
+            ("club_ambition", p.rank < 8 && p.ambition >= 14 && reputation > mood.reputation + REPUTATION_GAP),
+            ("club_results", p.rank < 14 && p.ambition >= 10 && mood.behind >= BEHIND_TARGET),
+        ];
+        let mut new = Vec::new();
+        for (key, on) in conditions {
+            if self.set_unhappy(p.id, key, on)? {
+                new.push(key);
+            }
+        }
+        Ok(new)
+    }
+
+    /// No fim de um jogo do treinador: quem saiu substituído a jogar bem e quem jogou fora da
+    /// posição (ou voltou a estar à vontade).
+    pub(super) fn match_moods(&self, lines: &[crate::live::PlayerLine]) -> Result<()> {
+        let mine: Vec<i32> = self
+            .world
+            .conn
+            .prepare_cached("SELECT id FROM people WHERE club_id = ? AND is_player = 1")?
+            .query_map([self.club_id], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        for l in lines.iter().filter(|l| !l.sub && mine.contains(&l.id)) {
+            let ambition: i32 =
+                self.world.conn.query_row("SELECT COALESCE(ambition, 10) FROM people WHERE id = ?", [l.id], |r| r.get(0))?;
+            let early = l.off.is_some_and(|m| m < SUBBED_BEFORE) && !l.injured && !l.red;
+            if early && l.rating >= SUBBED_RATING && ambition >= 12 {
+                self.add_unhappy(l.id, "subbed")?;
+            }
+            if l.fit < POSITION_BAD {
+                self.add_unhappy(l.id, "position")?;
+            } else if l.fit >= POSITION_OK {
+                self.remove_unhappy(l.id, "position")?;
+            }
+        }
+        Ok(())
     }
 
     pub(super) fn change_morale(&mut self, person: i32, delta: i32) {
@@ -239,7 +428,7 @@ impl Game {
         let grudge = date::add_days(&self.date, -GRUDGE_DAYS).unwrap_or_default();
         self.world
             .conn
-            .execute("DELETE FROM unhappy WHERE reason IN ('bigger', 'blocked', 'unfair', 'manager') AND since < ?", [&grudge])?;
+            .execute("DELETE FROM unhappy WHERE reason IN ('bigger', 'blocked', 'unfair', 'manager', 'subbed', 'teammate', 'position') AND since < ?", [&grudge])?;
         let squad = self.squad_unhappy()?;
         // Há quanto tempo o treinador está no clube
         let manager_days: i32 = self
@@ -249,6 +438,9 @@ impl Game {
             .as_deref()
             .and_then(date::parse)
             .map_or(i32::MAX, |j| today - j);
+        let mood = self.club_mood(&squad)?;
+        // As queixas novas do clube, agrupadas por motivo (uma notícia por motivo, não por jogador)
+        let mut club_new: std::collections::BTreeMap<&'static str, Vec<i32>> = Default::default();
         for p in &squad {
             let missed = self.squads.state(p.id).missed;
             let reserve = self.squads.state(p.id).reserve;
@@ -323,6 +515,10 @@ impl Game {
             } else {
                 self.remove_unhappy(p.id, "training")?;
             }
+            // Desabafos, colegas e as queixas do clube
+            for key in self.mood_reasons(p, &mood, fresh, next_id)? {
+                club_new.entry(key).or_default().push(p.id);
+            }
             // Já está na lista: deixam-no sair
             if p.listed {
                 self.remove_unhappy(p.id, "blocked")?;
@@ -339,15 +535,34 @@ impl Game {
                 *next_id += 1;
             }
         }
-        // A moral desce até ao teto dos insatisfeitos
+        for (key, ids) in club_new {
+            let names: Vec<String> = ids.iter().take(3).map(|&id| self.person_name(id)).collect::<Result<_>>()?;
+            let more = ids.len().saturating_sub(3);
+            let who = match (names.as_slice(), more) {
+                ([one], 0) => one.clone(),
+                (list, 0) => format!("{} e {}", list[..list.len() - 1].join(", "), list[list.len() - 1]),
+                (list, n) => format!("{} e mais {n}", list.join(", ")),
+            };
+            fresh.push(self.news_item(
+                *next_id,
+                "press",
+                "Jogadores descontentes com o clube".into(),
+                format!("{who}: {}.", reason_text(key).to_lowercase()),
+            ));
+            *next_id += 1;
+        }
+        // A moral desce até ao teto dos insatisfeitos (as queixas do clube pesam um terço)
         let counts: Vec<(i32, i32)> = self
             .world
             .conn
-            .prepare_cached("SELECT person_id, COUNT(*) FROM unhappy GROUP BY person_id ORDER BY person_id")?
+            .prepare_cached(
+                "SELECT person_id, SUM(CASE WHEN substr(reason, 1, 5) = 'club_' THEN 1 ELSE 3 END) FROM unhappy
+                 GROUP BY person_id ORDER BY person_id",
+            )?
             .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<rusqlite::Result<_>>()?;
-        for (id, n) in counts {
-            let cap = (12 - MORALE_PER_REASON * n).max(4);
+        for (id, weight) in counts {
+            let cap = (12 - MORALE_PER_REASON * weight / 3).max(4);
             let s = self.squads.states.entry(id).or_default();
             if s.morale > cap {
                 s.morale = (s.morale - 2).max(cap);
@@ -426,7 +641,9 @@ impl Game {
                 .query_row("SELECT 1 FROM unhappy WHERE person_id = ? AND reason = 'blocked'", [p.id], |r| r.get::<_, i32>(0))
                 .optional()?
                 .is_some();
-            let Some(reason) = reasons.iter().find(|r| matches!(r.as_str(), "starter" | "bigger" | "contract" | "future")) else {
+            let Some(reason) =
+                reasons.iter().find(|r| matches!(r.as_str(), "starter" | "bigger" | "contract" | "future" | "club_ambition"))
+            else {
                 continue;
             };
             if blocked || self.open_offer(p.id)?.is_some() {
@@ -732,6 +949,104 @@ mod tests {
         monday(&mut g, &back);
         assert!(g.absence(foreign).unwrap().is_none());
         assert!(!g.unhappy_reasons(foreign).unwrap().contains(&reason_text("homesick").to_string()));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn club_and_personal_moods() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-queixas-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Queixas".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: PALMEIRAS,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+        };
+        let mut g = Game::create(&path, &dir, &new, 7).unwrap();
+        let squad = g.squad_unhappy().unwrap();
+        let star = squad.iter().find(|p| p.rank < 8 && !p.loaned_in).unwrap().id;
+        let monday = |g: &mut Game, d: &str| {
+            g.date = d.into();
+            let (mut fresh, mut id) = (Vec::new(), 1000);
+            g.unhappy_day(&mut fresh, &mut id).unwrap();
+            fresh
+        };
+
+        // Instalações fracas e um jogador ambicioso: queixa do clube, à parte das pessoais, e uma
+        // só notícia por motivo
+        g.world.conn.execute("UPDATE clubs SET training = 3 WHERE id = ?", [PALMEIRAS]).unwrap();
+        g.world.conn.execute("UPDATE people SET ambition = 16, temperament = 4 WHERE id = ?", [star]).unwrap();
+        let news = monday(&mut g, "2025-07-07");
+        assert!(g.club_unhappy_reasons(star).unwrap().contains(&reason_text("club_facilities").to_string()));
+        assert!(g.unhappy_reasons(star).unwrap().is_empty(), "as queixas do clube não são pessoais");
+        assert_eq!(g.player_status(star).unwrap().club_unhappy.len(), g.club_unhappy_reasons(star).unwrap().len());
+        assert_eq!(news.iter().filter(|n| n.title == "Jogadores descontentes com o clube" && n.body.contains("instalações")).count(), 1);
+        // Instalações boas: a queixa passa
+        g.world.conn.execute("UPDATE clubs SET training = 15 WHERE id = ?", [PALMEIRAS]).unwrap();
+        monday(&mut g, "2025-07-14");
+        assert!(!g.club_unhappy_reasons(star).unwrap().contains(&reason_text("club_facilities").to_string()));
+
+        // Falta de profundidade: poucos no plantel principal
+        let others: Vec<i32> = squad.iter().skip(16).map(|p| p.id).collect();
+        for id in &others {
+            g.squads.states.entry(*id).or_default().reserve = true;
+        }
+        monday(&mut g, "2025-07-21");
+        assert!(g.club_unhappy_reasons(star).unwrap().contains(&reason_text("club_depth").to_string()));
+        for id in &others {
+            g.squads.states.entry(*id).or_default().reserve = false;
+        }
+        monday(&mut g, "2025-07-28");
+        assert!(!g.club_unhappy_reasons(star).unwrap().contains(&reason_text("club_depth").to_string()));
+
+        // Preço irrealista na lista de transferências
+        g.world
+            .conn
+            .execute("INSERT OR REPLACE INTO transfer_list (person_id, transfer, loan, asking) VALUES (?, 1, 0, 900000000)", [star])
+            .unwrap();
+        monday(&mut g, "2025-08-04");
+        assert!(g.club_unhappy_reasons(star).unwrap().contains(&reason_text("club_value").to_string()));
+
+        // Queixa antiga e mau feitio: desabafa na imprensa
+        g.add_unhappy(star, "bigger").unwrap();
+        g.world.conn.execute("UPDATE unhappy SET since = '2025-07-01' WHERE person_id = ? AND reason = 'bigger'", [star]).unwrap();
+        let news = monday(&mut g, "2025-08-11");
+        assert!(g.unhappy_reasons(star).unwrap().contains(&reason_text("vented").to_string()));
+        assert!(news.iter().any(|n| n.title.contains("desabafa")));
+
+        // Ao fim do jogo: saiu substituído cedo a jogar bem; jogou fora da posição
+        let line = |id: i32, fit: i32, off: Option<u8>, rating: f64| crate::live::PlayerLine {
+            id,
+            rating,
+            goals: 0,
+            assists: 0,
+            sub: false,
+            stats: Default::default(),
+            on: 0,
+            off,
+            yellow: false,
+            red: false,
+            injured: false,
+            fit,
+        };
+        let other = squad.iter().find(|p| p.id != star && !p.loaned_in).unwrap().id;
+        g.world.conn.execute("UPDATE people SET ambition = 15 WHERE id = ?", [other]).unwrap();
+        g.match_moods(&[line(other, 6, Some(60), 7.5)]).unwrap();
+        let reasons = g.unhappy_reasons(other).unwrap();
+        assert!(reasons.contains(&reason_text("subbed").to_string()));
+        assert!(reasons.contains(&reason_text("position").to_string()));
+        // À vontade na posição e a acabar o jogo: a queixa da posição passa
+        g.match_moods(&[line(other, 15, None, 6.0)]).unwrap();
+        assert!(!g.unhappy_reasons(other).unwrap().contains(&reason_text("position").to_string()));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

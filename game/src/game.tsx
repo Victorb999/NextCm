@@ -6,7 +6,7 @@ import type { GameInfo } from './bindings/GameInfo'
 // Estado do jogo em curso para toda a interface: data, treinador, clube, notícias por ler.
 // `mode` diz o que a área principal mostra fora da navegação normal (menu inicial etc.).
 
-export type Mode = 'loading' | 'start' | 'newGame' | 'loadGame' | 'explore' | 'game'
+export type Mode = 'loading' | 'start' | 'newGame' | 'loadGame' | 'explore' | 'editor' | 'game'
 
 type GameCtx = {
   info: GameInfo | null

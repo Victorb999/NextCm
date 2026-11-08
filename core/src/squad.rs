@@ -120,6 +120,8 @@ pub struct PlayerStatus {
     pub injury_until: Option<String>,
     /// Motivos de insatisfação, como o CM os escreve (só no plantel do treinador).
     pub unhappy: Vec<String>,
+    /// Queixas sobre o clube (o grupo "Club Unhappiness" do CM), à parte das pessoais.
+    pub club_unhappy: Vec<String>,
     /// Na equipa de reservas.
     pub reserve: bool,
     /// Fora do clube: "leave" (de folga) ou "awol" (ausente sem permissão), e até quando.
@@ -244,6 +246,7 @@ impl Squads {
                 injury: s.injury,
                 injury_until: s.injury_until,
                 unhappy: Vec::new(),
+                club_unhappy: Vec::new(),
                 absence: None,
                 absence_until: None,
                 can_leave: false,

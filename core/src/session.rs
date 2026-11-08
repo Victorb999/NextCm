@@ -198,6 +198,27 @@ impl Session {
         crate::delete_save(&self.saves_dir, file)
     }
 
+    /// O editor não mexe no jogo que está aberto.
+    fn editor_file<'a>(&self, file: &'a str) -> Result<&'a str> {
+        if self.game.as_ref().is_some_and(|g| g.path().file_name().and_then(|n| n.to_str()) == Some(file)) {
+            return Err(Error::Invalid("Feche o jogo antes de o editar.".into()));
+        }
+        Ok(file)
+    }
+
+    /// Editor de jogos salvos: procura jogadores num save fechado.
+    pub fn editor_search(&self, file: String, query: String) -> Result<Vec<crate::EditorHit>> {
+        crate::editor_search(&self.saves_dir, self.editor_file(&file)?, &query)
+    }
+
+    pub fn editor_player(&self, file: String, id: i32) -> Result<crate::EditorPlayer> {
+        crate::editor_player(&self.saves_dir, self.editor_file(&file)?, id)
+    }
+
+    pub fn editor_set_attributes(&self, file: String, id: i32, values: Vec<crate::EditorValue>) -> Result<crate::EditorPlayer> {
+        crate::editor_set_attributes(&self.saves_dir, self.editor_file(&file)?, id, &values)
+    }
+
     pub fn list_saves(&self) -> Result<Vec<SaveSummary>> {
         list_saves(&self.saves_dir)
     }

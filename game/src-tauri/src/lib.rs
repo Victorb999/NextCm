@@ -22,6 +22,7 @@ use nextcm_core::{
 };
 use nextcm_core::{CareerClub, ContinueStep, ManagerStats};
 use nextcm_core::{DealTerms, LoanTerms};
+use nextcm_core::{EditorHit, EditorPlayer, EditorValue};
 use nextcm_core::{SavedFile, TrainingPlan, TrainingView};
 use nextcm_core::{TalkLine, TalkReaction, TalkView};
 use tauri::{Manager, State};
@@ -134,6 +135,9 @@ session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
 session_command!(exchange_candidates(id: i32) -> Vec<i32>);
 session_command!(squad_role_view(id: i32) -> SquadRoleView);
+session_command!(editor_search(file: String, query: String) -> Vec<EditorHit>);
+session_command!(editor_player(file: String, id: i32) -> EditorPlayer);
+session_command!(editor_set_attributes(file: String, id: i32, values: Vec<EditorValue>) -> EditorPlayer);
 session_command!(set_squad_role(id: i32, role: String) -> String);
 session_command!(offer_to_clubs(id: i32, loan: bool, fee: i64, exclude_rivals: bool) -> String);
 session_command!(ask_loan(id: i32, terms: LoanTerms) -> TransferView);
@@ -346,6 +350,9 @@ pub fn run() {
             exchange_candidates,
             offer_to_clubs,
             squad_role_view,
+            editor_search,
+            editor_player,
+            editor_set_attributes,
             set_squad_role,
             ask_loan,
             exercise_option,

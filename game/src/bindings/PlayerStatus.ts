@@ -13,6 +13,10 @@ moraleLabel: string, yellows: number, suspended: number, injury: string | null, 
  */
 unhappy: Array<string>, 
 /**
+ * Queixas sobre o clube (o grupo "Club Unhappiness" do CM), à parte das pessoais.
+ */
+clubUnhappy: Array<string>, 
+/**
  * Na equipa de reservas.
  */
 reserve: boolean, 

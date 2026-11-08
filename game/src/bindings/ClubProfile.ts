@@ -23,6 +23,22 @@ stadiumCity: string | null, stadiumSeated: number | null,
  */
 undersoilHeating: boolean, 
 /**
+ * Com telhado retráctil.
+ */
+retractableRoof: boolean, 
+/**
+ * O estádio é do clube (e não alugado ou partilhado).
+ */
+ownsStadium: boolean, 
+/**
+ * O dia da semana dos jogos em casa ("Sábado"), quando o banco o tem.
+ */
+matchDay: string | null, 
+/**
+ * A assistência do clube no banco: média, mínima e máxima.
+ */
+attendance: [number, number, number] | null, 
+/**
  * As instalações de treino, como no CM ("Excelentes condições, com academia para Jovens").
  */
 facilities: string | null, 

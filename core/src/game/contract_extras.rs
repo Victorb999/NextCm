@@ -188,7 +188,7 @@ impl Game {
     }
 
     /// Guarda-redes (para o prémio por jogo sem sofrer golos).
-    fn is_keeper(&self, person: i32) -> Result<bool> {
+    pub(super) fn is_keeper(&self, person: i32) -> Result<bool> {
         Ok(self
             .world
             .conn
@@ -402,6 +402,8 @@ mod tests {
             off: None,
             yellow: false,
             red: false,
+            injured: false,
+            fit: 20,
         };
         let cash = g.cash_of(PALMEIRAS).unwrap();
         g.pay_match_bonuses(PALMEIRAS, &[line], 0).unwrap();

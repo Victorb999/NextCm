@@ -12,6 +12,7 @@ import OptionsDialog from "../components/OptionsDialog";
 import { useGame } from "../game";
 import { useNav } from "../nav";
 import LoadGamePage from "../pages/LoadGamePage";
+import EditorPage from "../pages/EditorPage";
 import NewGamePage from "../pages/NewGamePage";
 import StartScreen from "../pages/StartScreen";
 import ExitDialog from "./ExitDialog";
@@ -75,6 +76,7 @@ export default function Shell() {
           )}
           {game.mode === "newGame" && <NewGamePage />}
           {game.mode === "loadGame" && <LoadGamePage />}
+          {game.mode === "editor" && <EditorPage />}
           {game.mode === "game" &&
             game.info?.sacked &&
             !matchDay.match &&

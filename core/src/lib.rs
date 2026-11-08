@@ -7,6 +7,7 @@ pub mod attributes;
 mod club;
 mod competition;
 pub mod date;
+mod editor;
 mod engine;
 pub mod finance;
 mod game;
@@ -26,6 +27,8 @@ mod world;
 
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry, TableZone};
+pub use editor::{EditorAttribute, EditorHit, EditorPlayer, EditorValue};
+pub use editor::{player as editor_player, search as editor_search, set_attributes as editor_set_attributes};
 pub use engine::{TeamStrength, expected_goals};
 pub use finance::{ClubFinances, FinanceRow};
 pub use game::ContractExtras;

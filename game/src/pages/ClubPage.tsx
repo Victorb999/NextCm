@@ -331,9 +331,16 @@ function GeneralInfo({ c, menu }: { c: ClubProfile; menu: ReactNode }) {
         {row(
           "Capacidade",
           c.stadiumCapacity
-            ? `${c.stadiumCapacity}${c.stadiumSeated === c.stadiumCapacity ? " - todos lugares sentados" : c.stadiumSeated ? ` - (${c.stadiumSeated} lugares sentados)` : ""}${c.undersoilHeating ? " com aquecimento subterrâneo" : ""}`
+            ? `${c.stadiumCapacity}${c.stadiumSeated === c.stadiumCapacity ? " - todos lugares sentados" : c.stadiumSeated ? ` - (${c.stadiumSeated} lugares sentados)` : ""}${c.undersoilHeating ? " com aquecimento subterrâneo" : ""}${c.retractableRoof ? " e telhado retráctil" : ""}`
             : "-",
         )}
+        {c.stadium && c.ownsStadium && row("Propriedade", "Estádio do clube")}
+        {c.attendance &&
+          row(
+            "Assistência",
+            `média ${c.attendance[0]} (mín. ${c.attendance[1]}, máx. ${c.attendance[2]})`,
+          )}
+        {c.matchDay && row("Dia de Jogo", c.matchDay)}
         {c.facilities && row("Condições Trabalho", c.facilities)}
         {row("Reputação", c.reputation ?? "-")}
         {c.reserveDivision &&

@@ -33,6 +33,11 @@ export default function StartScreen({ onOptions }: { onOptions: () => void }) {
             () => game.setMode("explore"),
             "Navegue por jogadores, clubes e competições",
           )}
+          {item(
+            "Editor de Jogos Salvos",
+            () => game.setMode("editor"),
+            "Mude os atributos de um jogador de um jogo gravado",
+          )}
           {item("Opções", onOptions, "Moeda, salários, cores e fundo")}
         </div>
       </DialogFrame>

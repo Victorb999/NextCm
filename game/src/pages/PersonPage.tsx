@@ -706,6 +706,17 @@ export default function PersonPage({ id }: { id: number }) {
                     </div>
                   </Panel>
                 )}
+                {!!person.status?.clubUnhappy.length && (
+                  <Panel title="Descontentamento com o Clube">
+                    <div className="cm-zebra">
+                      {person.status.clubUnhappy.map((u) => (
+                        <div key={u} className="flex min-h-6 items-center px-3 text-[13.5px] text-cm-orange">
+                          {u}.
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
+                )}
               </div>
             )}
           </div>

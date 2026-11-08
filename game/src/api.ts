@@ -39,6 +39,9 @@ import type { GameInfo } from './bindings/GameInfo'
 import type { ContractReply } from './bindings/ContractReply'
 import type { ContractTerms } from './bindings/ContractTerms'
 import type { SquadRoleView } from './bindings/SquadRoleView'
+import type { EditorHit } from './bindings/EditorHit'
+import type { EditorPlayer } from './bindings/EditorPlayer'
+import type { EditorValue } from './bindings/EditorValue'
 import type { Instructions } from './bindings/Instructions'
 import type { LiveView } from './bindings/LiveView'
 import type { MatchPreview } from './bindings/MatchPreview'
@@ -198,6 +201,11 @@ export const api = {
   /** Aba Transferência do perfil de um jogador (jogo em curso). */
   transferView: (id: number) => call<TransferView>('transfer_view', { id }),
   makeOffer: (id: number, terms: DealTerms) => call<TransferView>('make_offer', { id, terms }),
+  /** Editor de jogos salvos (save fechado): procurar jogadores, abrir um e gravar os atributos. */
+  editorSearch: (file: string, query: string) => call<EditorHit[]>('editor_search', { file, query }),
+  editorPlayer: (file: string, id: number) => call<EditorPlayer>('editor_player', { file, id }),
+  editorSetAttributes: (file: string, id: number, values: EditorValue[]) =>
+    call<EditorPlayer>('editor_set_attributes', { file, id, values }),
   squadRoleView: (id: number) => call<SquadRoleView>('squad_role_view', { id }),
   setSquadRole: (id: number, role: string) => call<string>('set_squad_role', { id, role }),
   offerToClubs: (id: number, loan: boolean, fee: number, excludeRivals: boolean) =>

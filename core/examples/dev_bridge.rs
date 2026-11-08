@@ -162,6 +162,20 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let terms: DealTerms = serde_json::from_value(args["terms"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.make_offer(id()?, terms).map_err(e)?))
         }
+        "editor_search" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            let query = args["query"].as_str().unwrap_or("").to_string();
+            out(serde_json::to_value(session.editor_search(file, query).map_err(e)?))
+        }
+        "editor_player" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            out(serde_json::to_value(session.editor_player(file, id()?).map_err(e)?))
+        }
+        "editor_set_attributes" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            let values: Vec<nextcm_core::EditorValue> = serde_json::from_value(args["values"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.editor_set_attributes(file, id()?, values).map_err(e)?))
+        }
         "squad_role_view" => out(serde_json::to_value(session.squad_role_view(id()?).map_err(e)?)),
         "set_squad_role" => {
             let role = args["role"].as_str().ok_or("falta role")?.to_string();

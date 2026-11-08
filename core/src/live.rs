@@ -1547,6 +1547,8 @@ impl LiveMatch {
                     off: p.left,
                     yellow: p.yellow,
                     red: p.red,
+                    injured: p.injured,
+                    fit: p.fit,
                 }
             })
             .collect()
@@ -1773,6 +1775,10 @@ pub struct PlayerLine {
     pub off: Option<u8>,
     pub yellow: bool,
     pub red: bool,
+    /// Saiu lesionado.
+    pub injured: bool,
+    /// Nota (1–20) na função onde acabou o jogo.
+    pub fit: i32,
 }
 
 impl LiveMatch {

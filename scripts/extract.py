@@ -333,7 +333,8 @@ def stadiums(r):
     for _, b in r.table(T_STADIUM, 78):
         yield {"id": i32(b, 0), "name": text(b, 4, 51), "city_id": ref(i32(b, 56)),
                "capacity": i32(b, 60), "seating_capacity": i32(b, 64),
-               "expansion_capacity": i32(b, 68), "undersoil_heating": int(u8(b, 77) != 0)}
+               "expansion_capacity": i32(b, 68), "undersoil_heating": int(u8(b, 77) != 0),
+               "retractable_roof": int(u8(b, 76) != 0)}
 
 
 def competitions(r):
@@ -370,6 +371,10 @@ def clubs(r):
                    "reserve_division_id": ref(i32(b, 96)), "professional_status": u8(b, 100),
                    "cash": i32(b, 101), "stadium_id": ref(i32(b, 105)),
                    "training": u8(b, 127), "reputation": i16(b, 128),
+                   "owns_stadium": int(u8(b, 109) != 0),
+                   "match_day": u8(b, 114) if 1 <= u8(b, 114) <= 6 else None,
+                   "avg_attendance": nz(i32(b, 115)), "min_attendance": nz(i32(b, 119)),
+                   "max_attendance": nz(i32(b, 123)),
                    "rival1_id": ref(i32(b, 179)), "rival2_id": ref(i32(b, 183)),
                    "rival3_id": ref(i32(b, 187)),
                    "home_fg": colour(b, 131), "home_bg": colour(b, 135),

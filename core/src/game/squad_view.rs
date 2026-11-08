@@ -97,7 +97,10 @@ impl Game {
             p.free = p.contract_expires.as_deref().is_none_or(|e| e < self.date.as_str());
             let listed: bool =
                 conn.query_row("SELECT transfer FROM transfer_list WHERE person_id = ?", [p.id], |r| r.get(0)).optional()?.unwrap_or(false);
-            let unhappy = conn.query_row("SELECT 1 FROM unhappy WHERE person_id = ? LIMIT 1", [p.id], |_| Ok(())).optional()?.is_some();
+            let unhappy = conn
+                .query_row("SELECT 1 FROM unhappy WHERE person_id = ? AND substr(reason, 1, 5) <> 'club_' LIMIT 1", [p.id], |_| Ok(()))
+                .optional()?
+                .is_some();
             let future =
                 conn.query_row("SELECT 1 FROM unhappy WHERE person_id = ? AND reason = 'future'", [p.id], |_| Ok(())).optional()?.is_some();
             let absence = if mine { self.absence(p.id)?.map(|a| a.0) } else { None };

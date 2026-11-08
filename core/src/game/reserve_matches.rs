@@ -102,10 +102,19 @@ struct Slot {
 }
 
 impl Game {
+    /// O clube tem uma equipa B ou II numa liga que se joga neste jogo (o Barcelona B na
+    /// Segunda, se ela estiver viva): no CM, esses clubes não têm jogos das reservas. Com a liga
+    /// da equipa B fora do jogo (o Bayern II na Regionalliga), as reservas jogam: senão os
+    /// despromovidos nunca jogariam.
+    fn b_team_plays(&self, club: i32) -> Result<bool> {
+        let Some(division) = self.world.b_team_division(club)? else { return Ok(false) };
+        Ok(self.matches.iter().any(|m| m.competition_id == division))
+    }
+
     /// Os jogos das reservas do clube nesta época, pelos jogos do campeonato dele.
     fn reserve_slots(&self, club: i32) -> Result<Vec<Slot>> {
         let Some(division) = self.division_of(club)? else { return Ok(Vec::new()) };
-        if self.world.has_b_team(club)? {
+        if self.b_team_plays(club)? {
             return Ok(Vec::new());
         }
         let mine = |home: i32, away: i32| home == club || away == club;
@@ -128,7 +137,7 @@ impl Game {
             let opponent = if m.home_id == club { m.away_id } else { m.home_id };
             let b_team = match b_teams.get(&opponent) {
                 Some(&b) => b,
-                None => *b_teams.entry(opponent).or_insert(self.world.has_b_team(opponent)?),
+                None => *b_teams.entry(opponent).or_insert(self.b_team_plays(opponent)?),
             };
             if b_team {
                 continue;
@@ -395,6 +404,8 @@ mod tests {
         // Clubes com equipa B numa liga não têm reservas (Barcelona B, Bayern II); a Juventus tem
         assert!(g.world.has_b_team(1283).unwrap() && g.world.has_b_team(1350).unwrap());
         assert!(!g.world.has_b_team(5138).unwrap() && !g.world.has_b_team(PALMEIRAS).unwrap());
+        // O Bayern II joga na Regionalliga, que não está no jogo: as reservas do Bayern jogam
+        assert!(!g.b_team_plays(1350).unwrap());
 
         // Só três despromovidos: o jogo faz-se na mesma, com fantasmas
         let worst: Vec<i32> = g

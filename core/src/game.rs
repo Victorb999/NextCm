@@ -133,7 +133,8 @@ pub use training::{TrainingPlan, TrainingView};
 /// 48: as instalações de treino (`clubs.training`) e o aquecimento do relvado
 /// (`stadiums.undersoil_heating`), do banco.
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
-pub const SAVE_VERSION: i32 = 49;
+/// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
+pub const SAVE_VERSION: i32 = 50;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -1217,6 +1218,11 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 49", [])?;
             version = 49;
         }
+        if version == 49 {
+            add_world_columns(&world.conn, path)?;
+            world.conn.execute("UPDATE game SET version = 50", [])?;
+            version = 50;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1802,6 +1808,8 @@ impl Game {
                 self.record_match(m.id, m.competition_id, [m.home_id, m.away_id], [live.player_lines(0), live.player_lines(1)])?;
             }
             if (m.home_id == self.club_id || m.away_id == self.club_id) && !self.sacked() {
+                let side = usize::from(m.home_id != self.club_id);
+                self.match_moods(&live.player_lines(side))?;
                 fresh.push(self.result_news(next_id, m, live));
                 next_id += 1;
                 let (h, a) = live.score();
@@ -2055,6 +2063,7 @@ impl Game {
     pub fn player_status(&self, id: i32) -> Option<PlayerStatus> {
         let mut s = self.squads.status(id)?;
         s.unhappy = self.unhappy_reasons(id).unwrap_or_default();
+        s.club_unhappy = self.club_unhappy_reasons(id).unwrap_or_default();
         if let Ok(Some((kind, until))) = self.absence(id) {
             s.absence = Some(kind);
             s.absence_until = Some(until);
@@ -2216,11 +2225,11 @@ impl Game {
     /// Ficha do "Próximo Jogo" para uma partida.
     pub fn match_preview(&self, fixture_id: i32) -> Result<MatchPreview> {
         let m = self.matches.iter().find(|m| m.id == fixture_id).ok_or_else(|| Error::NotFound(format!("partida {fixture_id}")))?;
-        let (venue, city): (Option<String>, Option<String>) = self.world.conn.query_row(
-            "SELECT s.name, ci.name FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id
+        let (venue, city, roof): (Option<String>, Option<String>, bool) = self.world.conn.query_row(
+            "SELECT s.name, ci.name, COALESCE(s.retractable_roof, 0) <> 0 FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id
              LEFT JOIN cities ci ON ci.id = s.city_id WHERE c.id = ?",
             [m.home_id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )?;
         let last_meeting = self
             .matches
@@ -2249,6 +2258,9 @@ impl Game {
             ("Seco", "Normais")
         } else if sky < 0.78 {
             ("Nublado", "Normais")
+        } else if roof {
+            // O telhado retráctil fecha-se: a chuva não molha o relvado
+            ("Chuva (telhado fechado)", "Normais")
         } else if sky < 0.95 {
             ("Chuva", "Molhado")
         } else {
@@ -2910,45 +2922,53 @@ fn article(name: &str) -> &'static str {
     }
 }
 
-/// As colunas do banco que vieram depois (esquema 8): as instalações de treino dos clubes e o
-/// aquecimento do relvado dos estádios. Num save (ou banco) sem elas, acrescenta-as e copia-as do
-/// `world.sqlite` que encontrar a partir de `near` (sem ele, ficam vazias).
+/// As colunas do banco que vieram depois: (tabela, coluna, tipo). As instalações de treino e o
+/// aquecimento (esquema 8) e, do `club.dat` e do `stadium.dat`, o telhado, o estádio próprio, o dia
+/// do jogo e a assistência (esquema 9).
+const WORLD_COLUMNS: [(&str, &str, &str); 8] = [
+    ("clubs", "training", "INTEGER"),
+    ("stadiums", "undersoil_heating", "INTEGER NOT NULL DEFAULT 0"),
+    ("stadiums", "retractable_roof", "INTEGER NOT NULL DEFAULT 0"),
+    ("clubs", "owns_stadium", "INTEGER NOT NULL DEFAULT 0"),
+    ("clubs", "match_day", "INTEGER"),
+    ("clubs", "avg_attendance", "INTEGER"),
+    ("clubs", "min_attendance", "INTEGER"),
+    ("clubs", "max_attendance", "INTEGER"),
+];
+
+/// Num save (ou banco) sem essas colunas, acrescenta-as e copia-as do `world.sqlite` que
+/// encontrar a partir de `near` (sem ele, ficam vazias).
 fn add_world_columns(conn: &rusqlite::Connection, near: &Path) -> Result<()> {
-    let has = |table: &str, column: &str| -> Result<bool> {
+    let has = |db: &str, table: &str, column: &str| -> Result<bool> {
         Ok(conn
-            .prepare(&format!("SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = ?"))?
+            .prepare(&format!("SELECT COUNT(*) FROM pragma_table_info('{table}', '{db}') WHERE name = ?"))?
             .query_row([column], |r| r.get::<_, i64>(0))?
             > 0)
     };
-    if has("clubs", "training")? && has("stadiums", "undersoil_heating")? {
+    let mut added = Vec::new();
+    for (table, column, kind) in WORLD_COLUMNS {
+        if !has("main", table, column)? {
+            conn.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {column} {kind}"))?;
+            added.push((table, column));
+        }
+    }
+    if added.is_empty() {
         return Ok(());
-    }
-    if !has("clubs", "training")? {
-        conn.execute_batch("ALTER TABLE clubs ADD COLUMN training INTEGER")?;
-    }
-    if !has("stadiums", "undersoil_heating")? {
-        conn.execute_batch("ALTER TABLE stadiums ADD COLUMN undersoil_heating INTEGER NOT NULL DEFAULT 0")?;
     }
     let Some(source) = World::locate(near).filter(|p| p.as_path() != near) else { return Ok(()) };
     conn.execute("ATTACH DATABASE ? AS src", [source.to_string_lossy()])?;
-    let filled = (|| -> rusqlite::Result<()> {
-        let ok: i64 = conn.query_row(
-            "SELECT (SELECT COUNT(*) FROM pragma_table_info('clubs', 'src') WHERE name = 'training')
-                  + (SELECT COUNT(*) FROM pragma_table_info('stadiums', 'src') WHERE name = 'undersoil_heating')",
-            [],
-            |r| r.get(0),
-        )?;
-        if ok == 2 {
-            conn.execute_batch(
-                "UPDATE clubs SET training = (SELECT s.training FROM src.clubs s WHERE s.id = clubs.id);
-                 UPDATE stadiums SET undersoil_heating = COALESCE((SELECT s.undersoil_heating FROM src.stadiums s WHERE s.id = stadiums.id), 0);",
-            )?;
+    let filled = (|| -> Result<()> {
+        for (table, column) in added {
+            if has("src", table, column)? {
+                conn.execute_batch(&format!(
+                    "UPDATE {table} SET {column} = COALESCE((SELECT s.{column} FROM src.{table} s WHERE s.id = {table}.id), {table}.{column})"
+                ))?;
+            }
         }
         Ok(())
     })();
     conn.execute_batch("DETACH DATABASE src")?;
-    filled?;
-    Ok(())
+    filled
 }
 
 /// "da Série A", "do Mundial", "das Eliminatórias do Mundial (UEFA)".
@@ -3935,7 +3955,7 @@ mod tests {
             }
             w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
             w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; DROP TABLE last_lineups; DROP TABLE coach_areas; DROP TABLE reserve_matches; DROP TABLE reserve_apps; DROP TABLE absences; DROP TABLE reserve_picks; DROP TABLE setup_transfers; DROP TABLE setup_retirements; DROP TABLE bans; DROP TABLE finances_month; ALTER TABLE game DROP COLUMN part; ALTER TABLE news DROP COLUMN part; DROP TABLE call_ups; DROP TABLE intl_apps; DROP TABLE hosts; DELETE FROM competitions WHERE id = 458; ALTER TABLE clubs DROP COLUMN training; ALTER TABLE stadiums DROP COLUMN undersoil_heating; UPDATE game SET version = 3;")
+                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; DROP TABLE last_lineups; DROP TABLE coach_areas; DROP TABLE reserve_matches; DROP TABLE reserve_apps; DROP TABLE absences; DROP TABLE reserve_picks; DROP TABLE setup_transfers; DROP TABLE setup_retirements; DROP TABLE bans; DROP TABLE finances_month; ALTER TABLE game DROP COLUMN part; ALTER TABLE news DROP COLUMN part; DROP TABLE call_ups; DROP TABLE intl_apps; DROP TABLE hosts; DELETE FROM competitions WHERE id = 458; ALTER TABLE clubs DROP COLUMN training; ALTER TABLE stadiums DROP COLUMN undersoil_heating; ALTER TABLE stadiums DROP COLUMN retractable_roof; ALTER TABLE clubs DROP COLUMN owns_stadium; ALTER TABLE clubs DROP COLUMN match_day; ALTER TABLE clubs DROP COLUMN avg_attendance; ALTER TABLE clubs DROP COLUMN min_attendance; ALTER TABLE clubs DROP COLUMN max_attendance; UPDATE game SET version = 3;")
                 .unwrap();
             for (slot, pid) in old.iter().enumerate() {
                 w.conn

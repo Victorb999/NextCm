@@ -180,19 +180,31 @@ impl Game {
         Ok(())
     }
 
-    /// Assistência de um jogo: a lotação do estádio da casa, mais cheia nos clubes com mais
-    /// reputação, com um sorteio fixo por partida (a tela do jogo mostra a mesma).
+    /// Assistência de um jogo: a do banco (média, mínima e máxima do clube) com um sorteio fixo
+    /// por partida; sem esses dados, a lotação do estádio da casa, mais cheia nos clubes com mais
+    /// reputação. Nunca passa da lotação (a tela do jogo mostra a mesma).
     pub(super) fn attendance(&self, m: &Match) -> Result<i32> {
-        let (capacity, reputation): (Option<i32>, i32) = self
+        type Row = (Option<i32>, i32, [Option<i32>; 3]);
+        let (capacity, reputation, crowd): Row = self
             .world
             .conn
             .prepare_cached(
-                "SELECT s.capacity, COALESCE(c.reputation, 0) FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id WHERE c.id = ?",
+                "SELECT s.capacity, COALESCE(c.reputation, 0), c.avg_attendance, c.min_attendance, c.max_attendance
+                 FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id WHERE c.id = ?",
             )?
-            .query_row([m.home_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            .query_row([m.home_id], |r| Ok((r.get(0)?, r.get(1)?, [r.get(2)?, r.get(3)?, r.get(4)?])))?;
+        let capacity = capacity.unwrap_or(15_000).max(1_000);
         let mut rng = engine::match_rng(self.seed ^ 0x00A7_7E4D, m.id);
-        let fill = (0.45 + 0.30 * reputation as f64 / 10_000.0 + 0.25 * engine::uniform(&mut rng)).min(0.98);
-        Ok((capacity.unwrap_or(15_000).max(1_000) as f64 * fill).round() as i32)
+        let u = engine::uniform(&mut rng);
+        if let [Some(avg), min, max] = crowd {
+            // A média no meio do sorteio: metade abaixo (até à mínima), metade acima (até à máxima)
+            let (min, max) = (min.unwrap_or(avg).min(avg) as f64, max.unwrap_or(avg).max(avg) as f64);
+            let avg = avg as f64;
+            let people = if u < 0.5 { min + (avg - min) * 2.0 * u } else { avg + (max - avg) * (2.0 * u - 1.0) };
+            return Ok((people.round() as i32).clamp(1_000.min(capacity), capacity));
+        }
+        let fill = (0.45 + 0.30 * reputation as f64 / 10_000.0 + 0.25 * u).min(0.98);
+        Ok((capacity as f64 * fill).round() as i32)
     }
 
     /// Bilheteira de um jogo acabado: a assistência vezes o bilhete do clube da casa (pela

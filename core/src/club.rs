@@ -133,6 +133,14 @@ pub struct ClubProfile {
     pub stadium_seated: Option<i32>,
     /// Com aquecimento subterrâneo no relvado.
     pub undersoil_heating: bool,
+    /// Com telhado retráctil.
+    pub retractable_roof: bool,
+    /// O estádio é do clube (e não alugado ou partilhado).
+    pub owns_stadium: bool,
+    /// O dia da semana dos jogos em casa ("Sábado"), quando o banco o tem.
+    pub match_day: Option<String>,
+    /// A assistência do clube no banco: média, mínima e máxima.
+    pub attendance: Option<[i32; 3]>,
     /// As instalações de treino, como no CM ("Excelentes condições, com academia para Jovens").
     pub facilities: Option<String>,
     /// "Profissional", "Semi-profissional" ou "Amador".
@@ -195,6 +203,19 @@ pub(crate) fn lines_and_sides(p: &[Option<i32>; 12]) -> (Vec<String>, Vec<String
 /// a posição mais defensiva define o lugar na lista.
 fn position_order(mask: i32) -> i32 {
     (0..7).find(|b| mask & (1 << b) != 0).unwrap_or(7)
+}
+
+/// O dia dos jogos em casa do banco (1 terça a 6 domingo; a segunda não existe: 0 é "sem dados").
+pub fn match_day_text(day: i32) -> Option<&'static str> {
+    Some(match day {
+        1 => "Terça-feira",
+        2 => "Quarta-feira",
+        3 => "Quinta-feira",
+        4 => "Sexta-feira",
+        5 => "Sábado",
+        6 => "Domingo",
+        _ => return None,
+    })
 }
 
 /// As instalações de treino (1 a 20) pelas frases da Informação Geral do CM; 0 é sem dados.
@@ -396,6 +417,18 @@ impl World {
             .and_then(|mut st| st.query_row([id], |r| Ok((r.get(0)?, r.get(1)?))))
             .unwrap_or((None, false));
 
+        // O telhado, o estádio próprio, o dia do jogo e a assistência (banco de antes do esquema 9: nada)
+        type Extras = (bool, bool, Option<i32>, [Option<i32>; 3]);
+        let (roof, owns, day, crowd): Extras = self
+            .conn
+            .prepare_cached(
+                "SELECT COALESCE(s.retractable_roof, 0) <> 0, COALESCE(c.owns_stadium, 0) <> 0, c.match_day,
+                        c.avg_attendance, c.min_attendance, c.max_attendance
+                 FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id WHERE c.id = ?",
+            )
+            .and_then(|mut st| st.query_row([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, [r.get(3)?, r.get(4)?, r.get(5)?]))))
+            .unwrap_or((false, false, None, [None; 3]));
+
         let mut rival_refs = Vec::new();
         for rival in rivals.into_iter().flatten() {
             rival_refs.extend(self.club_ref(Some(rival))?);
@@ -444,6 +477,13 @@ impl World {
             stadium_city,
             stadium_seated: seated.filter(|c| *c > 0),
             undersoil_heating: heating,
+            retractable_roof: roof,
+            owns_stadium: owns,
+            match_day: day.and_then(match_day_text).map(String::from),
+            attendance: match crowd {
+                [Some(avg), min, max] => Some([avg, min.unwrap_or(avg), max.unwrap_or(avg)]),
+                _ => None,
+            },
             facilities: training.and_then(facilities_text).map(String::from),
             status: match professional_status {
                 Some(1) => Some("Profissional".into()),
@@ -487,16 +527,21 @@ impl World {
     /// O clube tem uma equipa B ou II a jogar numa liga (o Barcelona B, o Bayern II): no CM,
     /// esses clubes não têm jogos de reservas.
     pub fn has_b_team(&self, id: i32) -> Result<bool> {
-        let Some(club) = self.club_ref(Some(id))? else { return Ok(false) };
+        Ok(self.b_team_division(id)?.is_some())
+    }
+
+    /// A liga onde joga a equipa B ou II do clube, se tiver uma.
+    pub fn b_team_division(&self, id: i32) -> Result<Option<i32>> {
+        let Some(club) = self.club_ref(Some(id))? else { return Ok(None) };
         let nation: Option<i32> = self.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [id], |r| r.get(0))?;
         for c in self.affiliates(&club, nation)? {
             let short = squash(&c.short_name);
             let division: Option<i32> = self.conn.query_row("SELECT division_id FROM clubs WHERE id = ?", [c.id], |r| r.get(0))?;
             if (short.ends_with(" B") || short.ends_with(" II")) && division.is_some_and(|d| d != RESERVE_DIVISION) {
-                return Ok(true);
+                return Ok(division);
             }
         }
-        Ok(false)
+        Ok(None)
     }
 
     /// Os clubes de reservas e juniores cujo clube principal é este.
@@ -562,6 +607,22 @@ mod tests {
         assert!(!palmeiras.undersoil_heating);
         assert_eq!(facilities_text(3), Some("Condições básicas"));
         assert_eq!(facilities_text(0), None);
+    }
+
+    #[test]
+    fn stadium_roof_attendance_and_match_day() {
+        let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let w = World::open(&path).unwrap();
+        // Bayern: estádio próprio, jogos ao sábado e assistência do banco
+        let bayern = w.get_club(1350).unwrap();
+        assert!(bayern.owns_stadium);
+        assert_eq!(bayern.match_day.as_deref(), Some("Sábado"));
+        assert_eq!(bayern.attendance, Some([75_000, 75_000, 88_000]));
+        assert!(!w.get_club(7568).unwrap().retractable_roof);
+        let roofs: i64 = w.conn.query_row("SELECT COUNT(*) FROM stadiums WHERE retractable_roof <> 0", [], |r| r.get(0)).unwrap();
+        assert!(roofs > 10, "{roofs} estádios com telhado");
+        assert_eq!(match_day_text(6), Some("Domingo"));
+        assert_eq!(match_day_text(0), None);
     }
 
     #[test]
