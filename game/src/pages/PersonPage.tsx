@@ -6,6 +6,7 @@ import type { PersonProfile } from '../bindings/PersonProfile'
 import CascadeMenu, { type MenuNode } from '../components/CascadeMenu'
 import { DialogFrame, Overlay } from '../components/Dialog'
 import DisciplineDialog from '../components/DisciplineDialog'
+import PersonRecords from '../components/PersonRecords'
 import PlayerHistory, { SeasonTable } from '../components/PlayerHistory'
 import ReportDialog from '../components/ReportDialog'
 import SquadRoleDialog from '../components/SquadRoleDialog'
@@ -56,6 +57,7 @@ const TABS = [
   { key: 'contract', label: 'Contrato & Transferência' },
   { key: 'history', label: 'Historial / Carreira' },
   { key: 'injuries', label: 'Lesões & Castigos' },
+  { key: 'records', label: 'Marcos & Recordes' },
 ]
 
 const DEFAULT_COLOURS = { fg: '#ffffff', bg: '#3a3a3a' }
@@ -411,6 +413,17 @@ function Injuries({ p }: { p: PersonProfile }) {
       ),
     ],
     ['Cartões amarelos', `${st.yellows} (suspensão ao 3º)`],
+    // Cup-tied: já jogou a continental por outro clube nesta época
+    [
+      'Continentais',
+      st.cupTied.length ? (
+        <span key="c" className="text-[#ff5050]">
+          {`Não joga: ${st.cupTied.join(', ')}`}
+        </span>
+      ) : (
+        'Pode jogar'
+      ),
+    ],
   ]
   return (
     <div className="flex min-h-0 flex-1 items-start gap-2 overflow-auto pb-1">
@@ -665,7 +678,7 @@ export default function PersonPage({ id }: { id: number }) {
         }
         tabs={
           <Tabs
-            tabs={(person?.player ? TABS : TABS.filter((t) => t.key !== 'injuries')).map((t) =>
+            tabs={(person?.player && game.mode === 'game' ? TABS : TABS.filter((t) => t.key !== 'injuries' && t.key !== 'records')).map((t) =>
               person?.ghost && t.key !== 'profile'
                 ? { ...t, disabled: true }
                 : t.key === 'injuries'
@@ -723,6 +736,7 @@ export default function PersonPage({ id }: { id: number }) {
         )}
         {person && !person.ghost && tab === 'injuries' && <Injuries p={person} />}
         {person && !person.ghost && tab === 'history' && <PlayerHistory p={person} />}
+        {person && !person.ghost && tab === 'records' && <PersonRecords p={person} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
       {deal && market && person && (

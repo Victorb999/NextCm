@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rusqlite::OptionalExtension;
 use serde::Serialize;
 use ts_rs::TS;
@@ -535,6 +537,26 @@ impl World {
             }
         }
         Ok(None)
+    }
+
+    /// As Preferências do CM (tabela 22 do `staff.dat`): `Some(true)` se o clube é um dos
+    /// favoritos da pessoa, `Some(false)` se o detesta.
+    pub fn club_preference(&self, person: i32, club: i32) -> Result<Option<bool>> {
+        Ok(self
+            .conn
+            .prepare_cached("SELECT liked FROM preferences WHERE person_id = ? AND kind = 'club' AND target_id = ? LIMIT 1")?
+            .query_row([person, club], |r| r.get::<_, i32>(0))
+            .optional()?
+            .map(|l| l != 0))
+    }
+
+    /// Os jogadores que têm o clube entre os favoritos (`true`) ou os detestados (`false`).
+    pub fn club_fans(&self, club: i32) -> Result<HashMap<i32, bool>> {
+        Ok(self
+            .conn
+            .prepare_cached("SELECT person_id, liked FROM preferences WHERE kind = 'club' AND target_id = ?")?
+            .query_map([club], |r| Ok((r.get(0)?, r.get::<_, i32>(1)? != 0)))?
+            .collect::<rusqlite::Result<_>>()?)
     }
 
     /// O clube tem uma equipa B ou II a jogar numa liga (o Barcelona B, o Bayern II).

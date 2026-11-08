@@ -86,6 +86,25 @@ pub struct CareerEntry {
     pub goals: i32,
 }
 
+/// Um marco da carreira ("Estreia pelo Bayern", "100.º jogo da carreira").
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct CareerMark {
+    pub date: String,
+    pub text: String,
+}
+
+/// Um recorde do jogador ("Mais golos num jogo": 4, "contra o X, 2.10.2026").
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordLine {
+    pub label: String,
+    pub value: String,
+    pub detail: Option<String>,
+}
+
 /// Uma acção do menu Acção: `key` "demote" (descer) ou "promote" (subir) e o texto.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
@@ -143,6 +162,9 @@ pub struct PersonProfile {
     /// A acção que o muda de plantel no menu Acção ("Despromover para Reservas", "Relegar
     /// para Equipa 'B'", "Promover à Equipa 'A'"...), pelas reservas do clube do treinador.
     pub squad_move: Option<SquadMove>,
+    /// Marcos & Recordes: os marcos (do mais recente) e os recordes; só num jogo em curso.
+    pub marks: Vec<CareerMark>,
+    pub records: Vec<RecordLine>,
     /// As últimas notas (a Forma do CM), da mais antiga à mais recente.
     pub form: Vec<f64>,
     /// Os jogos da época por competição.
@@ -383,6 +405,8 @@ impl World {
                         shortlisted: false,
                         can_contract: false,
                         squad_move: None,
+                        marks: Vec::new(),
+                        records: Vec::new(),
                         form: Vec::new(),
                         season: Vec::new(),
                         nickname: None,

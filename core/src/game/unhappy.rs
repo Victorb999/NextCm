@@ -259,8 +259,22 @@ impl Game {
             *next_id += 1;
             self.change_fans(-1)?;
         }
+        // Um colega que ele detesta (as Preferências do CM) no plantel
+        let enemy: bool = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT 1 FROM preferences f JOIN people q ON q.id = f.target_id
+                 WHERE f.person_id = ? AND f.kind = 'person' AND f.liked = 0 AND q.club_id = ? AND q.is_player = 1 LIMIT 1",
+            )?
+            .query_row([p.id, self.club_id], |_| Ok(()))
+            .optional()?
+            .is_some();
+        if enemy {
+            self.add_unhappy(p.id, "teammate")?;
+        }
         // Um colega com quem não se dá (por semana, sorteado; passa com o tempo)
-        if p.rank < 15 && (sportsmanship <= 8 || temperament <= 6) {
+        if !enemy && p.rank < 15 && (sportsmanship <= 8 || temperament <= 6) {
             let mut rng = match_rng(self.seed ^ 0xA_402, p.id ^ date::parse(&self.date).unwrap_or(0));
             if uniform(&mut rng) < TEAMMATE_CHANCE {
                 self.add_unhappy(p.id, "teammate")?;

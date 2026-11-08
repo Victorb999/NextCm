@@ -21,7 +21,7 @@ use crate::regulation::{self, StageKind};
 use crate::{Result, date};
 
 /// Competições continentais (prémios maiores).
-const CONTINENTAL: [i32; 4] = [LIBERTADORES, SUL_AMERICANA, CHAMPIONS_LEAGUE, EUROPA_LEAGUE];
+pub(super) const CONTINENTAL: [i32; 4] = [LIBERTADORES, SUL_AMERICANA, CHAMPIONS_LEAGUE, EUROPA_LEAGUE];
 
 impl Game {
     /// Divisão de um clube (a liga das contas dele).

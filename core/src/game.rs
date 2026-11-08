@@ -18,9 +18,11 @@ use crate::engine;
 
 mod board;
 mod board_meeting;
+mod career_marks;
 mod competitions;
 mod contract_extras;
 mod contracts;
+mod cup_tied;
 mod deals;
 mod discipline;
 mod finances;
@@ -134,7 +136,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// (`stadiums.undersoil_heating`), do banco.
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
-pub const SAVE_VERSION: i32 = 51;
+pub const SAVE_VERSION: i32 = 52;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -150,6 +152,9 @@ ALTER TABLE player_orders RENAME COLUMN person_id TO slot;
 pub const MORNING: i32 = 0;
 pub const AFTERNOON: i32 = 1;
 pub const NIGHT: i32 = 2;
+/// As horas dos jogos do CM: os da tarde e os da noite.
+pub(crate) const AFTERNOON_KICKOFF: &str = "15:00";
+pub(crate) const NIGHT_KICKOFF: &str = "20:45";
 /// A parte do dia do jogo e a de cada notícia (save 44; os saves antigos ficam à noite).
 const DAY_PARTS_SCHEMA: &str = "ALTER TABLE game ADD COLUMN part INTEGER NOT NULL DEFAULT 2;
 ALTER TABLE news ADD COLUMN part INTEGER NOT NULL DEFAULT 0;";
@@ -1232,6 +1237,11 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 51", [])?;
             version = 51;
         }
+        if version == 51 {
+            add_preferences(&world.conn, path)?;
+            world.conn.execute("UPDATE game SET version = 52", [])?;
+            version = 52;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1540,6 +1550,11 @@ impl Game {
             Some(0 | 6) if m.id % 4 != 0 => AFTERNOON,
             _ => NIGHT,
         }
+    }
+
+    /// A hora do jogo pela parte do dia, como no CM: às 15h à tarde e às 20h45 à noite.
+    pub(super) fn kickoff(m: &Match) -> &'static str {
+        if Self::match_part(m) == AFTERNOON { AFTERNOON_KICKOFF } else { NIGHT_KICKOFF }
     }
 
     /// O jogo do treinador que vem já a seguir: mais logo, hoje, ou amanhã.
@@ -1946,6 +1961,10 @@ impl Game {
         if club == self.club_id {
             out.extend(self.absent_players());
         }
+        // Já jogou esta continental por outro clube nesta época
+        if let Some(comp) = comp {
+            out.extend(self.cup_tied(club, comp).unwrap_or_default());
+        }
         for id in out {
             if let Some(a) = state.get_mut(&id) {
                 a.injured = true;
@@ -2076,6 +2095,7 @@ impl Game {
         let mut s = self.squads.status(id)?;
         s.unhappy = self.unhappy_reasons(id).unwrap_or_default();
         s.club_unhappy = self.club_unhappy_reasons(id).unwrap_or_default();
+        s.cup_tied = self.cup_tied_competitions(id).unwrap_or_default();
         if let Ok(Some((kind, until))) = self.absence(id) {
             s.absence = Some(kind);
             s.absence_until = Some(until);
@@ -2222,6 +2242,7 @@ impl Game {
             competition: self.competition_name(m.competition_id).into(),
             round: m.round,
             date: m.date.clone(),
+            time: Self::kickoff(m).into(),
             home: self.club(m.home_id),
             away: self.club(m.away_id),
             home_goals: m.result.map(|r| r.0 as i32),
@@ -2984,6 +3005,28 @@ fn add_world_columns(conn: &rusqlite::Connection, near: &Path) -> Result<()> {
     filled
 }
 
+/// As Preferências do CM (save 52): a tabela do `world.sqlite` mais próximo, vazia se não houver.
+fn add_preferences(conn: &rusqlite::Connection, near: &Path) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS preferences (person_id INTEGER NOT NULL, kind TEXT NOT NULL, target_id INTEGER NOT NULL, liked INTEGER NOT NULL);
+         CREATE INDEX IF NOT EXISTS idx_preferences_person ON preferences(person_id);
+         CREATE INDEX IF NOT EXISTS idx_preferences_target ON preferences(kind, target_id);",
+    )?;
+    let Some(source) = World::locate(near).filter(|p| p.as_path() != near) else { return Ok(()) };
+    conn.execute("ATTACH DATABASE ? AS src", [source.to_string_lossy()])?;
+    let has: i64 =
+        conn.query_row("SELECT COUNT(*) FROM src.sqlite_master WHERE type = 'table' AND name = 'preferences'", [], |r| r.get(0))?;
+    let filled = if has > 0 {
+        conn.execute_batch(
+            "DELETE FROM preferences; INSERT INTO preferences SELECT person_id, kind, target_id, liked FROM src.preferences;",
+        )
+    } else {
+        Ok(())
+    };
+    conn.execute_batch("DETACH DATABASE src")?;
+    Ok(filled?)
+}
+
 /// "da Série A", "do Mundial", "das Eliminatórias do Mundial (UEFA)".
 pub(super) fn of_name(name: &str) -> String {
     format!("{} {name}", article(name))
@@ -3069,6 +3112,29 @@ pub fn list_saves(dir: &Path) -> Result<Vec<SaveSummary>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kickoff_by_part_of_the_day() {
+        let m = |id: i32, date: &str| Match {
+            id,
+            competition_id: 16,
+            round: 1,
+            date: date.into(),
+            home_id: 1,
+            away_id: 2,
+            result: None,
+            stage: 0,
+            group: None,
+            tie: None,
+            leg: 0,
+            neutral: false,
+            pens: None,
+        };
+        // Sábado à tarde, às 15h; o "Jogo da Noite" do fim de semana e os da semana às 20h45
+        assert_eq!(Game::kickoff(&m(1, "2025-08-02")), "15:00");
+        assert_eq!(Game::kickoff(&m(4, "2025-08-02")), "20:45");
+        assert_eq!(Game::kickoff(&m(1, "2025-08-06")), "20:45");
+    }
     use crate::engine::TeamStrength;
     use crate::league::SERIE_A;
     use training::{CoachAreas, ProgramAssign, TrainingPlan, TrainingProgram};

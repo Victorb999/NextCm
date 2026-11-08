@@ -17,6 +17,10 @@ unhappy: Array<string>,
  */
 clubUnhappy: Array<string>, 
 /**
+ * As continentais que já jogou por outro clube nesta época ("cup-tied"): não as joga.
+ */
+cupTied: Array<string>, 
+/**
  * Na equipa de reservas.
  */
 reserve: boolean, 

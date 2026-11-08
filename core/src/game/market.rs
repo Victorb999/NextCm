@@ -696,6 +696,9 @@ impl Game {
         if b.squad >= MAX_SQUAD {
             return Ok(None);
         }
+        // As Preferências do CM: quem detesta o clube não vem; quem o tem por favorito vem mesmo
+        // descendo ou saindo da Europa
+        let fans = self.world.club_fans(club)?;
         // A contratação bombástica: um clube muito rico, de vez em quando
         let splurge = b.cash as f64 >= SPLURGE_CASH * b.base && uniform(rng) < SPLURGE_CHANCE;
         let (premium, budget, wage_room) = if splurge {
@@ -736,12 +739,17 @@ impl Game {
             {
                 continue;
             }
+            let fan = fans.get(&l.id).copied();
+            if fan == Some(false) {
+                continue;
+            }
             // Vem de um clube muito maior? Não quer descer (o ambicioso ainda menos)
-            if l.club.is_some() && l.club_rep > b.rep + personality::step_down(l.ambition) {
+            if l.club.is_some() && fan.is_none() && l.club_rep > b.rep + personality::step_down(l.ambition) {
                 continue;
             }
             // Da Europa para fora dela, quase só veteranos
             if l.club.is_some()
+                && fan.is_none()
                 && leaving_europe(l.continent, b.continent)
                 && !leaves_europe(l.age, market.key.contains(&l.id), l.nation == b.nation)
             {

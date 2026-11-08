@@ -56,6 +56,8 @@ pub struct Fixture {
     pub competition: String,
     pub round: i32,
     pub date: String,
+    /// A hora do jogo, como no CM: "15:00" à tarde, "20:45" à noite.
+    pub time: String,
     pub home: ClubRef,
     pub away: ClubRef,
     pub home_goals: Option<i32>,

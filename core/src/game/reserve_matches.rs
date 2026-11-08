@@ -175,6 +175,7 @@ impl Game {
                 competition: RESERVES_LABEL.into(),
                 round: s.round,
                 date: s.date,
+                time: super::AFTERNOON_KICKOFF.into(),
                 home: self.club(s.home),
                 away: self.club(s.away),
                 home_goals: result.map(|r| r.0),

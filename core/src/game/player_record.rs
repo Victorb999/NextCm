@@ -412,6 +412,7 @@ impl Game {
         if p.club.as_ref().is_some_and(|c| c.id == self.club_id) {
             p.release_cost = Some(self.release_cost(p.id)?);
         }
+        self.fill_marks(p)?;
         self.fill_history(p)
     }
 

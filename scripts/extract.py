@@ -36,6 +36,7 @@ T_STAFF, T_NONPLAYER, T_PLAYER = 6, 9, 10
 T_CLUB_COMP, T_FIRST_NAMES, T_SECOND_NAMES, T_COMMON_NAMES = 12, 13, 14, 15
 T_NATION_COMP, T_STAFF_HISTORY, T_CLUB_COMP_HISTORY, T_NATION_COMP_HISTORY = 16, 17, 19, 20
 T_CITY = 21
+T_PREFERENCES = 22
 
 JOBS = {
     1: "Presidente",
@@ -273,6 +274,11 @@ CREATE TABLE career_history (
     person_id INTEGER, year INTEGER, club_id INTEGER,
     on_loan INTEGER, apps INTEGER, goals INTEGER
 );
+
+-- Preferências: clubes e pessoas favoritos (liked = 1) e detestados (0)
+CREATE TABLE preferences (
+    person_id INTEGER NOT NULL, kind TEXT NOT NULL, target_id INTEGER NOT NULL, liked INTEGER NOT NULL
+);
 """
 
 INDEXES = """
@@ -287,6 +293,8 @@ CREATE INDEX idx_clubs_division ON clubs(division_id);
 CREATE INDEX idx_clubs_reserve_division ON clubs(reserve_division_id);
 CREATE INDEX idx_competitions_nation ON competitions(nation_id);
 CREATE INDEX idx_history_person ON career_history(person_id);
+CREATE INDEX idx_preferences_person ON preferences(person_id);
+CREATE INDEX idx_preferences_target ON preferences(kind, target_id);
 CREATE INDEX idx_comp_history ON competition_history(competition_id, year);
 """
 
@@ -451,6 +459,29 @@ def people(r, first, second, common):
     return people_rows, player_rows, nonplayer_rows
 
 
+def preferences(r):
+    """Preferências (tabela 22 do staff.dat, 52 bytes): id, 3 clubes favoritos, 3 detestados,
+    3 pessoas favoritas e 3 detestadas (-1 = vazio). A pessoa aponta para o registo no byte 101."""
+    prefs = [b for _, b in r.table(T_PREFERENCES, 52)]
+    clubs = {i32(b, 0) for _, b in r.table(T_CLUB, 581)} | {i32(b, 0) for _, b in r.table(T_NAT_CLUB, 581)}
+    seen = set()
+    for _, b in r.table(T_STAFF, staff_record_size(r)):
+        pid, ptr = i32(b, 0), i32(b, 101)
+        if not 0 <= ptr < len(prefs):
+            continue
+        v = struct.unpack_from("<13i", prefs[ptr], 0)
+        for n, target in enumerate(v[1:]):
+            kind = "club" if n < 6 else "person"
+            liked = int(n % 6 < 3)
+            if target < 0 or (kind == "club" and target not in clubs) or (kind == "person" and target == pid):
+                continue
+            key = (pid, kind, target)
+            if key in seen:
+                continue
+            seen.add(key)
+            yield {"person_id": pid, "kind": kind, "target_id": target, "liked": liked}
+
+
 def career_history(r):
     seen = set()  # o banco tem entradas duplicadas
     for _, b in r.table(T_STAFF_HISTORY, 17):
@@ -500,6 +531,7 @@ def main():
         "players": insert(db, "players", player_rows),
         "non_players": insert(db, "non_players", nonplayer_rows),
         "career_history": insert(db, "career_history", career_history(r)),
+        "preferences": insert(db, "preferences", preferences(r)),
     }
     db.executescript(INDEXES)
     db.execute("ANALYZE")  # estatísticas para o planejador escolher bons índices

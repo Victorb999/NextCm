@@ -127,7 +127,20 @@ impl Game {
         let deal = if let Party::Transfer(o) | Party::Free(Some(o)) = &party { Some(o) } else { None };
         // Não desce para um clube muito menor (quanto mais ambicioso, menos aceita descer)
         let refuse = |text: String| ContractReply { accepted: false, over: true, pending: false, wage: 0, bonus: 0, years, text };
+        // As Preferências do CM: nunca vai para um clube que detesta; para um favorito vai mesmo
+        // descendo ou saindo da Europa
+        let preference = self.world.club_preference(person, self.club_id)?;
+        if preference == Some(false) && !matches!(party, Party::Renewal) {
+            if let Party::Transfer(o) = &party {
+                self.set_status(o.id, "collapsed", None)?;
+            }
+            self.unsaved = true;
+            let club = self.club(self.club_id).name;
+            return Ok(refuse(format!("{name} não quer jogar no {club}.")));
+        }
+        let favourite = preference == Some(true);
         if let (Party::Transfer(o), Some(club)) = (&party, f.club)
+            && !favourite
             && self.club_rep(club)? > self.club_rep(self.club_id)? + personality::step_down(f.ambition)
         {
             self.set_status(o.id, "collapsed", None)?;
@@ -135,6 +148,7 @@ impl Game {
             return Ok(refuse(format!("{name} não está interessado em mudar para um clube menor.")));
         }
         if let (Party::Transfer(o), Some(club)) = (&party, f.club)
+            && !favourite
             && self.stays_in_europe(person, &f, club)?
         {
             self.set_status(o.id, "collapsed", None)?;

@@ -65,6 +65,11 @@ impl Game {
                   WHERE NOT (age >= 31 OR (nation = {nation} AND age >= 27) OR (n > 11 AND age >= 29))"
             );
         }
+        // As Preferências do CM: quem detesta o clube recusa; quem o tem por favorito aceita
+        let sql = format!(
+            "SELECT id FROM ({sql} UNION SELECT person_id FROM preferences WHERE kind = 'club' AND liked = 0 AND target_id = {club})
+             WHERE id NOT IN (SELECT person_id FROM preferences WHERE kind = 'club' AND liked = 1 AND target_id = {club})"
+        );
         Ok(Some(sql))
     }
 
@@ -225,5 +230,44 @@ mod tests {
         assert!(w.total > 0 && w.items.len() as i32 <= w.total);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preferences_decide_who_refuses() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let world = crate::World::open(&path).unwrap();
+        const RONALDO: i32 = 3522;
+        const BARCELONA: i32 = 1283;
+        const SPORTING: i32 = 9627;
+        // As Preferências do CM: o Ronaldo gosta do Sporting e detesta o Barcelona
+        assert_eq!(world.club_preference(RONALDO, SPORTING).unwrap(), Some(true));
+        assert_eq!(world.club_preference(RONALDO, BARCELONA).unwrap(), Some(false));
+        drop(world);
+        let unwilling = |club: i32, name: &str| -> bool {
+            let dir = std::env::temp_dir().join(format!("nextcm-pref-{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            let new = crate::NewGame {
+                save_name: name.into(),
+                first_name: "Victor".into(),
+                last_name: "Araujo".into(),
+                birth_date: None,
+                nation_id: None,
+                club_id: club,
+                leagues: Vec::new(),
+                start: Default::default(),
+                license: 0,
+                real_players: true,
+                masking: true,
+            };
+            let g = Game::create(&path, &dir, &new, 31).unwrap();
+            let sql = g.unwilling_sql().unwrap().unwrap();
+            let refuses: bool =
+                g.world.conn.query_row(&format!("SELECT COUNT(*) > 0 FROM ({sql}) WHERE id = ?"), [RONALDO], |r| r.get(0)).unwrap();
+            drop(g);
+            let _ = std::fs::remove_dir_all(&dir);
+            refuses
+        };
+        assert!(unwilling(BARCELONA, "barca"), "detesta o Barcelona");
+        assert!(!unwilling(SPORTING, "sporting"), "vem para o Sporting");
     }
 }
