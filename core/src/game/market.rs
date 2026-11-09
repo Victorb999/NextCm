@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::RngCore;
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use ts_rs::TS;
 
@@ -68,6 +68,22 @@ const WEAK_STARTER: i32 = 6;
 /// Listas da IA: quantos na de transferências e na de empréstimos, o preço dos listados (parte
 /// do valor) e a vantagem (em CA) que têm na escolha de quem compra.
 const MAX_LISTED: usize = 3;
+/// A vontade de vender a partir da qual a IA põe um jogador na lista (`Game::sell_score`).
+const SELL_AT: i32 = 40;
+
+/// O que um clube da IA sabe do plantel para decidir quem vende.
+struct SellContext {
+    /// O treinador gosta (true) ou detesta (false) destes jogadores.
+    coach_likes: HashMap<i32, bool>,
+    /// Os jogadores que detestam o treinador e os que detestam um colega.
+    hates_coach: HashSet<i32>,
+    feuds: HashSet<i32>,
+    temper: HashMap<i32, i32>,
+    /// 0 com o saldo positivo, 1 no vermelho, 2 em dívida grande.
+    debt: i32,
+    /// O peso do clube (a reputação e as continentais).
+    pull: i32,
+}
 const MAX_LOAN_LISTED: usize = 2;
 const LISTED_FEE: f64 = 0.9;
 const LISTED_EDGE: i32 = 5;
@@ -454,6 +470,7 @@ impl Game {
             .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
             .collect::<rusqlite::Result<_>>()?;
         let loaned: HashSet<i32> = self.loaned_players()?;
+        let bonus = self.continental_bonuses();
         let mut done: HashMap<i32, usize> = self.window_deals()?;
         for &(club, rep, division) in &managed {
             if club == self.club_id {
@@ -462,7 +479,7 @@ impl Game {
             // As listas refazem-se mesmo com a janela do clube fechada: os outros continuam a
             // comprar-lhe jogadores, e uma lista velha deixava titulares listados
             if trading {
-                self.ai_listings(club, &market, &loaned)?;
+                self.ai_listings(club, &market, &loaned, &bonus)?;
             }
             let kind = self.club_kind(division);
             if !window_open(kind, &md) {
@@ -506,55 +523,170 @@ impl Game {
     /// mercado: na de transferências os que estão fora dos planos (24+) e os veteranos fora do
     /// onze (32+), até 3, sem deixar o papel abaixo do mínimo; na de empréstimos os jovens (até
     /// 23) fora dos planos, até 2. As estrelas nunca; os listados a pedido ficam.
-    fn ai_listings(&mut self, club: i32, market: &Market, loaned: &HashSet<i32>) -> Result<()> {
-        self.world
-            .conn
-            .execute("DELETE FROM transfer_list WHERE requested = 0 AND person_id IN (SELECT id FROM people WHERE club_id = ?)", [club])?;
+    /// As listas de um clube da IA, como no CM: vai para a venda quem o clube quer vender por
+    /// vários motivos somados ([`Game::sell_score`]: o lugar no plantel, a idade, o contrato, o
+    /// dinheiro, o treinador, as brigas e o pedido para sair), até [`MAX_LISTED`] e sem deixar
+    /// uma posição abaixo do mínimo. Quem pede para sair fica marcado (`requested`). Os jovens fora
+    /// dos planos vão para a lista de empréstimos.
+    fn ai_listings(&mut self, club: i32, market: &Market, loaned: &HashSet<i32>, bonus: &HashMap<i32, i32>) -> Result<()> {
+        self.world.conn.execute("DELETE FROM transfer_list WHERE person_id IN (SELECT id FROM people WHERE club_id = ?)", [club])?;
         // Os planos contam com todos (os emprestados ao clube também ocupam um lugar); as listas não
         let all: Vec<&Listing> = market.squad(club).collect();
         let spare = out_of_plans(&all);
         let core = core_value(all.iter().copied());
-        let squad: Vec<&Listing> = all.iter().copied().filter(|l| !loaned.contains(&l.id)).collect();
+        let ctx = self.sell_context(club, bonus)?;
         let star = |l: &Listing| l.value() as f64 >= STAR_SHARE * core;
         let mut count = [0; ROLES];
-        for l in &squad {
+        for l in all.iter().filter(|l| !loaned.contains(&l.id)) {
             count[l.role] += 1;
         }
-        let mut sell: Vec<&Listing> = Vec::new();
-        // Do pior para o melhor, os mais velhos primeiro
-        let mut out: Vec<(usize, &Listing)> = squad
-            .iter()
-            .copied()
-            .enumerate()
-            .filter(|(rank, l)| ((spare.contains(&l.id) && l.age >= 24) || (*rank >= 11 && l.age >= 32)) && !star(l))
-            .collect();
-        out.sort_by_key(|(rank, l)| (std::cmp::Reverse(l.age), std::cmp::Reverse(*rank), l.id));
-        for (_, l) in out {
+        let mut scored: Vec<(i32, bool, &Listing)> = Vec::new();
+        for (rank, l) in all.iter().copied().enumerate() {
+            if loaned.contains(&l.id) || l.recent {
+                continue;
+            }
+            let (score, wants_out) = self.sell_score(l, rank, spare.contains(&l.id), star(l), &ctx);
+            if score >= SELL_AT {
+                scored.push((score, wants_out, l));
+            }
+        }
+        scored.sort_by_key(|(score, _, l)| (std::cmp::Reverse(*score), l.id));
+        let mut sell: Vec<(bool, &Listing)> = Vec::new();
+        for (_, wants_out, l) in scored {
             if sell.len() >= MAX_LISTED || count[l.role] <= MIN_ROLE[l.role] + 1 {
                 continue;
             }
             count[l.role] -= 1;
-            sell.push(l);
+            sell.push((wants_out, l));
         }
-        let lend: Vec<&Listing> = squad
+        let listed: HashSet<i32> = sell.iter().map(|(_, l)| l.id).collect();
+        let lend: Vec<&Listing> = all
             .iter()
             .copied()
-            .enumerate()
-            .filter(|(_, l)| spare.contains(&l.id) && l.age <= 23 && !l.recent && !star(l))
-            .map(|(_, l)| l)
+            .filter(|l| !loaned.contains(&l.id) && !listed.contains(&l.id))
+            .filter(|l| spare.contains(&l.id) && l.age <= 23 && !l.recent && !star(l))
             .take(MAX_LOAN_LISTED)
             .collect();
         let mut insert = self
             .world
             .conn
-            .prepare_cached("INSERT OR IGNORE INTO transfer_list (person_id, transfer, loan, asking) VALUES (?, ?, ?, ?)")?;
-        for l in sell {
-            insert.execute(params![l.id, 1, 0, finance::round_money(l.value() as f64).max(10_000)])?;
+            .prepare_cached("INSERT OR IGNORE INTO transfer_list (person_id, transfer, loan, asking, requested) VALUES (?, ?, ?, ?, ?)")?;
+        for (wants_out, l) in sell {
+            insert.execute(params![l.id, 1, 0, finance::round_money(l.value() as f64).max(10_000), wants_out])?;
         }
         for l in lend {
-            insert.execute(params![l.id, 0, 1, Option::<i64>::None])?;
+            insert.execute(params![l.id, 0, 1, Option::<i64>::None, false])?;
         }
         Ok(())
+    }
+
+    /// O que um clube da IA sabe do plantel para decidir quem vende.
+    fn sell_context(&self, club: i32, bonus: &HashMap<i32, i32>) -> Result<SellContext> {
+        let conn = &self.world.conn;
+        let coach: Option<i32> =
+            conn.query_row("SELECT id FROM people WHERE club_id = ? AND club_job = 5 LIMIT 1", [club], |r| r.get(0)).optional()?;
+        let mut coach_likes = HashMap::new();
+        let mut hates_coach = HashSet::new();
+        if let Some(c) = coach {
+            let rows: Vec<(i32, bool)> = conn
+                .prepare_cached("SELECT target_id, liked FROM preferences WHERE person_id = ? AND kind = 'person'")?
+                .query_map([c], |r| Ok((r.get(0)?, r.get::<_, i32>(1)? != 0)))?
+                .collect::<rusqlite::Result<_>>()?;
+            coach_likes.extend(rows);
+            let rows: Vec<i32> = conn
+                .prepare_cached("SELECT person_id FROM preferences WHERE kind = 'person' AND liked = 0 AND target_id = ?")?
+                .query_map([c], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
+            hates_coach.extend(rows);
+        }
+        // Quem detesta um colega do plantel (as Preferências)
+        let feuds: HashSet<i32> = conn
+            .prepare_cached(
+                "SELECT f.person_id FROM preferences f JOIN people a ON a.id = f.person_id JOIN people b ON b.id = f.target_id
+                 WHERE f.kind = 'person' AND f.liked = 0 AND a.club_id = ?1 AND b.club_id = ?1 AND b.is_player = 1",
+            )?
+            .query_map([club], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let temper: HashMap<i32, i32> = conn
+            .prepare_cached("SELECT id, COALESCE(temperament, 10) FROM people WHERE club_id = ? AND is_player = 1")?
+            .query_map([club], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let base = self.club_base(club)?;
+        let cash = self.cash_of(club)? as f64;
+        let debt = if cash < -0.1 * base {
+            2
+        } else if cash < 0.0 {
+            1
+        } else {
+            0
+        };
+        let pull = self.club_rep(club)? + bonus.get(&club).copied().unwrap_or(0);
+        Ok(SellContext { coach_likes, hates_coach, feuds, temper, debt, pull })
+    }
+
+    /// A vontade de vender um jogador (pontos; vende a partir de [`SELL_AT`]) e se ele pediu
+    /// para sair. Os pesos estão em docs/roadmap/3.19.1-pendencias.md (9/11).
+    fn sell_score(&self, l: &Listing, rank: usize, spare: bool, star: bool, ctx: &SellContext) -> (i32, bool) {
+        let mut score = 0;
+        // O lugar no plantel
+        if spare {
+            score += 40;
+        }
+        if rank < 11 {
+            score -= 50;
+        } else if rank < 18 {
+            score -= 15;
+        }
+        // A idade: os veteranos fora do onze saem; os jovens com margem ficam
+        if l.age >= 32 && rank >= 11 {
+            score += 30;
+        } else if l.age >= 30 && spare {
+            score += 10;
+        }
+        if l.age <= 21 && l.pa - l.ca >= 15 {
+            score -= 25;
+        }
+        // O contrato: no último ano, vende-se antes de o perder de graça
+        if l.years_left <= 1.0 && (24..=31).contains(&l.age) {
+            score += 20;
+        }
+        // O dinheiro: um clube no vermelho vende os que valem alguma coisa
+        if ctx.debt > 0 && l.value() >= 1_000_000 {
+            score += 15 * ctx.debt;
+        }
+        // O treinador
+        match ctx.coach_likes.get(&l.id) {
+            Some(false) => score += 45,
+            Some(true) => score -= 40,
+            None => {}
+        }
+        // As brigas: com o treinador, com um colega, o mau feitio
+        if ctx.hates_coach.contains(&l.id) {
+            score += 25;
+        }
+        if ctx.feuds.contains(&l.id) {
+            score += 15;
+        }
+        if ctx.temper.get(&l.id).copied().unwrap_or(10) <= 4 {
+            score += 10;
+        }
+        // O pedido para sair, como a insatisfação do plantel do treinador: o ambicioso que se acha
+        // grande demais para o clube (pela reputação dele), ou quem quer jogar e não joga
+        let too_big = l.ambition >= 14.0 && l.rep * 50 > ctx.pull + personality::step_down(l.ambition);
+        let wants_games = rank >= 16 && (23..=30).contains(&l.age) && l.ambition >= 13.0 && l.ca >= 100;
+        let wants_out = too_big || wants_games;
+        if wants_out {
+            score += 35;
+        }
+        // As estrelas ficam, a não ser que queiram sair ou o treinador não as queira
+        if star && !wants_out && ctx.coach_likes.get(&l.id) != Some(&false) {
+            score -= 60;
+        }
+        // Um toque de acaso pela seed, igual na janela toda
+        let window = self.date[0..4].parse::<i32>().unwrap_or(0) * 2 + i32::from(&self.date[5..7] >= "07");
+        let mut rng = self.deal_rng(l.id, 0x5E11_0000 ^ window as u64);
+        score += (rng.next_u32() % 21) as i32 - 10;
+        (score, wants_out)
     }
 
     /// Negócios de cada clube na janela em curso (os últimos 70 dias), para o limite por janela.
@@ -699,6 +831,10 @@ impl Game {
         // As Preferências do CM: quem detesta o clube não vem; quem o tem por favorito vem mesmo
         // descendo ou saindo da Europa
         let fans = self.world.club_fans(club)?;
+        // O peso dos clubes para os jogadores: a reputação e as continentais desta época
+        let bonus = self.continental_bonuses();
+        let pull = |c: Option<i32>| c.and_then(|c| bonus.get(&c).copied()).unwrap_or(0);
+        let buyer_pull = b.rep + pull(Some(club));
         // A contratação bombástica: um clube muito rico, de vez em quando
         let splurge = b.cash as f64 >= SPLURGE_CASH * b.base && uniform(rng) < SPLURGE_CHANCE;
         let (premium, budget, wage_room) = if splurge {
@@ -744,7 +880,7 @@ impl Game {
                 continue;
             }
             // Vem de um clube muito maior? Não quer descer (o ambicioso ainda menos)
-            if l.club.is_some() && fan.is_none() && l.club_rep > b.rep + personality::step_down(l.ambition) {
+            if l.club.is_some() && fan.is_none() && personality::steps_down(l.club_rep + pull(l.club), buyer_pull, l.ambition) {
                 continue;
             }
             // Da Europa para fora dela, quase só veteranos
@@ -893,6 +1029,36 @@ impl Game {
     }
 
     /// Emprestados cujo empréstimo acabou voltam ao clube de origem.
+    /// Chamar de volta um jogador emprestado pelo clube do treinador: volta já ao plantel.
+    pub fn recall_loan(&mut self, person: i32) -> Result<String> {
+        if self.sacked() {
+            return Err(crate::Error::Invalid("Não tem clube.".into()));
+        }
+        let loan: Option<i32> =
+            self.world.conn.query_row("SELECT parent_id FROM loans WHERE person_id = ?", [person], |r| r.get(0)).optional()?;
+        let from: Option<i32> = self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [person], |r| r.get(0))?;
+        if loan != Some(self.club_id) || from == Some(self.club_id) {
+            return Err(crate::Error::Invalid("Só para os jogadores emprestados pelo seu clube.".into()));
+        }
+        let open: i64 = self.world.conn.query_row(
+            "SELECT COUNT(*) FROM offers WHERE person_id = ? AND status IN ('pending', 'countered', 'agreed', 'raised', 'waiting')",
+            [person],
+            |r| r.get(0),
+        )?;
+        if open > 0 {
+            return Err(crate::Error::Invalid("Há um negócio em curso por este jogador.".into()));
+        }
+        self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![self.club_id, self.date, person])?;
+        self.number_after_move(person, Some(self.club_id))?;
+        self.world.conn.execute("DELETE FROM loans WHERE person_id = ?", [person])?;
+        self.log_transfer(person, from, Some(self.club_id), 0, "return")?;
+        self.refresh_live()?;
+        self.unsaved = true;
+        let name = self.person_name(person)?;
+        let club = from.map(|c| self.club(c).short_name).unwrap_or_default();
+        Ok(format!("{name} foi chamado de volta do empréstimo ao {club}."))
+    }
+
     fn return_loans(&mut self) -> Result<bool> {
         let due: Vec<(i32, i32)> = self
             .world
@@ -1245,32 +1411,34 @@ mod tests {
             .unwrap()
             .collect::<rusqlite::Result<_>>()
             .unwrap();
-        for c in clubs {
-            g.ai_listings(c, &fresh_market, &loaned).unwrap();
+        let bonus = g.continental_bonuses();
+        for &c in &clubs {
+            g.ai_listings(c, &fresh_market, &loaned, &bonus).unwrap();
         }
-        let rows: Vec<(i32, i32, bool)> = g
-            .world
-            .conn
-            .prepare(
-                "SELECT l.person_id, p.club_id, l.transfer FROM transfer_list l JOIN people p ON p.id = l.person_id
-                 WHERE l.requested = 0 AND p.club_id IS NOT NULL AND p.club_id <> 7568",
-            )
-            .unwrap()
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get::<_, i32>(2)? != 0)))
-            .unwrap()
-            .collect::<rusqlite::Result<_>>()
-            .unwrap();
-        for (id, club, _) in rows {
-            let value = g.world.market_value_of(id, g.date()).unwrap().unwrap_or(0) as f64;
-            let core = g.core_value(club).unwrap();
-            assert!(value < STAR_SHARE * core, "jogador {id} do clube {club}: {value} contra {core}");
-            let f = g.facts(id).unwrap().unwrap();
-            // (os veteranos fora do onze também vão para a venda)
-            if f.age < 32 {
-                let rank = g.role_rank(club, id, f.role).unwrap();
-                assert!(rank >= MIN_ROLE[f.role], "jogador {id} nos planos do clube {club}: posição {} lugar {rank}", f.role);
+        // Cada um tem motivos para sair (a vontade de vender) e só poucos são do onze
+        let (mut listed_now, mut starters) = (0, 0);
+        for &c in &clubs {
+            let all: Vec<&Listing> = fresh_market.squad(c).collect();
+            let spare = out_of_plans(&all);
+            let core = core_value(all.iter().copied());
+            let ctx = g.sell_context(c, &bonus).unwrap();
+            for (rank, l) in all.iter().copied().enumerate() {
+                let on: bool = g
+                    .world
+                    .conn
+                    .query_row("SELECT COUNT(*) > 0 FROM transfer_list WHERE person_id = ? AND transfer = 1", [l.id], |r| r.get(0))
+                    .unwrap();
+                if !on {
+                    continue;
+                }
+                let star = l.value() as f64 >= STAR_SHARE * core;
+                let (score, _) = g.sell_score(l, rank, spare.contains(&l.id), star, &ctx);
+                assert!(score >= SELL_AT, "jogador {} do clube {c}: {score}", l.id);
+                listed_now += 1;
+                starters += usize::from(rank < 11);
             }
         }
+        assert!(listed_now > 0 && starters * 5 <= listed_now, "{starters} do onze em {listed_now}");
         for (_, id, from, to, _, kind) in all_transfers(&g) {
             assert!(from != Some(7568) && to != Some(7568) || kind == "return", "o clube do treinador fica de fora");
             let club: Option<i32> = g.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [id], |r| r.get(0)).unwrap();

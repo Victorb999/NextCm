@@ -45,11 +45,14 @@ impl Game {
         if self.sacked() {
             return Ok(None);
         }
-        let (club, rep) = (self.club_id, self.club_rep(self.club_id)?);
+        // O peso dos clubes: a reputação e as continentais desta época (`personality::steps_down`)
+        let (club, rep) = (self.club_id, self.club_pull(self.club_id)?);
         let steps: String = (1..=20).map(|a| format!(" WHEN {a} THEN {}", personality::step_down(a as f64))).collect();
+        let bonus: String = self.continental_bonuses().iter().map(|(c, b)| format!(" WHEN {c} THEN {b}")).collect();
+        let bonus = if bonus.is_empty() { "0".to_string() } else { format!("CASE c.id{bonus} ELSE 0 END") };
         let mut sql = format!(
             "SELECT q.id FROM people q JOIN clubs c ON c.id = q.club_id
-             WHERE q.club_id <> {club} AND COALESCE(c.reputation, 0) > {rep} + CASE MIN(MAX(COALESCE(q.ambition, 10), 1), 20){steps} END"
+             WHERE q.club_id <> {club} AND COALESCE(c.reputation, 0) + {bonus} > {rep} + CASE MIN(MAX(COALESCE(q.ambition, 10), 1), 20){steps} END"
         );
         let (to, nation) = self.club_place(club)?;
         if leaving_europe(EUROPE, to) {

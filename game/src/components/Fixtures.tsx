@@ -100,6 +100,7 @@ export function RoundGames({ fixtures, table, own }: { fixtures: Fixture[]; tabl
 
 /** Calendário do clube, como o do CM: data, adversário, C/F, competição e o resultado. */
 export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures: Fixture[] }) {
+  const nav = useNav()
   if (fixtures.length === 0) return <Empty>Sem jogos marcados.</Empty>
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -131,9 +132,18 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
               <span className="w-52 shrink-0 truncate text-cm-orange" title={f.label}>
                 {f.competition}
               </span>
-              <span className="cm-cell w-16 shrink-0 text-center tabular-nums text-white" title={pensText(f).trim() || undefined}>
-                {played(f) ? `${f.homeGoals}:${f.awayGoals}` : '---'}
-              </span>
+              {played(f) ? (
+                // O resultado abre a ficha do jogo (a das reservas também)
+                <button
+                  className="cm-cell w-16 shrink-0 text-center tabular-nums text-white hover:text-cm-yellow"
+                  title={pensText(f).trim() || 'Ver o jogo'}
+                  onClick={() => nav.go({ kind: 'match', id: f.id })}
+                >
+                  {`${f.homeGoals}:${f.awayGoals}`}
+                </button>
+              ) : (
+                <span className="cm-cell w-16 shrink-0 text-center tabular-nums text-white">---</span>
+              )}
             </div>
           )
         })}

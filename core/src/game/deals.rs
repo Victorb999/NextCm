@@ -5,6 +5,8 @@
 //! condições e as rondas da negociação estão em `negotiation.rs`.
 //! Regras e números em docs/roadmap/3.08-mercado.md.
 
+use std::collections::HashMap;
+
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use rusqlite::{OptionalExtension, params};
@@ -122,6 +124,8 @@ pub struct TransferView {
     pub can_offer: bool,
     pub can_loan: bool,
     pub can_renew: bool,
+    /// Emprestado pelo clube do treinador a outro: chamá-lo de volta já.
+    pub can_recall: bool,
     /// Emprestado ao treinador com opção de compra: o valor (0 = sem) e se dá para a exercer hoje.
     #[ts(type = "number")]
     pub option_fee: i64,
@@ -478,6 +482,27 @@ impl Game {
         Ok(self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?)
     }
 
+    /// O bónus das continentais de cada clube que as joga nesta época (o maior, se joga mais de uma).
+    pub(super) fn continental_bonuses(&self) -> HashMap<i32, i32> {
+        let mut out: HashMap<i32, i32> = HashMap::new();
+        for m in &self.matches {
+            let pull = personality::continental_pull(m.competition_id);
+            if pull == 0 {
+                continue;
+            }
+            for c in [m.home_id, m.away_id] {
+                let e = out.entry(c).or_default();
+                *e = (*e).max(pull);
+            }
+        }
+        out
+    }
+
+    /// O peso de um clube para um jogador que pensa em mudar-se: a reputação e as continentais.
+    pub(super) fn club_pull(&self, club: i32) -> Result<i32> {
+        Ok(self.club_rep(club)? + self.continental_bonuses().get(&club).copied().unwrap_or(0))
+    }
+
     pub(super) fn cash_of(&self, club: i32) -> Result<i64> {
         Ok(self.world.conn.query_row("SELECT COALESCE(cash, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?)
     }
@@ -712,6 +737,8 @@ impl Game {
         let loan = self.loan_of(person)?;
         let loaned_in = loan.as_ref().is_some_and(|l| l.0 != self.club_id) && f.club == Some(self.club_id);
         let mine = f.club == Some(self.club_id) && !loaned_in;
+        // Emprestado pelo clube do treinador: renova-se e chama-se de volta, como no CM
+        let loaned_out = loan.as_ref().is_some_and(|l| l.0 == self.club_id) && f.club != Some(self.club_id);
         let listing: Option<(bool, bool, Option<i64>)> = self
             .world
             .conn
@@ -791,7 +818,8 @@ impl Game {
                 && !f.non_contract()
                 && (loaned_in || (f.club != Some(self.club_id) && self.loan_of(person)?.is_none())),
             can_loan: !ghost && f.club.is_some() && f.club != Some(self.club_id) && !busy && window && self.loan_of(person)?.is_none(),
-            can_renew: mine && blocked.is_none() && !busy,
+            can_renew: (mine || loaned_out) && blocked.is_none() && !busy,
+            can_recall: loaned_out && !busy && !self.sacked(),
             option_fee: option.map_or(0, |o| o.1),
             can_option: option.is_some() && !busy && window,
             offer,
@@ -1544,7 +1572,7 @@ impl Game {
             // Um ambicioso não desce para um clube mais pequeno (quase nunca)
             let ambition: i32 =
                 self.world.conn.query_row("SELECT COALESCE(ambition, 10) FROM people WHERE id = ?", [o.person], |r| r.get(0))?;
-            let smaller = self.club_rep(o.buyer)? < self.club_rep(self.club_id)?;
+            let smaller = self.club_pull(o.buyer)? < self.club_pull(self.club_id)?;
             let refuses = smaller && ambition >= personality::AMBITIOUS && self.deal_rng(o.person, 0x5E11).next_u32() % 10 < 7;
             if refuses {
                 self.set_status(o.id, "collapsed", None)?;
@@ -1625,7 +1653,9 @@ Confirme até {}.",
         let name = self.person_name(person)?;
         let loan = self.loan_of(person)?;
         let loaned_in = loan.as_ref().is_some_and(|l| l.0 != self.club_id);
-        let mine = f.club == Some(self.club_id) && !loaned_in;
+        // Emprestado pelo clube a outro: continua a ser do plantel para o contrato
+        let loaned_out = loan.as_ref().is_some_and(|l| l.0 == self.club_id) && f.club != Some(self.club_id);
+        let mine = (f.club == Some(self.club_id) && !loaned_in) || loaned_out;
         let deal = self.open_offer(person)?.filter(|o| o.buyer == self.club_id && o.status == "agreed");
         let days_left = f.expires.as_deref().and_then(date::parse).zip(date::parse(&self.date)).map_or(i64::MAX, |(e, t)| (e - t) as i64);
         let party = if mine {
@@ -2121,7 +2151,7 @@ Confirme até {}.",
             return Ok(());
         }
         let buyers = self.bid_clubs()?;
-        let my_rep = self.club_rep(self.club_id)?;
+        let my_rep = self.club_pull(self.club_id)?;
         let mut rng = self.season_rng(0xB1D5);
         // Um de fora da lista, de vez em quando
         let unlisted: Vec<&Mine> = mine.iter().filter(|m| m.2.unwrap_or(0) == 0 && m.3.unwrap_or(0) == 0).collect();
@@ -2218,7 +2248,10 @@ Confirme até {}.",
             .query_map([self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
             .collect::<rusqlite::Result<_>>()?;
         let mut buyers: Vec<Buyer> = Vec::new();
+        let bonus = self.continental_bonuses();
         for (id, rep, cash, division) in clubs {
+            // O peso do clube para o jogador: a reputação e as continentais
+            let rep = rep + bonus.get(&id).copied().unwrap_or(0);
             if !window_open(self.club_kind(division), &md) {
                 continue;
             }
@@ -2263,7 +2296,7 @@ Confirme até {}.",
             })?;
         let ca: i32 =
             self.world.conn.query_row("SELECT COALESCE(current_ability, 1) FROM players WHERE person_id = ?", [person], |r| r.get(0))?;
-        let my_rep = self.club_rep(self.club_id)?;
+        let my_rep = self.club_pull(self.club_id)?;
         let buyers = self.bid_clubs()?;
         let mut fits = fitting_buyers(&buyers, &f, ca, loan, fee, my_rep);
         if exclude_rivals {
@@ -2390,7 +2423,7 @@ fn fitting_buyers(buyers: &[Buyer], f: &Facts, ca: i32, as_loan: bool, fee: i64,
             if as_loan {
                 rep < my_rep && ca + 10 >= level
             } else {
-                rep + personality::step_down(f.ambition) >= my_rep && ca >= level - 5 && ca <= level + 25 && fee as f64 <= budget
+                !personality::steps_down(my_rep, rep, f.ambition) && ca >= level - 5 && ca <= level + 25 && fee as f64 <= budget
             }
         })
         .map(|b| b.0)

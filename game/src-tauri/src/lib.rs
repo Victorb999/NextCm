@@ -108,6 +108,7 @@ session_command!(list_fixtures(id: i32) -> Vec<Fixture>);
 session_command!(competition_stages(id: i32) -> Vec<StageView>);
 session_command!(club_finances(id: i32) -> ClubFinances);
 session_command!(club_transfers(id: i32) -> Vec<TransferItem>);
+session_command!(recall_loan(id: i32) -> String);
 session_command!(club_moves(id: i32, view: String, season: Option<i32>) -> nextcm_core::ClubMoves);
 session_command!(board_view() -> BoardView);
 session_command!(board_confidence() -> BoardConfidence);
@@ -338,6 +339,7 @@ pub fn run() {
             competition_stages,
             club_finances,
             club_transfers,
+            recall_loan,
             club_moves,
             board_view,
             board_confidence,

@@ -254,6 +254,10 @@ impl Game {
 
     /// A ficha de uma partida jogada, pelos jogos gravados de cada jogador.
     pub fn match_sheet(&self, fixture: i32) -> Result<MatchSheet> {
+        // Os jogos das reservas têm o id negativo (o do jogo do campeonato de que saem)
+        if fixture < 0 {
+            return self.reserve_sheet(-fixture);
+        }
         let m = self.matches.iter().find(|m| m.id == fixture).ok_or_else(|| Error::NotFound(format!("jogo {fixture}")))?;
         if m.result.is_none() {
             return Err(Error::Invalid("Este jogo ainda não se jogou.".into()));

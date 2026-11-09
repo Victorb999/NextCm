@@ -1656,7 +1656,7 @@ impl Game {
         // As transferências acertadas e as reformas do player_setup.cfg
         self.setup_day(fresh, next_id)?;
         // As reservas jogam na véspera do jogo do campeonato
-        self.reserve_day()
+        self.reserve_day(fresh, next_id)
     }
 
     /// A noite: o treino do dia, as respostas às propostas (uma proposta da tarde tem
@@ -1932,8 +1932,10 @@ impl Game {
     /// (hoje ou amanhã) ou [`MAX_IDLE_DAYS`] dias sem nada.
     pub fn advance_step(&mut self, idle: i32) -> Result<(Vec<NewsItem>, bool)> {
         let news = self.advance_part()?;
-        // As transferências do dia ficam nas notícias mas não param o Continuar Jogo
-        if news.iter().any(|n| n.kind != "transfer") || self.live.is_some() {
+        // As transferências do dia e os resultados das reservas ficam nas notícias mas não param
+        // o Continuar Jogo (as reservas jogam 2 dias antes de cada jogo do campeonato)
+        let quiet = |n: &NewsItem| n.kind == "transfer" || n.link.as_deref().is_some_and(|l| l.starts_with("sheet:"));
+        if news.iter().any(|n| !quiet(n)) || self.live.is_some() {
             return Ok((news, true));
         }
         // À noite, na véspera de um jogo do treinador
@@ -3220,7 +3222,8 @@ mod tests {
         assert_eq!(mine.len(), 38);
         assert_eq!(mine.iter().filter(|f| f.home_goals.is_some()).count(), 9);
         // 2 iniciais + 9 resultados (+ lesões/suspensões do Palmeiras, que variam com a seed)
-        let results = g.news().iter().filter(|n| n.kind == "competition" && n.title.contains('-')).count();
+        let results =
+            g.news().iter().filter(|n| n.kind == "competition" && n.title.contains('-') && !n.title.starts_with("Reservas:")).count();
         assert_eq!(results, 9);
         assert!(g.info().unwrap().unread_news >= 11);
         let ids: Vec<i32> = g.news().iter().map(|n| n.id).collect();
@@ -3262,7 +3265,10 @@ mod tests {
             let news = g.advance_to_next_event().unwrap();
             // (e os orçamentos da direcção na noite de 1/7, o dia em que o jogo começa)
             assert!(
-                news.iter().all(|n| n.offer_id.is_some() || n.kind == "transfer" || n.title == "Orçamentos da Direcção"),
+                news.iter().all(|n| n.offer_id.is_some()
+                    || n.kind == "transfer"
+                    || n.title == "Orçamentos da Direcção"
+                    || n.title.starts_with("Reservas:")),
                 "{}",
                 news[0].title
             );

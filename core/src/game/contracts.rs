@@ -130,30 +130,32 @@ impl Game {
         // As Preferências do CM: nunca vai para um clube que detesta; para um favorito vai mesmo
         // descendo ou saindo da Europa
         let preference = self.world.club_preference(person, self.club_id)?;
-        if preference == Some(false) && !matches!(party, Party::Renewal) {
-            if let Party::Transfer(o) = &party {
-                self.set_status(o.id, "collapsed", None)?;
-            }
-            self.unsaved = true;
-            let club = self.club(self.club_id).name;
-            return Ok(refuse(format!("{name} não quer jogar no {club}.")));
-        }
         let favourite = preference == Some(true);
-        if let (Party::Transfer(o), Some(club)) = (&party, f.club)
+        let why = if preference == Some(false) && !matches!(party, Party::Renewal) {
+            let club = self.club(self.club_id).name;
+            Some(format!("{name} não quer jogar no {club}."))
+        } else if let (Party::Transfer(_), Some(club)) = (&party, f.club)
             && !favourite
-            && self.club_rep(club)? > self.club_rep(self.club_id)? + personality::step_down(f.ambition)
+            && personality::steps_down(self.club_pull(club)?, self.club_pull(self.club_id)?, f.ambition)
         {
-            self.set_status(o.id, "collapsed", None)?;
-            self.unsaved = true;
-            return Ok(refuse(format!("{name} não está interessado em mudar para um clube menor.")));
-        }
-        if let (Party::Transfer(o), Some(club)) = (&party, f.club)
+            Some(format!("{name} não está interessado em mudar para um clube menor."))
+        } else if let (Party::Transfer(_), Some(club)) = (&party, f.club)
             && !favourite
             && self.stays_in_europe(person, &f, club)?
         {
-            self.set_status(o.id, "collapsed", None)?;
+            Some(format!("{name} não quer deixar o futebol europeu."))
+        } else {
+            None
+        };
+        // A recusa desfaz o negócio com o clube dele: fica uma notícia com o motivo
+        if let Some(text) = why {
+            let deal = if let Party::Transfer(o) | Party::Free(Some(o)) = &party { Some(o.id) } else { None };
+            if let Some(id) = deal {
+                self.set_status(id, "collapsed", None)?;
+            }
+            self.post_news(format!("{name} recusa o contrato"), format!("{text} O negócio foi desfeito."), deal);
             self.unsaved = true;
-            return Ok(refuse(format!("{name} não quer deixar o futebol europeu.")));
+            return Ok(refuse(text));
         }
         // A proposta: uma nova (a anterior, se houver, fica substituída)
         if let Some(old) = self.open_contract(person)? {

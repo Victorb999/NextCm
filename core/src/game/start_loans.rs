@@ -109,6 +109,14 @@ mod tests {
         let mut bayern = g.world.get_club(1350).unwrap();
         g.fill_squad(&mut bayern).unwrap();
         assert!(bayern.players.iter().any(|p| p.id == 123625 && p.loaned_out));
+        // O treinador renova-o e chama-o de volta (o Zaragoza, no Espanyol)
+        let v = g.transfer_view(123625).unwrap();
+        assert!(v.can_renew && v.can_recall, "emprestado pelo clube");
+        assert!(matches!(g.contract_party(123625).unwrap().2, super::super::deals::Party::Renewal));
+        let mut g = g;
+        assert!(g.recall_loan(123625).unwrap().contains("chamado de volta"));
+        assert_eq!(g.world.conn.query_row("SELECT club_id FROM people WHERE id = 123625", [], |r| r.get::<_, i32>(0)).unwrap(), 1350);
+        assert!(g.recall_loan(123625).is_err(), "já voltou");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
 

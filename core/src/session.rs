@@ -707,6 +707,10 @@ impl Session {
         self.game()?.club_moves(id, &view, season)
     }
 
+    pub fn recall_loan(&mut self, id: i32) -> Result<String> {
+        self.game_mut()?.recall_loan(id)
+    }
+
     pub fn club_transfers(&self, id: i32) -> Result<Vec<TransferItem>> {
         Ok(self.game.as_ref().map(|g| g.club_transfers(id)).transpose()?.unwrap_or_default())
     }

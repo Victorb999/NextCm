@@ -170,7 +170,8 @@ impl Game {
                 })
                 .ok();
             out.push(Fixture {
-                id: s.fixture,
+                // Negativo: a ficha do jogo das reservas, não a do jogo do campeonato de que sai
+                id: -s.fixture,
                 competition_id: s.competition,
                 competition: RESERVES_LABEL.into(),
                 round: s.round,
@@ -190,9 +191,9 @@ impl Game {
         Ok(out)
     }
 
-    /// Cada dia: o jogo das reservas do clube do treinador, se for hoje. Sem notícia: o resultado
-    /// fica no Calendário das reservas (um por semana encheria a caixa e pararia o Continuar Jogo).
-    pub(super) fn reserve_day(&mut self) -> Result<()> {
+    /// Cada dia: o jogo das reservas do clube do treinador, se for hoje, com a notícia do
+    /// resultado (em Competições, com o botão para a ficha do jogo).
+    pub(super) fn reserve_day(&mut self, fresh: &mut Vec<crate::NewsItem>, next_id: &mut i32) -> Result<()> {
         if self.sacked() {
             return Ok(());
         }
@@ -204,8 +205,115 @@ impl Game {
                 continue;
             }
             self.play_reserves(s.fixture, s.home, s.away, s.competition)?;
+            fresh.push(self.reserve_news(*next_id, s.fixture)?);
+            *next_id += 1;
         }
         Ok(())
+    }
+
+    /// A notícia do resultado das reservas: o resultado e os marcadores.
+    fn reserve_news(&self, id: i32, fixture: i32) -> Result<crate::NewsItem> {
+        let sheet = self.reserve_sheet(fixture)?;
+        let f = &sheet.fixture;
+        let (hg, ag) = (f.home_goals.unwrap_or(0), f.away_goals.unwrap_or(0));
+        let at_home = f.home.id == self.club_id;
+        let (ours, theirs, gf, ga) = if at_home { (&f.home, &f.away, hg, ag) } else { (&f.away, &f.home, ag, hg) };
+        let place = if at_home { "em casa" } else { "fora" };
+        let what = match gf.cmp(&ga) {
+            std::cmp::Ordering::Greater => {
+                format!("As reservas do {} venceram {place} as do {} por {gf}-{ga}.", ours.short_name, theirs.short_name)
+            }
+            std::cmp::Ordering::Equal => {
+                format!("As reservas do {} empataram {place} com as do {}: {gf}-{ga}.", ours.short_name, theirs.short_name)
+            }
+            std::cmp::Ordering::Less => {
+                format!("As reservas do {} perderam {place} com as do {} por {gf}-{ga}.", ours.short_name, theirs.short_name)
+            }
+        };
+        let mut scorers = String::new();
+        for (club, lines) in [(&f.home, &sheet.home), (&f.away, &sheet.away)] {
+            let list: Vec<String> = lines
+                .iter()
+                .filter(|l| l.goals > 0)
+                .map(|l| if l.goals > 1 { format!("{} ({})", l.name, l.goals) } else { l.name.clone() })
+                .collect();
+            if !list.is_empty() {
+                scorers += &format!("\n{}: {}", club.short_name, list.join(", "));
+            }
+        }
+        if !scorers.is_empty() {
+            scorers = format!("\n\nMarcadores:{scorers}");
+        }
+        let mut n = self.news_item(
+            id,
+            "competition",
+            format!("Reservas: {} {hg}-{ag} {}", f.home.short_name, f.away.short_name),
+            format!("Jogo das reservas.\n\n{what}{scorers}"),
+        );
+        n.link = Some(format!("sheet:{}", -fixture));
+        Ok(n)
+    }
+
+    /// A ficha de um jogo das reservas já jogado (o `fixture` é o do jogo do campeonato).
+    pub(super) fn reserve_sheet(&self, fixture: i32) -> Result<super::player_record::MatchSheet> {
+        let (date, home, away, hg, ag): (String, i32, i32, i32, i32) = self
+            .world
+            .conn
+            .query_row("SELECT date, home_id, away_id, home_goals, away_goals FROM reserve_matches WHERE fixture = ?", [fixture], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })
+            .map_err(|_| crate::Error::Invalid("Este jogo das reservas ainda não se jogou.".into()))?;
+        let league = self.matches.iter().find(|m| m.id == fixture);
+        let competition = league.map(|m| m.competition_id).or(self.division_of(home)?).unwrap_or(0);
+        let round = league.map(|m| m.round).unwrap_or(0);
+        let league_date = league.map(|m| m.date.clone()).unwrap_or_else(|| date.clone());
+        let rows: Vec<(i32, i32, String, Option<i32>, f64, i32, i32)> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT a.person_id, a.club, COALESCE((SELECT nickname FROM nicknames n WHERE n.person_id = p.id), p.list_name),
+                        pl.squad_number, ROUND(a.rating, 1), a.goals, a.assists
+                 FROM reserve_apps a JOIN people p ON p.id = a.person_id LEFT JOIN players pl ON pl.person_id = p.id
+                 WHERE a.fixture = ? ORDER BY a.rowid",
+            )?
+            .query_map([fixture], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let best = rows.iter().map(|r| r.4).fold(f64::MIN, f64::max);
+        let (mut home_lines, mut away_lines) = (Vec::new(), Vec::new());
+        for (id, club, name, number, rating, goals, assists) in rows {
+            let line = super::player_record::SheetLine {
+                id,
+                name,
+                number,
+                rating,
+                goals,
+                assists,
+                mom: rating >= best,
+                on: Some(0),
+                off: None,
+                yellow: false,
+                red: false,
+            };
+            if club == away { away_lines.push(line) } else { home_lines.push(line) }
+        }
+        let fixture_view = Fixture {
+            id: -fixture,
+            competition_id: competition,
+            competition: RESERVES_LABEL.into(),
+            round,
+            date,
+            time: super::AFTERNOON_KICKOFF.into(),
+            home: self.club(home),
+            away: self.club(away),
+            home_goals: Some(hg),
+            away_goals: Some(ag),
+            label: RESERVES_LABEL.into(),
+            season: regulation::season_label(competition, regulation::season_of(competition, &league_date)),
+            neutral: false,
+            home_pens: None,
+            away_pens: None,
+        };
+        Ok(super::player_record::MatchSheet { fixture: fixture_view, home: home_lines, away: away_lines })
     }
 
     /// A equipa das reservas de um clube: o adjunto escolhe o onze entre quem joga nelas (os
@@ -444,7 +552,7 @@ mod tests {
         assert!(reserves.len() >= 10, "{}", reserves.len());
         let league = g.club_fixtures(PALMEIRAS);
         for r in &reserves {
-            let m = league.iter().find(|f| f.id == r.id).unwrap();
+            let m = league.iter().find(|f| f.id == -r.id).unwrap();
             assert_eq!(date::add_days(&r.date, DAYS_BEFORE).as_deref(), Some(m.date.as_str()));
             assert_eq!((r.home.id, r.away.id), (m.away.id, m.home.id));
             assert!(!league.iter().any(|f| f.date == r.date), "o clube não joga no dia das reservas");
@@ -464,7 +572,7 @@ mod tests {
         let player: i32 = g
             .world
             .conn
-            .query_row("SELECT person_id FROM reserve_apps WHERE fixture = ? AND club = ? LIMIT 1", params![first.id, PALMEIRAS], |r| {
+            .query_row("SELECT person_id FROM reserve_apps WHERE fixture = ? AND club = ? LIMIT 1", params![-first.id, PALMEIRAS], |r| {
                 r.get(0)
             })
             .unwrap();
@@ -472,15 +580,21 @@ mod tests {
         let ours: i64 = g
             .world
             .conn
-            .query_row("SELECT COUNT(*) FROM reserve_apps WHERE fixture = ? AND club = ?", params![first.id, PALMEIRAS], |r| r.get(0))
+            .query_row("SELECT COUNT(*) FROM reserve_apps WHERE fixture = ? AND club = ?", params![-first.id, PALMEIRAS], |r| r.get(0))
             .unwrap();
         assert!(ours as usize <= demoted.min(11), "{ours} {demoted}");
         let picked: bool = g
             .world
             .conn
-            .query_row("SELECT COUNT(*) > 0 FROM reserve_apps WHERE fixture = ? AND person_id = ?", params![first.id, pick], |r| r.get(0))
+            .query_row("SELECT COUNT(*) > 0 FROM reserve_apps WHERE fixture = ? AND person_id = ?", params![-first.id, pick], |r| r.get(0))
             .unwrap();
         assert!(picked, "o escolhido jogou");
+        // A notícia do resultado, com a ficha do jogo (o id negativo)
+        let news = g.news.iter().find(|n| n.title.starts_with("Reservas:")).expect("notícia das reservas");
+        assert_eq!(news.link.as_deref(), Some(format!("sheet:{}", first.id).as_str()));
+        let sheet = g.match_sheet(first.id).unwrap();
+        assert_eq!(sheet.fixture.id, first.id);
+        assert!(sheet.home.iter().chain(&sheet.away).any(|l| l.id == pick));
         let mut p = g.world.get_person(player).unwrap();
         g.fill_record(&mut p).unwrap();
         let season = &p.seasons[0];

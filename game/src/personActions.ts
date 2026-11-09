@@ -64,6 +64,11 @@ export function personActions({
         ],
       ]
     : [
+        // Emprestado pelo clube do treinador a outro: o contrato e chamá-lo de volta (o core diz se dá)
+        [
+          ...(m?.canRenew ? [{ key: 'renew', label: 'Oferecer Novo Contrato' }] : []),
+          ...(m?.canRecall ? [{ key: 'recall', label: 'Chamar de Volta do Empréstimo' }] : []),
+        ],
         [
           ...(m?.canOffer && !m.free ? [{ key: 'offer', label: 'Abordar Para Comprar' }] : []),
           ...(m?.canLoan ? [{ key: 'loan', label: 'Propôr Empréstimo' }] : []),

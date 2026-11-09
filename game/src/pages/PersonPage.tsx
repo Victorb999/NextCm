@@ -532,7 +532,7 @@ export default function PersonPage({ id }: { id: number }) {
   const actions = groups.slice(0, -1)
   // Os botões da aba Contrato & Transferência: os principais, iguais aos do menu
   const pick = (keys: string[]) => actions.flat().filter((a) => keys.includes(a.key))
-  const contractButtons = pick(['renew', 'role', 'contract'])
+  const contractButtons = pick(['renew', 'role', 'contract', 'recall'])
   const marketButtons = pick(['list', 'unlist', 'price', 'loanlist', 'unloanlist', 'shop', 'offer', 'loan', 'option', 'shortlist', 'unshortlist', 'scout'])
   const buttonRow = (list: { key: string; label: string }[]) =>
     list.length > 0 && (
@@ -638,6 +638,15 @@ export default function PersonPage({ id }: { id: number }) {
     else if (k === 'role') setRoleDialog(true)
     else if (k === 'praise' || k === 'criticise') void comment(k)
     else if (k === 'promote' || k === 'demote') void moveSquad(k === 'demote')
+    else if (k === 'recall')
+      void api.recallLoan(id).then(
+        (text) => {
+          setNotice(text)
+          setError(null)
+          void reload()
+        },
+        (e) => setError(String(e)),
+      )
     else if (k === 'leave') void giveLeave()
     else setReport(k as 'medical' | 'fitness')
   }

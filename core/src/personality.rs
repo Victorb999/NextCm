@@ -86,6 +86,25 @@ pub fn step_down(ambition: f64) -> i32 {
     STEP_DOWN + ((AMBITION_MID - ambition.clamp(1.0, 20.0)) * 120.0) as i32
 }
 
+/// Ir do clube com o peso `from` para o com `to` é descer demais para este jogador. O peso é a
+/// reputação mais o bónus das continentais (`Game::club_pull`): do City, na Liga dos Campeões,
+/// para o United fora da Europa desce-se; para outro clube da Liga dos Campeões, não.
+pub fn steps_down(from: i32, to: i32, ambition: f64) -> bool {
+    from > to + step_down(ambition)
+}
+
+/// O bónus de peso de quem joga as continentais nesta época (somado à reputação do clube).
+pub fn continental_pull(competition: i32) -> i32 {
+    use crate::league::{CHAMPIONS_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, SUL_AMERICANA};
+    match competition {
+        CHAMPIONS_LEAGUE => 1500,
+        LIBERTADORES => 1000,
+        EUROPA_LEAGUE => 700,
+        SUL_AMERICANA => 500,
+        _ => 0,
+    }
+}
+
 /// Salário pedido × isto: um ambicioso que seria dos indispensáveis do clube (peixe grande
 /// num lago pequeno) pede até 12% mais.
 pub fn ambition_wage(ambition: f64, key: bool) -> f64 {
@@ -148,6 +167,17 @@ mod tests {
         assert_eq!(morale_swing(-2, 18), -1);
         assert_eq!(morale_swing(2, 18), 2);
         assert_eq!(morale_swing(0, 3), 0);
+    }
+
+    #[test]
+    fn europe_weighs_in_the_step_down() {
+        use crate::league::CHAMPIONS_LEAGUE;
+        // O Enzo (Ambição 13) do City (10 000, Liga dos Campeões) para o United (8 500, fora da Europa)
+        let city = 10_000 + continental_pull(CHAMPIONS_LEAGUE);
+        assert!(steps_down(city, 8_500, 13.0));
+        // Para um clube de 9 000 também na Liga dos Campeões, não
+        assert!(!steps_down(city, 9_000 + continental_pull(CHAMPIONS_LEAGUE), 13.0));
+        assert!(!steps_down(6_000, 5_500, 13.0));
     }
 
     #[test]

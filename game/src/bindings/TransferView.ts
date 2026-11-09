@@ -31,6 +31,10 @@ windowOpen: boolean,
  */
 cash: number, budget: number, offer: OfferView | null, canOffer: boolean, canLoan: boolean, canRenew: boolean, 
 /**
+ * Emprestado pelo clube do treinador a outro: chamá-lo de volta já.
+ */
+canRecall: boolean, 
+/**
  * Emprestado ao treinador com opção de compra: o valor (0 = sem) e se dá para a exercer hoje.
  */
 optionFee: number, canOption: boolean, note: string | null, 

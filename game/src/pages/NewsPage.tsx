@@ -186,6 +186,13 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
                     </button>
                   </div>
                 )}
+                {current.link?.startsWith('sheet:') && (
+                  <div className="mt-4 flex gap-1 border-t border-cm-line pt-3">
+                    <button className="cm-purple h-7 w-48" onClick={() => nav.go({ kind: 'match', id: Number(current.link!.slice(6)) })}>
+                      Ver o Jogo
+                    </button>
+                  </div>
+                )}
                 {current.link === 'squadNumbers' && (
                   <div className="mt-4 border-t border-cm-line pt-3">
                     <button
