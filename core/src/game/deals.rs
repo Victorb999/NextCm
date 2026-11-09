@@ -332,6 +332,19 @@ pub(super) struct Facts {
     pub(super) loyalty: f64,
 }
 
+impl Facts {
+    /// Num clube sem contrato nem salário (o jogador amador do banco, como o "Jogador/Treinador"
+    /// de um clube pequeno): como no CM, está livre e assina só com uma proposta de contrato.
+    pub(super) fn non_contract(&self) -> bool {
+        self.club.is_some() && self.expires.is_none() && self.wage <= 0
+    }
+
+    /// Livre: sem clube ou sem contrato.
+    pub(super) fn is_free(&self) -> bool {
+        self.club.is_none() || self.non_contract()
+    }
+}
+
 const OFFER_COLUMNS: &str = "id, kind, person_id, buyer, seller, fee, asked, status, answer_on, months, sell_on, apps_bonus, rounds, loan_months, wage_share, monthly_fee, option_fee, apps_needed, public, exchange";
 
 fn offer_row(r: &rusqlite::Row) -> rusqlite::Result<Offer> {
@@ -757,7 +770,7 @@ impl Game {
             expenses: self.expenses(person, mine)?,
             person_id: person,
             mine,
-            free: f.club.is_none(),
+            free: f.is_free(),
             club: f.club.map(|c| self.club(c)),
             value: f.value,
             wage: f.wage,
@@ -775,6 +788,7 @@ impl Game {
             can_offer: !ghost
                 && !busy
                 && bored.is_none()
+                && !f.non_contract()
                 && (loaned_in || (f.club != Some(self.club_id) && self.loan_of(person)?.is_none())),
             can_loan: !ghost && f.club.is_some() && f.club != Some(self.club_id) && !busy && window && self.loan_of(person)?.is_none(),
             can_renew: mine && blocked.is_none() && !busy,
@@ -1191,6 +1205,9 @@ impl Game {
         let loaned_in = self.loaned_in_from(person, &f)?;
         if f.club == Some(self.club_id) && loaned_in.is_none() {
             return Err(Error::Invalid("Já é do seu plantel.".into()));
+        }
+        if f.non_contract() && loaned_in.is_none() {
+            return Err(Error::Invalid("Não tem contrato com o clube: proponha-lhe um contrato.".into()));
         }
         if loaned_in.is_none()
             && let Some((parent, _)) = self.loan_of(person)?
@@ -1615,7 +1632,7 @@ Confirme até {}.",
             Party::Renewal
         } else if let Some(d) = deal {
             if d.seller.is_some() { Party::Transfer(d) } else { Party::Free(Some(d)) }
-        } else if f.club.is_none() {
+        } else if f.is_free() {
             Party::Free(None)
         } else if loan.is_none() && days_left <= super::contracts::PRECONTRACT_DAYS {
             Party::Precontract
@@ -2836,6 +2853,50 @@ Palmeiras fez uma nova proposta."
             assert_eq!(after < before, letdown, "Ambição {ambition}: {before} → {after}");
             assert_eq!(g.news().iter().any(|n| n.offer_id == Some(id) && n.title.contains("desiludido")), letdown);
         }
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_player_without_contract_signs_as_a_free_agent() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-sem-contrato-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Sem contrato".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 6271,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+        };
+        let mut g = Game::create(&path, &dir, &new, 31).unwrap();
+        // Num clube, sem contrato nem salário (o Luca Crudo, "Jogador/Treinador" de um clube alemão)
+        let (id, club): (i32, i32) = g
+            .world
+            .conn
+            .query_row(
+                "SELECT id, club_id FROM people WHERE is_player = 1 AND club_id IS NOT NULL AND club_id <> 6271
+                 AND contract_expires IS NULL AND COALESCE(wage, 0) = 0
+                 AND id NOT IN (SELECT person_id FROM loans) ORDER BY id LIMIT 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        let v = g.transfer_view(id).unwrap();
+        assert!(v.free && !v.can_offer, "só contrato");
+        assert!(matches!(g.contract_party(id).unwrap().2, Party::Free(None)));
+        assert!(g.make_offer(id, &DealTerms::default()).is_err());
+        // Assinar: sai do clube dele a custo zero
+        let terms = g.contract_terms(id, None).unwrap();
+        let reply = g.negotiate(id, &terms.role, terms.wage, terms.bonus, 2, &Default::default()).unwrap();
+        assert!(!reply.text.is_empty());
+        let _ = club;
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -484,7 +484,8 @@ impl Game {
                 self.squad_changed()?;
             }
             Party::Free(None) => {
-                self.execute_move(o.person, None, Some(self.club_id), 0, t.wage, t.years, "free", kind)?;
+                // Sem contrato num clube: sai dele a custo zero
+                self.execute_move(o.person, f.club, Some(self.club_id), 0, t.wage, t.years, "free", kind)?;
                 self.set_status(o.id, "done", None)?;
                 self.signing_news(o.person, &name, None, 0, "", &until, t.wage)?;
                 self.squad_changed()?;

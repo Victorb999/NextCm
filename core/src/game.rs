@@ -136,7 +136,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// (`stadiums.undersoil_heating`), do banco.
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
-pub const SAVE_VERSION: i32 = 52;
+pub const SAVE_VERSION: i32 = 53;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -1242,6 +1242,12 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 52", [])?;
             version = 52;
         }
+        // Orçamento de salários com margem (8/11): revisto já, sem esperar pela janela
+        let budgets_v53 = version == 52;
+        if version == 52 {
+            world.conn.execute("UPDATE game SET version = 53", [])?;
+            version = 53;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1380,6 +1386,10 @@ impl Game {
         game.refresh_live()?;
         if reserves_v51 {
             game.migrate_reserves()?;
+        }
+        if budgets_v53 && !game.sacked() {
+            game.refresh_budgets()?;
+            game.unsaved = true;
         }
         Ok(game)
     }

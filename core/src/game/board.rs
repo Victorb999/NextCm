@@ -23,6 +23,10 @@ const SALES_BACK: f64 = 1.0;
 /// Teto da folha salarial (sobre as receitas de uma época) e salário máximo de um jogador
 /// (sobre o maior salário do plantel ou sobre a folha permitida).
 const WAGE_CAP: f64 = 0.9;
+/// Margem da folha sobre a de hoje, para contratar sem pedir à direção: com o saldo positivo,
+/// no vermelho e em dívida grande (sem contratações). O teto sobre as receitas ficava quase
+/// sempre abaixo da folha (receitas = 1,3 x a folha inicial) e deixava 2% (8/11).
+const WAGE_HEADROOM: [f64; 3] = [0.15, 0.08, 0.02];
 const MAX_WAGE_OVER_TOP: f64 = 1.25;
 const MAX_WAGE_SHARE: f64 = 0.1;
 /// Saldo negativo (sobre as receitas de uma época) a partir do qual a direção proíbe contratações.
@@ -187,7 +191,8 @@ impl Game {
     }
 
     /// Orçamentos de uma janela, pela situação financeira: os fundos (o saldo menos a reserva),
-    /// a folha até 90% das receitas (nunca abaixo da atual) e um salário máximo por jogador.
+    /// a folha até 90% das receitas, mas sempre com uma margem sobre a atual ([`WAGE_HEADROOM`]),
+    /// e um salário máximo por jogador.
     pub(super) fn refresh_budgets(&mut self) -> Result<()> {
         let base = self.club_base(self.club_id)?;
         let (cash, bill, top): (i64, i64, i64) = self.world.conn.query_row(
@@ -197,9 +202,15 @@ impl Game {
             [self.club_id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )?;
-        let _ = cash;
         let transfer = self.funds_now()?;
-        let wage_budget = ((base * WAGE_CAP / 52.0) as i64).max(bill * 102 / 100);
+        let headroom = if (cash as f64) < -NO_SIGNINGS_DEBT * base {
+            WAGE_HEADROOM[2]
+        } else if cash < 0 {
+            WAGE_HEADROOM[1]
+        } else {
+            WAGE_HEADROOM[0]
+        };
+        let wage_budget = ((base * WAGE_CAP / 52.0) as i64).max((bill as f64 * (1.0 + headroom)) as i64);
         let max_wage = ((top as f64 * MAX_WAGE_OVER_TOP).max(wage_budget as f64 * MAX_WAGE_SHARE)) as i64;
         let round = |v: i64| if v < 10_000 { v / 100 * 100 } else { v / 1000 * 1000 };
         self.world.conn.execute(
@@ -560,6 +571,8 @@ mod tests {
         let b = g.board_view().unwrap();
         assert_eq!(b.confidence, START_CONFIDENCE);
         assert!(b.transfer_budget > 0 && b.wage_budget >= b.wage_bill && b.max_wage > 0, "{b:?}");
+        // Com o saldo positivo há margem para contratar sem pedir à direção
+        assert!(b.wage_budget as f64 >= b.wage_bill as f64 * 1.12, "{b:?}");
         assert!(g.news().iter().any(|n| n.body.contains(&b.goal)), "a expectativa é a das boas-vindas");
 
         // Os fundos são o saldo arredondado; as vendas voltam inteiras e os gastos descontam

@@ -172,6 +172,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | **3.19.1** Pendências | O que ficou por fazer no 3.15, no 3.15c e no 3.19, num sítio só, com dificuldade e prioridade | Os itens de prioridade alta feitos |
 | **3.20** Editor de jogos salvos | Abrir um save fechado a partir do menu inicial e editar jogadores, staff e clubes, com a validação no core | Mudar um atributo e um saldo, gravar, carregar o jogo e ver as mudanças |
 | **3.21** Pré-Jogo | Antes da partida, como no FM08: as Equipas nos dois campos, a Análise (odds, homem-chave, previsão do jornal, marcos) e a Palestra, e depois o jogo | O Continuar Jogo abre o Pré-Jogo e o resultado é o mesmo com e sem ele |
+| **3.22** Economia moderna | Receitas reais por clube, folha e fundos de transferências a partir delas, fair-play financeiro, a IA a gastar como os clubes de hoje e a curva do valor suavizada, calibrado na CLI | Um clube grande compra e paga aos preços de hoje, e o City pode gastar centenas de milhões numa janela se vender, sem a economia rebentar em 10 épocas |
 
 #### Detalhe de cada marco
 
@@ -210,6 +211,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Passo 3.19.2 — Reservas e equipas B como no CM (feito)](docs/roadmap/3.19.2-reservas-e-equipas-b.md)
 - [Marco 3.20 — Editor de jogos salvos (2 fatias feitas)](docs/roadmap/3.20-editor-de-saves.md)
 - [Marco 3.21 — Pré-Jogo e Pós-Jogo (passo 1 feito; e as ideias dos vídeos do FM08)](docs/roadmap/3.21-pre-jogo.md)
+- [Marco 3.22 — Economia moderna (plano de 9/11, por fazer)](docs/roadmap/3.22-economia-moderna.md)
 
 ---
 
