@@ -330,6 +330,11 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             out(serde_json::to_value(session.answer_offer(id()?, key, args["fee"].as_i64()).map_err(e)?))
         }
         "club_transfers" => out(serde_json::to_value(session.club_transfers(id()?).map_err(e)?)),
+        "club_moves" => {
+            let view = args["view"].as_str().ok_or("falta view")?.to_string();
+            let season = args["season"].as_i64().map(|v| v as i32);
+            out(serde_json::to_value(session.club_moves(id()?, view, season).map_err(e)?))
+        }
         "club_fixtures" => out(serde_json::to_value(session.club_fixtures(id()?).map_err(e)?)),
         "reserve_fixtures" => out(serde_json::to_value(session.reserve_fixtures(id()?).map_err(e)?)),
         "live_match" => out(serde_json::to_value(session.live_match().map_err(e)?)),

@@ -19,6 +19,7 @@ use crate::engine;
 mod board;
 mod board_meeting;
 mod career_marks;
+mod club_moves;
 mod competitions;
 mod contract_extras;
 mod contracts;
@@ -65,6 +66,7 @@ use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, PlayerOrder,
 use crate::{Error, Result, World, date};
 pub use board::{BoardConfidence, BoardView};
 pub use board_meeting::BoardRequest;
+pub use club_moves::{ClubMoves, MoveRow};
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use contract_extras::ContractExtras;
 pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, SquadRoleView, TransferView};
@@ -136,7 +138,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// (`stadiums.undersoil_heating`), do banco.
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
-pub const SAVE_VERSION: i32 = 53;
+pub const SAVE_VERSION: i32 = 54;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -781,6 +783,7 @@ impl Game {
             tx.execute_batch(reserve_matches::RESERVES_SCHEMA)?;
             tx.execute_batch(unhappy::ABSENCES_SCHEMA)?;
             tx.execute_batch(reserve_matches::PICKS_SCHEMA)?;
+            tx.execute_batch(club_moves::STAFF_MOVES_SCHEMA)?;
             tx.execute_batch(player_setup::SETUP_SCHEMA)?;
             tx.execute_batch(ECONOMY_SCHEMA)?;
             tx.execute_batch(internationals::CALL_UPS_SCHEMA)?;
@@ -1247,6 +1250,11 @@ impl Game {
         if version == 52 {
             world.conn.execute("UPDATE game SET version = 53", [])?;
             version = 53;
+        }
+        if version == 53 {
+            world.conn.execute_batch(club_moves::STAFF_MOVES_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 54", [])?;
+            version = 54;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(

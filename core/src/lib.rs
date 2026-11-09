@@ -48,6 +48,7 @@ pub use game::{
     TransferView, delete_save, list_saves,
 };
 pub use game::{CareerClub, LastLineup, ManagerStats, SquadAttributes, SquadMore};
+pub use game::{ClubMoves, MoveRow};
 pub use game::{DealTerms, LoanTerms};
 pub use game::{KeyMan, MatchAnalysis, MatchReview, Milestone};
 pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};

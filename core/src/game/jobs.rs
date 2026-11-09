@@ -277,6 +277,7 @@ impl Game {
         // Um lugar ocupado: o treinador que lá estava sai
         if let Some((coach, _)) = self.coach_of(club)? {
             self.world.conn.execute("UPDATE people SET club_id = NULL, club_job = NULL WHERE id = ?", [coach])?;
+            self.log_staff_move(coach, Some(club), None)?;
         }
         if !self.sacked() {
             self.world.conn.execute("INSERT OR REPLACE INTO vacancies (club_id, since) VALUES (?, ?)", params![old, self.date])?;
@@ -300,6 +301,7 @@ impl Game {
             "UPDATE people SET club_id = ?, club_job = 5, club_joined = ? WHERE id = ?",
             params![club, self.date, self.manager_id],
         )?;
+        self.log_staff_move(self.manager_id, (!self.sacked()).then_some(old), Some(club))?;
         for s in self.squads.states.values_mut() {
             s.reserve = false;
         }
@@ -387,6 +389,7 @@ impl Game {
             self.world
                 .conn
                 .execute("UPDATE people SET club_id = ?, club_job = 5, club_joined = ? WHERE id = ?", params![club, self.date, id])?;
+            self.log_staff_move(id, None, Some(club))?;
             self.world.conn.execute("DELETE FROM vacancies WHERE club_id = ?", [club])?;
             self.world.conn.execute("INSERT OR REPLACE INTO ai_boards (club_id, confidence) VALUES (?, ?)", params![club, AI_START])?;
             if self.newsworthy(club)? {
@@ -489,6 +492,7 @@ impl Game {
                 continue;
             }
             self.world.conn.execute("UPDATE people SET club_id = NULL, club_job = NULL WHERE id = ?", [coach])?;
+            self.log_staff_move(coach, Some(club), None)?;
             self.world.conn.execute("DELETE FROM ai_boards WHERE club_id = ?", [club])?;
             self.world.conn.execute("INSERT OR REPLACE INTO vacancies (club_id, since) VALUES (?, ?)", params![club, self.date])?;
             if self.newsworthy(club)? {

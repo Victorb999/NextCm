@@ -68,6 +68,7 @@ import type { SquadNumbers } from './bindings/SquadNumbers'
 import type { StageView } from './bindings/StageView'
 import type { StandingRow } from './bindings/StandingRow'
 import type { TransferItem } from './bindings/TransferItem'
+import type { ClubMoves } from './bindings/ClubMoves'
 import type { TransferView } from './bindings/TransferView'
 
 export const inTauri = isTauri()
@@ -250,6 +251,8 @@ export const api = {
   find: (text: string) => call<FindResult>('find', { text }),
   /** Entradas e saídas de um clube nos últimos 12 meses. */
   clubTransfers: (id: number) => call<TransferItem[]>('club_transfers', { id }),
+  /** A aba Transferências do clube: a vista do menu Ver ("in", "out", "future"...) e a época. */
+  clubMoves: (id: number, view: string, season: number | null) => call<ClubMoves>('club_moves', { id, view, season }),
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),
   /** Os jogos das reservas do clube do treinador (véspera de cada jogo do campeonato). */
   reserveFixtures: (id: number) => call<Fixture[]>('reserve_fixtures', { id }),

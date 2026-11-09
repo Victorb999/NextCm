@@ -376,6 +376,7 @@ impl Game {
             self.world.conn.execute("UPDATE board SET confidence = 0, sacked = 1 WHERE id = 1", [])?;
             // Fica sem clube: o lugar vago, a reputação a descer, e procura outro emprego
             self.world.conn.execute("UPDATE people SET club_id = NULL, club_job = NULL WHERE id = ?", [self.manager_id])?;
+            self.log_staff_move(self.manager_id, Some(self.club_id), None)?;
             self.world.conn.execute("INSERT OR REPLACE INTO vacancies (club_id, since) VALUES (?, ?)", params![self.club_id, self.date])?;
             self.change_manager_rep(super::jobs::REP_SACKED)?;
             self.career_leave()?;

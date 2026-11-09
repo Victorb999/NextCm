@@ -693,6 +693,11 @@ impl Session {
     }
 
     /// Entradas e saídas de um clube nos últimos 12 meses.
+    /// A aba Transferências do clube, como no CM: a vista do menu Ver e a época.
+    pub fn club_moves(&self, id: i32, view: String, season: Option<i32>) -> Result<crate::ClubMoves> {
+        self.game()?.club_moves(id, &view, season)
+    }
+
     pub fn club_transfers(&self, id: i32) -> Result<Vec<TransferItem>> {
         Ok(self.game.as_ref().map(|g| g.club_transfers(id)).transpose()?.unwrap_or_default())
     }
