@@ -41,6 +41,7 @@ import type { ContractTerms } from './bindings/ContractTerms'
 import type { SquadRoleView } from './bindings/SquadRoleView'
 import type { EditorClub } from './bindings/EditorClub'
 import type { EditorHit } from './bindings/EditorHit'
+import type { EditorCommand } from './bindings/EditorCommand'
 import type { EditorPlayer } from './bindings/EditorPlayer'
 import type { EditorProfile } from './bindings/EditorProfile'
 import type { EditorProfileView } from './bindings/EditorProfileView'
@@ -215,6 +216,10 @@ export const api = {
     call<EditorProfileView>('editor_set_profile', { file, id, profile }),
   editorSearchClubs: (file: string, query: string) => call<EditorHit[]>('editor_search_clubs', { file, query }),
   editorSquad: (file: string, clubId: number) => call<EditorHit[]>('editor_squad', { file, clubId }),
+  /** O "Custom Command" do editor: os comandos e aplicá-los a uma lista de jogadores (devolve quantos mudaram). */
+  editorCommands: () => call<EditorCommand[]>('editor_commands'),
+  editorCommand: (file: string, ids: number[], commands: string[], firstTeam: boolean) =>
+    call<number>('editor_command', { file, ids, commands, firstTeam }),
   editorClub: (file: string, id: number) => call<EditorClub>('editor_club', { file, id }),
   editorSetClub: (file: string, club: EditorClub) => call<EditorClub>('editor_set_club', { file, club }),
   squadRoleView: (id: number) => call<SquadRoleView>('squad_role_view', { id }),

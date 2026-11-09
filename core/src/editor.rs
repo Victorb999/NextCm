@@ -220,6 +220,12 @@ pub fn player(saves: &Path, file: &str, id: i32) -> Result<EditorPlayer> {
 /// diferir um ponto quando o par CA/atributo não permite o valor pedido.
 pub fn set_attributes(saves: &Path, file: &str, id: i32, values: &[EditorValue]) -> Result<EditorPlayer> {
     let world = open_save(saves, file)?;
+    apply_values(&world, id, values)?;
+    build(&world, id)
+}
+
+/// Valida e grava os valores (1 a 20, como o jogo os mostra) de um jogador.
+fn apply_values(world: &World, id: i32, values: &[EditorValue]) -> Result<()> {
     for v in values {
         if !(1..=20).contains(&v.value) {
             return Err(Error::Invalid(format!("O valor de um atributo vai de 1 a 20 (recebi {}).", v.value)));
@@ -251,7 +257,171 @@ pub fn set_attributes(saves: &Path, file: &str, id: i32, values: &[EditorValue])
         }
     }
     tx.commit()?;
-    build(&world, id)
+    Ok(())
+}
+
+// ---------------------------------------------------------------- comandos em massa
+
+/// Os comandos do "Custom Command" do editor do CM que o NextCM tem (os da inscrição nas
+/// competições europeias ficam de fora: o jogo não as tem).
+pub const COMMANDS: [(&str, &str); 19] = [
+    ("train_willing", "Todos com vontade de treinar"),
+    ("equalise", "Igualar capacidade ao potencial"),
+    ("consistency", "Consistência a 20"),
+    ("abilities_200", "Capacidade e potencial a 200"),
+    ("injury_1", "Propensão a lesões a 1"),
+    ("morale_20", "Moral a 20"),
+    ("strong_pacey", "Fortes e rápidos"),
+    ("fitness_100", "Condição a 100%"),
+    ("reputations", "Reputações ao máximo"),
+    ("mental_20", "Atributos mentais a 20"),
+    ("morale_1", "Moral a 1"),
+    ("psychos", "Todos uns 'Psicopatas'"),
+    ("injury_20", "Propensão a lesões a 20"),
+    ("like_manager", "Gostam do treinador actual"),
+    ("dislike_manager", "Detestam o treinador actual"),
+    ("like_club", "Gostam do clube actual"),
+    ("dislike_club", "Detestam o clube actual"),
+    ("extend_contracts", "Prolongar os contratos 1 ano"),
+    ("two_footed", "Todos com os dois pés"),
+];
+
+/// A reputação máxima de um jogador no banco.
+const MAX_PLAYER_REP: i32 = 200;
+
+fn to_20(keys: &[&str]) -> Vec<EditorValue> {
+    keys.iter().map(|k| EditorValue { key: k.to_string(), value: 20 }).collect()
+}
+
+/// Aplica os comandos aos jogadores `ids` (a lista do editor ou só o jogador aberto); com
+/// `first_team`, só aos do plantel principal (fora das reservas). Devolve quantos mudaram.
+pub fn command(saves: &Path, file: &str, ids: &[i32], commands: &[String], first_team: bool) -> Result<usize> {
+    let world = open_save(saves, file)?;
+    if commands.is_empty() {
+        return Err(Error::Invalid("Escolha pelo menos um comando.".into()));
+    }
+    if let Some(bad) = commands.iter().find(|c| !COMMANDS.iter().any(|k| k.0 == c.as_str())) {
+        return Err(Error::Invalid(format!("Comando desconhecido: {bad}.")));
+    }
+    let has = |k: &str| commands.iter().any(|c| c == k);
+    let mut done = 0;
+    for &id in ids {
+        let (club, is_player): (Option<i32>, bool) = world
+            .conn
+            .query_row("SELECT club_id, is_player = 1 FROM people WHERE id = ?", [id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(|_| Error::Invalid("Pessoa não encontrada.".into()))?;
+        if !is_player {
+            continue;
+        }
+        let reserve: bool =
+            world.conn.query_row("SELECT reserve FROM player_state WHERE person_id = ?", [id], |r| r.get(0)).unwrap_or(false);
+        if first_team && reserve {
+            continue;
+        }
+        // Os atributos: pelo valor que o jogo mostra (os relativos convertidos)
+        let mut values: Vec<EditorValue> = Vec::new();
+        let mut set = |key: &str, value: i32| {
+            values.retain(|v| v.key != key);
+            values.push(EditorValue { key: key.into(), value });
+        };
+        if has("train_willing") {
+            set("professionalism", 20);
+        }
+        if has("consistency") {
+            set("consistency", 20);
+        }
+        if has("injury_1") {
+            set("injury_proneness", 1);
+        }
+        if has("injury_20") {
+            set("injury_proneness", 20);
+        }
+        if has("strong_pacey") {
+            for v in to_20(&["strength", "pace", "acceleration"]) {
+                set(&v.key, v.value);
+            }
+        }
+        if has("mental_20") {
+            for k in MENTAL {
+                set(k, 20);
+            }
+        }
+        if has("psychos") {
+            set("temperament", 1);
+            set("sportsmanship", 1);
+            set("aggression", 20);
+            set("dirtiness", 20);
+        }
+        if has("two_footed") {
+            set("left_foot", 20);
+            set("right_foot", 20);
+        }
+        let tx = world.conn.unchecked_transaction()?;
+        if has("abilities_200") {
+            tx.execute("UPDATE players SET current_ability = 200, potential_ability = 200 WHERE person_id = ?", [id])?;
+        } else if has("equalise") {
+            tx.execute("UPDATE players SET current_ability = MAX(COALESCE(current_ability, 0), COALESCE(potential_ability, 0)) WHERE person_id = ?", [id])?;
+        }
+        if has("reputations") {
+            tx.execute(
+                "UPDATE players SET home_reputation = ?1, current_reputation = ?1, world_reputation = ?1 WHERE person_id = ?2",
+                [MAX_PLAYER_REP, id],
+            )?;
+        }
+        for (key, morale) in [("morale_20", 20), ("morale_1", 1)] {
+            if has(key) {
+                tx.execute("UPDATE player_state SET morale = ? WHERE person_id = ?", [morale, id])?;
+                tx.execute("UPDATE players SET morale = ? WHERE person_id = ?", [morale, id])?;
+            }
+        }
+        if has("fitness_100") {
+            tx.execute("UPDATE player_state SET condition = 100 WHERE person_id = ?", [id])?;
+        }
+        if has("extend_contracts") {
+            tx.execute(
+                "UPDATE people SET contract_expires = date(contract_expires, '+1 year') WHERE id = ? AND contract_expires IS NOT NULL",
+                [id],
+            )?;
+        }
+        // As Preferências (save 52): o clube e o treinador de hoje entre os favoritos ou os detestados
+        let coach: Option<i32> = match club {
+            Some(c) => tx.query_row("SELECT id FROM people WHERE club_id = ? AND club_job = 5 LIMIT 1", [c], |r| r.get(0)).ok(),
+            None => None,
+        };
+        for (key, kind, target, liked) in [
+            ("like_club", "club", club, 1),
+            ("dislike_club", "club", club, 0),
+            ("like_manager", "person", coach, 1),
+            ("dislike_manager", "person", coach, 0),
+        ] {
+            if let (true, Some(t)) = (has(key), target) {
+                tx.execute("DELETE FROM preferences WHERE person_id = ? AND kind = ? AND target_id = ?", rusqlite::params![id, kind, t])?;
+                tx.execute(
+                    "INSERT INTO preferences (person_id, kind, target_id, liked) VALUES (?, ?, ?, ?)",
+                    rusqlite::params![id, kind, t, liked],
+                )?;
+            }
+        }
+        tx.commit()?;
+        if !values.is_empty() {
+            apply_values(&world, id, &values)?;
+        }
+        done += 1;
+    }
+    Ok(done)
+}
+
+/// Os comandos para a lista do diálogo (chave e texto).
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorCommand {
+    pub key: String,
+    pub label: String,
+}
+
+pub fn commands() -> Vec<EditorCommand> {
+    COMMANDS.iter().map(|(k, l)| EditorCommand { key: k.to_string(), label: l.to_string() }).collect()
 }
 
 // ---------------------------------------------------------------- ficha do jogador
@@ -761,6 +931,41 @@ mod tests {
         let again = club(&dir, &file, c.id).unwrap();
         assert_eq!((again.cash, again.reputation, again.capacity, again.seating), (987_654_321, 8000, 50_000, 40_000));
         assert_eq!(again.home_bg.as_deref(), Some("#aa0000"));
+
+        // Comandos em massa (o "Custom Command" do CM): no plantel todo e só num jogador
+        let ids: Vec<i32> = all.iter().map(|h| h.id).collect();
+        assert!(command(&dir, &file, &ids, &[], false).is_err());
+        assert!(command(&dir, &file, &ids, &["nada".into()], false).is_err());
+        let cmds: Vec<String> =
+            ["two_footed", "morale_20", "reputations", "like_club", "extend_contracts"].iter().map(|s| s.to_string()).collect();
+        let before_contract: Option<String> = World::open_save(&dir.join(&file))
+            .unwrap()
+            .conn
+            .query_row("SELECT contract_expires FROM people WHERE id = ?", [ids[0]], |r| r.get(0))
+            .unwrap();
+        assert_eq!(command(&dir, &file, &ids, &cmds, false).unwrap(), ids.len());
+        let p = player(&dir, &file, ids[0]).unwrap();
+        let get = |k: &str| p.attributes.iter().find(|a| a.key == k).unwrap().shown;
+        assert_eq!((get("left_foot"), get("right_foot")), (20, 20));
+        let w = World::open_save(&dir.join(&file)).unwrap();
+        let (rep, liked, contract): (i32, i32, Option<String>) = w
+            .conn
+            .query_row(
+                "SELECT pl.world_reputation, (SELECT liked FROM preferences WHERE person_id = p.id AND kind = 'club' AND target_id = p.club_id),
+                        p.contract_expires FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
+                [ids[0]],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!((rep, liked), (200, 1));
+        if let (Some(b), Some(a)) = (before_contract, contract) {
+            assert_eq!(a[0..4].parse::<i32>().unwrap(), b[0..4].parse::<i32>().unwrap() + 1);
+        }
+        drop(w);
+        // Só o jogador aberto
+        assert_eq!(command(&dir, &file, &ids[1..2], &["abilities_200".into()], false).unwrap(), 1);
+        assert_eq!(profile(&dir, &file, ids[1]).unwrap().profile.ability, 200);
+        assert!(profile(&dir, &file, ids[2]).unwrap().profile.ability < 200);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

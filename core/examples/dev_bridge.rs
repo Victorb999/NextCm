@@ -190,6 +190,14 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let query = args["query"].as_str().unwrap_or("").to_string();
             out(serde_json::to_value(session.editor_search_clubs(file, query).map_err(e)?))
         }
+        "editor_commands" => out(serde_json::to_value(session.editor_commands().map_err(e)?)),
+        "editor_command" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            let ids: Vec<i32> = serde_json::from_value(args["ids"].clone()).map_err(|x| x.to_string())?;
+            let commands: Vec<String> = serde_json::from_value(args["commands"].clone()).map_err(|x| x.to_string())?;
+            let first_team = args["firstTeam"].as_bool().unwrap_or(false);
+            out(serde_json::to_value(session.editor_command(file, ids, commands, first_team).map_err(e)?))
+        }
         "editor_squad" => {
             let file = args["file"].as_str().ok_or("falta file")?.to_string();
             let club_id = args["clubId"].as_i64().ok_or("falta clubId")? as i32;

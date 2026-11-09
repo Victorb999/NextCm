@@ -207,6 +207,15 @@ impl Session {
     }
 
     /// Editor de jogos salvos: procura jogadores num save fechado.
+    /// O "Custom Command" do editor: os comandos e aplicá-los a uma lista de jogadores.
+    pub fn editor_commands(&self) -> Result<Vec<crate::EditorCommand>> {
+        Ok(crate::editor_commands())
+    }
+
+    pub fn editor_command(&self, file: String, ids: Vec<i32>, commands: Vec<String>, first_team: bool) -> Result<usize> {
+        crate::editor_command(&self.saves_dir, self.editor_file(&file)?, &ids, &commands, first_team)
+    }
+
     pub fn editor_search(&self, file: String, query: String) -> Result<Vec<crate::EditorHit>> {
         crate::editor_search(&self.saves_dir, self.editor_file(&file)?, &query)
     }

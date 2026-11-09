@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { api } from "../api"
 import type { EditorAttribute } from "../bindings/EditorAttribute"
 import type { EditorClub } from "../bindings/EditorClub"
+import type { EditorCommand } from "../bindings/EditorCommand"
 import type { EditorHit } from "../bindings/EditorHit"
 import type { EditorPlayer } from "../bindings/EditorPlayer"
 import type { EditorProfile } from "../bindings/EditorProfile"
@@ -333,6 +334,62 @@ function ClubDialog({
 }
 
 /** "Editor de Jogos Salvos": no formato do editor do CM (lista à esquerda, abas à direita). */
+/** O "Custom Command" do editor do CM: os comandos marcados aplicam-se à lista da esquerda (ou só
+ * ao jogador aberto), de uma vez. Quais existem e o que fazem decide o core. */
+function CommandDialog({
+  count,
+  person,
+  onRun,
+  onClose,
+}: {
+  count: number
+  person: string | null
+  onRun: (commands: string[], firstTeam: boolean, onlyPerson: boolean) => void
+  onClose: () => void
+}) {
+  const [list, setList] = useState<EditorCommand[]>([])
+  const [picked, setPicked] = useState<string[]>([])
+  const [firstTeam, setFirstTeam] = useState(false)
+  const [onlyPerson, setOnlyPerson] = useState(false)
+  useEffect(() => {
+    api.editorCommands().then(setList, () => setList([]))
+  }, [])
+  const toggle = (key: string, on: boolean) => setPicked((p) => (on ? [...p.filter((k) => k !== key), key] : p.filter((k) => k !== key)))
+  return (
+    <Overlay>
+      <DialogFrame
+        title="Comando Personalizado"
+        width={460}
+        onCancel={onClose}
+        onOk={picked.length ? () => onRun(picked, firstTeam, onlyPerson) : undefined}
+        okLabel="OK"
+      >
+        <div className="max-h-[420px] overflow-auto">
+          {list.map((c) => (
+            <label key={c.key} className="flex h-6 items-center gap-2 px-1 text-[14px] text-white hover:bg-black/30">
+              <input type="checkbox" checked={picked.includes(c.key)} onChange={(e) => toggle(c.key, e.target.checked)} />
+              {c.label}
+            </label>
+          ))}
+        </div>
+        <div className="mt-2 border-t border-white/15 pt-2">
+          <label className="flex h-6 items-center gap-2 px-1 text-[14px] text-cm-yellow">
+            <input type="checkbox" checked={firstTeam} onChange={(e) => setFirstTeam(e.target.checked)} />
+            Só o plantel principal?
+          </label>
+          <label className={`flex h-6 items-center gap-2 px-1 text-[14px] ${person ? "text-cm-yellow" : "text-[#777]"}`}>
+            <input type="checkbox" disabled={!person} checked={onlyPerson} onChange={(e) => setOnlyPerson(e.target.checked)} />
+            Só a pessoa actual?{person ? ` (${person})` : ""}
+          </label>
+          <div className="px-1 pt-1 text-[12px] text-[#9a9aa6]">
+            {onlyPerson && person ? `Aplica a ${person}.` : `Aplica aos ${count} jogadores da lista.`}
+          </div>
+        </div>
+      </DialogFrame>
+    </Overlay>
+  )
+}
+
 export default function EditorPage() {
   const game = useGame()
   const [saves, setSaves] = useState<SaveSummary[]>([])
@@ -347,6 +404,7 @@ export default function EditorPage() {
   const [profile, setProfile] = useState<EditorProfileView | null>(null)
   const [profileDraft, setProfileDraft] = useState<EditorProfile | null>(null)
   const [clubOpen, setClubOpen] = useState<number | null>(null)
+  const [commandOpen, setCommandOpen] = useState(false)
   const [selected, setSelected] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -457,6 +515,16 @@ export default function EditorPage() {
     })
   }
 
+  /** Corre o Comando Personalizado e reabre o jogador aberto, para se ver o que mudou. */
+  const runCommand = async (commands: string[], firstTeam: boolean, onlyPerson: boolean) => {
+    setCommandOpen(false)
+    const ids = onlyPerson && player ? [player.id] : hits.map((h) => h.id)
+    const n = await run(() => api.editorCommand(file, ids, commands, firstTeam))
+    if (n === undefined) return
+    if (player) await open(player.id)
+    setNotice(`Comando aplicado a ${n} jogador${n === 1 ? "" : "es"}.`)
+  }
+
   const pd = profileDraft
   const setP = (patch: Partial<EditorProfile>) => setProfileDraft((d) => (d ? { ...d, ...patch } : d))
   const setUnhappy = (club: boolean, mode: "all" | "none") => {
@@ -555,6 +623,9 @@ export default function EditorPage() {
               </form>
               <button className="cm-purple h-8 enabled:text-cm-yellow" disabled={!dirty || busy} onClick={() => void update()}>
                 Actualizar Jogador
+              </button>
+              <button className="cm-purple h-8" disabled={kind !== "players" || !hits.length || busy} onClick={() => setCommandOpen(true)}>
+                Comando Personalizado
               </button>
               <button className="cm-purple h-8" onClick={() => game.setMode("start")}>
                 Sair
@@ -735,6 +806,14 @@ export default function EditorPage() {
             void showSquad(id)
           }}
           onSwitch={(id) => (setClubOpen(id), setSelected(id))}
+        />
+      )}
+      {commandOpen && (
+        <CommandDialog
+          count={hits.length}
+          person={player?.name ?? null}
+          onClose={() => setCommandOpen(false)}
+          onRun={(commands, firstTeam, onlyPerson) => void runCommand(commands, firstTeam, onlyPerson)}
         />
       )}
     </Overlay>

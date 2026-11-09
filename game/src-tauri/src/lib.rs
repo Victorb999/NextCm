@@ -143,6 +143,8 @@ session_command!(editor_profile(file: String, id: i32) -> EditorProfileView);
 session_command!(editor_set_profile(file: String, id: i32, profile: EditorProfile) -> EditorProfileView);
 session_command!(editor_search_clubs(file: String, query: String) -> Vec<EditorHit>);
 session_command!(editor_squad(file: String, club_id: i32) -> Vec<EditorHit>);
+session_command!(editor_commands() -> Vec<nextcm_core::EditorCommand>);
+session_command!(editor_command(file: String, ids: Vec<i32>, commands: Vec<String>, first_team: bool) -> usize);
 session_command!(editor_club(file: String, id: i32) -> EditorClub);
 session_command!(editor_set_club(file: String, club: EditorClub) -> EditorClub);
 session_command!(set_squad_role(id: i32, role: String) -> String);
@@ -372,6 +374,8 @@ pub fn run() {
             editor_set_profile,
             editor_search_clubs,
             editor_squad,
+            editor_commands,
+            editor_command,
             editor_club,
             editor_set_club,
             set_squad_role,
