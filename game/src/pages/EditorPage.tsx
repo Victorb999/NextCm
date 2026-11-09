@@ -348,11 +348,12 @@ function CommandDialog({
   onClose: () => void
 }) {
   const [list, setList] = useState<EditorCommand[]>([])
+  const [failed, setFailed] = useState<string | null>(null)
   const [picked, setPicked] = useState<string[]>([])
   const [firstTeam, setFirstTeam] = useState(false)
   const [onlyPerson, setOnlyPerson] = useState(false)
   useEffect(() => {
-    api.editorCommands().then(setList, () => setList([]))
+    api.editorCommands().then(setList, (e) => setFailed(String(e)))
   }, [])
   const toggle = (key: string, on: boolean) => setPicked((p) => (on ? [...p.filter((k) => k !== key), key] : p.filter((k) => k !== key)))
   return (
@@ -364,6 +365,11 @@ function CommandDialog({
         onOk={picked.length ? () => onRun(picked, firstTeam, onlyPerson) : undefined}
         okLabel="OK"
       >
+        {failed && (
+          <div className="p-2 text-[13px] text-[#ff8080]">
+            Não foi possível ler os comandos ({failed}). Se o jogo corre no navegador, reinicie a ponte (web.ps1).
+          </div>
+        )}
         <div className="max-h-[420px] overflow-auto">
           {list.map((c) => (
             <label key={c.key} className="flex h-6 items-center gap-2 px-1 text-[14px] text-white hover:bg-black/30">
