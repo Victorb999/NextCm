@@ -7,7 +7,7 @@ export type Screen =
   | { kind: 'search' }
   /** `latest`: abre na mensagem mais recente (a que uma acção acabou de deixar). */
   | { kind: 'news'; latest?: boolean }
-  | { kind: 'person'; id: number }
+  | { kind: 'person'; id: number; tab?: string }
   | { kind: 'contract'; id: number }
   | { kind: 'squadNumbers' }
   | { kind: 'training' }

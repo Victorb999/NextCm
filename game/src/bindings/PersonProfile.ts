@@ -5,6 +5,7 @@ import type { ClubRef } from "./ClubRef";
 import type { HonourLine } from "./HonourLine";
 import type { InjuryLine } from "./InjuryLine";
 import type { Knowledge } from "./Knowledge";
+import type { PersonalInfo } from "./PersonalInfo";
 import type { PlayerDetails } from "./PlayerDetails";
 import type { PlayerStatus } from "./PlayerStatus";
 import type { RecordLine } from "./RecordLine";
@@ -54,7 +55,11 @@ squadMove: SquadMove | null,
 /**
  * Marcos & Recordes: os marcos (do mais recente) e os recordes; só num jogo em curso.
  */
-marks: Array<CareerMark>, records: Array<RecordLine>, 
+marks: Array<CareerMark>, 
+/**
+ * Informação pessoal, como a do FM08 (preferências, personalidade, felicidade, relações).
+ */
+personal: PersonalInfo | null, records: Array<RecordLine>, 
 /**
  * As últimas notas (a Forma do CM), da mais antiga à mais recente.
  */

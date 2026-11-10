@@ -8,7 +8,7 @@ import type { TacticPlayer } from '../bindings/TacticPlayer'
 import { selectionOf, swap, useDragSwap, type Spot } from '../selection'
 import InstructionsDialog from './InstructionsDialog'
 import PlayerOrdersDialog from './PlayerOrdersDialog'
-import { BottomBar, ErrorBox, PanelTitle, PurpleMenu, ScreenHeader } from './Screen'
+import { BottomBar, ErrorBox, Link, PanelTitle, PurpleMenu, ScreenHeader } from './Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from './TacticsBoard'
 import { TACTICS_MENU, TACTICS_VIEWS, fullName, hasOrders, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, viewLabel, viewValue, withOrders, type TacticsView } from '../tactics'
 
@@ -138,7 +138,10 @@ export default function LiveTactics({
     <div className="flex min-h-0 flex-1 flex-col">
       <ScreenHeader
         club={team.club}
-        eyebrow={t?.clubName ?? team.club.name}
+        eyebrow={
+          // O nome do clube abre a ficha dele
+          <Link onClick={() => nav.go({ kind: 'club', id: team.club.id })}>{t?.clubName ?? team.club.name}</Link>
+        }
         title="Tácticas"
         right={
           // O resultado e quem marcou (com o minuto), como no placar da partida

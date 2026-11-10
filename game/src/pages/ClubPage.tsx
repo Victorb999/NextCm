@@ -205,7 +205,7 @@ function SquadGrid({
         </span>
         {e.player && (
           <span className="flex h-[18px] w-10 shrink-0 items-center justify-center rounded bg-black/50 font-mono text-[12px]">
-            {e.player.info && <InfBadge info={e.player.info} />}
+            {e.player.info && <InfBadge info={e.player.info} person={e.player.id} />}
           </span>
         )}
         <span
@@ -823,6 +823,9 @@ export default function ClubPage({
               <span className="text-cm-orange">
                 {club.division?.name ?? club.status ?? ""}
               </span>
+              {club.leaguePosition != null && (
+                <span className="rounded bg-black/40 px-1.5 text-cm-yellow">{club.leaguePosition}º lugar</span>
+              )}
               {reserves && (
                 <span className="rounded bg-[#0f3a2a] px-1.5 text-[#4edea3]">
                   Reservas
@@ -1114,7 +1117,8 @@ export default function ClubPage({
               ? { key: "parent", label: "Equipa Principal" }
               : {
                   key: "division",
-                  label: division?.shortName ?? "-",
+                  // Com o lugar na liga, como o "4º A" do CM
+                  label: division ? `${club?.leaguePosition != null ? `${club.leaguePosition}º ` : ""}${division.shortName}` : "-",
                   disabled: !division,
                 },
             { key: "history", label: "Historial" },

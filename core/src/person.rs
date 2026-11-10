@@ -164,6 +164,8 @@ pub struct PersonProfile {
     pub squad_move: Option<SquadMove>,
     /// Marcos & Recordes: os marcos (do mais recente) e os recordes; só num jogo em curso.
     pub marks: Vec<CareerMark>,
+    /// Informação pessoal, como a do FM08 (preferências, personalidade, felicidade, relações).
+    pub personal: Option<crate::game::PersonalInfo>,
     pub records: Vec<RecordLine>,
     /// As últimas notas (a Forma do CM), da mais antiga à mais recente.
     pub form: Vec<f64>,
@@ -406,6 +408,7 @@ impl World {
                         can_contract: false,
                         squad_move: None,
                         marks: Vec::new(),
+                        personal: None,
                         records: Vec::new(),
                         form: Vec::new(),
                         season: Vec::new(),

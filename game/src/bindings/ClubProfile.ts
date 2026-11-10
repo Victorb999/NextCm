@@ -16,6 +16,10 @@ reserveDivision: CompetitionRef | null,
  */
 reservesName: string | null, 
 /**
+ * Num jogo em curso: o lugar na classificação do campeonato (depois da 1ª jornada).
+ */
+leaguePosition: number | null, 
+/**
  * Divisão e posição na temporada anterior.
  */
 lastDivision: CompetitionRef | null, lastPosition: number | null, stadium: string | null, stadiumCapacity: number | null, 

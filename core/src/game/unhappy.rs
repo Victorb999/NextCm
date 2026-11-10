@@ -8,6 +8,7 @@
 //! com saudades de casa podem ter duas semanas de folga; sem ela, acabam por faltar sem
 //! autorização ("Fit"). As ausências ficam em `absences`.
 
+use rand_core::RngCore;
 use rusqlite::{OptionalExtension, params};
 
 use super::{Game, NewsItem, age_on};
@@ -51,14 +52,19 @@ const GRIEVANCES: &str = "'starter', 'contract', 'bigger', 'blocked', 'unfair', 
 const VENT_AFTER: i32 = 21;
 const VENT_TEMPERAMENT: i32 = 8;
 /// Probabilidade semanal de não se dar com um colega (quem tem pouco espírito desportivo ou mau feitio).
-const TEAMMATE_CHANCE: f64 = 0.04;
+/// Rara (9/11: no CM quase nunca se vê), e só para quem tem mau feitio.
+const TEAMMATE_CHANCE: f64 = 0.01;
 /// Nota (1–20) na função abaixo da qual o jogador sente que não é a posição dele, e a partir da
 /// qual está à vontade.
 const POSITION_BAD: i32 = 10;
 const POSITION_OK: i32 = 13;
 /// Minuto até ao qual sair substituído a jogar bem (nota 7 ou mais) magoa um ambicioso.
-const SUBBED_BEFORE: u8 = 76;
-const SUBBED_RATING: f64 = 7.0;
+/// Saiu cedo a jogar bem: só um titular ambicioso e de mau feitio se queixa (9/11: era
+/// frequente demais; no CM quase nunca se vê).
+const SUBBED_BEFORE: u8 = 60;
+const SUBBED_RATING: f64 = 7.5;
+const SUBBED_AMBITION: i32 = 14;
+const SUBBED_TEMPERAMENT: i32 = 8;
 /// Menos de tantos jogadores no plantel principal (ou menos de 2 guarda-redes): falta profundidade.
 const MIN_DEPTH: usize = 18;
 /// Pede o preço vezes o valor: a avaliação do clube é irrealista.
@@ -155,11 +161,15 @@ struct Unhappy {
 impl Game {
     /// Junta um motivo (se ainda não o tiver); devolve se é novo.
     pub(super) fn add_unhappy(&self, person: i32, reason: &str) -> Result<bool> {
-        Ok(self
-            .world
-            .conn
-            .execute("INSERT OR IGNORE INTO unhappy (person_id, reason, since) VALUES (?, ?, ?)", params![person, reason, self.date])?
-            > 0)
+        self.add_unhappy_with(person, reason, None)
+    }
+
+    /// Um motivo com o que aconteceu ("Bruno Fernandes", "aos 58' contra o Everton").
+    pub(super) fn add_unhappy_with(&self, person: i32, reason: &str, detail: Option<&str>) -> Result<bool> {
+        Ok(self.world.conn.execute(
+            "INSERT OR IGNORE INTO unhappy (person_id, reason, since, detail) VALUES (?, ?, ?, ?)",
+            params![person, reason, self.date, detail],
+        )? > 0)
     }
 
     pub(super) fn remove_unhappy(&self, person: i32, reason: &str) -> Result<()> {
@@ -167,14 +177,23 @@ impl Game {
         Ok(())
     }
 
-    /// Os motivos de um jogador, pelo texto do CM (para o perfil).
+    /// Os motivos de um jogador, pelo texto do CM (para o perfil), com o que aconteceu: que
+    /// colega, em que jogo.
     pub fn unhappy_reasons(&self, person: i32) -> Result<Vec<String>> {
         Ok(self
             .world
             .conn
-            .prepare_cached("SELECT reason FROM unhappy WHERE person_id = ? AND substr(reason, 1, 5) <> 'club_' ORDER BY since, reason")?
-            .query_map([person], |r| r.get::<_, String>(0))?
-            .map(|r| r.map(|k| reason_text(&k).to_string()))
+            .prepare_cached(
+                "SELECT reason, detail FROM unhappy WHERE person_id = ? AND substr(reason, 1, 5) <> 'club_' ORDER BY since, reason",
+            )?
+            .query_map([person], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))?
+            .map(|r| {
+                r.map(|(k, detail)| match (k.as_str(), detail) {
+                    ("teammate", Some(d)) => format!("Não se dá com {d}"),
+                    ("subbed", Some(d)) => format!("Descontente por ter sido substituído {d}"),
+                    _ => reason_text(&k).to_string(),
+                })
+            })
             .collect::<rusqlite::Result<_>>()?)
     }
 
@@ -260,24 +279,31 @@ impl Game {
             self.change_fans(-1)?;
         }
         // Um colega que ele detesta (as Preferências do CM) no plantel
-        let enemy: bool = self
+        let enemy: Option<String> = self
             .world
             .conn
             .prepare_cached(
-                "SELECT 1 FROM preferences f JOIN people q ON q.id = f.target_id
+                "SELECT q.display_name FROM preferences f JOIN people q ON q.id = f.target_id
                  WHERE f.person_id = ? AND f.kind = 'person' AND f.liked = 0 AND q.club_id = ? AND q.is_player = 1 LIMIT 1",
             )?
-            .query_row([p.id, self.club_id], |_| Ok(()))
-            .optional()?
-            .is_some();
-        if enemy {
-            self.add_unhappy(p.id, "teammate")?;
+            .query_row([p.id, self.club_id], |r| r.get(0))
+            .optional()?;
+        if let Some(name) = &enemy {
+            self.add_unhappy_with(p.id, "teammate", Some(name))?;
         }
-        // Um colega com quem não se dá (por semana, sorteado; passa com o tempo)
-        if !enemy && p.rank < 15 && (sportsmanship <= 8 || temperament <= 6) {
+        // Um colega com quem não se dá (raro, sorteado, só com mau feitio; passa com o tempo)
+        if enemy.is_none() && p.rank < 15 && sportsmanship <= 6 && temperament <= 5 {
             let mut rng = match_rng(self.seed ^ 0xA_402, p.id ^ date::parse(&self.date).unwrap_or(0));
             if uniform(&mut rng) < TEAMMATE_CHANCE {
-                self.add_unhappy(p.id, "teammate")?;
+                // O colega: um do plantel, sorteado
+                let mates: Vec<String> = self
+                    .world
+                    .conn
+                    .prepare_cached("SELECT display_name FROM people WHERE club_id = ? AND is_player = 1 AND id <> ? ORDER BY id")?
+                    .query_map([self.club_id, p.id], |r| r.get(0))?
+                    .collect::<rusqlite::Result<_>>()?;
+                let mate = (!mates.is_empty()).then(|| mates[(rng.next_u32() as usize) % mates.len()].clone());
+                self.add_unhappy_with(p.id, "teammate", mate.as_deref())?;
             }
         }
         // As queixas do clube
@@ -310,19 +336,34 @@ impl Game {
 
     /// No fim de um jogo do treinador: quem saiu substituído a jogar bem e quem jogou fora da
     /// posição (ou voltou a estar à vontade).
-    pub(super) fn match_moods(&self, lines: &[crate::live::PlayerLine]) -> Result<()> {
+    pub(super) fn match_moods(&self, lines: &[crate::live::PlayerLine], against: &str) -> Result<()> {
+        // O plantel do treinador, do melhor para o pior (CA)
         let mine: Vec<i32> = self
             .world
             .conn
-            .prepare_cached("SELECT id FROM people WHERE club_id = ? AND is_player = 1")?
+            .prepare_cached(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ? AND p.is_player = 1
+                 ORDER BY pl.current_ability DESC, p.id",
+            )?
             .query_map([self.club_id], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
         for l in lines.iter().filter(|l| !l.sub && mine.contains(&l.id)) {
-            let ambition: i32 =
-                self.world.conn.query_row("SELECT COALESCE(ambition, 10) FROM people WHERE id = ?", [l.id], |r| r.get(0))?;
+            let (ambition, temperament): (i32, i32) = self.world.conn.query_row(
+                "SELECT COALESCE(ambition, 10), COALESCE(temperament, 10) FROM people WHERE id = ?",
+                [l.id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?;
             let early = l.off.is_some_and(|m| m < SUBBED_BEFORE) && !l.injured && !l.red;
-            if early && l.rating >= SUBBED_RATING && ambition >= 12 {
-                self.add_unhappy(l.id, "subbed")?;
+            let starter = mine.iter().position(|&id| id == l.id).is_some_and(|r| r < 11);
+            if early
+                && starter
+                && l.rating >= SUBBED_RATING
+                && ambition >= SUBBED_AMBITION
+                && temperament <= SUBBED_TEMPERAMENT
+                && let Some(minute) = l.off
+            {
+                let detail = format!("aos {minute}' contra o {against} ({})", super::cm_date(&self.date));
+                self.add_unhappy_with(l.id, "subbed", Some(&detail))?;
             }
             if l.fit < POSITION_BAD {
                 self.add_unhappy(l.id, "position")?;
@@ -1053,13 +1094,24 @@ mod tests {
             fit,
         };
         let other = squad.iter().find(|p| p.id != star && !p.loaned_in).unwrap().id;
-        g.world.conn.execute("UPDATE people SET ambition = 15 WHERE id = ?", [other]).unwrap();
-        g.match_moods(&[line(other, 6, Some(60), 7.5)]).unwrap();
+        g.world.conn.execute("UPDATE people SET ambition = 15, temperament = 6 WHERE id = ?", [other]).unwrap();
+        // Só um titular se queixa de sair cedo: o melhor do plantel que não é a estrela
+        let best: Vec<i32> = g
+            .world
+            .conn
+            .prepare("SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = 7568 AND p.is_player = 1 ORDER BY pl.current_ability DESC, p.id")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert!(best.iter().position(|&id| id == other).is_some_and(|r| r < 11), "o escolhido é titular");
+        g.match_moods(&[line(other, 6, Some(55), 7.8)], "Santos").unwrap();
         let reasons = g.unhappy_reasons(other).unwrap();
-        assert!(reasons.contains(&reason_text("subbed").to_string()));
+        assert!(reasons.iter().any(|r| r.starts_with("Descontente por ter sido substituído aos 55' contra o Santos")), "{reasons:?}");
         assert!(reasons.contains(&reason_text("position").to_string()));
         // À vontade na posição e a acabar o jogo: a queixa da posição passa
-        g.match_moods(&[line(other, 15, None, 6.0)]).unwrap();
+        g.match_moods(&[line(other, 15, None, 6.0)], "Santos").unwrap();
         assert!(!g.unhappy_reasons(other).unwrap().contains(&reason_text("position").to_string()));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);

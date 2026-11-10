@@ -68,7 +68,7 @@ export function Row({
   place: string
   bind: Bind
   onToggle?: () => void
-  /** Duplo clique (abre o perfil). */
+  /** Abre o perfil: um clique no nome (nas duas equipas) ou duplo clique na linha. */
   onOpen?: () => void
   /** Botão direito: instruções individuais. */
   onOrders?: () => void
@@ -135,7 +135,18 @@ export function Row({
       </span>
       <span className={`flex min-w-0 flex-1 items-center gap-1.5 ${text}`}>
         {captain && <span className="shrink-0 rounded-[3px] bg-[#4a3300] px-1 text-[11px] font-bold leading-[16px] text-cm-yellow">C</span>}
-        <span className="truncate">
+        <span
+          className={`truncate ${onOpen ? 'cursor-pointer hover:text-cm-yellow hover:underline' : ''}`}
+          onMouseDown={(e) => onOpen && e.stopPropagation()}
+          onClick={
+            onOpen &&
+            ((e) => {
+              e.stopPropagation()
+              onOpen()
+            })
+          }
+          title={onOpen ? 'Ver o perfil' : undefined}
+        >
           {fullName(p.listName)}
           {p.key && '*'}
         </span>

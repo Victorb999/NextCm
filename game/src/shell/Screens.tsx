@@ -33,7 +33,7 @@ export default function Screens() {
         <SearchPage active={current.kind === 'search'} />
       </div>
       {current.kind === 'news' && <NewsPage key={String(current.latest)} latest={current.latest} />}
-      {current.kind === 'person' && <PersonPage key={current.id} id={current.id} />}
+      {current.kind === 'person' && <PersonPage key={current.id} id={current.id} tab={current.tab} />}
       {current.kind === 'contract' && <ContractPage key={current.id} id={current.id} />}
       {current.kind === 'squadNumbers' && <SquadNumbersPage />}
       {current.kind === 'training' && <TrainingPage />}

@@ -2,6 +2,7 @@ import type { SquadPlayer } from "../bindings/SquadPlayer"
 import { nameClass, squadName } from "../squad"
 import { columnsFor, type TableExtra, type TableView } from "../squadColumns"
 import { Link } from "./Screen"
+import { useNav } from "../nav"
 
 // As vistas em tabela do Vêr do plantel, como no CM: uma linha por jogador com Esc, Inf e
 // Nome à esquerda e as colunas da vista (contrato, selecção, estatísticas, penáltis).
@@ -27,8 +28,14 @@ export function HeaderCell({ label, className, header }: { label: string; classN
   )
 }
 
-/** A sigla da coluna Inf, nas cores do CM (lesão laranja, castigo vermelho). */
-export function InfBadge({ info }: { info: string | null }) {
+/** A aba do perfil que cada sigla abre: a insatisfação no Contrato & Transferência, a lesão e
+ * o castigo em Lesões & Castigos. */
+const INF_TAB: Record<string, string> = { Ins: "contract", Fut: "contract", Des: "contract", Lst: "contract", Les: "injuries", Sus: "injuries" }
+
+/** A sigla da coluna Inf, nas cores do CM (lesão laranja, castigo vermelho). Com `person`, um
+ * clique abre o perfil na aba que explica a sigla (o "Ins" mostra a insatisfação). */
+export function InfBadge({ info, person }: { info: string | null; person?: number }) {
+  const nav = useNav()
   if (!info) return <span className="text-[#5a5a66]">-</span>
   const colour =
     info === "Les"
@@ -36,7 +43,21 @@ export function InfBadge({ info }: { info: string | null }) {
       : info === "Sus" || info === "Fit"
         ? "bg-[#9c0000] text-white"
         : "bg-gray-900 text-cm-yellow border-gray-700 border"
-  return <span className={`px-1 font-bold rounded ${colour}`}>{info}</span>
+  const tab = INF_TAB[info]
+  if (person === undefined || !tab) return <span className={`px-1 font-bold rounded ${colour}`}>{info}</span>
+  return (
+    <button
+      className={`px-1 font-bold rounded ${colour} hover:brightness-125`}
+      title="Ver o motivo"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation()
+        nav.go({ kind: "person", id: person, tab })
+      }}
+    >
+      {info}
+    </button>
+  )
 }
 
 export default function SquadTable({
@@ -90,7 +111,7 @@ export default function SquadTable({
               {place ?? <span className="text-[#5a5a66]">-</span>}
             </span>
             <span className="w-10 shrink-0 text-center font-mono text-[12px]">
-              <InfBadge info={p.info} />
+              <InfBadge info={p.info} person={p.id} />
             </span>
             <span
               className={`min-w-28 flex-1 truncate text-[15px] font-semibold ${nameClass(p)}`}

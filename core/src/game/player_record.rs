@@ -417,6 +417,7 @@ impl Game {
             p.release_cost = Some(self.release_cost(p.id)?);
         }
         self.fill_marks(p)?;
+        self.fill_personal(p)?;
         self.fill_history(p)
     }
 

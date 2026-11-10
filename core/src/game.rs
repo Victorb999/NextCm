@@ -40,6 +40,7 @@ mod match_analysis;
 mod negotiation;
 mod news_links;
 mod numbers;
+mod personal_info;
 mod player_record;
 mod player_setup;
 mod press;
@@ -81,6 +82,7 @@ pub use match_analysis::{KeyMan, MatchAnalysis, MatchReview, Milestone};
 pub use negotiation::{DealTerms, LoanTerms};
 pub use news_links::NewsLink;
 pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
+pub use personal_info::PersonalInfo;
 pub use player_record::MatchSheet;
 pub use press::{PressQuestion, PressView};
 pub use reserve_matches::{ReserveLineup, ReserveSpot};
@@ -138,7 +140,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// (`stadiums.undersoil_heating`), do banco.
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
-pub const SAVE_VERSION: i32 = 54;
+pub const SAVE_VERSION: i32 = 55;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -327,6 +329,9 @@ ALTER TABLE player_state ADD COLUMN missed INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE transfer_list ADD COLUMN requested INTEGER NOT NULL DEFAULT 0;
 CREATE TABLE unhappy (person_id INTEGER NOT NULL, reason TEXT NOT NULL, since TEXT NOT NULL, PRIMARY KEY (person_id, reason));
 ";
+
+/// O que aconteceu em cada motivo de insatisfação: o colega, o jogo (save 55).
+const UNHAPPY_DETAIL_SCHEMA: &str = "ALTER TABLE unhappy ADD COLUMN detail TEXT;";
 
 /// Números escolhidos pelo treinador (save 12).
 const NUMBERS_SCHEMA: &str = "
@@ -753,6 +758,7 @@ impl Game {
             tx.execute_batch(BOARD_SCHEMA)?;
             tx.execute_batch(NUMBERS_SCHEMA)?;
             tx.execute_batch(UNHAPPY_SCHEMA)?;
+            tx.execute_batch(UNHAPPY_DETAIL_SCHEMA)?;
             tx.execute_batch(SCOUTING_SCHEMA)?;
             tx.execute_batch(SCOUT_TASKS_SCHEMA)?;
             tx.execute_batch(FANS_SCHEMA)?;
@@ -1255,6 +1261,11 @@ impl Game {
             world.conn.execute_batch(club_moves::STAFF_MOVES_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 54", [])?;
             version = 54;
+        }
+        if version == 54 {
+            world.conn.execute_batch(UNHAPPY_DETAIL_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 55", [])?;
+            version = 55;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -1854,7 +1865,8 @@ impl Game {
             }
             if (m.home_id == self.club_id || m.away_id == self.club_id) && !self.sacked() {
                 let side = usize::from(m.home_id != self.club_id);
-                self.match_moods(&live.player_lines(side))?;
+                let against = self.club(if side == 0 { m.away_id } else { m.home_id }).short_name;
+                self.match_moods(&live.player_lines(side), &against)?;
                 fresh.push(self.result_news(next_id, m, live));
                 next_id += 1;
                 let (h, a) = live.score();

@@ -137,6 +137,8 @@ pub struct ClubProfile {
     /// No clube do treinador: o nome do ecrã das reservas ("Reservas Manchester United", ou o
     /// da II, como a Amateure do Bayern); `None` sem reservas (com uma equipa B à parte).
     pub reserves_name: Option<String>,
+    /// Num jogo em curso: o lugar na classificação do campeonato (depois da 1ª jornada).
+    pub league_position: Option<i32>,
     /// Divisão e posição na temporada anterior.
     pub last_division: Option<CompetitionRef>,
     pub last_position: Option<i32>,
@@ -485,6 +487,7 @@ impl World {
             division: self.competition_ref(division)?,
             reserve_division: self.competition_ref(reserve)?,
             reserves_name: None,
+            league_position: None,
             last_division: self.competition_ref(last_division)?,
             last_position: last_position.filter(|p| *p > 0),
             stadium,

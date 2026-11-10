@@ -383,6 +383,53 @@ function Profile({ p }: { p: PersonProfile }) {
 }
 
 /** Aba "Lesões & Castigos": só num jogo em curso, para jogadores de clubes vivos. */
+/** Informação pessoal, como a do FM08: preferências, personalidade, felicidade e relações. */
+function PersonalPanel({ p }: { p: PersonProfile }) {
+  const nav = useNav()
+  const info = p.personal!
+  const clubs = (list: typeof info.favouredClubs) =>
+    list.length
+      ? list.map((c, i) => (
+          <span key={c.id}>
+            {i > 0 && ', '}
+            <Link onClick={() => nav.go({ kind: 'club', id: c.id })}>{c.shortName}</Link>
+          </span>
+        ))
+      : '-'
+  const people = (list: typeof info.favouredPeople) =>
+    list.length
+      ? list.map((x, i) => (
+          <span key={x.id}>
+            {i > 0 && ', '}
+            <Link onClick={() => nav.go({ kind: 'person', id: x.id })}>{x.name}</Link>
+          </span>
+        ))
+      : '-'
+  const rows: [string, ReactNode][] = [
+    ['Personalidade', info.personality],
+    ['Reputação', info.reputation],
+    ['Clubes favoritos', clubs(info.favouredClubs)],
+    ['Clubes detestados', clubs(info.dislikedClubs)],
+    ['Pessoas favoritas', people(info.favouredPeople)],
+    ['Pessoas detestadas', people(info.dislikedPeople)],
+    ['Felicidade', info.happiness],
+    ['Planos', info.plans],
+    ['Relações', info.relationships.length ? info.relationships.join('; ') : '-'],
+  ]
+  return (
+    <Panel title="Informação Pessoal">
+      <div className="cm-zebra">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex min-h-6 items-start gap-3 px-3 py-0.5 text-[13.5px]">
+            <span className="w-36 shrink-0 text-[#c8c8d0]">{k}</span>
+            <span className="min-w-0 flex-1 text-right font-bold text-cm-yellow">{v}</span>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  )
+}
+
 function Injuries({ p }: { p: PersonProfile }) {
   const st = p.status
   if (!st) return <Empty>Sem registos.</Empty>
@@ -481,12 +528,12 @@ function Contract({ p }: { p: PersonProfile }) {
   return <InfoRows rows={rows} />
 }
 
-export default function PersonPage({ id }: { id: number }) {
+export default function PersonPage({ id, tab: startTab }: { id: number; tab?: string }) {
   const nav = useNav()
   const game = useGame()
   const [person, setPerson] = useState<PersonProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState('profile')
+  const [tab, setTab] = useState(startTab ?? 'profile')
   const [confirm, setConfirm] = useState(false)
   const [report, setReport] = useState<'medical' | 'fitness' | null>(null)
   const [discipline, setDiscipline] = useState(false)
@@ -707,10 +754,13 @@ export default function PersonPage({ id }: { id: number }) {
         {person && (tab === 'profile' || person.ghost) && <Profile p={person} />}
         {person && !person.ghost && tab === 'contract' && (
           <div className="flex min-h-0 flex-1 items-start gap-2 overflow-auto pb-1">
-            <Panel title="Contrato" className="w-[42%] shrink-0">
-              <Contract p={person} />
-              {game.mode === 'game' && buttonRow(contractButtons)}
-            </Panel>
+            <div className="flex w-[42%] shrink-0 flex-col gap-2">
+              <Panel title="Contrato">
+                <Contract p={person} />
+                {game.mode === 'game' && buttonRow(contractButtons)}
+              </Panel>
+              {person.personal && <PersonalPanel p={person} />}
+            </div>
             {game.mode === 'game' && person.player && (
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <Panel title="Mercado">

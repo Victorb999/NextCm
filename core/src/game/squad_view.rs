@@ -71,6 +71,10 @@ impl Game {
         if mine {
             c.reserves_name = self.reserves_name()?;
         }
+        // O lugar no campeonato, como o "4º A" do CM
+        if let Some(div) = c.division.as_ref().map(|d| d.id) {
+            c.league_position = self.table(div).iter().find(|r| r.club.id == id && r.played > 0).map(|r| r.position);
+        }
         let keys = if c.is_national_team { Vec::new() } else { self.key_players(id)? };
         let start = self.season_start((!c.is_national_team).then_some(id))?;
         // Os emprestados a outros clubes continuam na lista do dono, a azul, como no CM
