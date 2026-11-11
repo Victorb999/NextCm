@@ -1,3 +1,4 @@
+import { useLoad } from '../useLoad'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import type { ClubListItem } from '../bindings/ClubListItem'
@@ -70,9 +71,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
   const [clubMenu, setClubMenu] = useState<{ x: number; y: number } | null>(null)
   const [divisionClubs, setDivisionClubs] = useState<ClubListItem[] | null>(null)
 
-  useEffect(() => {
-    api.getClub(id).then(setClub, (e) => setError(String(e)))
-  }, [id])
+  useLoad(() => api.getClub(id), [id], setClub, setError)
 
   // Jogos do clube e a tabela da competição, recarregados a cada dia do jogo
   const date = game.info?.date

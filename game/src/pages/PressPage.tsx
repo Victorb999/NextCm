@@ -1,5 +1,6 @@
+import { useLoad } from '../useLoad'
 import { Mic } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { api } from '../api'
 import type { PressView } from '../bindings/PressView'
 import { BottomBar, Empty, ErrorBox, Panel, ScreenHeader } from '../components/Screen'
@@ -19,9 +20,7 @@ export default function PressPage({ id }: { id: number }) {
   const [result, setResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    api.pressView(id).then(setView, (e) => setError(String(e)))
-  }, [id])
+  useLoad(() => api.pressView(id), [id], setView, setError)
 
   const finish = async (f: () => Promise<string>) => {
     try {

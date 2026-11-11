@@ -1,3 +1,4 @@
+import { useLoad } from '../useLoad'
 import { ChevronDown, Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
@@ -181,9 +182,7 @@ export default function SearchPage({ active }: { active: boolean }) {
 
   const debouncedText = useDebounced(filters.text, 120)
 
-  useEffect(() => {
-    api.listNations().then(setNations, (e) => setError(String(e)))
-  }, [])
+  useLoad(() => api.listNations(), [], setNations, setError)
 
   const goPage = (p: number) => {
     setPage(p)

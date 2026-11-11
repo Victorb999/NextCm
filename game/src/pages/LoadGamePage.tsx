@@ -1,3 +1,4 @@
+import { useLoad } from '../useLoad'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { SaveSummary } from '../bindings/SaveSummary'
@@ -25,9 +26,7 @@ export default function LoadGamePage() {
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<SaveSummary | null>(null)
 
-  useEffect(() => {
-    api.listSaves().then(setSaves, (e) => setError(String(e)))
-  }, [])
+  useLoad(() => api.listSaves(), [], setSaves, setError)
 
   const load = async (s: SaveSummary | undefined) => {
     if (!s || busy) return

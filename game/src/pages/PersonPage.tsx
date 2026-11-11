@@ -1,3 +1,4 @@
+import { useLoad } from '../useLoad'
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -581,9 +582,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
     setVersion((v) => v + 1)
     return api.getPerson(id).then(setPerson, (e) => setError(String(e)))
   }
-  useEffect(() => {
-    api.getPerson(id).then(setPerson, (e) => setError(String(e)))
-  }, [id])
+  useLoad(() => api.getPerson(id), [id], setPerson, setError)
   const playing = game.mode === 'game' && !!person?.player
   const date = game.info?.date
   useEffect(() => {

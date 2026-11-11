@@ -1,5 +1,6 @@
+import { useLoad } from '../useLoad'
 import { FileText } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { ContractExtras } from '../bindings/ContractExtras'
@@ -246,9 +247,7 @@ export default function ContractPage({ id }: { id: number }) {
   const [role, setRole] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    api.contractTerms(id, role).then(setTerms, (e) => setError(String(e)))
-  }, [id, role])
+  useLoad(() => api.contractTerms(id, role), [id, role], setTerms, setError)
 
   if (error) return <div className="p-6 text-center font-title text-xl text-cm-magenta">{error}</div>
   if (!terms) return null

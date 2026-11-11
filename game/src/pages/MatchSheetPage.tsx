@@ -1,5 +1,6 @@
+import { useLoad } from '../useLoad'
 import { Trophy } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { api } from '../api'
 import type { MatchSheet } from '../bindings/MatchSheet'
 import MatchLineups from '../components/MatchLineups'
@@ -16,9 +17,7 @@ export default function MatchSheetPage({ id }: { id: number }) {
   useEscBack()
   const [sheet, setSheet] = useState<MatchSheet | null>(null)
   const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
-    api.matchSheet(id).then(setSheet, (e) => setError(String(e)))
-  }, [id])
+  useLoad(() => api.matchSheet(id), [id], setSheet, setError)
 
   const f = sheet?.fixture
   const band = (club: NonNullable<typeof f>['home'], goals: number | null, right: boolean) => (

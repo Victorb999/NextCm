@@ -1,3 +1,4 @@
+import { useLoad } from '../useLoad'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import type { EditorAttribute } from '../bindings/EditorAttribute'
@@ -446,9 +447,7 @@ function CommandDialog({
   const [picked, setPicked] = useState<string[]>([])
   const [firstTeam, setFirstTeam] = useState(false)
   const [onlyPerson, setOnlyPerson] = useState(false)
-  useEffect(() => {
-    api.editorCommands().then(setList, (e) => setFailed(String(e)))
-  }, [])
+  useLoad(() => api.editorCommands(), [], setList, setFailed)
   const toggle = (key: string, on: boolean) => setPicked((p) => (on ? [...p.filter((k) => k !== key), key] : p.filter((k) => k !== key)))
   return (
     <Overlay>

@@ -1,5 +1,6 @@
+import { useLoad } from '../useLoad'
 import { Flag } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { NationProfile } from '../bindings/NationProfile'
@@ -52,9 +53,7 @@ export default function NationPage({ id }: { id: number }) {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('clubs')
 
-  useEffect(() => {
-    api.getNation(id).then(setNation, (e) => setError(String(e)))
-  }, [id])
+  useLoad(() => api.getNation(id), [id], setNation, setError)
 
   // Clubes agrupados por divisão, na ordem de reputação (as divisões mais fortes primeiro)
   const clubGroups: PickGroup[] = useMemo(() => {

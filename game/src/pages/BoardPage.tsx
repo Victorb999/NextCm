@@ -1,3 +1,4 @@
+import { useLoad } from '../useLoad'
 import { Euro, Landmark, Star, Users, Zap } from 'lucide-react'
 import { Fragment, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -131,9 +132,7 @@ export default function BoardPage() {
   const [meeting, setMeeting] = useState<Kind | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    api.boardConfidence().then(setView, (e) => setError(String(e)))
-  }, [])
+  useLoad(() => api.boardConfidence(), [], setView, setError)
 
   if (meeting) {
     return (

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useLoad } from '../useLoad'
+import { useState } from 'react'
 import { api } from '../api'
 import type { DisciplineOptions } from '../bindings/DisciplineOptions'
 import { DialogFrame, Overlay } from './Dialog'
@@ -22,9 +23,7 @@ export default function DisciplineDialog({
   const [reason, setReason] = useState('none')
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    api.disciplineOptions(personId).then(setOptions, (e) => setError(String(e)))
-  }, [personId])
+  useLoad(() => api.disciplineOptions(personId), [personId], setOptions, setError)
 
   const confirm = async () => {
     try {

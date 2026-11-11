@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useLoad } from '../useLoad'
+import { useState } from 'react'
 import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
 import { BottomBar, Empty, ErrorBox, Link, PanelTitle, ScreenHeader, Tabs } from '../components/Screen'
@@ -68,9 +69,7 @@ export default function ClubHistoryPage({ id }: { id: number }) {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('competitions')
 
-  useEffect(() => {
-    api.getClub(id).then(setClub, (e) => setError(String(e)))
-  }, [id])
+  useLoad(() => api.getClub(id), [id], setClub, setError)
 
   return (
     <div className="flex h-full flex-col">
