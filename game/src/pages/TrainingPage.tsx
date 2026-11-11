@@ -151,7 +151,11 @@ export default function TrainingPage() {
   const cell = (i: number) => `shrink-0 truncate font-mono text-[12.5px] ${i === selected ? 'text-white' : 'text-cm-yellow'}`
   return (
     <div className="relative flex h-full flex-col">
-      <ScreenHeader club={view?.club} eyebrow={<span className="text-cm-orange">Treino</span>} title={view ? `${view.club.name} - Treinos` : ''} />
+      <ScreenHeader
+        club={view?.club}
+        eyebrow={<span className="text-cm-orange">Treino</span>}
+        title={view ? `${view.club.name} - Treinos` : ''}
+      />
       <Tabs tabs={tabs.slice(0, TABS_PER_ROW)} active={tab} onChange={(k) => (setTab(k), setSelected(0))} onDrop={dropOnTab} />
       {tabs.length > TABS_PER_ROW && (
         <div className="mt-1">

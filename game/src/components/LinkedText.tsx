@@ -37,7 +37,11 @@ export default function LinkedText({ text, links }: { text: string; links: NewsL
         typeof p === 'string' ? (
           p
         ) : (
-          <Link key={i} className="text-cm-yellow" onClick={() => nav.go(p.kind === 'club' ? { kind: 'club', id: p.id } : { kind: 'person', id: p.id })}>
+          <Link
+            key={i}
+            className="text-cm-yellow"
+            onClick={() => nav.go(p.kind === 'club' ? { kind: 'club', id: p.id } : { kind: 'person', id: p.id })}
+          >
             {p.text}
           </Link>
         ),

@@ -193,7 +193,7 @@
 }
 /* Com foto ou imagem de fundo, os painéis deixam-na ver (o Escurecer Fundo das Opções nota-se) */
 [data-bg='image'] {
-  --cm-surface-alpha: 0.90;
+  --cm-surface-alpha: 0.9;
 }
 
 html,

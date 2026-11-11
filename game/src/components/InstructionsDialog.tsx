@@ -110,7 +110,9 @@ export default function InstructionsDialog({
             </DialogRow>
           ))}
         </div>
-        <div className="px-2 pt-1 text-[12px] text-cm-dlgtext">Durante um jogo, as instruções mudam-se no botão Equipa da tela da partida.</div>
+        <div className="px-2 pt-1 text-[12px] text-cm-dlgtext">
+          Durante um jogo, as instruções mudam-se no botão Equipa da tela da partida.
+        </div>
       </DialogFrame>
     </Overlay>
   )

@@ -1,15 +1,15 @@
-import type { SquadPlayer } from "../bindings/SquadPlayer"
-import { nameClass, squadName } from "../squad"
-import { columnsFor, type TableExtra, type TableView } from "../squadColumns"
-import { Link } from "./Screen"
-import { useNav } from "../nav"
+import type { SquadPlayer } from '../bindings/SquadPlayer'
+import { nameClass, squadName } from '../squad'
+import { columnsFor, type TableExtra, type TableView } from '../squadColumns'
+import { Link } from './Screen'
+import { useNav } from '../nav'
 
 // As vistas em tabela do Vêr do plantel, como no CM: uma linha por jogador com Esc, Inf e
 // Nome à esquerda e as colunas da vista (contrato, selecção, estatísticas, penáltis).
 
 export type TableRow = { p: SquadPlayer; place: string | null }
 
-const ALIGN = { left: "text-left", right: "text-right", center: "text-center" }
+const ALIGN = { left: 'text-left', right: 'text-right', center: 'text-center' }
 
 /** Os cabeçalhos que ordenam: o texto (com a seta) e o clique. */
 export type HeaderProps = { text: (label: string) => string; onClick: (label: string) => void }
@@ -30,7 +30,14 @@ export function HeaderCell({ label, className, header }: { label: string; classN
 
 /** A aba do perfil que cada sigla abre: a insatisfação no Contrato & Transferência, a lesão e
  * o castigo em Lesões & Castigos. */
-const INF_TAB: Record<string, string> = { Ins: "contract", Fut: "contract", Des: "contract", Lst: "contract", Les: "injuries", Sus: "injuries" }
+const INF_TAB: Record<string, string> = {
+  Ins: 'contract',
+  Fut: 'contract',
+  Des: 'contract',
+  Lst: 'contract',
+  Les: 'injuries',
+  Sus: 'injuries',
+}
 
 /** A sigla da coluna Inf, nas cores do CM (lesão laranja, castigo vermelho). Com `person`, um
  * clique abre o perfil na aba que explica a sigla (o "Ins" mostra a insatisfação). */
@@ -38,11 +45,11 @@ export function InfBadge({ info, person }: { info: string | null; person?: numbe
   const nav = useNav()
   if (!info) return <span className="text-[#5a5a66]">-</span>
   const colour =
-    info === "Les"
-      ? "bg-[#b8560c] text-white"
-      : info === "Sus" || info === "Fit"
-        ? "bg-[#9c0000] text-white"
-        : "bg-gray-900 text-cm-yellow border-gray-700 border"
+    info === 'Les'
+      ? 'bg-[#b8560c] text-white'
+      : info === 'Sus' || info === 'Fit'
+        ? 'bg-[#9c0000] text-white'
+        : 'bg-gray-900 text-cm-yellow border-gray-700 border'
   const tab = INF_TAB[info]
   if (person === undefined || !tab) return <span className={`px-1 font-bold rounded ${colour}`}>{info}</span>
   return (
@@ -52,7 +59,7 @@ export function InfBadge({ info, person }: { info: string | null; person?: numbe
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation()
-        nav.go({ kind: "person", id: person, tab })
+        nav.go({ kind: 'person', id: person, tab })
       }}
     >
       {info}
@@ -78,13 +85,10 @@ export default function SquadTable({
   header?: HeaderProps
 }) {
   const columns = columnsFor(view, extra)
-  const head =
-    "font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-dim"
+  const head = 'font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-dim'
   return (
     <div className="overflow-hidden rounded-md bg-cm-surface">
-      <div
-        className={`flex h-7 items-center gap-2 border-b border-cm-line bg-black/30 px-2 ${head}`}
-      >
+      <div className={`flex h-7 items-center gap-2 border-b border-cm-line bg-black/30 px-2 ${head}`}>
         <span className="w-10 text-center">Esc</span>
         <span className="w-10 text-center">Inf</span>
         <HeaderCell label="Nome" className="min-w-28 flex-1" header={header} />
@@ -92,7 +96,7 @@ export default function SquadTable({
           <HeaderCell
             key={c.label}
             label={c.label}
-            className={`${c.width} shrink-0 ${ALIGN[c.align ?? "left"]}`}
+            className={`${c.width} shrink-0 ${ALIGN[c.align ?? 'left']}`}
             header={c.sort ? header : undefined}
           />
         ))}
@@ -105,7 +109,7 @@ export default function SquadTable({
             data-person={p.id}
             onClick={() => onSelect(i)}
             onDoubleClick={() => onOpen(p.id)}
-            className={`flex h-6 items-center gap-2 px-2 ${i === selected ? "!bg-cm-sel" : ""}`}
+            className={`flex h-6 items-center gap-2 px-2 ${i === selected ? '!bg-cm-sel' : ''}`}
           >
             <span className="w-10 shrink-0 text-center font-mono text-[12px] font-bold text-cm-mint">
               {place ?? <span className="text-[#5a5a66]">-</span>}
@@ -113,15 +117,13 @@ export default function SquadTable({
             <span className="w-10 shrink-0 text-center font-mono text-[12px]">
               <InfBadge info={p.info} person={p.id} />
             </span>
-            <span
-              className={`min-w-28 flex-1 truncate text-[15px] font-semibold ${nameClass(p)}`}
-            >
+            <span className={`min-w-28 flex-1 truncate text-[15px] font-semibold ${nameClass(p)}`}>
               <Link onClick={() => onOpen(p.id)}>{squadName(p)}</Link>
             </span>
             {columns.map((c) => (
               <span
                 key={c.label}
-                className={`${c.width} shrink-0 truncate font-mono text-[12.5px] ${ALIGN[c.align ?? "left"]} ${i === selected ? "text-white" : "text-cm-yellow"}`}
+                className={`${c.width} shrink-0 truncate font-mono text-[12.5px] ${ALIGN[c.align ?? 'left']} ${i === selected ? 'text-white' : 'text-cm-yellow'}`}
               >
                 {c.cell(p)}
               </span>

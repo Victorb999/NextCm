@@ -67,7 +67,11 @@ export default function PressPage({ id }: { id: number }) {
             <Panel title="Resposta" className="shrink-0">
               <div className="cm-zebra">
                 {q.answers.map((a, i) => (
-                  <button key={a} className="flex min-h-9 w-full items-center gap-3 px-4 py-1 text-left text-[15px] text-white hover:!bg-cm-sel" onClick={() => pick(i)}>
+                  <button
+                    key={a}
+                    className="flex min-h-9 w-full items-center gap-3 px-4 py-1 text-left text-[15px] text-white hover:!bg-cm-sel"
+                    onClick={() => pick(i)}
+                  >
                     <span className="w-5 shrink-0 font-mono text-[12px] font-bold text-cm-orange">{i + 1}.</span>
                     {a}
                   </button>

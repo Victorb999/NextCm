@@ -73,9 +73,7 @@ export default function NationPage({ id }: { id: number }) {
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
       <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-cm-surface">
         <ErrorBox>{error}</ErrorBox>
-        {nation && tab === 'clubs' && (
-          <PickList key="clubs" groups={clubGroups} onOpen={(c) => nav.go({ kind: 'club', id: c.id })} />
-        )}
+        {nation && tab === 'clubs' && <PickList key="clubs" groups={clubGroups} onOpen={(c) => nav.go({ kind: 'club', id: c.id })} />}
         {nation && tab === 'competitions' && (
           <PickList
             key="competitions"

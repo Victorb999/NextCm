@@ -55,7 +55,10 @@ export default function CareerPage() {
               <thead className="sticky top-0">
                 <tr className="h-7">
                   {['Clube', 'Período', 'Compras', 'Vendas', 'Dispensas', 'Títulos'].map((h, i) => (
-                    <th key={h} className={`bg-cm-headdeep px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 || i === 5 ? 'text-left' : 'text-center'}`}>
+                    <th
+                      key={h}
+                      className={`bg-cm-headdeep px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 || i === 5 ? 'text-left' : 'text-center'}`}
+                    >
                       {h}
                     </th>
                   ))}

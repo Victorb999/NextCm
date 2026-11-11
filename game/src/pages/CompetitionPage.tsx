@@ -108,7 +108,17 @@ function ZoneLegend({ zones }: { zones: TableZone[] }) {
 
 /** Classificação: a real quando a competição está viva no jogo; senão, a de pré-temporada
  * (todos a zero, por ordem alfabética), como no CM. */
-function Table({ c, rows, own, title = 'Classificação Geral' }: { c: CompetitionProfile; rows: StandingRow[]; own?: number; title?: string }) {
+function Table({
+  c,
+  rows,
+  own,
+  title = 'Classificação Geral',
+}: {
+  c: CompetitionProfile
+  rows: StandingRow[]
+  own?: number
+  title?: string
+}) {
   const nav = useNav()
   const shown: { club: ClubRef; values: number[] }[] = rows.length
     ? rows.map((r) => ({ club: r.club, values: values(r) }))
@@ -262,7 +272,12 @@ function RoundPicker({ rounds, index, onChange }: { rounds: [string, Fixture[]][
         {name}
         {games[0] ? ` · ${matchDate(games[0].date).slice(4)}` : ''}
       </span>
-      <button className="cm-purple h-6 w-8 px-0" disabled={index >= rounds.length - 1} onClick={() => onChange(index + 1)} aria-label="Jornada seguinte">
+      <button
+        className="cm-purple h-6 w-8 px-0"
+        disabled={index >= rounds.length - 1}
+        onClick={() => onChange(index + 1)}
+        aria-label="Jornada seguinte"
+      >
         ▶
       </button>
     </span>
@@ -310,7 +325,11 @@ function Stages({ c, stages, fixtures, own }: { c: CompetitionProfile; stages: S
       {stages.length > 1 && (
         <div className="flex shrink-0 justify-center gap-1.5">
           {stages.map((st, i) => (
-            <button key={st.name} className={`cm-purple h-7 w-44 ${i === index ? 'ring-1 ring-cm-yellow !text-cm-yellow' : ''}`} onClick={() => setIndex(i)}>
+            <button
+              key={st.name}
+              className={`cm-purple h-7 w-44 ${i === index ? 'ring-1 ring-cm-yellow !text-cm-yellow' : ''}`}
+              onClick={() => setIndex(i)}
+            >
               {st.name}
             </button>
           ))}

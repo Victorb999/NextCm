@@ -13,14 +13,9 @@ const CONTINENT_MENUS: { id: number; label: string }[] = [
   { id: 5, label: 'Sul Americanas' },
 ]
 
-const byReputation = (a: CompetitionListItem, b: CompetitionListItem) =>
-  b.reputation - a.reputation || a.name.localeCompare(b.name)
+const byReputation = (a: CompetitionListItem, b: CompetitionListItem) => b.reputation - a.reputation || a.name.localeCompare(b.name)
 
-export function competitionsMenu(
-  all: CompetitionListItem[],
-  open: (id: number) => void,
-  openAll: () => void,
-): MenuNode[] {
+export function competitionsMenu(all: CompetitionListItem[], open: (id: number) => void, openAll: () => void): MenuNode[] {
   const leaf = (c: CompetitionListItem): MenuNode => ({ label: c.name, onSelect: () => open(c.id) })
   const list = (cs: CompetitionListItem[]) => [...cs].sort(byReputation).map(leaf)
 

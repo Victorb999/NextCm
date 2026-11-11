@@ -22,10 +22,7 @@ export default function NationsPage() {
   }, [])
 
   const items = useMemo(
-    () =>
-      (all ?? [])
-        .filter((n) => n.continentId === Number(tab))
-        .map((n) => ({ id: n.id, label: n.name, detail: `${n.clubs} clubes` })),
+    () => (all ?? []).filter((n) => n.continentId === Number(tab)).map((n) => ({ id: n.id, label: n.name, detail: `${n.clubs} clubes` })),
     [all, tab],
   )
 

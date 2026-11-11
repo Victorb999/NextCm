@@ -96,7 +96,10 @@ export default function LoadGamePage() {
             <thead>
               <tr className="h-6">
                 {head.map((h) => (
-                  <th key={h} className="bg-cm-headdeep px-3 text-left font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow">
+                  <th
+                    key={h}
+                    className="bg-cm-headdeep px-3 text-left font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow"
+                  >
                     {h}
                   </th>
                 ))}

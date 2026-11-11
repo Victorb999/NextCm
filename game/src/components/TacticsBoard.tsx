@@ -31,7 +31,17 @@ const COL = {
 }
 
 /** Cabeçalho das colunas da lista (onze, banco, resto do plantel). */
-export function RowHeader({ place, action, rating, column = 'Posição' }: { place: string; action?: string; rating?: boolean; column?: string }) {
+export function RowHeader({
+  place,
+  action,
+  rating,
+  column = 'Posição',
+}: {
+  place: string
+  action?: string
+  rating?: boolean
+  column?: string
+}) {
   return (
     <div className="flex h-7 items-center gap-2 bg-black/40 px-3 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-cm-dim">
       <span className={COL.num}>Nº</span>

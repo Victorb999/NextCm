@@ -20,7 +20,10 @@ function Side({ club, entries, motm }: { club: ClubRef; entries: LineupEntry[]; 
       </div>
       <div className="cm-zebra">
         {entries.map((p) => (
-          <div key={p.id} className={`flex h-[23px] items-center gap-1.5 px-1 text-[13.5px] ${p.id === motm ? 'ring-1 ring-cm-yellow' : ''}`}>
+          <div
+            key={p.id}
+            className={`flex h-[23px] items-center gap-1.5 px-1 text-[13.5px] ${p.id === motm ? 'ring-1 ring-cm-yellow' : ''}`}
+          >
             <span
               className={`w-7 shrink-0 rounded-sm text-center font-mono text-[12px] leading-[19px] ${p.played ? 'bg-[#262626] text-white' : 'bg-[#161660] text-cm-lilac'}`}
             >
@@ -32,13 +35,23 @@ function Side({ club, entries, motm }: { club: ClubRef; entries: LineupEntry[]; 
             {/* Quem saiu fica num lilás claro, perto do roxo dos suplentes que não jogaram */}
             <span
               className={`min-w-0 flex-1 truncate ${
-                p.id === motm ? 'font-bold text-cm-yellow' : !p.played ? 'text-cm-purplelight' : p.off !== null ? 'text-cm-lilac' : 'text-white'
+                p.id === motm
+                  ? 'font-bold text-cm-yellow'
+                  : !p.played
+                    ? 'text-cm-purplelight'
+                    : p.off !== null
+                      ? 'text-cm-lilac'
+                      : 'text-white'
               }`}
             >
               <Link onClick={() => nav.go({ kind: 'person', id: p.id })}>{fullName(p.name)}</Link>
             </span>
             <span className="w-14 shrink-0 text-right text-[12px]">
-              {p.off !== null ? <span className="text-cm-muted">sub {p.off}</span> : p.on !== null ? <span className="text-cm-orange">ent {p.on}</span> : null}
+              {p.off !== null ? (
+                <span className="text-cm-muted">sub {p.off}</span>
+              ) : p.on !== null ? (
+                <span className="text-cm-orange">ent {p.on}</span>
+              ) : null}
             </span>
             <span className="w-6 shrink-0 text-right font-bold text-cm-magenta">{p.played ? (p.rating ?? '-') : ''}</span>
             <span className="w-4 shrink-0 text-right font-bold text-cm-yellow">{p.goals || ''}</span>

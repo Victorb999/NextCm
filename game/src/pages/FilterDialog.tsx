@@ -1,32 +1,15 @@
-import { useEffect, useState } from "react"
-import type { ReactNode } from "react"
-import type { NationOption } from "../bindings/NationOption"
-import {
-  AGE_BANDS,
-  EMPTY_FILTERS,
-  POSITION_GROUPS,
-  SIDES,
-  filterAttributes,
-  type Filters,
-} from "./searchFilters"
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import type { NationOption } from '../bindings/NationOption'
+import { AGE_BANDS, EMPTY_FILTERS, POSITION_GROUPS, SIDES, filterAttributes, type Filters } from './searchFilters'
 
-function Option({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean
-  onClick: () => void
-  children: ReactNode
-}) {
+function Option({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       aria-pressed={selected}
       onClick={onClick}
       className={`h-8 min-w-[64px] rounded-[4px] border px-3 text-[13px] ${
-        selected
-          ? "border-cm-yellow bg-cm-dlghover font-bold text-cm-yellow"
-          : "border-cm-dlgline text-cm-dlgtext hover:bg-cm-dlghover/60"
+        selected ? 'border-cm-yellow bg-cm-dlghover font-bold text-cm-yellow' : 'border-cm-dlgline text-cm-dlgtext hover:bg-cm-dlghover/60'
       }`}
     >
       {children}
@@ -38,9 +21,7 @@ function Option({
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex min-h-[44px] items-center gap-3 px-3 py-1.5">
-      <div className="w-28 shrink-0 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-cm-mint">
-        {label}
-      </div>
+      <div className="w-28 shrink-0 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-cm-mint">{label}</div>
       <div className="flex flex-wrap items-center gap-1.5">{children}</div>
     </div>
   )
@@ -66,10 +47,11 @@ function Stepper({
   min: number
   max: number
 }) {
-  const step = "flex h-6 w-7 items-center justify-center rounded-[3px] bg-cm-dlg font-bold text-white ring-1 ring-cm-dlgline hover:bg-cm-dlghover disabled:text-white/25"
+  const step =
+    'flex h-6 w-7 items-center justify-center rounded-[3px] bg-cm-dlg font-bold text-white ring-1 ring-cm-dlgline hover:bg-cm-dlghover disabled:text-white/25'
   return (
     <div className="flex h-8 items-center gap-1.5 px-3">
-      <span className={`min-w-0 flex-1 truncate ${active ? "font-bold text-cm-yellow" : "text-cm-dlgtext"}`}>{label}</span>
+      <span className={`min-w-0 flex-1 truncate ${active ? 'font-bold text-cm-yellow' : 'text-cm-dlgtext'}`}>{label}</span>
       <button className={step} disabled={value <= min} onClick={() => onChange(value - 1)} aria-label={`Baixar ${label}`}>
         -
       </button>
@@ -94,7 +76,7 @@ function AttributesTab({ f, players, set }: { f: Filters; players: boolean; set:
         label={label}
         value={v}
         active={v > 1}
-        colour={v > 1 ? "text-cm-yellow" : "text-cm-green"}
+        colour={v > 1 ? 'text-cm-yellow' : 'text-cm-green'}
         min={1}
         max={20}
         onChange={(n) => set({ attributes: { ...f.attributes, [key]: n }, needed: null })}
@@ -134,18 +116,18 @@ export default function FilterDialog({
   onOk: (f: Filters) => void
 }) {
   const [f, setF] = useState(initial)
-  const [tab, setTab] = useState<"general" | "attributes">("general")
+  const [tab, setTab] = useState<'general' | 'attributes'>('general')
   const set = (patch: Partial<Filters>) => setF((old) => ({ ...old, ...patch }))
-  const brazil = nations.find((n) => n.name === "Brazil")
+  const brazil = nations.find((n) => n.name === 'Brazil')
   const otherNation = f.nationId !== null && f.nationId !== brazil?.id
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel()
-      if (e.key === "Enter") onOk(f)
+      if (e.key === 'Escape') onCancel()
+      if (e.key === 'Enter') onOk(f)
     }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   })
 
   return (
@@ -153,33 +135,31 @@ export default function FilterDialog({
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-cm-dlgline px-4">
         <span className="size-2 rounded-full bg-cm-mint" />
         <span className="font-bold font-mono uppercase tracking-[0.12em] text-white">
-          {players
-            ? "Filtros para Pesquisar Jogador"
-            : "Filtros para Pesquisar Staff"}
+          {players ? 'Filtros para Pesquisar Jogador' : 'Filtros para Pesquisar Staff'}
         </span>
       </div>
       <div className="flex shrink-0 gap-1.5 px-4 pt-3">
-        <button className={`cm-purple h-7 w-28 ${tab === "general" ? "ring-1 ring-cm-yellow" : ""}`} onClick={() => setTab("general")}>
+        <button className={`cm-purple h-7 w-28 ${tab === 'general' ? 'ring-1 ring-cm-yellow' : ''}`} onClick={() => setTab('general')}>
           Geral
         </button>
-        <button className={`cm-purple h-7 w-28 ${tab === "attributes" ? "ring-1 ring-cm-yellow" : ""}`} onClick={() => setTab("attributes")}>
+        <button
+          className={`cm-purple h-7 w-28 ${tab === 'attributes' ? 'ring-1 ring-cm-yellow' : ''}`}
+          onClick={() => setTab('attributes')}
+        >
           Atributos
         </button>
         <div className="flex-1" />
-        <button
-          className="cm-purple h-7 w-28"
-          onClick={() => setF(EMPTY_FILTERS)}
-        >
+        <button className="cm-purple h-7 w-28" onClick={() => setF(EMPTY_FILTERS)}>
           Limpar
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        {tab === "attributes" ? (
+        {tab === 'attributes' ? (
           <AttributesTab f={f} players={players} set={set} />
         ) : (
           <div className="cm-zebra">
             <Row label="Texto">
-              <Option selected={!f.text} onClick={() => set({ text: "" })}>
+              <Option selected={!f.text} onClick={() => set({ text: '' })}>
                 Qualquer
               </Option>
               <input
@@ -191,26 +171,18 @@ export default function FilterDialog({
               />
             </Row>
             <Row label="Nacionalidade">
-              <Option
-                selected={f.nationId === null}
-                onClick={() => set({ nationId: null })}
-              >
+              <Option selected={f.nationId === null} onClick={() => set({ nationId: null })}>
                 Qualquer
               </Option>
               {brazil && (
-                <Option
-                  selected={f.nationId === brazil.id}
-                  onClick={() => set({ nationId: brazil.id })}
-                >
+                <Option selected={f.nationId === brazil.id} onClick={() => set({ nationId: brazil.id })}>
                   BRA
                 </Option>
               )}
               <select
-                value={otherNation ? String(f.nationId) : ""}
-                onChange={(e) =>
-                  set({ nationId: e.target.value ? Number(e.target.value) : null })
-                }
-                className={`h-8 rounded-[4px] border bg-cm-dlg px-2 outline-none ${otherNation ? "border-cm-yellow text-cm-yellow" : "border-cm-dlgline text-cm-dlgtext"}`}
+                value={otherNation ? String(f.nationId) : ''}
+                onChange={(e) => set({ nationId: e.target.value ? Number(e.target.value) : null })}
+                className={`h-8 rounded-[4px] border bg-cm-dlg px-2 outline-none ${otherNation ? 'border-cm-yellow text-cm-yellow' : 'border-cm-dlgline text-cm-dlgtext'}`}
               >
                 <option value="">Outro…</option>
                 {nations.map((n) => (
@@ -225,11 +197,7 @@ export default function FilterDialog({
                 Qualquer
               </Option>
               {AGE_BANDS.map((b) => (
-                <Option
-                  key={b.key}
-                  selected={f.age === b.key}
-                  onClick={() => set({ age: b.key })}
-                >
+                <Option key={b.key} selected={f.age === b.key} onClick={() => set({ age: b.key })}>
                   {b.label}
                 </Option>
               ))}
@@ -237,98 +205,57 @@ export default function FilterDialog({
             {players && (
               <>
                 <Row label="Posição">
-                  <Option
-                    selected={f.positionGroup === null}
-                    onClick={() => set({ positionGroup: null })}
-                  >
+                  <Option selected={f.positionGroup === null} onClick={() => set({ positionGroup: null })}>
                     Qualquer
                   </Option>
                   {POSITION_GROUPS.map((g) => (
-                    <Option
-                      key={g.key}
-                      selected={f.positionGroup === g.key}
-                      onClick={() => set({ positionGroup: g.key })}
-                    >
+                    <Option key={g.key} selected={f.positionGroup === g.key} onClick={() => set({ positionGroup: g.key })}>
                       {g.label}
                     </Option>
                   ))}
                 </Row>
                 <Row label="Lado">
-                  <Option
-                    selected={f.side === null}
-                    onClick={() => set({ side: null })}
-                  >
+                  <Option selected={f.side === null} onClick={() => set({ side: null })}>
                     Qualquer
                   </Option>
                   {SIDES.map((s) => (
-                    <Option
-                      key={s.key}
-                      selected={f.side === s.key}
-                      onClick={() => set({ side: s.key })}
-                    >
+                    <Option key={s.key} selected={f.side === s.key} onClick={() => set({ side: s.key })}>
                       {s.label}
                     </Option>
                   ))}
                 </Row>
                 <Row label="Contrato">
-                  <Option
-                    selected={!f.expiring}
-                    onClick={() => set({ expiring: false })}
-                  >
+                  <Option selected={!f.expiring} onClick={() => set({ expiring: false })}>
                     Qualquer
                   </Option>
-                  <Option
-                    selected={f.expiring}
-                    onClick={() => set({ expiring: true })}
-                  >
+                  <Option selected={f.expiring} onClick={() => set({ expiring: true })}>
                     A expirar
                   </Option>
                 </Row>
                 <Row label="Lesões">
-                  <Option
-                    selected={f.injured === null}
-                    onClick={() => set({ injured: null })}
-                  >
+                  <Option selected={f.injured === null} onClick={() => set({ injured: null })}>
                     Qualquer
                   </Option>
-                  <Option
-                    selected={f.injured === "only"}
-                    onClick={() => set({ injured: "only" })}
-                  >
+                  <Option selected={f.injured === 'only'} onClick={() => set({ injured: 'only' })}>
                     Lesionados
                   </Option>
-                  <Option
-                    selected={f.injured === "exclude"}
-                    onClick={() => set({ injured: "exclude" })}
-                  >
+                  <Option selected={f.injured === 'exclude'} onClick={() => set({ injured: 'exclude' })}>
                     Sem lesionados
                   </Option>
                 </Row>
                 <Row label="Interessados">
-                  <Option
-                    selected={!f.interested}
-                    onClick={() => set({ interested: false })}
-                  >
+                  <Option selected={!f.interested} onClick={() => set({ interested: false })}>
                     Qualquer
                   </Option>
-                  <Option
-                    selected={f.interested}
-                    onClick={() => set({ interested: true })}
-                  >
+                  <Option selected={f.interested} onClick={() => set({ interested: true })}>
                     Apenas
                   </Option>
                 </Row>
                 <Row label="Incluir Plantel">
-                  <Option
-                    selected={f.ownSquad}
-                    onClick={() => set({ ownSquad: true })}
-                  >
+                  <Option selected={f.ownSquad} onClick={() => set({ ownSquad: true })}>
                     Sim
                   </Option>
-                  <Option
-                    selected={!f.ownSquad}
-                    onClick={() => set({ ownSquad: false })}
-                  >
+                  <Option selected={!f.ownSquad} onClick={() => set({ ownSquad: false })}>
                     Não
                   </Option>
                 </Row>
@@ -344,10 +271,7 @@ export default function FilterDialog({
         >
           Cancelar
         </button>
-        <button
-          className="h-9 w-32 rounded-[4px] bg-cm-dlgborder font-bold text-cm-onmint hover:bg-cm-mint"
-          onClick={() => onOk(f)}
-        >
+        <button className="h-9 w-32 rounded-[4px] bg-cm-dlgborder font-bold text-cm-onmint hover:bg-cm-mint" onClick={() => onOk(f)}>
           Ok
         </button>
       </div>

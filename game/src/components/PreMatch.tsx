@@ -97,11 +97,16 @@ function Analysis({ view, a }: { view: LiveView; a: MatchAnalysis }) {
       <Panel title="Previsões">
         <div className="cm-zebra py-1">
           <Row label="Odds">
-            {home}: {a.odds[0].toFixed(2)}{fav(0)} · Empate: {a.odds[1].toFixed(2)} · {away}: {a.odds[2].toFixed(2)}
+            {home}: {a.odds[0].toFixed(2)}
+            {fav(0)} · Empate: {a.odds[1].toFixed(2)} · {away}: {a.odds[2].toFixed(2)}
             {fav(1)}
           </Row>
-          <Row label={`Homem-Chave (${home})`}>{a.keyMen[0] ? `${a.keyMen[0].name}${a.keyMen[0].role ? ` (${a.keyMen[0].role})` : ''}` : '-'}</Row>
-          <Row label={`Homem-Chave (${away})`}>{a.keyMen[1] ? `${a.keyMen[1].name}${a.keyMen[1].role ? ` (${a.keyMen[1].role})` : ''}` : '-'}</Row>
+          <Row label={`Homem-Chave (${home})`}>
+            {a.keyMen[0] ? `${a.keyMen[0].name}${a.keyMen[0].role ? ` (${a.keyMen[0].role})` : ''}` : '-'}
+          </Row>
+          <Row label={`Homem-Chave (${away})`}>
+            {a.keyMen[1] ? `${a.keyMen[1].name}${a.keyMen[1].role ? ` (${a.keyMen[1].role})` : ''}` : '-'}
+          </Row>
           <Row label={`Previsão do ${a.paper}`}>{a.prediction}</Row>
         </div>
       </Panel>
@@ -111,7 +116,9 @@ function Analysis({ view, a }: { view: LiveView; a: MatchAnalysis }) {
           <Row label="Tempo">{a.preview.weather}</Row>
           <Row label="Condições Terreno Jogo">{a.preview.pitch}</Row>
           <Row label="Último Confronto">
-            {last ? `${last.home.shortName} ${last.homeGoals ?? '-'}-${last.awayGoals ?? '-'} ${last.away.shortName} (${last.competition})` : 'Primeiro jogo entre os dois'}
+            {last
+              ? `${last.home.shortName} ${last.homeGoals ?? '-'}-${last.awayGoals ?? '-'} ${last.away.shortName} (${last.competition})`
+              : 'Primeiro jogo entre os dois'}
           </Row>
           <Row label={`Ausências (${home})`}>{a.preview.homeNews.join(' · ') || 'Nenhuma'}</Row>
           <Row label={`Ausências (${away})`}>{a.preview.awayNews.join(' · ') || 'Nenhuma'}</Row>

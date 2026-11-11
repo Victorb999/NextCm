@@ -102,7 +102,9 @@ const INSTALMENTS: [number, string][] = [
   [36, '36 meses'],
 ]
 // Os valores da lista amarela do CM
-const PRESETS = [0, 100_000, 500_000, 1_000_000, 5_000_000, 15_000_000, 30_000_000, 50_000_000, 75_000_000, 100_000_000, 125_000_000, 150_000_000]
+const PRESETS = [
+  0, 100_000, 500_000, 1_000_000, 5_000_000, 15_000_000, 30_000_000, 50_000_000, 75_000_000, 100_000_000, 125_000_000, 150_000_000,
+]
 
 /** Lista amarela do CM, com zebra e linhas de clique fácil, presa por baixo do `anchor` (ou
  *  por cima, sem espaço). Vai para o body por portal: não fica cortada pela rolagem do
@@ -138,7 +140,12 @@ export function YellowList<T>({
   return createPortal(
     <div
       ref={box}
-      style={{ left: r.left, width: r.width, maxHeight: room, ...(up ? { bottom: window.innerHeight - r.top + 2 } : { top: r.bottom + 2 }) }}
+      style={{
+        left: r.left,
+        width: r.width,
+        maxHeight: room,
+        ...(up ? { bottom: window.innerHeight - r.top + 2 } : { top: r.bottom + 2 }),
+      }}
       className="fixed z-[80] overflow-auto rounded-sm border border-[#7a5a08] bg-[#e7b51f] py-0.5 text-right text-[15px] text-[#1c1400] shadow-[0_6px_16px_rgba(0,0,0,0.6)]"
     >
       {items.map((v, i) => (
@@ -385,7 +392,10 @@ export function TransferOfferDialog({
           {squad && (
             <OfferRow label="Tornar proposta pública" active={t.public}>
               <span className="w-8" />
-              <button className="h-7 w-44 text-center text-[17px] text-cm-yellow hover:text-white" onClick={() => set({ public: !t.public })}>
+              <button
+                className="h-7 w-44 text-center text-[17px] text-cm-yellow hover:text-white"
+                onClick={() => set({ public: !t.public })}
+              >
                 {t.public ? 'Sim' : 'Não'}
               </button>
             </OfferRow>
@@ -400,7 +410,11 @@ export function TransferOfferDialog({
               Remover
             </button>
             <span className="ml-3 truncate text-[17px] text-cm-yellow">
-              {exchange ? `${exchange.name} (${exchange.position}) vai na troca` : <span className="text-[15px] text-cm-purplelight">Nenhum jogador na troca</span>}
+              {exchange ? (
+                `${exchange.name} (${exchange.position}) vai na troca`
+              ) : (
+                <span className="text-[15px] text-cm-purplelight">Nenhum jogador na troca</span>
+              )}
             </span>
           </div>
         )}
