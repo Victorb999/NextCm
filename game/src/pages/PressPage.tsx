@@ -1,5 +1,6 @@
+import { useLoad } from '../useLoad'
 import { Mic } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { api } from '../api'
 import type { PressView } from '../bindings/PressView'
 import { BottomBar, Empty, ErrorBox, Panel, ScreenHeader } from '../components/Screen'
@@ -19,9 +20,7 @@ export default function PressPage({ id }: { id: number }) {
   const [result, setResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    api.pressView(id).then(setView, (e) => setError(String(e)))
-  }, [id])
+  useLoad(() => api.pressView(id), [id], setView, setError)
 
   const finish = async (f: () => Promise<string>) => {
     try {
@@ -67,7 +66,11 @@ export default function PressPage({ id }: { id: number }) {
             <Panel title="Resposta" className="shrink-0">
               <div className="cm-zebra">
                 {q.answers.map((a, i) => (
-                  <button key={a} className="flex min-h-9 w-full items-center gap-3 px-4 py-1 text-left text-[15px] text-white hover:!bg-cm-sel" onClick={() => pick(i)}>
+                  <button
+                    key={a}
+                    className="flex min-h-9 w-full items-center gap-3 px-4 py-1 text-left text-[15px] text-white hover:!bg-cm-sel"
+                    onClick={() => pick(i)}
+                  >
                     <span className="w-5 shrink-0 font-mono text-[12px] font-bold text-cm-orange">{i + 1}.</span>
                     {a}
                   </button>

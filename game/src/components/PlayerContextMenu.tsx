@@ -34,9 +34,7 @@ export default function PlayerContextMenu() {
             open()
           }
           const groups =
-            playing && person.player && !person.ghost
-              ? personActions({ person, market, mine: person.club?.id === club, playing })
-              : []
+            playing && person.player && !person.ghost ? personActions({ person, market, mine: person.club?.id === club, playing }) : []
           const items: MenuNode[] = [
             { label: `Ver Perfil: ${person.name}`, onSelect: open },
             ...groups.flatMap((g): MenuNode[] => ['separator', ...g.map((a) => ({ label: a.label, onSelect: run(a.key) }))]),

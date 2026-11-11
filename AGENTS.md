@@ -48,7 +48,8 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/bin/sim.rs` | CLI que joga épocas sem UI (calibração) |
 | `core/examples/dev_bridge.rs` | Ponte HTTP `POST /invoke/<cmd>` para abrir a UI no navegador |
 | `game/src-tauri/src/lib.rs` | Comandos Tauri (cada um delega para `Session`) |
-| `game/src/components/MatchDay.tsx` | Dia de jogo e tela da partida ao vivo |
+| `game/src/components/MatchDay.tsx`, `components/match/` | Dia de jogo (`MatchDay`) e a partida ao vivo: `LiveScreen` (relógio, relato, sons), `Panorama`, `MatchPanes` (as outras abas), `ScoreBand`, `DayList` e os utilitários em `lines.ts` |
+| `game/src/pages/ClubPage.tsx`, `pages/club/` | Página do clube; a grelha do plantel (`SquadGrid`), a Informação Geral (`ClubInfo`) e as listas do plantel (`squadView.ts`) |
 | `game/src/components/TacticsBoard.tsx`, `game/src/tactics.ts` | Lista e campo das Tácticas (tela normal e a meio do jogo) |
 | `game/src/bindings/` | Tipos TS **gerados** pelo ts-rs a partir das structs Rust: não editar à mão |
 | `scripts/` | Extrator Python dos `.dat` → `data/world.sqlite` |
@@ -60,7 +61,8 @@ powershell -File scripts/check.ps1          # tudo: fmt, clippy, testes do core,
 powershell -File scripts/check.ps1 -Quick   # sem os testes do core
 cargo test -p nextcm-core --release          # testes (também regenera game/src/bindings)
 cargo run -p nextcm-core --release --bin sim -- 7568 epoca 1 20   # 20 épocas: médias de golos, cartões...
-npm --prefix game run check                  # só o front: tsc + oxlint
+npm --prefix game run check                  # só o front: tsc + oxlint + prettier --check
+npm --prefix game run format                 # formata o front (Prettier)
 powershell -File scripts/web.ps1             # jogar no navegador: ponte (1421) + Vite (5173), Ctrl+C fecha
 ```
 

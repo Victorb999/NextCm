@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useLoad } from '../useLoad'
+import { useState } from 'react'
 import { api } from '../api'
 import type { DisciplineOptions } from '../bindings/DisciplineOptions'
 import { DialogFrame, Overlay } from './Dialog'
@@ -22,9 +23,7 @@ export default function DisciplineDialog({
   const [reason, setReason] = useState('none')
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    api.disciplineOptions(personId).then(setOptions, (e) => setError(String(e)))
-  }, [personId])
+  useLoad(() => api.disciplineOptions(personId), [personId], setOptions, setError)
 
   const confirm = async () => {
     try {
@@ -37,7 +36,14 @@ export default function DisciplineDialog({
 
   return (
     <Overlay>
-      <DialogFrame title="Disciplinar Jogador" width={620} cancelLabel="Cancelar" okLabel="Confirmar" onCancel={onClose} onOk={() => void confirm()}>
+      <DialogFrame
+        title="Disciplinar Jogador"
+        width={620}
+        cancelLabel="Cancelar"
+        okLabel="Confirmar"
+        onCancel={onClose}
+        onOk={() => void confirm()}
+      >
         <div className="pb-3 text-[15px] text-white">Especifique os detalhes da acção disciplinar sobre {name}.</div>
         <div className="flex items-center gap-2 pb-3">
           <span className="w-44 text-[15px] font-semibold text-white">Acção disciplinar</span>
@@ -51,7 +57,9 @@ export default function DisciplineDialog({
             +
           </button>
         </div>
-        <div className="pb-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-cm-orange">Razão para a acção disciplinar</div>
+        <div className="pb-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-cm-orange">
+          Razão para a acção disciplinar
+        </div>
         <div className="cm-zebra overflow-hidden rounded bg-black/30">
           {options?.reasons.map((r) => (
             <button
@@ -59,10 +67,16 @@ export default function DisciplineDialog({
               disabled={!r.available}
               onClick={() => setReason(r.key)}
               className={`flex min-h-7 w-full items-center gap-2 px-3 text-left text-[14px] ${
-                !r.available ? 'cursor-default text-cm-purplelight' : reason === r.key ? '!bg-cm-sel font-bold text-white' : 'text-white hover:text-cm-yellow'
+                !r.available
+                  ? 'cursor-default text-cm-purplelight'
+                  : reason === r.key
+                    ? '!bg-cm-sel font-bold text-white'
+                    : 'text-white hover:text-cm-yellow'
               }`}
             >
-              <span className={`size-3 shrink-0 rounded-full border ${reason === r.key ? 'border-cm-yellow bg-cm-yellow' : 'border-current'}`} />
+              <span
+                className={`size-3 shrink-0 rounded-full border ${reason === r.key ? 'border-cm-yellow bg-cm-yellow' : 'border-current'}`}
+              />
               <span className="flex-1">{r.label}</span>
               {/* Escolhe-se na mesma, mas não aconteceu: o aviso a roxo, como no CM */}
               {r.reason && <span className="text-[12px] text-cm-purplelight">{r.reason}</span>}

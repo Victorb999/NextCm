@@ -41,7 +41,6 @@ function NumberGrid({
   return (
     // Ocupa o espaço que houver: em janelas baixas só o número, nas altas também o apelido
     <div className="grid min-h-0 flex-1 grid-cols-10 grid-rows-10 gap-1">
-
       {Array.from({ length: 99 }, (_, i) => i + 1).map((n) => {
         const owner = owners.get(n)
         const mine = n === current
@@ -60,7 +59,9 @@ function NumberGrid({
             }`}
           >
             <span className="text-[15px] font-bold">{n}</span>
-            <span className={`hidden max-w-full truncate px-1 text-[9px] font-mono uppercase tracking-wide [@media(min-height:860px)]:block ${mine ? 'font-bold' : owner !== undefined ? '' : 'text-cm-mint'}`}>
+            <span
+              className={`hidden max-w-full truncate px-1 text-[9px] font-mono uppercase tracking-wide [@media(min-height:860px)]:block ${mine ? 'font-bold' : owner !== undefined ? '' : 'text-cm-mint'}`}
+            >
               {mine ? 'Escolha' : (owner ?? 'Livre')}
             </span>
           </button>
@@ -77,7 +78,9 @@ function NumberBox({ n }: { n: number | null }) {
       -
     </span>
   ) : (
-    <span className="flex h-[22px] w-9 shrink-0 items-center justify-center rounded-[3px] bg-cm-hover text-[13px] font-bold tabular-nums text-white">{n}</span>
+    <span className="flex h-[22px] w-9 shrink-0 items-center justify-center rounded-[3px] bg-cm-hover text-[13px] font-bold tabular-nums text-white">
+      {n}
+    </span>
   )
 }
 
@@ -162,7 +165,9 @@ export default function SquadNumbersPage() {
         emblem={club && { text: initials(club.shortName), fg: club.fg ?? '#ffffff', bg: club.bg ?? '#3a3a3a' }}
         eyebrow={
           saved && (
-            <span className={`rounded px-1.5 tracking-wider ${saved.preSeason ? 'bg-cm-dlgdeep text-cm-mint' : 'bg-[#3a2508] text-cm-orange'}`}>
+            <span
+              className={`rounded px-1.5 tracking-wider ${saved.preSeason ? 'bg-cm-dlgdeep text-cm-mint' : 'bg-[#3a2508] text-cm-orange'}`}
+            >
               {saved.preSeason ? 'Pré-época' : 'Época a decorrer'}
             </span>
           )
@@ -172,12 +177,16 @@ export default function SquadNumbersPage() {
       {saved && (
         <div className="mx-2 flex shrink-0 items-center gap-3 rounded-md border border-cm-yellow/60 bg-cm-yellow/[0.06] px-4 py-2 text-[13px] text-cm-text">
           <span className="font-bold text-cm-yellow">i</span>
-          {saved.preSeason ? 'Os números ficam fixos a partir do primeiro jogo oficial.' : 'Com a época a decorrer, só os jogadores sem número recebem um.'}
+          {saved.preSeason
+            ? 'Os números ficam fixos a partir do primeiro jogo oficial.'
+            : 'Com a época a decorrer, só os jogadores sem número recebem um.'}
           <span className="text-cm-faint">·</span>
           <span>
             Total no plantel: <b>{saved.players.length} jogadores</b>
           </span>
-          {missing > 0 && <span className="ml-auto rounded bg-cm-sel px-2 py-0.5 text-[12px] font-bold text-white">Sem número: {missing}</span>}
+          {missing > 0 && (
+            <span className="ml-auto rounded bg-cm-sel px-2 py-0.5 text-[12px] font-bold text-white">Sem número: {missing}</span>
+          )}
         </div>
       )}
       <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5">
@@ -215,7 +224,9 @@ export default function SquadNumbersPage() {
                   <NumberBox n={numbers.get(p.id) ?? null} />
                   <span className="min-w-0 flex-1 truncate text-white">
                     {shortListName(p.listName)}
-                    {sel && <span className="ml-2 rounded-[3px] bg-cm-yellow px-1 text-[10px] font-bold uppercase text-black">Seleccionado</span>}
+                    {sel && (
+                      <span className="ml-2 rounded-[3px] bg-cm-yellow px-1 text-[10px] font-bold uppercase text-black">Seleccionado</span>
+                    )}
                   </span>
                   <span className={`text-[13px] font-semibold ${sel ? 'text-white' : 'text-cm-orange'}`}>{p.position}</span>
                 </div>
@@ -256,7 +267,8 @@ export default function SquadNumbersPage() {
             </span>
             {chosen && current !== null && (
               <span className="ml-auto">
-                Número escolhido: <b className="text-white">#{current}</b> para <b className="text-cm-yellow">{shortListName(chosen.listName)}</b>
+                Número escolhido: <b className="text-white">#{current}</b> para{' '}
+                <b className="text-cm-yellow">{shortListName(chosen.listName)}</b>
               </span>
             )}
           </div>

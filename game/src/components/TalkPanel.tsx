@@ -98,7 +98,9 @@ export default function TalkPanel({
                   {t.label}
                 </Choice>
               ))}
-              {view.team && view.done && <span className="text-[13px] text-cm-magenta">Já falou à equipa: agora só a quem ainda não ouviu.</span>}
+              {view.team && view.done && (
+                <span className="text-[13px] text-cm-magenta">Já falou à equipa: agora só a quem ainda não ouviu.</span>
+              )}
             </div>
             <Panel
               title="Instruções"
@@ -108,7 +110,12 @@ export default function TalkPanel({
                     Pedir ao Adjunto
                   </button>
                   {/* Instruções Gerais: a frase de quem segue a equipa */}
-                  <select value={general} onChange={(e) => setGeneral(e.target.value)} className="cm-field h-6 w-60 rounded" aria-label="Instruções Gerais">
+                  <select
+                    value={general}
+                    onChange={(e) => setGeneral(e.target.value)}
+                    className="cm-field h-6 w-60 rounded"
+                    aria-label="Instruções Gerais"
+                  >
                     {view.options.map((o) => (
                       <option key={o.key} value={o.key}>
                         Gerais: {o.label}
@@ -138,7 +145,9 @@ export default function TalkPanel({
                     {view.players.map((p) => (
                       <tr key={p.id} className={`h-7 ${p.listens ? 'text-white' : 'text-[#6c6c78]'}`}>
                         <td className="px-2 text-center">
-                          <span className={`inline-block w-8 rounded text-[12px] font-bold ${p.listens ? 'bg-cm-dlgline text-white' : 'bg-white/5'}`}>
+                          <span
+                            className={`inline-block w-8 rounded text-[12px] font-bold ${p.listens ? 'bg-cm-dlgline text-white' : 'bg-white/5'}`}
+                          >
                             {p.number ?? ''}
                           </span>
                         </td>

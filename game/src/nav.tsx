@@ -55,10 +55,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
     })
   }, [])
   const back = useCallback(() => setState((st) => ({ ...st, index: Math.max(0, st.index - 1), seq: st.seq + 1 })), [])
-  const forward = useCallback(
-    () => setState((st) => ({ ...st, index: Math.min(st.stack.length - 1, st.index + 1), seq: st.seq + 1 })),
-    [],
-  )
+  const forward = useCallback(() => setState((st) => ({ ...st, index: Math.min(st.stack.length - 1, st.index + 1), seq: st.seq + 1 })), [])
 
   const value = useMemo(
     () => ({

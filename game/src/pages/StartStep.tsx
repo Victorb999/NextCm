@@ -6,7 +6,11 @@ import { DialogFrame, Overlay } from '../components/Dialog'
 
 const OPTIONS: [StartSeason, string, string][] = [
   ['europe', 'Europa 26/27', 'Começa a 1.7.2026, com o Brasileirão de 2026 a meio.'],
-  ['brazil', 'Brasil 2026', 'Começa a 1.1.2026, com a Europa a meio de 2025/26: o 2º semestre de 2025 joga-se ao criar o jogo (demora um pouco).'],
+  [
+    'brazil',
+    'Brasil 2026',
+    'Começa a 1.1.2026, com a Europa a meio de 2025/26: o 2º semestre de 2025 joga-se ao criar o jogo (demora um pouco).',
+  ],
 ]
 
 export default function StartStep({

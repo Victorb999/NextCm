@@ -37,7 +37,13 @@ if (typeof window !== 'undefined') {
 function pinkNoise(c: AudioContext, seconds: number): AudioBuffer {
   const buf = c.createBuffer(1, c.sampleRate * seconds, c.sampleRate)
   const d = buf.getChannelData(0)
-  let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0
+  let b0 = 0,
+    b1 = 0,
+    b2 = 0,
+    b3 = 0,
+    b4 = 0,
+    b5 = 0,
+    b6 = 0
   for (let i = 0; i < d.length; i++) {
     const w = Math.random() * 2 - 1
     b0 = 0.99886 * b0 + w * 0.0555179

@@ -12,8 +12,40 @@ import { useEscBack, useNav } from '../nav'
 
 const LABEL = Object.fromEntries(PLAYER_ATTRIBUTES)
 const GROUPS: [string, string[]][] = [
-  ['Técnicos', ['heading', 'crossing', 'tackling', 'finishing', 'dribbling', 'free_kicks', 'handling', 'marking', 'passing', 'long_shots', 'technique', 'reflexes']],
-  ['Mentais', ['aggression', 'anticipation', 'bravery', 'vision', 'decisions', 'determination', 'leadership', 'flair', 'positioning', 'off_the_ball', 'teamwork', 'work_rate']],
+  [
+    'Técnicos',
+    [
+      'heading',
+      'crossing',
+      'tackling',
+      'finishing',
+      'dribbling',
+      'free_kicks',
+      'handling',
+      'marking',
+      'passing',
+      'long_shots',
+      'technique',
+      'reflexes',
+    ],
+  ],
+  [
+    'Mentais',
+    [
+      'aggression',
+      'anticipation',
+      'bravery',
+      'vision',
+      'decisions',
+      'determination',
+      'leadership',
+      'flair',
+      'positioning',
+      'off_the_ball',
+      'teamwork',
+      'work_rate',
+    ],
+  ],
   ['Físicos', ['acceleration', 'agility', 'balance', 'strength', 'jumping', 'stamina', 'pace']],
 ]
 
@@ -32,7 +64,12 @@ function tone(v: number | null | undefined, other: number | null | undefined, lo
 function Bar({ v, best }: { v: number | null | undefined; best: boolean }) {
   return (
     <div className="h-2.5 w-full rounded-sm bg-black/50">
-      {v != null && <div className={`h-full rounded-sm ${best ? 'bg-cm-green' : 'bg-[#8a5cd0]'}`} style={{ width: `${Math.min(100, (v / 20) * 100)}%` }} />}
+      {v != null && (
+        <div
+          className={`h-full rounded-sm ${best ? 'bg-cm-green' : 'bg-[#8a5cd0]'}`}
+          style={{ width: `${Math.min(100, (v / 20) * 100)}%` }}
+        />
+      )}
     </div>
   )
 }
@@ -60,7 +97,10 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
   const [people, setPeople] = useState<[PersonProfile, PersonProfile] | null>(null)
   const [tab, setTab] = useState('attributes')
   useEffect(() => {
-    Promise.all([api.getPerson(a), api.getPerson(b)]).then(([x, y]) => setPeople([x, y]), () => {})
+    Promise.all([api.getPerson(a), api.getPerson(b)]).then(
+      ([x, y]) => setPeople([x, y]),
+      () => {},
+    )
   }, [a, b])
 
   const pair = <T,>(f: (p: PersonProfile) => T): [T, T] | null => (people ? [f(people[0]), f(people[1])] : null)
@@ -76,7 +116,11 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
           <div className="min-h-0 flex-1 overflow-auto">
             <div className="grid grid-cols-[1fr_10rem_1fr] items-center gap-x-2 border-b border-cm-line px-4 py-1 font-title text-[17px] font-bold">
               {people.map((p, i) => (
-                <Link key={p.id} className={`truncate text-cm-yellow ${i === 0 ? 'text-right' : ''}`} onClick={() => nav.go({ kind: 'person', id: p.id })}>
+                <Link
+                  key={p.id}
+                  className={`truncate text-cm-yellow ${i === 0 ? 'text-right' : ''}`}
+                  onClick={() => nav.go({ kind: 'person', id: p.id })}
+                >
                   {p.name}
                 </Link>
               ))}
@@ -99,8 +143,16 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
                 a={[people[0].club?.shortName ?? 'Sem clube', 'text-cm-magenta']}
                 b={[people[1].club?.shortName ?? 'Sem clube', 'text-cm-magenta']}
               />
-              <InfoRow label="Posição" a={[people[0].player?.positionLong || people[0].player?.position || '-']} b={[people[1].player?.positionLong || people[1].player?.position || '-']} />
-              <InfoRow label="Valor" a={[value[0] != null ? money(value[0]) : '-', tone(value[0], value[1])]} b={[value[1] != null ? money(value[1]) : '-', tone(value[1], value[0])]} />
+              <InfoRow
+                label="Posição"
+                a={[people[0].player?.positionLong || people[0].player?.position || '-']}
+                b={[people[1].player?.positionLong || people[1].player?.position || '-']}
+              />
+              <InfoRow
+                label="Valor"
+                a={[value[0] != null ? money(value[0]) : '-', tone(value[0], value[1])]}
+                b={[value[1] != null ? money(value[1]) : '-', tone(value[1], value[0])]}
+              />
               <InfoRow label="Salário" a={[wage(people[0].wage)]} b={[wage(people[1].wage)]} />
               <InfoRow label="Contrato Termina" a={[cmDate(people[0].contractExpires)]} b={[cmDate(people[1].contractExpires)]} />
             </div>
@@ -124,7 +176,10 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
                         const x = people[0].player?.attributes[key]
                         const y = people[1].player?.attributes[key]
                         return (
-                          <div key={key} className="grid h-6 grid-cols-[1fr_1.6rem_3.2rem_3.2rem_1.6rem] items-center gap-x-1.5 px-2 text-[14px] tabular-nums">
+                          <div
+                            key={key}
+                            className="grid h-6 grid-cols-[1fr_1.6rem_3.2rem_3.2rem_1.6rem] items-center gap-x-1.5 px-2 text-[14px] tabular-nums"
+                          >
                             <span className="truncate text-white">{LABEL[key] ?? key}</span>
                             <span className={`text-right ${tone(x, y)}`}>{x ?? '-'}</span>
                             <Bar v={x} best={x != null && (y == null || x >= y)} />

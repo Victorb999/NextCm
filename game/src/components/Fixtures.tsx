@@ -76,7 +76,11 @@ export function RoundGames({ fixtures, table, own }: { fixtures: Fixture[]; tabl
   // A posição só depois da 1ª jornada (antes fica sem casa)
   const cell = (id: number) => {
     const p = pos(id)
-    return p ? <span className="cm-cell w-10 shrink-0 text-center font-mono text-[12px] leading-[20px] text-white">{p}</span> : <span className="w-10 shrink-0" />
+    return p ? (
+      <span className="cm-cell w-10 shrink-0 text-center font-mono text-[12px] leading-[20px] text-white">{p}</span>
+    ) : (
+      <span className="w-10 shrink-0" />
+    )
   }
   return (
     <div className="cm-zebra">

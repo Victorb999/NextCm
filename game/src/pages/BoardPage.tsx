@@ -1,3 +1,4 @@
+import { useLoad } from '../useLoad'
 import { Euro, Landmark, Star, Users, Zap } from 'lucide-react'
 import { Fragment, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -16,7 +17,10 @@ import { useEscBack, useNav } from '../nav'
 // respostas vêm do core).
 
 type Kind = 'board' | 'league'
-const MEETINGS: Record<Kind, { title: string; prompt: string; list: () => Promise<BoardRequest[]>; ask: (key: string) => Promise<string> }> = {
+const MEETINGS: Record<
+  Kind,
+  { title: string; prompt: string; list: () => Promise<BoardRequest[]>; ask: (key: string) => Promise<string> }
+> = {
   board: {
     title: 'Reunião com a Direcção',
     prompt: 'Especificar os detalhes das exigências à direcção:',
@@ -128,9 +132,7 @@ export default function BoardPage() {
   const [meeting, setMeeting] = useState<Kind | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    api.boardConfidence().then(setView, (e) => setError(String(e)))
-  }, [])
+  useLoad(() => api.boardConfidence(), [], setView, setError)
 
   if (meeting) {
     return (

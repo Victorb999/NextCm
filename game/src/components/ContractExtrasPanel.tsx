@@ -75,7 +75,12 @@ export default function ContractExtrasPanel({
           <>
             <MoneySelect value={value[key]} onChange={(v) => !disabled && set({ [key]: v })} />
             {asks[key] > 0 && (
-              <button className="cm-purple h-7 w-8 px-0" title="O que ele pede" disabled={disabled} onClick={() => set({ [key]: asks[key] })}>
+              <button
+                className="cm-purple h-7 w-8 px-0"
+                title="O que ele pede"
+                disabled={disabled}
+                onClick={() => set({ [key]: asks[key] })}
+              >
                 =
               </button>
             )}
@@ -112,7 +117,12 @@ export default function ContractExtrasPanel({
                 <>
                   <MoneySelect value={minFee} onChange={(v) => !disabled && set({ minFee: v })} />
                   {asks.minFee !== null && (
-                    <button className="cm-purple h-7 w-8 px-0" title="O que ele pede" disabled={disabled} onClick={() => set({ minFee: asks.minFee })}>
+                    <button
+                      className="cm-purple h-7 w-8 px-0"
+                      title="O que ele pede"
+                      disabled={disabled}
+                      onClick={() => set({ minFee: asks.minFee })}
+                    >
                       =
                     </button>
                   )}

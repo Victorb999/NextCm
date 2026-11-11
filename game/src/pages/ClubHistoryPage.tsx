@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useLoad } from '../useLoad'
+import { useState } from 'react'
 import { api } from '../api'
 import type { ClubProfile } from '../bindings/ClubProfile'
 import { BottomBar, Empty, ErrorBox, Link, PanelTitle, ScreenHeader, Tabs } from '../components/Screen'
@@ -24,7 +25,10 @@ function Competitions({ c }: { c: ClubProfile }) {
         {c.honours.map((h) => (
           <div key={h.competition.id} className="px-4 py-1.5">
             <div className="flex items-center gap-2">
-              <Link onClick={() => nav.go({ kind: 'competition', id: h.competition.id })} className="flex-1 truncate text-[15px] font-semibold text-white">
+              <Link
+                onClick={() => nav.go({ kind: 'competition', id: h.competition.id })}
+                className="flex-1 truncate text-[15px] font-semibold text-white"
+              >
                 {h.competition.name}
               </Link>
               {h.won.length > 0 && <span className="font-bold text-cm-yellow">{h.won.length}× campeão</span>}
@@ -65,10 +69,7 @@ export default function ClubHistoryPage({ id }: { id: number }) {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('competitions')
 
-  useEffect(() => {
-    api.getClub(id).then(setClub, (e) => setError(String(e)))
-  }, [id])
-
+  useLoad(() => api.getClub(id), [id], setClub, setError)
 
   return (
     <div className="flex h-full flex-col">

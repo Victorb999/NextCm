@@ -114,7 +114,7 @@ export type HeaderSort = { label: string; reverse: boolean }
 export const FIXED_SORTS: Record<string, Sortable> = {
   Nome: { sort: (p) => p.listName },
   Jogador: { sort: (p) => p.listName },
-  'Nº': { sort: (p) => p.squadNumber },
+  Nº: { sort: (p) => p.squadNumber },
   Posição: { sort: (p) => p.positionOrder },
 }
 
@@ -134,7 +134,7 @@ export function sortByColumn(list: SquadPlayer[], col: Sortable, reverse: boolea
 
 /** O rótulo de um cabeçalho com a seta da ordem, se for o clicado. */
 export const sortLabel = (label: string, s: HeaderSort | null, col: Sortable | undefined) =>
-  s?.label === label && col?.sort ? `${label} ${(!!col.desc !== s.reverse) ? '▼' : '▲'}` : label
+  s?.label === label && col?.sort ? `${label} ${!!col.desc !== s.reverse ? '▼' : '▲'}` : label
 
 /** "Apelido, N" e o `*` dos jogadores-chave. */
 export function squadName(p: SquadPlayer) {

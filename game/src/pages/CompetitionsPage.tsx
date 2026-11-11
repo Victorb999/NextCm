@@ -1,5 +1,6 @@
+import { useLoad } from '../useLoad'
 import { Trophy } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { api } from '../api'
 import type { CompetitionListItem } from '../bindings/CompetitionListItem'
 import PickList, { type PickGroup } from '../components/PickList'
@@ -17,9 +18,7 @@ export default function CompetitionsPage() {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState(rememberTab('competitions') ?? '5')
 
-  useEffect(() => {
-    api.listCompetitions().then(setAll, (e) => setError(String(e)))
-  }, [])
+  useLoad(() => api.listCompetitions(), [], setAll, setError)
 
   const groups: PickGroup[] = useMemo(() => {
     const toItem = (c: CompetitionListItem) => ({ id: c.id, label: c.name })

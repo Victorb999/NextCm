@@ -1,3 +1,4 @@
+import { useLoad } from '../useLoad'
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -180,7 +181,10 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
           <div className="flex items-center gap-2">
             <span className="truncate font-title text-[22px] font-bold uppercase leading-tight text-white">{p?.name ?? ''}</span>
             {p && (
-              <span className="shrink-0 rounded px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider" style={{ color: colours.fg, background: colours.bg }}>
+              <span
+                className="shrink-0 rounded px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider"
+                style={{ color: colours.fg, background: colours.bg }}
+              >
                 {club ? (
                   <Link onClick={() => nav.go({ kind: 'club', id: club.id, reserves: p.status?.reserve })}>
                     {p.status?.reserve ? `Reservas ${club.shortName}` : club.shortName}
@@ -196,18 +200,25 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
               </span>
             )}
             {p && !pl && p.job && (
-              <span className="shrink-0 rounded bg-cm-dlgdeep px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-cm-mint">{p.job}</span>
+              <span className="shrink-0 rounded bg-cm-dlgdeep px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-cm-mint">
+                {p.job}
+              </span>
             )}
           </div>
           {p && (
             <div className="truncate font-mono text-[13px] text-cm-muted">
               {born} ({p.age ?? '?'} anos)
               {dot}
-              {p.nationId !== null && p.nation ? <Link onClick={() => nav.go({ kind: 'nation', id: p.nationId! })}>{p.nation}</Link> : (p.nation ?? '-')}
+              {p.nationId !== null && p.nation ? (
+                <Link onClick={() => nav.go({ kind: 'nation', id: p.nationId! })}>{p.nation}</Link>
+              ) : (
+                (p.nation ?? '-')
+              )}
               {p.internationalApps > 0 && (
                 <>
                   {' '}
-                  (<b className="text-cm-yellow">{p.internationalApps}</b> internac. / <b className="text-cm-yellow">{p.internationalGoals}</b> golos)
+                  (<b className="text-cm-yellow">{p.internationalApps}</b> internac. /{' '}
+                  <b className="text-cm-yellow">{p.internationalGoals}</b> golos)
                 </>
               )}
               {pl && !p.ghost && (
@@ -375,7 +386,15 @@ function Profile({ p }: { p: PersonProfile }) {
                 head={['Competição', 'Jogos', 'Golos', 'Asts', 'Nota']}
                 rows={[
                   ...p.season.map((s) => [s.competition, s.apps, s.goals, s.assists, s.rating.toFixed(2)]),
-                  [<b key="t" className="text-cm-mint">Total</b>, total.apps, total.goals, total.assists, rating.toFixed(2)],
+                  [
+                    <b key="t" className="text-cm-mint">
+                      Total
+                    </b>,
+                    total.apps,
+                    total.goals,
+                    total.assists,
+                    rating.toFixed(2),
+                  ],
                 ]}
               />
             )}
@@ -502,7 +521,16 @@ function Contract({ p }: { p: PersonProfile }) {
   const years = useYearsLeft()
   const nav = useNav()
   const rows: [string, ReactNode][] = [
-    ['Clube', p.club ? <Link key="club" onClick={() => nav.go({ kind: 'club', id: p.club!.id })}>{p.club.name}</Link> : 'Sem clube'],
+    [
+      'Clube',
+      p.club ? (
+        <Link key="club" onClick={() => nav.go({ kind: 'club', id: p.club!.id })}>
+          {p.club.name}
+        </Link>
+      ) : (
+        'Sem clube'
+      ),
+    ],
     ['Função', p.job ?? '-'],
     ['No clube desde', cmDate(p.clubJoined)],
     ['Contrato até', p.contractExpires ? `${cmDate(p.contractExpires)}${years(p.contractExpires)}` : '-'],
@@ -554,9 +582,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
     setVersion((v) => v + 1)
     return api.getPerson(id).then(setPerson, (e) => setError(String(e)))
   }
-  useEffect(() => {
-    api.getPerson(id).then(setPerson, (e) => setError(String(e)))
-  }, [id])
+  useLoad(() => api.getPerson(id), [id], setPerson, setError)
   const playing = game.mode === 'game' && !!person?.player
   const date = game.info?.date
   useEffect(() => {
@@ -584,7 +610,20 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
   // Os botões da aba Contrato & Transferência: os principais, iguais aos do menu
   const pick = (keys: string[]) => actions.flat().filter((a) => keys.includes(a.key))
   const contractButtons = pick(['renew', 'role', 'contract', 'recall'])
-  const marketButtons = pick(['list', 'unlist', 'price', 'loanlist', 'unloanlist', 'shop', 'offer', 'loan', 'option', 'shortlist', 'unshortlist', 'scout'])
+  const marketButtons = pick([
+    'list',
+    'unlist',
+    'price',
+    'loanlist',
+    'unloanlist',
+    'shop',
+    'offer',
+    'loan',
+    'option',
+    'shortlist',
+    'unshortlist',
+    'scout',
+  ])
   const buttonRow = (list: { key: string; label: string }[]) =>
     list.length > 0 && (
       <div className="flex flex-wrap gap-1.5 border-t border-cm-line p-2">
@@ -669,8 +708,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
     } else if (k === 'compare' && first) {
       setCompareFirst(null)
       nav.go({ kind: 'compare', a: first.id, b: id })
-    }
-    else if (k === 'list' || k === 'unlist' || k === 'loanlist' || k === 'unloanlist')
+    } else if (k === 'list' || k === 'unlist' || k === 'loanlist' || k === 'unloanlist')
       void marketAction(() =>
         api.setListing(
           id,
@@ -738,14 +776,19 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
         }
         tabs={
           <Tabs
-            tabs={(person?.player && game.mode === 'game' ? TABS : TABS.filter((t) => t.key !== 'injuries' && t.key !== 'records')).map((t) =>
-              person?.ghost && t.key !== 'profile'
-                ? { ...t, disabled: true }
-                : t.key === 'injuries'
-                  ? { ...t, label: person?.status?.injury || person?.status?.suspended ? `${t.label} •` : t.label, disabled: !person?.status }
-                  : t.key === 'contract' && !person?.player
-                    ? { ...t, label: 'Contrato' }
-                    : t,
+            tabs={(person?.player && game.mode === 'game' ? TABS : TABS.filter((t) => t.key !== 'injuries' && t.key !== 'records')).map(
+              (t) =>
+                person?.ghost && t.key !== 'profile'
+                  ? { ...t, disabled: true }
+                  : t.key === 'injuries'
+                    ? {
+                        ...t,
+                        label: person?.status?.injury || person?.status?.suspended ? `${t.label} •` : t.label,
+                        disabled: !person?.status,
+                      }
+                    : t.key === 'contract' && !person?.player
+                      ? { ...t, label: 'Contrato' }
+                      : t,
             )}
             active={person?.ghost ? 'profile' : tab}
             onChange={setTab}

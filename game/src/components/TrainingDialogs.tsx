@@ -84,7 +84,13 @@ export function ProgramDialog({
       <DialogFrame title="Programa de Treino" width={680} onCancel={onCancel} onOk={ok}>
         <div className="space-y-1 py-1">
           <DialogRow label="Nome">
-            <input value={p.name} maxLength={24} onChange={(e) => setP({ ...p, name: e.target.value })} className="cm-field w-64" autoFocus />
+            <input
+              value={p.name}
+              maxLength={24}
+              onChange={(e) => setP({ ...p, name: e.target.value })}
+              className="cm-field w-64"
+              autoFocus
+            />
           </DialogRow>
           {AREAS.map(([key, label]) => (
             <DialogRow key={key} label={label}>
@@ -190,8 +196,7 @@ export function CoachesDialog({
               ))}
             </div>
             <div className="pt-1 text-[12px] text-cm-dlgtext">
-              Clique numa área para a dar ou tirar a um treinador. Quem treina muitas áreas rende menos; uma área sem
-              ninguém treina-se mal.
+              Clique numa área para a dar ou tirar a um treinador. Quem treina muitas áreas rende menos; uma área sem ninguém treina-se mal.
             </div>
           </>
         ) : (

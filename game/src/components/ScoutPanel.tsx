@@ -31,7 +31,17 @@ const REGIONS = [
 ]
 
 /** Escolher o alvo de uma tarefa: um clube (pelo nome), um país ou uma região. */
-function TargetDialog({ kind, nations, onCancel, onPick }: { kind: Kind; nations: NationOption[]; onCancel: () => void; onPick: (id: number) => void }) {
+function TargetDialog({
+  kind,
+  nations,
+  onCancel,
+  onPick,
+}: {
+  kind: Kind
+  nations: NationOption[]
+  onCancel: () => void
+  onPick: (id: number) => void
+}) {
   const [text, setText] = useState('')
   const [clubs, setClubs] = useState<ClubListItem[]>([])
   useEffect(() => {
@@ -62,7 +72,11 @@ function TargetDialog({ kind, nations, onCancel, onPick }: { kind: Kind; nations
         )}
         <div className="max-h-[360px] overflow-auto">
           {items.map((i) => (
-            <button key={i.id} onClick={() => onPick(i.id)} className="flex w-full items-center justify-between px-2 py-0.5 text-left hover:bg-cm-sel">
+            <button
+              key={i.id}
+              onClick={() => onPick(i.id)}
+              className="flex w-full items-center justify-between px-2 py-0.5 text-left hover:bg-cm-sel"
+            >
               <span className="font-title text-[17px] text-white">{i.label}</span>
               {i.detail && <span className="text-cm-yellow">{i.detail}</span>}
             </button>
@@ -139,7 +153,9 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
           title={`Olheiro #${slot}`}
           right={
             <span className="truncate text-[12px] text-cm-magenta">
-              {noScout ? 'O clube não tem um olheiro para esta aba.' : (list?.task ?? `${list?.scout ?? 'O olheiro'} está sem tarefa: use Designar Olheiro.`)}
+              {noScout
+                ? 'O clube não tem um olheiro para esta aba.'
+                : (list?.task ?? `${list?.scout ?? 'O olheiro'} está sem tarefa: use Designar Olheiro.`)}
             </span>
           }
         />
@@ -159,7 +175,10 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
             <thead className="sticky top-0 z-10">
               <tr className="h-6">
                 {['Rec', 'Inf', 'Nome', 'Clube', 'Base', 'Posição', 'Valor'].map((h) => (
-                  <th key={h} className={`bg-cm-headdeep px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${['Nome', 'Clube', 'Base', 'Posição'].includes(h) ? 'text-left' : ''}`}>
+                  <th
+                    key={h}
+                    className={`bg-cm-headdeep px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${['Nome', 'Clube', 'Base', 'Posição'].includes(h) ? 'text-left' : ''}`}
+                  >
                     {h}
                   </th>
                 ))}
@@ -173,7 +192,14 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
                     {f.injured ? (
                       <span className="bg-[#b8560c] px-0.5 font-bold text-white">Les</span>
                     ) : (
-                      f.wanted && <span className="border border-gray-700 bg-gray-900 px-0.5 font-bold text-cm-yellow" title="Desejado: outro clube quer o jogador">Des</span>
+                      f.wanted && (
+                        <span
+                          className="border border-gray-700 bg-gray-900 px-0.5 font-bold text-cm-yellow"
+                          title="Desejado: outro clube quer o jogador"
+                        >
+                          Des
+                        </span>
+                      )
                     )}
                   </td>
                   <td className="truncate px-2 text-white">

@@ -1,0 +1,3 @@
+# Commits só de formatação (git blame --ignore-revs-file, ou git config blame.ignoreRevsFile .git-blame-ignore-revs)
+# Prettier no front (item 26 do 3.19.1)
+57d76e836d2a205c0b39a1d050af969e9005376e

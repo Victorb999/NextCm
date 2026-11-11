@@ -1,5 +1,5 @@
-# Verificação completa do NextCM: formatação e clippy do Rust, testes do core, TypeScript e
-# oxlint. Mostra uma linha por passo e, nos que falham, só o fim da saída (os erros).
+# Verificação completa do NextCM: formatação e clippy do Rust, testes do core, TypeScript,
+# oxlint e Prettier. Mostra uma linha por passo e, nos que falham, só o fim da saída (os erros).
 #
 #   powershell -File scripts/check.ps1          # tudo
 #   powershell -File scripts/check.ps1 -Quick   # sem os testes do core (~10 s a menos)
@@ -28,6 +28,7 @@ Step 'cargo clippy' { cargo clippy --workspace --all-targets --quiet -- -D warni
 if (-not $Quick) { Step 'cargo test (core)' { cargo test -p nextcm-core --release --quiet } }
 Step 'tsc' { Push-Location game; npx tsc -b; $code = $LASTEXITCODE; Pop-Location; $global:LASTEXITCODE = $code }
 Step 'oxlint' { Push-Location game; npx oxlint --deny-warnings; $code = $LASTEXITCODE; Pop-Location; $global:LASTEXITCODE = $code }
+Step 'prettier' { Push-Location game; npx prettier --check src; $code = $LASTEXITCODE; Pop-Location; $global:LASTEXITCODE = $code }
 
 if ($failed.Count -gt 0) {
     Write-Host "`n$($failed.Count) passo(s) falharam: $($failed -join ', ')" -ForegroundColor Red

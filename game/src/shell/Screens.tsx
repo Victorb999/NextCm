@@ -44,11 +44,15 @@ export default function Screens() {
       {current.kind === 'worldTransfers' && <WorldTransfersPage />}
       {current.kind === 'career' && <CareerPage />}
       {current.kind === 'compare' && <ComparePage key={`${current.a}-${current.b}`} a={current.a} b={current.b} />}
-      {current.kind === 'club' && <ClubPage key={`${current.id}-${current.reserves ?? false}`} id={current.id} reserves={current.reserves} />}
+      {current.kind === 'club' && (
+        <ClubPage key={`${current.id}-${current.reserves ?? false}`} id={current.id} reserves={current.reserves} />
+      )}
       {current.kind === 'tactics' && <TacticsPage key={current.id} id={current.id} />}
       {current.kind === 'clubHistory' && <ClubHistoryPage key={current.id} id={current.id} />}
       {current.kind === 'competitions' && <CompetitionsPage />}
-      {current.kind === 'competition' && <CompetitionPage key={`${current.id}-${current.tab ?? ''}`} id={current.id} initialTab={current.tab} />}
+      {current.kind === 'competition' && (
+        <CompetitionPage key={`${current.id}-${current.tab ?? ''}`} id={current.id} initialTab={current.tab} />
+      )}
       {current.kind === 'nations' && <NationsPage />}
       {current.kind === 'nation' && <NationPage key={current.id} id={current.id} />}
     </>

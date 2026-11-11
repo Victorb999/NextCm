@@ -138,10 +138,7 @@ const COLUMNS: Record<Exclude<TableView, 'more' | 'attributes'>, Column[]> = {
     { ...CONDITION, width: 'w-14' },
     VALUE,
   ],
-  penalties: [
-    POSITION,
-    { label: 'Ordem', width: 'w-16', align: 'right', cell: (p) => p.penaltyOrder ?? '-', sort: (p) => p.penaltyOrder },
-  ],
+  penalties: [POSITION, { label: 'Ordem', width: 'w-16', align: 'right', cell: (p) => p.penaltyOrder ?? '-', sort: (p) => p.penaltyOrder }],
 }
 
 /** A coluna de um cabeçalho da vista: as das tabelas do Vêr ou as fixas (Nome, Nº...). */

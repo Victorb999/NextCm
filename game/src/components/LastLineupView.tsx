@@ -9,7 +9,15 @@ import { Pitch } from './TacticsBoard'
 
 const noBind = () => ({ 'data-spot': '', onMouseDown: () => {} })
 
-export default function LastLineupView({ last, colours, onBack }: { last: LastLineup; colours: { fg: string; bg: string }; onBack: () => void }) {
+export default function LastLineupView({
+  last,
+  colours,
+  onBack,
+}: {
+  last: LastLineup
+  colours: { fg: string; bg: string }
+  onBack: () => void
+}) {
   const t = { ...last.tactics, editable: false }
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-cm-screen">

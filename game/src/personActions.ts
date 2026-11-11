@@ -89,7 +89,9 @@ export function personActions({
   const common: PersonAction[] = [
     { key: 'nickname', label: 'Definir Alcunha' },
     { key: 'note', label: 'Criar Nota Treinador' },
-    first && first.id !== person.id ? { key: 'compare', label: `Comparar com ${first.name}` } : { key: 'compareFirst', label: 'Comparar Jogadores' },
+    first && first.id !== person.id
+      ? { key: 'compare', label: `Comparar com ${first.name}` }
+      : { key: 'compareFirst', label: 'Comparar Jogadores' },
   ]
   return [...groups, common].filter((g) => g.length > 0)
 }

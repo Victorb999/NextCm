@@ -42,10 +42,7 @@ export default function FindDialog({
           })),
         ],
         ['Nações', found.nations.map((n) => ({ key: `n${n.id}`, name: n.name, to: { kind: 'nation', id: n.id } }))],
-        [
-          'Competições',
-          found.competitions.map((c) => ({ key: `k${c.id}`, name: c.name, to: { kind: 'competition', id: c.id } })),
-        ],
+        ['Competições', found.competitions.map((c) => ({ key: `k${c.id}`, name: c.name, to: { kind: 'competition', id: c.id } }))],
         [
           'Jogadores',
           found.players.map((p) => ({

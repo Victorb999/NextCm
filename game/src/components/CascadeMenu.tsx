@@ -75,17 +75,7 @@ function Panel({
 }
 
 /** Abre o menu na posição dada; fecha com clique fora ou Esc. */
-export default function CascadeMenu({
-  items,
-  x,
-  y,
-  onClose,
-}: {
-  items: MenuNode[]
-  x: number
-  y: number
-  onClose: () => void
-}) {
+export default function CascadeMenu({ items, x, y, onClose }: { items: MenuNode[]; x: number; y: number; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const onDown = (e: MouseEvent) => {

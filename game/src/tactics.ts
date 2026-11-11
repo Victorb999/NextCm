@@ -132,7 +132,7 @@ export const TACTICS_VIEWS: ({ key: TacticsView; label: string } | 'separator')[
   { key: 'marking', label: 'Marcação' },
 ]
 
-const pick = <T,>(options: [T, string][], v: T) => options.find(([k]) => k === v)?.[1] ?? '-'
+const pick = <T>(options: [T, string][], v: T) => options.find(([k]) => k === v)?.[1] ?? '-'
 
 /** O valor da coluna do Vêr para um jogador; `on` pinta-o a amarelo (os números, e nas instruções o Sim
  * ou o que não é o da equipa). */

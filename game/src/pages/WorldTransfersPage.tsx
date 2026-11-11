@@ -80,7 +80,10 @@ export default function WorldTransfersPage() {
           <thead className="sticky top-0">
             <tr className="h-7">
               {['Data', 'Jogador', 'De', 'Para', 'Valor'].map((h) => (
-                <th key={h} className="bg-cm-headdeep px-3 text-left font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow">
+                <th
+                  key={h}
+                  className="bg-cm-headdeep px-3 text-left font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow"
+                >
                   {h}
                 </th>
               ))}

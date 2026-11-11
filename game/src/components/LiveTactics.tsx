@@ -10,7 +10,21 @@ import InstructionsDialog from './InstructionsDialog'
 import PlayerOrdersDialog from './PlayerOrdersDialog'
 import { BottomBar, ErrorBox, Link, PanelTitle, PurpleMenu, ScreenHeader } from './Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from './TacticsBoard'
-import { TACTICS_MENU, TACTICS_VIEWS, fullName, hasOrders, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, viewLabel, viewValue, withOrders, type TacticsView } from '../tactics'
+import {
+  TACTICS_MENU,
+  TACTICS_VIEWS,
+  fullName,
+  hasOrders,
+  moveOnPitch,
+  ordersOf,
+  shortRole,
+  surname,
+  useRunArrow,
+  viewLabel,
+  viewValue,
+  withOrders,
+  type TacticsView,
+} from '../tactics'
 
 /**
  * "Tácticas <clube>" a meio do jogo: a mesma tela de Tácticas (arrastar na lista ou no
@@ -147,7 +161,11 @@ export default function LiveTactics({
           // O resultado e quem marcou (com o minuto), como no placar da partida
           <div className="flex flex-col items-end gap-0.5">
             <span className="rounded bg-black/40 px-3 font-title text-[18px] font-bold text-white">
-              {view.home.club.shortName} <span className="text-cm-yellow">{view.homeGoals}-{view.awayGoals}</span> {view.away.club.shortName}
+              {view.home.club.shortName}{' '}
+              <span className="text-cm-yellow">
+                {view.homeGoals}-{view.awayGoals}
+              </span>{' '}
+              {view.away.club.shortName}
             </span>
             {([0, 1] as const).map((s) => {
               const goals = scorers(s)
@@ -188,9 +206,7 @@ export default function LiveTactics({
           }}
         />
       </div>
-      {notice && (
-        <div className="mx-2 mt-2 rounded bg-[#5a1414] px-2 py-1 text-center font-bold text-white">{notice}</div>
-      )}
+      {notice && <div className="mx-2 mt-2 rounded bg-[#5a1414] px-2 py-1 text-center font-bold text-white">{notice}</div>}
       <ErrorBox className="mx-2 mt-2">{error}</ErrorBox>
       {t ? (
         <div className="mx-2 mt-2 flex min-h-0 flex-1 gap-1.5">

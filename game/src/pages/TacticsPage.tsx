@@ -13,7 +13,21 @@ import PlayerOrdersDialog from '../components/PlayerOrdersDialog'
 import TextDialog from '../components/TextDialog'
 import { BottomBar, ErrorBox, Link, PanelTitle, PurpleMenu } from '../components/Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from '../components/TacticsBoard'
-import { TACTICS_MENU, TACTICS_VIEWS, fullName, hasOrders, moveOnPitch, ordersOf, shortRole, surname, useRunArrow, viewLabel, viewValue, withOrders, type TacticsView } from '../tactics'
+import {
+  TACTICS_MENU,
+  TACTICS_VIEWS,
+  fullName,
+  hasOrders,
+  moveOnPitch,
+  ordersOf,
+  shortRole,
+  surname,
+  useRunArrow,
+  viewLabel,
+  viewValue,
+  withOrders,
+  type TacticsView,
+} from '../tactics'
 import { initials } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
@@ -164,7 +178,9 @@ export default function TacticsPage({ id }: { id: number }) {
               <span className="min-w-0">
                 <span className="flex items-center gap-2 text-[10px] font-bold font-mono uppercase tracking-[0.12em] text-cm-muted">
                   Tácticas {name}
-                  <span className="rounded bg-cm-dlgdeep px-1.5 tracking-wider text-cm-mint">{t?.auto ? 'O adjunto escolhe' : 'Táctica activa'}</span>
+                  <span className="rounded bg-cm-dlgdeep px-1.5 tracking-wider text-cm-mint">
+                    {t?.auto ? 'O adjunto escolhe' : 'Táctica activa'}
+                  </span>
                 </span>
                 <span className="block font-title text-[22px] font-bold leading-tight text-cm-orange">
                   {t?.formation}
@@ -283,7 +299,11 @@ export default function TacticsPage({ id }: { id: number }) {
               </div>
             </div>
             <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
-              <PanelTitle title="Banco de Suplentes" chip="SB1 – SB9" right={pending && <span className="font-bold text-cm-yellow">{hint}</span>} />
+              <PanelTitle
+                title="Banco de Suplentes"
+                chip="SB1 – SB9"
+                right={pending && <span className="font-bold text-cm-yellow">{hint}</span>}
+              />
               <RowHeader place="Slot" action={editable ? 'Acção' : undefined} column={viewLabel(view)} />
               {/* Banco fixo de 9: as casas vazias também recebem jogadores arrastados */}
               <div className="cm-zebra">
@@ -316,7 +336,11 @@ export default function TacticsPage({ id }: { id: number }) {
                       }
                     />
                   ) : (
-                    <div key={`b-empty${i}`} {...drag.bind(spot, `SB${i + 1}`)} className="flex h-[30px] items-center gap-2 px-3 text-[14px]">
+                    <div
+                      key={`b-empty${i}`}
+                      {...drag.bind(spot, `SB${i + 1}`)}
+                      className="flex h-[30px] items-center gap-2 px-3 text-[14px]"
+                    >
                       <span className="w-8 shrink-0" />
                       <span className="w-12 shrink-0 text-[11px] font-bold text-cm-lilac">SB{i + 1}</span>
                       <span className="italic text-[#6a5a8a]">— vazio —</span>
@@ -340,22 +364,24 @@ export default function TacticsPage({ id }: { id: number }) {
                 />
                 <RowHeader place="" column={viewLabel(view)} />
                 <div className="cm-zebra">
-                  {t.reserves.filter((p) => withReserves || !p.reserve).map((p) => {
-                    const spot: Spot = { kind: 'reserve', id: p.id }
-                    return (
-                      <Row
-                        key={`r${p.id}`}
-                        p={p}
-                        column={col(p)}
-                        kind="reserve"
-                        place=""
-                        bind={drag.bind(spot, label(p, ''))}
-                        onToggle={picking ? undefined : toggler(p)}
-                        onOpen={() => nav.go({ kind: 'person', id: p.id })}
-                        highlight={mark(spot)}
-                      />
-                    )
-                  })}
+                  {t.reserves
+                    .filter((p) => withReserves || !p.reserve)
+                    .map((p) => {
+                      const spot: Spot = { kind: 'reserve', id: p.id }
+                      return (
+                        <Row
+                          key={`r${p.id}`}
+                          p={p}
+                          column={col(p)}
+                          kind="reserve"
+                          place=""
+                          bind={drag.bind(spot, label(p, ''))}
+                          onToggle={picking ? undefined : toggler(p)}
+                          onOpen={() => nav.go({ kind: 'person', id: p.id })}
+                          highlight={mark(spot)}
+                        />
+                      )
+                    })}
                 </div>
               </div>
             )}

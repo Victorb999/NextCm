@@ -1,5 +1,6 @@
+import { useLoad } from '../useLoad'
 import { Globe } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { api } from '../api'
 import type { NationListItem } from '../bindings/NationListItem'
 import PickList from '../components/PickList'
@@ -17,15 +18,10 @@ export default function NationsPage() {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState(rememberTab('nations') ?? '5')
 
-  useEffect(() => {
-    api.listNationsFull().then(setAll, (e) => setError(String(e)))
-  }, [])
+  useLoad(() => api.listNationsFull(), [], setAll, setError)
 
   const items = useMemo(
-    () =>
-      (all ?? [])
-        .filter((n) => n.continentId === Number(tab))
-        .map((n) => ({ id: n.id, label: n.name, detail: `${n.clubs} clubes` })),
+    () => (all ?? []).filter((n) => n.continentId === Number(tab)).map((n) => ({ id: n.id, label: n.name, detail: `${n.clubs} clubes` })),
     [all, tab],
   )
 

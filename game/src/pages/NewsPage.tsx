@@ -78,10 +78,13 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
   // Recarrega quando o dia avança ou uma notícia é lida; ao abrir, fixa a primeira por ler
   // (escolhida uma vez: ler não a faz saltar para a seguinte)
   useEffect(() => {
-    api.listNews().then((list) => {
-      setNews(list)
-      setSelected((s) => s ?? startAt(list, tab, latest))
-    }, () => {})
+    api.listNews().then(
+      (list) => {
+        setNews(list)
+        setSelected((s) => s ?? startAt(list, tab, latest))
+      },
+      () => {},
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.info?.date, game.info?.unreadNews])
   const changeTab = (t: string) => {
@@ -114,7 +117,11 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
   const [links, setLinks] = useState<{ id: number; list: NewsLink[] }>({ id: -1, list: [] })
   const currentId = current?.id ?? null
   useEffect(() => {
-    if (currentId !== null) api.newsLinks(currentId).then((list) => setLinks({ id: currentId, list }), () => {})
+    if (currentId !== null)
+      api.newsLinks(currentId).then(
+        (list) => setLinks({ id: currentId, list }),
+        () => {},
+      )
   }, [currentId])
   const currentLinks = links.id === currentId ? links.list : []
 
@@ -165,7 +172,11 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
                   <span className="cm-cell w-28 shrink-0 text-center font-mono text-[12px] text-white">{newsDate(n.date, n.part)}</span>
                   <span className={`min-w-0 flex-1 truncate ${n.read ? 'text-white' : 'font-bold text-cm-yellow'}`}>{n.title}</span>
                   {n.awaiting && <span className="shrink-0 text-[13px] font-bold text-cm-magenta">Responder</span>}
-                  <span className={`w-28 shrink-0 rounded px-1.5 text-center font-mono text-[10.5px] font-bold uppercase tracking-wider ${colour}`}>{label}</span>
+                  <span
+                    className={`w-28 shrink-0 rounded px-1.5 text-center font-mono text-[10.5px] font-bold uppercase tracking-wider ${colour}`}
+                  >
+                    {label}
+                  </span>
                 </div>
               )
             })}

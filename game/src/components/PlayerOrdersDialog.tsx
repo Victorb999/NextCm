@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PlayerOrders } from '../bindings/PlayerOrders'
-import { NO_ORDERS, ORDER_FLAGS as FLAGS, ORDER_MARKING as MARKING, ORDER_PASSING as PASSING, ORDER_PASS_TO as PASS_TO, ORDER_PRESSING as PRESSING, ORDER_SET_PIECE as SET_PIECE, ORDER_TACKLING as TACKLING } from '../tactics'
+import {
+  NO_ORDERS,
+  ORDER_FLAGS as FLAGS,
+  ORDER_MARKING as MARKING,
+  ORDER_PASSING as PASSING,
+  ORDER_PASS_TO as PASS_TO,
+  ORDER_PRESSING as PRESSING,
+  ORDER_SET_PIECE as SET_PIECE,
+  ORDER_TACKLING as TACKLING,
+} from '../tactics'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
 
 // Instruções individuais de um jogador, como no CM (botão direito num jogador da lista das

@@ -47,7 +47,9 @@ export default function SquadRoleDialog({
                 chosen === r.key ? '!bg-cm-sel text-white' : 'text-cm-text enabled:hover:text-cm-yellow'
               }`}
             >
-              <span className={`size-3 shrink-0 rounded-full border ${chosen === r.key ? 'border-cm-yellow bg-cm-yellow' : 'border-white/50'}`} />
+              <span
+                className={`size-3 shrink-0 rounded-full border ${chosen === r.key ? 'border-cm-yellow bg-cm-yellow' : 'border-white/50'}`}
+              />
               <span className="flex-1">{r.label}</span>
               {r.key === view.current && <span className="text-[12px] font-bold text-cm-green">Agora</span>}
             </button>
