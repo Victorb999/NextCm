@@ -433,6 +433,7 @@ export default function EditorPage() {
       return await job()
     } catch (e) {
       setError(String(e))
+      return undefined
     } finally {
       setBusy(false)
     }
