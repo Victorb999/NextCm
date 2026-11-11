@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { BACKGROUND_PHOTOS } from "../backgrounds"
 import {
   AUTOSAVES,
+  VOLUMES,
   CURRENCIES,
   DEFAULT_SETTINGS,
   FONTS,
@@ -163,7 +164,7 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex h-[min(620px,100%)] w-[720px] max-w-full flex-col overflow-hidden rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)]">
+      <div className="cm-dialog-in flex h-[min(620px,100%)] w-[720px] max-w-full flex-col overflow-hidden rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)]">
         <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[#2f6b52] px-4">
           <span className="size-2 rounded-full bg-[#4edea3]" />
           <span className="font-mono font-bold uppercase tracking-[0.12em] text-white">
@@ -235,13 +236,29 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
                   onChange={(autosave) => set({ autosave })}
                 />
               </Row>
-              <Row label="Som" disabled>
-                <Option selected={false} disabled>
+              <Row label="Animações">
+                <Option selected={s.animations} onClick={() => set({ animations: true })}>
                   Sim
                 </Option>
-                <Option selected disabled>
+                <Option selected={!s.animations} onClick={() => set({ animations: false })}>
                   Não
                 </Option>
+              </Row>
+              <Row label="Som">
+                <Option selected={s.sound} onClick={() => set({ sound: true })}>
+                  Sim
+                </Option>
+                <Option selected={!s.sound} onClick={() => set({ sound: false })}>
+                  Não
+                </Option>
+              </Row>
+              <Row label="Volume" disabled={!s.sound}>
+                <Cycle
+                  options={VOLUMES}
+                  value={String(s.volume)}
+                  onChange={(v) => set({ volume: Number(v) })}
+                  disabled={!s.sound}
+                />
               </Row>
             </>
           )}

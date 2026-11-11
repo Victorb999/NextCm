@@ -149,7 +149,7 @@ export default function FilterDialog({
   })
 
   return (
-    <div className="absolute bottom-[60px] right-2.5 top-[72px] z-30 flex w-[620px] flex-col overflow-hidden rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)]">
+    <div className="cm-dialog-in absolute bottom-[60px] right-2.5 top-[72px] z-30 flex w-[620px] flex-col overflow-hidden rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)]">
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[#2f6b52] px-4">
         <span className="size-2 rounded-full bg-[#4edea3]" />
         <span className="font-bold font-mono uppercase tracking-[0.12em] text-white">

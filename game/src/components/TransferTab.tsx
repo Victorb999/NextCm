@@ -122,7 +122,7 @@ export function OfferButtons({
       {confirmSale && (
         <Overlay>
           <div
-            className="flex w-[640px] max-w-full flex-col 
+            className="cm-dialog-in flex w-[640px] max-w-full flex-col
        rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)] p-2"
           >
             <div

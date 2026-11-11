@@ -20,6 +20,7 @@ import { initials, longDate, shortListName } from "../format"
 import { useGame } from "../game"
 import { liveLineup } from "../matchLineup"
 import { useNav } from "../nav"
+import * as sound from "../sound"
 import type { MatchPhase } from "../shell/useMatchDay"
 import {
   MATCH_SPEEDS,
@@ -80,7 +81,11 @@ function ScoreBand({
           {detail}
         </div>
       </div>
-      <span className="flex h-12 min-w-[54px] shrink-0 items-center justify-center rounded bg-[#0d0e13]/90 px-2 font-title text-[34px] font-bold leading-none text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
+      {/* O número muda com o golo e dá um pulo (o 0 do início, não) */}
+      <span
+        key={goals ?? "-"}
+        className={`flex h-12 min-w-[54px] shrink-0 items-center justify-center rounded bg-[#0d0e13]/90 px-2 font-title text-[34px] font-bold leading-none text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] ${goals ? "cm-score-pop" : ""}`}
+      >
         {goals ?? ""}
       </span>
     </div>
@@ -267,8 +272,8 @@ function LineCard({ view, line }: { view: LiveView; line: Line }) {
     `linear-gradient(90deg, ${view.home.club.bg ?? "#888"}, #888, ${view.away.club.bg ?? "#888"})`
   return (
     <div
-      className={`relative w-full max-w-[760px] overflow-hidden rounded-lg px-5 pb-3.5 pt-4  transition-colors duration-300 ease-in-out
-        shadow-[0_12px_32px_rgba(0,0,0,0.8)] ${goal ? "" : "bg-white text-[#141414]"}`}
+      className={`relative w-full max-w-[760px] overflow-hidden rounded-lg px-5 pb-3.5 pt-4
+        shadow-[0_12px_32px_rgba(0,0,0,0.8)] ${goal ? "cm-goal-in" : "cm-line-in bg-white text-[#141414]"}`}
       style={team ? clubBand(team.club) : { background: stripe }}
     >
       {!goal && (
@@ -458,7 +463,8 @@ function Panorama({
             )}
           </div>
         ) : (
-          line && <LineCard view={view} line={line} />
+          // Uma frase nova é um cartão novo (entra com a animação)
+          line && <LineCard key={said.length} view={view} line={line} />
         )}
       </div>
       <div className="relative mx-3 mb-2 shrink-0">
@@ -1292,6 +1298,29 @@ function LiveScreen({
     waiting,
     active,
   ])
+
+  // Os sons da partida: a torcida com o jogo a correr, e cada frase nova dita (não as de
+  // um jogo retomado a meio) com o seu som
+  const crowdOn = active && running && settings.sound && !!view && !view.finished && !view.halfTime
+  useEffect(() => {
+    if (crowdOn) sound.crowdStart()
+    else sound.crowdStop()
+  }, [crowdOn])
+  useEffect(() => () => sound.crowdStop(), [])
+  const heard = useRef<number | null>(null)
+  useEffect(() => {
+    const before = heard.current
+    heard.current = shown
+    if (before === null || shown !== before + 1 || !active) return
+    const l = lines[shown - 1]
+    if (!l) return
+    if (isGoalLine(l)) sound.goal(l.side === 0)
+    else if (l.kind === "start") sound.whistleShort()
+    else if (l.kind === "half") sound.whistleShort()
+    else if (l.kind === "end" && l.playerId === null) sound.whistleEnd()
+    else if (l.kind === "goal" || l.kind === "save" || l.kind === "miss") sound.crowdSurge()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown])
 
   /** Abre as Tácticas pedidas com o jogo a correr; ao sair delas, o jogo continua. */
   function openWaiting(side: 0 | 1) {

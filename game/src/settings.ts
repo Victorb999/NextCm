@@ -51,6 +51,11 @@ export type Settings = {
   matchSpeed: MatchSpeed
   /** Auto Gravação: grava sozinho ao passar a semana ou o mês. */
   autosave: AutoSave
+  /** Animações curtas (cliques, diálogos, Tácticas, golo); desligadas, tudo instantâneo como no CM. */
+  animations: boolean
+  /** Sons da partida (torcida, golo, apito) e o volume, de 0 a 1. */
+  sound: boolean
+  volume: number
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -68,7 +73,18 @@ export const DEFAULT_SETTINGS: Settings = {
   backgroundDim: 0.5,
   matchSpeed: 'normal',
   autosave: 'off',
+  animations: true,
+  sound: true,
+  volume: 0.5,
 }
+
+/** Volume dos sons da partida. */
+export const VOLUMES: { key: string; label: string }[] = [
+  { key: '0.25', label: '25%' },
+  { key: '0.5', label: '50%' },
+  { key: '0.75', label: '75%' },
+  { key: '1', label: '100%' },
+]
 
 export const AUTOSAVES: { key: AutoSave; label: string }[] = [
   { key: 'off', label: 'Desligada' },
@@ -231,6 +247,7 @@ export function applySettings(s: Settings) {
   const url = s.background === 'photo' ? photoUrl(s.backgroundPhoto) : s.background === 'image' ? s.backgroundImage : undefined
   const bg = (s.background === 'photo' || s.background === 'image') && !url ? 'default' : s.background
   document.documentElement.dataset.bg = bg === 'photo' ? 'image' : bg
+  document.documentElement.dataset.motion = s.animations ? 'on' : 'off'
   if (url) {
     const dim = `rgba(0,0,0,${s.backgroundDim})`
     root.setProperty('--cm-bg-image', `linear-gradient(${dim}, ${dim}), url("${url}")`)

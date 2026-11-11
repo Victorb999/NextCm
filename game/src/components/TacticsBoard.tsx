@@ -231,7 +231,8 @@ export function Pitch({
           const b = bind({ kind: 'starter', index: i }, s.player ? surname(s.player.listName) : s.role)
           return (
             <div
-              key={i}
+              // Pelo jogador: ao mudar de lugar desliza (o lugar vazio, pelo índice)
+              key={s.player ? `p${s.player.id}` : `slot${i}`}
               {...b}
               onMouseDown={(e) => {
                 if (e.button === 2 && t.editable && s.role !== 'GR') {
@@ -239,7 +240,7 @@ export function Pitch({
                   onRunStart(i)
                 } else b.onMouseDown(e)
               }}
-              className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 ${t.editable ? 'cursor-grab' : ''}`}
+              className={`cm-slide absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 ${t.editable ? 'cursor-grab' : ''}`}
               style={{ left: `${s.x}%`, top: `${s.y}%` }}
               title={s.role}
             >

@@ -30,7 +30,7 @@ export function DialogFrame({
 }) {
   return (
     <div
-      className="flex max-h-full max-w-full flex-col 
+      className="cm-dialog-in flex max-h-full max-w-full flex-col
        rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)] p-2"
       style={full ? { width: "100%", height: "100%" } : { width }}
     >

@@ -14,6 +14,8 @@
   --cm-text-font: Tahoma, Verdana, sans-serif;
   --cm-surface-alpha: 1;
   --cm-row-hover: rgba(255, 255, 255, 0.11);
+  /* Saída rápida das animações curtas (plans/README.md) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 /* Com foto ou imagem de fundo, os painéis deixam-na ver (o Escurecer Fundo das Opções nota-se) */
 [data-bg='image'] {
@@ -187,5 +189,80 @@ body {
 @keyframes cm-progress {
   to {
     background-position: 28px 0;
+  }
+}
+
+/* ---- Animações (item 24 do 3.19.1; planos em plans/). Curtas e só onde ajudam: o CM troca de
+   tela na hora, então nem as telas nem os menus de contexto animam. */
+
+/* Os botões afundam ao carregar; a cor continua instantânea */
+.cm-purple,
+.cm-side-btn,
+.cm-continue,
+.cm-tab {
+  transition: transform 100ms var(--ease-out);
+}
+.cm-purple:active:not(:disabled),
+.cm-side-btn:active:not(:disabled),
+.cm-continue:active:not(:disabled),
+.cm-tab:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Diálogos verdes: entram depressa, fecham na hora */
+@keyframes cm-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.cm-dialog-in {
+  animation: cm-dialog-in 140ms var(--ease-out);
+}
+
+/* Tácticas: as camisolas deslizam para o lugar novo */
+.cm-slide {
+  transition:
+    left 180ms var(--ease-out),
+    top 180ms var(--ease-out);
+}
+
+/* Relato: a frase nova entra; a do golo acende; o placar dá um pulo */
+@keyframes cm-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.cm-line-in {
+  animation: cm-line-in 100ms var(--ease-out);
+}
+@keyframes cm-goal-in {
+  from {
+    transform: scale(1.04);
+    filter: brightness(1.6);
+  }
+}
+.cm-goal-in {
+  animation: cm-goal-in 320ms var(--ease-out);
+}
+@keyframes cm-score-pop {
+  40% {
+    transform: scale(1.18);
+  }
+}
+.cm-score-pop {
+  animation: cm-score-pop 260ms var(--ease-out);
+}
+
+/* Desligadas nas Opções ou pelo sistema: tudo instantâneo (menos a barra de carregamento) */
+[data-motion='off'] *:not(.cm-progress) {
+  animation: none !important;
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *:not(.cm-progress) {
+    animation: none !important;
+    transition: none !important;
   }
 }
