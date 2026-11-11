@@ -139,7 +139,7 @@ export const api = {
   /** As competições com jogos acabados hoje (os resultados depois do jogo do treinador). */
   dayCompetitions: () => call<number[]>('day_competitions'),
   /** "Transferências": os negócios do mundo num mês ("2025-08"). */
-  worldTransfers: (month: string, page: number) => call<WorldTransfers>('world_transfers', { month, page }),
+  worldTransfers: (month: string, page: number, kind: string | null) => call<WorldTransfers>('world_transfers', { month, page, kind }),
   resign: () => call<string>('resign'),
   /** As nações do ecrã "Escolher Campeonato(s)". */
   leagueNations: () => call<LeagueNation[]>('league_nations'),

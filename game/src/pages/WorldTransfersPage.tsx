@@ -3,13 +3,20 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { TransferItem } from '../bindings/TransferItem'
 import type { WorldTransfers } from '../bindings/WorldTransfers'
-import { BottomBar, Empty, Link, ScreenHeader } from '../components/Screen'
+import { BottomBar, Empty, Link, PurpleMenu, ScreenHeader, type MenuOption } from '../components/Screen'
 import { cmDate, money } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
 // "Transferências" do menu do treinador, como no CM: os negócios do mundo mês a mês, com a
 // data, o jogador, o clube de origem, o destino e o valor (os mais caros primeiro).
+
+const KINDS: MenuOption<string>[] = [
+  { key: 'all', label: 'Todas' },
+  { key: 'transfer', label: 'Transferências' },
+  { key: 'free', label: 'Livres' },
+  { key: 'loan', label: 'Empréstimos' },
+]
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
@@ -32,9 +39,11 @@ export default function WorldTransfersPage() {
   const [month, setMonth] = useState(() => (game.info?.date ?? '2025-07-01').slice(0, 7))
   const [page, setPage] = useState(0)
   const [data, setData] = useState<WorldTransfers | null>(null)
+  // O Vêr do CM: todos os negócios ou só um tipo
+  const [kind, setKind] = useState<string | null>(null)
   useEffect(() => {
-    api.worldTransfers(month, page).then(setData, () => setData(null))
-  }, [month, page])
+    api.worldTransfers(month, page, kind).then(setData, () => setData(null))
+  }, [month, page, kind])
   const pages = Math.max(1, Math.ceil((data?.total ?? 0) / 200))
   const [y, m] = month.split('-').map(Number)
   const go = (d: number) => {
@@ -62,7 +71,16 @@ export default function WorldTransfersPage() {
           </>
         }
       />
-      <div className="flex shrink-0 items-center justify-end gap-3 px-3 pb-1">
+      <div className="flex shrink-0 items-center justify-between gap-3 px-3 pb-1">
+        <PurpleMenu
+          label="Vêr"
+          options={KINDS}
+          value={kind ?? 'all'}
+          onChange={(k) => {
+            setKind(k === 'all' ? null : k)
+            setPage(0)
+          }}
+        />
         {pages > 1 && (
           <span className="flex items-center gap-1 text-[13px] text-white">
             <button className="cm-purple h-5 w-6" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>

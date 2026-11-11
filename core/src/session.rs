@@ -400,8 +400,8 @@ impl Session {
     }
 
     /// "Transferências": os negócios do mundo num mês ("2025-08"), página a página.
-    pub fn world_transfers(&self, month: String, page: i64) -> Result<WorldTransfers> {
-        self.game()?.world_transfers(&month, page)
+    pub fn world_transfers(&self, month: String, page: i64, kind: Option<String>) -> Result<WorldTransfers> {
+        self.game()?.world_transfers(&month, page, kind.as_deref())
     }
 
     /// As competições com jogos acabados hoje (os resultados depois do jogo do treinador).

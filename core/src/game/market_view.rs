@@ -142,21 +142,25 @@ impl Game {
     }
 
     /// "Transferências": os negócios do mundo num mês ("2025-08"), dos mais caros para os mais
-    /// baratos, e quantos houve.
-    pub fn world_transfers(&self, month: &str, page: i64) -> Result<WorldTransfers> {
+    /// baratos, e quantos houve. `kind` é o Vêr do CM: "transfer", "free", "loan" ou todos.
+    pub fn world_transfers(&self, month: &str, page: i64, kind: Option<&str>) -> Result<WorldTransfers> {
         let like = format!("{month}-%");
+        let kinds = match kind {
+            Some(k @ ("transfer" | "free" | "loan")) => format!("'{k}'"),
+            _ => "'transfer', 'free', 'loan'".to_string(),
+        };
         let total: i64 = self.world.conn.query_row(
-            "SELECT COUNT(*) FROM transfers WHERE date LIKE ? AND kind IN ('transfer', 'free', 'loan')",
+            &format!("SELECT COUNT(*) FROM transfers WHERE date LIKE ? AND kind IN ({kinds})"),
             [&like],
             |r| r.get(0),
         )?;
         let rows: Vec<(String, i32, Option<i32>, Option<i32>, i64, String)> = self
             .world
             .conn
-            .prepare_cached(
+            .prepare_cached(&format!(
                 "SELECT date, person_id, from_club, to_club, fee, kind FROM transfers
-                 WHERE date LIKE ? AND kind IN ('transfer', 'free', 'loan') ORDER BY fee DESC, date, id LIMIT ? OFFSET ?",
-            )?
+                 WHERE date LIKE ? AND kind IN ({kinds}) ORDER BY fee DESC, date, id LIMIT ? OFFSET ?"
+            ))?
             .query_map(params![like, WORLD_PAGE, page.max(0) * WORLD_PAGE], |r| {
                 Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
             })?
@@ -229,7 +233,7 @@ mod tests {
         assert!(r.total > 0 && r.total < total);
         assert!(r.items.iter().all(|p| p.club_id != Some(819) && p.club_id != Some(8383)), "nem Arsenal nem Real Madrid");
         // As transferências do mês
-        let w = g.world_transfers(&g.date[0..7], 0).unwrap();
+        let w = g.world_transfers(&g.date[0..7], 0, None).unwrap();
         assert!(w.total > 0 && w.items.len() as i32 <= w.total);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);

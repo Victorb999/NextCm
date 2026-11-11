@@ -23,6 +23,7 @@ mod session;
 pub mod squad;
 mod tactic_file;
 mod tactics;
+mod willingness;
 mod world;
 
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};

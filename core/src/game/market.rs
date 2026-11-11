@@ -19,6 +19,7 @@ use crate::finance::{self, market_value, wage_demand};
 use crate::person::ClubRef;
 use crate::personality;
 use crate::regulation::{self, SeasonKind};
+use crate::willingness;
 use crate::{Result, date};
 
 /// Papel de um jogador: 0 GR, 1 defesa, 2 meio, 3 ataque.
@@ -85,7 +86,20 @@ struct SellContext {
     pull: i32,
 }
 const MAX_LOAN_LISTED: usize = 2;
-const LISTED_FEE: f64 = 0.9;
+/// Nos primeiros dias da janela ([`early_window`]) um negócio a partir disto só passa com
+/// [`EARLY_BIG_CHANCE`]: os grandes ficam para mais tarde, como no CM.
+const EARLY_BIG_FEE: i64 = 20_000_000;
+const EARLY_BIG_CHANCE: f64 = 0.2;
+/// Um negócio da IA a partir disto faz-se em duas etapas: o acordo ("firma acordo com") e,
+/// [`AGREEMENT_DAYS`] dias depois, a assinatura. Entretanto o treinador pode entrar no negócio.
+const STAGED_FEE: i64 = 15_000_000;
+const AGREEMENT_DAYS: (i32, i32) = (3, 10);
+
+/// Os acordos da IA à espera da assinatura (save 57).
+pub(super) const AGREEMENTS_SCHEMA: &str = "
+CREATE TABLE ai_agreements (person_id INTEGER PRIMARY KEY, from_club INTEGER NOT NULL, to_club INTEGER NOT NULL,
+                            fee INTEGER NOT NULL, wage INTEGER NOT NULL, years INTEGER NOT NULL, complete_on TEXT NOT NULL);
+";
 const LISTED_EDGE: i32 = 5;
 /// As estrelas: quem vale esta parte do valor médio dos 11 melhores, ou mais, nunca vai para as
 /// listas nem sai por empréstimo, mesmo fora dos planos.
@@ -154,6 +168,10 @@ struct Market {
     key: HashSet<i32>,
     /// Na lista de transferências do clube: mais baratos e os primeiros que a IA procura.
     listed: HashSet<i32>,
+    /// Pediram para sair (listados a pedido): o clube quer resolver (`willingness`).
+    requested: HashSet<i32>,
+    /// Os rivais de cada clube (`clubs.rival1..3`), nos dois sentidos.
+    rivals: HashMap<i32, Vec<i32>>,
 }
 
 impl Market {
@@ -166,7 +184,16 @@ impl Market {
         for r in &mut by_role {
             r.sort_by(|&a, &b| listings[b].ca.cmp(&listings[a].ca).then(listings[a].id.cmp(&listings[b].id)));
         }
-        let mut m = Market { listings, by_id, by_club: HashMap::new(), by_role, key: HashSet::new(), listed: HashSet::new() };
+        let mut m = Market {
+            listings,
+            by_id,
+            by_club: HashMap::new(),
+            by_role,
+            key: HashSet::new(),
+            listed: HashSet::new(),
+            requested: HashSet::new(),
+            rivals: HashMap::new(),
+        };
         for i in 0..m.listings.len() {
             if let Some(c) = m.listings[i].club {
                 m.by_club.entry(c).or_default().push(i);
@@ -195,6 +222,11 @@ impl Market {
 
     fn squad(&self, club: i32) -> impl Iterator<Item = &Listing> {
         self.by_club.get(&club).into_iter().flatten().map(move |&i| &self.listings[i])
+    }
+
+    /// `a` e `b` são rivais (num sentido ou no outro).
+    fn is_rival(&self, a: i32, b: i32) -> bool {
+        self.rivals.get(&a).is_some_and(|r| r.contains(&b)) || self.rivals.get(&b).is_some_and(|r| r.contains(&a))
     }
 
     fn role_count(&self, club: i32, role: usize) -> usize {
@@ -254,7 +286,7 @@ pub struct TransferItem {
     pub to: Option<ClubRef>,
     #[ts(type = "number")]
     pub fee: i64,
-    /// "transfer", "free", "loan", "return" ou "release"
+    /// "transfer", "free", "loan", "return", "release" ou "agreement" (acordo da IA à espera da assinatura)
     pub kind: String,
 }
 
@@ -276,6 +308,11 @@ pub(super) fn window_open(kind: SeasonKind, md: &str) -> bool {
         SeasonKind::European | SeasonKind::International => ("07-01"..="08-31").contains(&md) || ("01-01"..="01-31").contains(&md),
         SeasonKind::Calendar => ("01-01"..="03-15").contains(&md) || ("07-01"..="08-15").contains(&md),
     }
+}
+
+/// Os primeiros 10 dias de uma janela (todas abrem a 1/1 ou a 1/7).
+fn early_window(md: &str) -> bool {
+    ("07-01"..="07-10").contains(&md) || ("01-01"..="01-10").contains(&md)
 }
 
 /// O último dia de uma janela (dispensas).
@@ -438,6 +475,9 @@ impl Game {
     /// as transferências do dia, se houver alguma que interesse ao treinador.
     pub(super) fn market_day(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let mut moved = self.return_loans()?;
+        // Os acordos da IA que chegam hoje à assinatura (todos os dias, não só nos de mercado)
+        let signed = self.complete_agreements()?;
+        moved |= !signed.is_empty();
         let md = self.date[5..].to_string();
         let weekday = date::weekday(&self.date);
         let trading = matches!(weekday, Some(1 | 4));
@@ -448,16 +488,30 @@ impl Game {
                 self.clean_selection()?;
                 self.refresh_live()?;
             }
-            return Ok(());
+            return self.transfer_news(&signed, fresh, next_id);
         }
-        let mut market = Market::new(self.market_index()?);
+        // Quem tem um acordo à espera da assinatura já não está no mercado da IA
+        let pending: HashSet<i32> = self
+            .world
+            .conn
+            .prepare_cached("SELECT person_id FROM ai_agreements")?
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut market = Market::new(self.market_index()?.into_iter().filter(|l| !pending.contains(&l.id)).collect());
         market.listed = self
             .world
             .conn
             .prepare_cached("SELECT person_id FROM transfer_list WHERE transfer = 1")?
             .query_map([], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
-        let mut deals: Vec<TransferItem> = Vec::new();
+        market.requested = self
+            .world
+            .conn
+            .prepare_cached("SELECT person_id FROM transfer_list WHERE requested = 1")?
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        market.rivals = self.rival_map()?;
+        let mut deals: Vec<TransferItem> = signed;
         let mut rng = self.season_rng(0x3A_4B37);
         // Os clubes geridos, pela ordem do id (determinismo), menos o do treinador
         let managed: Vec<(i32, i32, Option<i32>)> = self
@@ -805,6 +859,14 @@ impl Game {
         let start = (rng.next_u64() % buyers.len() as u64) as usize;
         for i in 0..buyers.len().min(10) {
             let (b, b_rep, kind) = buyers[(start + i) % buyers.len()];
+            // Mesmo a precisar de dinheiro, ao rival vende pouco, e o jogador vai menos
+            if market.is_rival(club, b) {
+                let chance = willingness::sale_terms(&willingness::Sale { rival: true, ..Default::default() }).1
+                    * willingness::rival_move_chance(pick.loyalty, false);
+                if uniform(rng) >= chance {
+                    continue;
+                }
+            }
             let buyer = self.buyer(b, b_rep, kind, market)?;
             if buyer.budget < fee as f64 || buyer.squad >= MAX_SQUAD {
                 continue;
@@ -819,6 +881,67 @@ impl Game {
             return Ok(Some(self.transfer_item(id, Some(club), Some(b), fee, "transfer")?));
         }
         Ok(None)
+    }
+
+    /// O dia da assinatura de um acordo: 3 a 10 dias depois, ainda com a janela do comprador
+    /// aberta; `None` se a janela fecha já (o negócio faz-se de uma vez).
+    fn agreement_day(&self, kind: SeasonKind, rng: &mut ChaCha8Rng) -> Option<String> {
+        let (lo, hi) = AGREEMENT_DAYS;
+        let days = lo + (rng.next_u32() % (hi - lo + 1) as u32) as i32;
+        (1..=days).rev().filter_map(|d| date::add_days(&self.date, d)).find(|day| window_open(kind, &day[5..]))
+    }
+
+    /// Assina os acordos da IA de hoje: o jogador muda-se se ainda está no clube que o vendeu
+    /// (o treinador pode tê-lo comprado entretanto) e não se reformou.
+    fn complete_agreements(&mut self) -> Result<Vec<TransferItem>> {
+        type Row = (i32, i32, i32, i64, i64, i32);
+        let due: Vec<Row> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT person_id, from_club, to_club, fee, wage, years FROM ai_agreements WHERE complete_on <= ? ORDER BY person_id",
+            )?
+            .query_map([&self.date], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut out = Vec::new();
+        for (person, from, to, fee, wage, years) in due {
+            self.world.conn.execute("DELETE FROM ai_agreements WHERE person_id = ?", [person])?;
+            let at: Option<Option<i32>> = self
+                .world
+                .conn
+                .query_row("SELECT club_id FROM people WHERE id = ? AND id NOT IN (SELECT person_id FROM retired)", [person], |r| r.get(0))
+                .optional()?;
+            if at != Some(Some(from)) || to == self.club_id {
+                continue;
+            }
+            let kind = self.kind_of(to)?;
+            self.execute_move(person, Some(from), Some(to), fee, wage, years, "transfer", kind)?;
+            out.push(self.transfer_item(person, Some(from), Some(to), fee, "transfer")?);
+        }
+        Ok(out)
+    }
+
+    /// O acordo da IA à espera da assinatura por um jogador: o comprador e o valor.
+    pub(super) fn ai_agreement(&self, person: i32) -> Result<Option<(i32, i64)>> {
+        Ok(self
+            .world
+            .conn
+            .query_row("SELECT to_club, fee FROM ai_agreements WHERE person_id = ?", [person], |r| Ok((r.get(0)?, r.get(1)?)))
+            .optional()?)
+    }
+
+    /// Os rivais de cada clube (`clubs.rival1..3`).
+    pub(super) fn rival_map(&self) -> Result<HashMap<i32, Vec<i32>>> {
+        let rows: Vec<(i32, [Option<i32>; 3])> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT id, rival1_id, rival2_id, rival3_id FROM clubs
+                 WHERE rival1_id IS NOT NULL OR rival2_id IS NOT NULL OR rival3_id IS NOT NULL",
+            )?
+            .query_map([], |r| Ok((r.get(0)?, [r.get(1)?, r.get(2)?, r.get(3)?])))?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(rows.into_iter().map(|(id, r)| (id, r.into_iter().flatten().filter(|&c| c > 0).collect())).collect())
     }
 
     /// Uma compra (ou um livre) de um clube da IA para a posição que mais precisa.
@@ -868,6 +991,9 @@ impl Game {
         };
         let ceiling = b.level + if splurge { SPLURGE_CEILING } else { 30 };
         let mut candidates: Vec<(&Listing, i64, i64)> = Vec::new();
+        // O valor do plantel de cada clube que vende (para o indispensável) e o dia da janela
+        let mut cores: HashMap<i32, f64> = HashMap::new();
+        let md = self.date[5..].to_string();
         for &i in &market.by_role[role] {
             let l = &market.listings[i];
             if l.ca > ceiling {
@@ -883,6 +1009,8 @@ impl Game {
                 || l.club == Some(self.club_id)
                 || loaned.contains(&l.id)
                 || l.id == self.manager_id
+                // Entre clubes da IA, quem acabou de chegar não volta a ser vendido na mesma janela
+                // (o treinador ainda o pode tentar, caro e raro: `willingness`)
                 || (l.club.is_some() && l.recent)
             {
                 continue;
@@ -910,17 +1038,48 @@ impl Game {
                 continue;
             }
             let value = if l.club.is_some() { l.value() } else { 0 };
-            // Um titular do clube que vende (entre os 11 melhores) custa mais 40%; um leal até mais
-            // 20%; um da lista de transferências sai por 90% do valor
-            let key = if market.key.contains(&l.id) { 1.4 } else { 1.0 };
-            let fee = match l.club {
-                None => 0,
-                Some(_) if market.listed.contains(&l.id) => (value as f64 * LISTED_FEE * premium) as i64,
-                Some(_) => (value as f64 * key * personality::loyalty_fee(l.loyalty) * premium) as i64,
+            // As vontades do clube que vende e do jogador (`willingness`, as mesmas das propostas
+            // do treinador): o listado sai por 90% e quase sempre; o titular custa mais 40%; o
+            // indispensável, o acabado de chegar e a venda ao rival muito mais e raramente; um
+            // leal até mais 20%
+            let (price, mut chance) = match l.club {
+                None => (0.0, 1.0),
+                Some(seller) => {
+                    let core = *cores.entry(seller).or_insert_with(|| core_value(market.squad(seller)));
+                    let sale = willingness::Sale {
+                        listed: market.listed.contains(&l.id),
+                        unhappy: market.requested.contains(&l.id),
+                        starter: market.key.contains(&l.id),
+                        star: l.value() as f64 >= STAR_SHARE * core,
+                        recent: false,
+                        rival: market.is_rival(club, seller),
+                    };
+                    let (price, chance) = willingness::sale_terms(&sale);
+                    let loyal = if sale.listed { 1.0 } else { personality::loyalty_fee(l.loyalty) };
+                    (price * loyal, chance)
+                }
             };
+            // Na bombástica o prémio já paga a resistência do clube: conta o maior dos dois (o
+            // produto dava negócios de €480M)
+            let fee = (value as f64 * if splurge { price.max(premium) } else { price }) as i64;
             let wage = wage_demand(value.max(l.ca as i64 * 20_000), l.wage, b.rep);
             let wage = if splurge { (wage as f64 * 1.2) as i64 } else { wage };
+            // Para o rival do seu clube vai pouco (o leal quase nunca) e pede mais salário
+            let to_rival = l.club.is_some_and(|c| market.is_rival(club, c));
+            let wage = if to_rival {
+                chance *= willingness::rival_move_chance(l.loyalty, market.requested.contains(&l.id));
+                (wage as f64 * willingness::RIVAL_WAGE) as i64
+            } else {
+                wage
+            };
             if fee as f64 > budget || wage as f64 > wage_room {
+                continue;
+            }
+            // Na primeira semana e pouco da janela os negócios grandes são raros
+            if fee >= EARLY_BIG_FEE && early_window(&md) {
+                chance *= EARLY_BIG_CHANCE;
+            }
+            if chance < 1.0 && uniform(rng) >= chance {
                 continue;
             }
             candidates.push((l, fee, wage));
@@ -936,14 +1095,28 @@ impl Game {
         let score = |l: &Listing| l.ca + if market.listed.contains(&l.id) { LISTED_EDGE } else { 0 };
         candidates.sort_by(|x, y| score(y.0).cmp(&score(x.0)).then(x.1.cmp(&y.1)).then(x.0.id.cmp(&y.0.id)));
         candidates.truncate(5);
-        // A bombástica vai ao melhor
-        let at = if splurge { 0 } else { (rng.next_u64() % candidates.len() as u64) as usize };
+        // A bombástica vai a um dos 3 melhores (sempre o melhor dava o mesmo negócio em todos os saves)
+        let at = (rng.next_u64() % candidates.len().min(if splurge { 3 } else { 5 }) as u64) as usize;
         let (pick, fee, wage) = candidates[at];
         // Contrato: 2 a 5 anos, menos para os mais velhos
         let years = contract_years(pick.age, rng);
         let from = pick.club;
         // Quem sai de um clube custa pelo menos €10K (mesmo com o contrato no fim)
         let fee = if from.is_some() { finance::round_money(fee as f64).max(10_000) } else { 0 };
+        // Um negócio grande fica acordado e só se assina uns dias depois (dentro da janela)
+        if let Some(seller) = from
+            && fee >= STAGED_FEE
+            && let Some(on) = self.agreement_day(b.kind, rng)
+        {
+            self.world.conn.execute(
+                "INSERT OR REPLACE INTO ai_agreements (person_id, from_club, to_club, fee, wage, years, complete_on) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                params![pick.id, seller, club, fee, wage, years, on],
+            )?;
+            for c in [seller, club] {
+                *done.entry(c).or_default() += 1;
+            }
+            return Ok(Some(self.transfer_item(pick.id, from, Some(club), fee, "agreement")?));
+        }
         self.execute_move(pick.id, from, Some(club), fee, wage, years, if from.is_some() { "transfer" } else { "free" }, b.kind)?;
         // Um livre recebe um prémio de assinatura (8 semanas de salário)
         if from.is_none() {
@@ -1181,7 +1354,11 @@ impl Game {
         let wanted: HashSet<i32> = self
             .world
             .conn
-            .prepare_cached("SELECT DISTINCT person_id FROM offers WHERE buyer = ? AND kind <> 'request'")?
+            // As propostas do treinador, a Lista Preferencial e as listas dos olheiros
+            .prepare_cached(
+                "SELECT person_id FROM offers WHERE buyer = ?1 AND kind <> 'request'
+                 UNION SELECT person_id FROM shortlist UNION SELECT person_id FROM scout_finds WHERE stars >= 4",
+            )?
             .query_map([self.club_id], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
         let mut biggest: Vec<&TransferItem> = deals.iter().filter(|d| d.fee >= WORLD_NEWS_FEE).collect();
@@ -1198,6 +1375,7 @@ impl Game {
             let to = d.to.as_ref().map_or("sem clube".to_string(), |c| c.short_name.clone());
             lines.push(match d.kind.as_str() {
                 "loan" => format!("{} ({from}) emprestado ao {to}", d.name),
+                "agreement" => format!("{}: {to} firma acordo com o {from} por {}", d.name, money_text(d.fee)),
                 "free" => format!("{} assina pelo {to} a custo zero", d.name),
                 _ => format!("{}: {from} → {to} por {}", d.name, money_text(d.fee)),
             });

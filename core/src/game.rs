@@ -142,7 +142,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// (`stadiums.undersoil_heating`), do banco.
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
-pub const SAVE_VERSION: i32 = 56;
+pub const SAVE_VERSION: i32 = 57;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -377,8 +377,9 @@ CREATE TABLE talks (person_id INTEGER PRIMARY KEY, tries INTEGER NOT NULL, block
 CREATE TABLE squad_roles (person_id INTEGER PRIMARY KEY, role TEXT NOT NULL);
 ";
 
-/// Quantos dias "Continuar Jogo" avança no máximo quando não acontece nada.
-const MAX_IDLE_DAYS: i32 = 42;
+/// Quantos dias "Continuar Jogo" avança no máximo quando não acontece nada (uma semana:
+/// com 42, a pré-época passava de uma vez).
+const MAX_IDLE_DAYS: i32 = 7;
 
 /// Dia em que o jogo começa (o CM 01/02 começa a 1 de julho; patch 25-26).
 const START_MONTH_DAY: &str = "07-01";
@@ -761,6 +762,7 @@ impl Game {
             tx.execute_batch(NUMBERS_SCHEMA)?;
             tx.execute_batch(UNHAPPY_SCHEMA)?;
             tx.execute_batch(UNHAPPY_DETAIL_SCHEMA)?;
+            tx.execute_batch(market::AGREEMENTS_SCHEMA)?;
             tx.execute_batch(SCOUTING_SCHEMA)?;
             tx.execute_batch(SCOUT_TASKS_SCHEMA)?;
             tx.execute_batch(FANS_SCHEMA)?;
@@ -1276,6 +1278,12 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 55", [])?;
             version = 55;
         }
+        // Save 57: os acordos da IA à espera da assinatura (marco 3.24)
+        if version == 56 {
+            world.conn.execute_batch(market::AGREEMENTS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 57", [])?;
+            version = 57;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1667,6 +1675,8 @@ impl Game {
             *next_id += 1;
         }
         self.market_day(fresh, next_id)?;
+        // Quem ficou sem clube (fim de contrato, dispensa) sai das listas de transferências
+        self.world.conn.execute("DELETE FROM transfer_list WHERE person_id IN (SELECT id FROM people WHERE club_id IS NULL)", [])?;
         self.stadium_works_day(fresh, next_id)?;
         if !unemployed {
             self.scouting_day(fresh, next_id)?;
@@ -1952,13 +1962,13 @@ impl Game {
 
     /// Um dia do Continuar Jogo (a tela avança dia a dia para mostrar os resultados na barra
     /// de baixo): `idle` é quantos dias já passaram sem nada. Devolve as notícias do dia e se
-    /// o Continuar Jogo pára aqui: notícias que não são transferências, o jogo do treinador
+    /// o Continuar Jogo pára aqui: notícias (menos as das reservas), o jogo do treinador
     /// (hoje ou amanhã) ou [`MAX_IDLE_DAYS`] dias sem nada.
     pub fn advance_step(&mut self, idle: i32) -> Result<(Vec<NewsItem>, bool)> {
         let news = self.advance_part()?;
-        // As transferências do dia e os resultados das reservas ficam nas notícias mas não param
-        // o Continuar Jogo (as reservas jogam 2 dias antes de cada jogo do campeonato)
-        let quiet = |n: &NewsItem| n.kind == "transfer" || n.link.as_deref().is_some_and(|l| l.starts_with("sheet:"));
+        // Qualquer notícia pára o Continuar Jogo, como no CM (as Transferências do dia também);
+        // só os resultados das reservas não (jogam 2 dias antes de cada jogo do campeonato)
+        let quiet = |n: &NewsItem| n.link.as_deref().is_some_and(|l| l.starts_with("sheet:"));
         if news.iter().any(|n| !quiet(n)) || self.live.is_some() {
             return Ok((news, true));
         }
@@ -3314,7 +3324,7 @@ mod tests {
         while g.fixtures(SERIE_A).iter().any(|f| f.home_goals.is_none()) {
             g.advance_to_next_event().unwrap();
             days += 1;
-            assert!(days < 400, "a época não acaba");
+            assert!(days < 2000, "a época não acaba");
         }
         let results = g.fixtures(SERIE_A).iter().map(|f| (f.id, f.home_goals, f.away_goals)).collect();
         let table = g.table(SERIE_A);

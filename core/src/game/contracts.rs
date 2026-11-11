@@ -144,6 +144,12 @@ impl Game {
             && self.stays_in_europe(person, &f, club)?
         {
             Some(format!("{name} não quer deixar o futebol europeu."))
+        } else if let (Party::Transfer(_), Some(club)) = (&party, f.club)
+            && !favourite
+            && self.are_rivals(club, self.club_id)?
+            && !self.joins_rival(person, &f)?
+        {
+            Some(format!("{name} não quer mudar-se para um rival do {}.", self.club(club).short_name))
         } else {
             None
         };
@@ -527,6 +533,15 @@ impl Game {
             ),
         };
         self.post_news(format!("{club} firma acordo com {name}"), body, None);
+        // A contratação mais cara da história do clube (no jogo)
+        if let Some(before) = self.beats_club_record(person, fee, true)? {
+            let body = format!(
+                "A contratação de {name} por {} é a mais cara de sempre do {club}{}.",
+                money_text(fee),
+                super::deals::record_before(before)
+            );
+            self.post_news_as("press", format!("{club}: novo recorde do clube"), body);
+        }
         if fee > 0 && fee as f64 >= BIG_SIGNING * self.club_base(self.club_id)? {
             let manager: String = self.world.conn.query_row(
                 "SELECT COALESCE(second_name, display_name) FROM people WHERE id = ?",

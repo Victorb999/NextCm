@@ -161,7 +161,7 @@ session_command!(set_note(id: i32, text: String) -> ());
 session_command!(release_question(id: i32) -> String);
 session_command!(release_player(id: i32) -> String);
 session_command!(day_competitions() -> Vec<i32>);
-session_command!(world_transfers(month: String, page: i64) -> WorldTransfers);
+session_command!(world_transfers(month: String, page: i64, kind: Option<String>) -> WorldTransfers);
 session_command!(resign() -> String);
 session_command!(league_nations() -> Vec<LeagueNation>);
 session_command!(talk_view() -> TalkView);

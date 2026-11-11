@@ -27,6 +27,7 @@ use crate::finance::{self, wage_demand};
 use crate::person::ClubRef;
 use crate::personality;
 use crate::regulation::SeasonKind;
+use crate::willingness;
 use crate::{Error, Result, date};
 
 /// Dias que uma proposta recebida espera pela resposta do treinador.
@@ -580,6 +581,70 @@ impl Game {
         ChaCha8Rng::seed_from_u64((self.seed as u64) ^ (person as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ salt)
     }
 
+    /// Como o `club` que vende vê o negócio de `person` com o clube do treinador.
+    pub(super) fn sale_view(&self, person: i32, f: &Facts, club: i32) -> Result<willingness::Sale> {
+        let (listed, requested): (bool, bool) = self
+            .world
+            .conn
+            .query_row("SELECT transfer = 1, COALESCE(requested, 0) = 1 FROM transfer_list WHERE person_id = ?", [person], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .optional()?
+            .unwrap_or((false, false));
+        let (rank, _) = self.squad_rank(club, person, f.role)?;
+        Ok(willingness::Sale {
+            listed,
+            unhappy: requested,
+            starter: rank < 11,
+            star: f.value as f64 >= super::market::STAR_SHARE * self.core_value(club)?,
+            recent: self.recent(f),
+            rival: self.are_rivals(club, self.club_id)?,
+        })
+    }
+
+    /// O jogador aceita ir para o rival do seu clube? Sorteado uma vez por jogador e ano (repetir
+    /// a proposta não muda a resposta): o leal quase nunca, quem pediu para sair mais vezes.
+    pub(super) fn joins_rival(&self, person: i32, f: &Facts) -> Result<bool> {
+        let requested: bool = self
+            .world
+            .conn
+            .query_row("SELECT COALESCE(requested, 0) = 1 FROM transfer_list WHERE person_id = ?", [person], |r| r.get(0))
+            .optional()?
+            .unwrap_or(false);
+        let year: u64 = self.date[0..4].parse().unwrap_or(0);
+        Ok(uniform(&mut self.deal_rng(person, 0x21A1 ^ year)) < willingness::rival_move_chance(f.loyalty, requested))
+    }
+
+    /// Os clubes da IA que podem fazer proposta por um jogador do treinador: um rival do clube só
+    /// se o jogador aceitar ir para o rival (`joins_rival`, como nas compras do treinador).
+    fn willing_buyers(&self, person: i32, f: &Facts, fits: Vec<i32>) -> Result<Vec<i32>> {
+        let mut rival_ok: Option<bool> = None;
+        let mut out = Vec::with_capacity(fits.len());
+        for c in fits {
+            if self.are_rivals(c, self.club_id)? {
+                let ok = match rival_ok {
+                    Some(ok) => ok,
+                    None => *rival_ok.insert(self.joins_rival(person, f)?),
+                };
+                if !ok {
+                    continue;
+                }
+            }
+            out.push(c);
+        }
+        Ok(out)
+    }
+
+    /// `a` e `b` são rivais (`clubs.rival1..3`, num sentido ou no outro).
+    pub(super) fn are_rivals(&self, a: i32, b: i32) -> Result<bool> {
+        Ok(self.world.conn.query_row(
+            "SELECT COUNT(*) FROM clubs WHERE (id = ?1 AND ?2 IN (rival1_id, rival2_id, rival3_id))
+                                        OR (id = ?2 AND ?1 IN (rival1_id, rival2_id, rival3_id))",
+            params![a, b],
+            |r| r.get::<_, i64>(0),
+        )? > 0)
+    }
+
     fn recent(&self, f: &Facts) -> bool {
         let since = date::add_days(&self.date, -SETTLE_DAYS).unwrap_or_default();
         f.joined.as_deref().is_some_and(|j| j > since.as_str())
@@ -595,14 +660,15 @@ impl Game {
             .conn
             .query_row("SELECT asking FROM transfer_list WHERE person_id = ? AND transfer = 1", [person], |r| r.get(0))
             .optional()?;
+        let sale = self.sale_view(person, f, club)?;
         if let Some(asking) = listed {
-            return Ok(asking.unwrap_or(f.value).max(10_000));
+            // Listado: o preço da lista (ao rival, um pouco mais)
+            let ask = asking.unwrap_or(f.value) as f64 * if sale.rival { 1.2 } else { 1.0 };
+            return Ok(finance::round_money(ask).max(10_000));
         }
-        let (rank, _) = self.squad_rank(club, person, f.role)?;
-        let mut ask = f.value as f64 * if rank < 11 { 1.4 } else { 1.0 } * personality::loyalty_fee(f.loyalty);
-        if self.recent(f) {
-            ask *= 1.25;
-        }
+        // O titular, o indispensável, o acabado de chegar e o rival custam mais; quem pediu para
+        // sair, menos (`willingness`); um leal até mais 20%
+        let mut ask = f.value as f64 * willingness::sale_terms(&sale).0 * personality::loyalty_fee(f.loyalty);
         let year: u64 = self.date[0..4].parse().unwrap_or(0);
         ask *= 0.95 + 0.2 * uniform(&mut self.deal_rng(person, 0xA5C1 ^ year));
         Ok(finance::round_money(ask).max(10_000))
@@ -643,6 +709,11 @@ impl Game {
             ask *= personality::loyalty_renewal(f.loyalty);
         } else if !free {
             ask *= personality::loyalty_move_wage(f.loyalty);
+            if let Some(club) = f.club
+                && self.are_rivals(club, self.club_id)?
+            {
+                ask *= willingness::RIVAL_WAGE;
+            }
         }
         let wage = round_wage(ask);
         let weeks = if free { FREE_BONUS_WEEKS } else { BONUS_WEEKS };
@@ -677,6 +748,24 @@ impl Game {
         let kind = offer.map_or("message", |o| self.offer_topic(o));
         self.post_news_as(kind, title, body);
         self.news[0].offer_id = offer;
+    }
+
+    /// O recorde anterior do clube do treinador (a compra mais cara ou a venda maior no histórico
+    /// do jogo, sem o negócio de `person` que acabou de entrar), se `fee` o bate (de €1M para cima).
+    pub(super) fn beats_club_record(&self, person: i32, fee: i64, buying: bool) -> Result<Option<i64>> {
+        if fee < 1_000_000 {
+            return Ok(None);
+        }
+        let side = if buying { "to_club" } else { "from_club" };
+        let before: i64 = self.world.conn.query_row(
+            &format!(
+                "SELECT COALESCE(MAX(fee), 0) FROM transfers WHERE {side} = ?1 AND kind = 'transfer'
+                 AND id <> (SELECT COALESCE(MAX(id), -1) FROM transfers WHERE person_id = ?2)"
+            ),
+            params![self.club_id, person],
+            |r| r.get(0),
+        )?;
+        Ok((fee > before).then_some(before))
     }
 
     /// Uma mensagem de um assunto ("press", "jobs"...) fora do avanço do dia.
@@ -1628,6 +1717,15 @@ Confirme até {}.",
             self.world.conn.execute("UPDATE offers SET fee = ? WHERE id = ?", params![fee, o.id])?;
             self.sale_to_budget(terms.budget_cost() - terms.apps_bonus)?;
             let mut body = format!("{name} foi vendido ao {buyer} por {}.", terms.text());
+            // A maior venda da história do clube (no jogo)
+            if let Some(before) = self.beats_club_record(o.person, fee, false)? {
+                body.push_str(&format!(
+                    "
+
+É a maior venda de sempre do clube{}.",
+                    record_before(before)
+                ));
+            }
             if let Some(idol) = idol {
                 body = format!("{body}\n\n{idol}");
             }
@@ -2017,6 +2115,34 @@ Confirme até {}.",
             return Ok(());
         }
         let t = o.deal_terms();
+        // Já acordado com um clube da IA: só cede a uma proposta melhor do que a do acordo
+        if let Some((other, agreed)) = self.ai_agreement(o.person)?
+            && t.fee <= agreed
+        {
+            self.set_status(o.id, "rejected", None)?;
+            let body = format!(
+                "O {seller_name} rejeitou a proposta de {} por {name}: já tem um acordo com o {} por {}.",
+                super::market::money_text(t.fee),
+                self.club(other).short_name,
+                super::market::money_text(agreed)
+            );
+            self.offer_news(fresh, next_id, format!("Proposta de transferência de {name} rejeitada"), body, o.id);
+            return Ok(());
+        }
+        // O clube resiste a vender um indispensável, um acabado de chegar ou a um rival: recusa
+        // muitas vezes, menos quanto mais a proposta passa do pedido (`willingness`)
+        let sale = self.sale_view(o.person, &f, seller)?;
+        if let Some(why) = willingness::holdout(&sale) {
+            let base = willingness::sale_terms(&sale).1;
+            let chance = willingness::sale_chance_for(base, t.fee as f64, asking as f64);
+            if uniform(&mut self.deal_rng(o.person, 0x401D ^ o.rounds as u64)) >= chance {
+                self.set_status(o.id, "rejected", None)?;
+                let body =
+                    format!("O {seller_name} rejeitou a proposta de {} por {name}. {}", super::market::money_text(t.fee), why.text());
+                self.offer_news(fresh, next_id, format!("Proposta de transferência de {name} rejeitada"), body, o.id);
+                return Ok(());
+            }
+        }
         let mut rng = self.deal_rng(o.person, 0xC0DE ^ o.rounds as u64);
         // Uma proposta pública de um clube maior desestabiliza um ambicioso: o clube pede menos
         let unsettled = t.public && f.ambition as i32 >= personality::AMBITIOUS && self.club_rep(self.club_id)? > self.club_rep(seller)?;
@@ -2180,7 +2306,7 @@ Confirme até {}.",
             } else {
                 finance::round_money(f.value as f64 * (1.0 + 0.3 * uniform(&mut rng))).max(10_000)
             };
-            let fits = fitting_buyers(&buyers, &f, ca, as_loan, fee, my_rep);
+            let fits = self.willing_buyers(id, &f, fitting_buyers(&buyers, &f, ca, as_loan, fee, my_rep))?;
             if fits.is_empty() {
                 continue;
             }
@@ -2298,7 +2424,7 @@ Confirme até {}.",
             self.world.conn.query_row("SELECT COALESCE(current_ability, 1) FROM players WHERE person_id = ?", [person], |r| r.get(0))?;
         let my_rep = self.club_pull(self.club_id)?;
         let buyers = self.bid_clubs()?;
-        let mut fits = fitting_buyers(&buyers, &f, ca, loan, fee, my_rep);
+        let mut fits = self.willing_buyers(person, &f, fitting_buyers(&buyers, &f, ca, loan, fee, my_rep))?;
         if exclude_rivals {
             fits.retain(|c| !rivals.contains(&Some(*c)));
         }
@@ -2451,6 +2577,11 @@ fn bid_terms(f: &Facts, as_loan: bool, fee: i64, rng: &mut ChaCha8Rng) -> (DealT
     }
 }
 
+/// "(o recorde anterior era de €X)", ou nada se o clube nunca tinha feito um negócio assim.
+pub(super) fn record_before(before: i64) -> String {
+    if before > 0 { format!(" (o recorde anterior era de {})", super::market::money_text(before)) } else { String::new() }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2474,7 +2605,9 @@ mod tests {
             .filter_map(|id| {
                 let f = g.facts(id).unwrap()?;
                 let (_, count) = g.squad_rank(FLAMENGO, id, f.role).unwrap();
-                (f.value > 0 && count > MIN_ROLE[f.role] && g.loan_of(id).unwrap().is_none())
+                // Sem resistência do clube (indispensável, acabado de chegar): esses são do `willingness`
+                let free_to_sell = crate::willingness::holdout(&g.sale_view(id, &f, FLAMENGO).unwrap()).is_none();
+                (f.value > 0 && count > MIN_ROLE[f.role] && g.loan_of(id).unwrap().is_none() && free_to_sell)
                     .then(|| (id, g.asking_price(id, &f, FLAMENGO).unwrap()))
             })
             .collect()

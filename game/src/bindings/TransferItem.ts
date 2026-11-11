@@ -6,6 +6,6 @@ import type { ClubRef } from "./ClubRef";
  */
 export type TransferItem = { date: string, personId: number, name: string, from: ClubRef | null, to: ClubRef | null, fee: number, 
 /**
- * "transfer", "free", "loan", "return" ou "release"
+ * "transfer", "free", "loan", "return", "release" ou "agreement" (acordo da IA à espera da assinatura)
  */
 kind: string, };

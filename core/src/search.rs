@@ -374,7 +374,8 @@ impl World {
             Some(MarketStatus::Transfer | MarketStatus::Loan) if has("transfer_list")? => {
                 let status = q.status.unwrap_or(MarketStatus::Transfer);
                 let column = if status == MarketStatus::Transfer { "transfer" } else { "loan" };
-                wheres.push(format!("p.id IN (SELECT person_id FROM transfer_list WHERE {column} = 1)"));
+                // Só quem tem clube (um livre não se lista; saves antigos ainda os podem ter)
+                wheres.push(format!("p.club_id IS NOT NULL AND p.id IN (SELECT person_id FROM transfer_list WHERE {column} = 1)"));
             }
             Some(_) => wheres.push("0".into()),
         }
