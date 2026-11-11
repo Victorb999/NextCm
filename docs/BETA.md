@@ -3,6 +3,9 @@
 Obrigado por testar! O NextCM é um remake do Championship Manager 01/02 com a base 2025/26.
 Isto é um **beta**: vai haver erros, e é para isso que você está aqui.
 
+A base de dados 2025/26 e o tema vêm do **Update Coalizão**, da equipe
+[Coalizão CM](https://www.coalizaocm.com.br/), o maior acervo nacional de CM 01-02. Vale a visita.
+
 ## Requisitos
 
 - Windows 10 ou 11 (64 bits)

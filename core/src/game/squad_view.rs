@@ -75,6 +75,20 @@ impl Game {
         if let Some(div) = c.division.as_ref().map(|d| d.id) {
             c.league_position = self.table(div).iter().find(|r| r.club.id == id && r.played > 0).map(|r| r.position);
         }
+        // Selecção que nunca convocou neste jogo (ou num save antigo, que apagava a convocatória
+        // no fim da janela): os 23 que o seleccionador chamaria hoje
+        if c.is_national_team && c.players.is_empty() {
+            let ids: Vec<String> = self.choose_call_up(id, &self.date)?.iter().map(|p| p.to_string()).collect();
+            if !ids.is_empty() {
+                let filter = format!("p.id IN ({}) AND p.nation_id = (SELECT nation_id FROM clubs WHERE id = ?)", ids.join(","));
+                c.players = self.world.squad_players(&filter, id)?;
+                c.players.sort_by_key(|p| (std::cmp::Reverse(p.current_ability.unwrap_or(0)), p.id));
+                for (rank, p) in c.players.iter_mut().enumerate() {
+                    p.ability_rank = rank as i32 + 1;
+                    p.key = rank < 3;
+                }
+            }
+        }
         let keys = if c.is_national_team { Vec::new() } else { self.key_players(id)? };
         let start = self.season_start((!c.is_national_team).then_some(id))?;
         // Os emprestados a outros clubes continuam na lista do dono, a azul, como no CM

@@ -5,7 +5,7 @@
 //! mês e os juniores a 1 de março. Regras e números em docs/roadmap/ (3.05, 3.06 e 3.07).
 //! Tudo sorteado com a seed do jogo e a data, então a mesma seed dá a mesma carreira.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -19,7 +19,7 @@ use crate::league::{self, SERIE_A, SERIE_C, StandingRow};
 use crate::person::ClubRef;
 use crate::regulation::{Regulation, SeasonKind, StageKind};
 use crate::squad::Squads;
-use crate::{Result, regulation};
+use crate::{Result, personality, regulation};
 
 /// Quantos sobem e descem entre duas divisões.
 const SWAP: usize = 4;
@@ -33,6 +33,23 @@ const VETERAN_RANK: usize = 16;
 const YOUTH_RANK: usize = 18;
 /// Um plantel curto completa-se até aqui.
 const FILL_TO: usize = 27;
+/// Reputação a partir da qual quem recusa renovar num clube da IA vai para a notícia.
+const NOTABLE_REFUSAL: i32 = 100;
+
+/// Um jogador do plantel na hora de tratar o contrato.
+struct ContractRow {
+    id: i32,
+    name: String,
+    expires: Option<String>,
+    birth: Option<String>,
+    birth_year: Option<i32>,
+    ca: i32,
+    pa: i32,
+    loyalty: i32,
+    ambition: i32,
+    joined: Option<String>,
+    rep: i32,
+}
 
 /// Números de uma divisão (CLI `sim`).
 #[derive(Debug, Clone)]
@@ -447,88 +464,175 @@ impl Game {
         self.contracts(fresh, next_id, &cutoff, true)
     }
 
-    /// Contratos que acabam até `cutoff`: renova quem está entre os melhores do plantel e não
-    /// é velho; os outros saem livres. No clube do treinador renova só quem o treinador
-    /// renovou (3.8); os contratos sem data, aí e nos outros, só se tratam no fim da época.
-    /// `start`: ao criar o jogo um ano depois do patch (o plantel do treinador renova como os outros).
+    /// Contratos que acabam até `cutoff`: o clube quer renovar com quem está entre os melhores do
+    /// plantel e não é velho, e o jogador aceita ou não pela vontade dele
+    /// (`personality::renewal_stay_chance`); os outros saem livres. No clube do treinador renova só
+    /// quem o treinador renovou (3.8); os contratos sem data, aí e nos outros, só se tratam no fim
+    /// da época. Nas ligas não jogáveis o clube quer todos (não contrata ninguém) e só a vontade do
+    /// jogador decide. `start`: ao criar o jogo um ano depois do patch (o plantel do treinador
+    /// renova como os outros).
     fn contracts(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32, cutoff: &str, start: bool) -> Result<()> {
         let today = self.date.clone();
         let year_end = today.ends_with("12-20");
         let year: i32 = today[0..4].parse().unwrap_or(0);
         let mut rng = self.season_rng(0xC0DE);
+        // A vontade do jogador sorteia-se à parte: os anos dos contratos continuam os mesmos
+        let mut mood_rng = self.season_rng(0xC0DE_57A1);
         // Quem assinou um pré-contrato com o treinador não renova: vai-se embora no fim do contrato
         let precontracted = self.precontracted()?;
-        for club in self.managed_clubs()? {
-            type Row = (i32, String, Option<String>, Option<String>, Option<i32>, i32, i32);
-            let mut rows: Vec<Row> = self
+        let unhappy: HashSet<i32> = self
+            .world
+            .conn
+            .prepare("SELECT DISTINCT person_id FROM unhappy")?
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let managed = self.managed_clubs()?;
+        let unmanaged: Vec<i32> = self
+            .world
+            .conn
+            .prepare(&format!(
+                "SELECT DISTINCT p.club_id FROM people p JOIN clubs c ON c.id = p.club_id
+                 WHERE p.is_player = 1 AND p.contract_expires <= ? AND c.is_national_team = 0
+                   AND (c.division_id IS NULL OR c.division_id NOT IN ({})) ORDER BY p.club_id",
+                self.managed_ids()
+            ))?
+            .query_map([cutoff], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut refused: Vec<(i32, i32, String, i32)> = Vec::new();
+        let mut short = Vec::new();
+        for (club, playable) in managed.into_iter().map(|c| (c, true)).chain(unmanaged.into_iter().map(|c| (c, false))) {
+            let mut rows: Vec<ContractRow> = self
                 .world
                 .conn
                 .prepare_cached(
                     "SELECT p.id, p.display_name, p.contract_expires, p.birth_date, p.birth_year,
-                            COALESCE(pl.current_ability, 1), COALESCE(pl.potential_ability, 0)
+                            COALESCE(pl.current_ability, 1), COALESCE(pl.potential_ability, 0),
+                            COALESCE(p.loyalty, 10), COALESCE(p.ambition, 10), p.club_joined,
+                            COALESCE(pl.current_reputation, 0)
                      FROM people p JOIN players pl ON pl.person_id = p.id
                      WHERE p.club_id = ? AND p.is_player = 1 ORDER BY p.id",
                 )?
-                .query_map([club], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?
+                .query_map([club], |r| {
+                    Ok(ContractRow {
+                        id: r.get(0)?,
+                        name: r.get(1)?,
+                        expires: r.get(2)?,
+                        birth: r.get(3)?,
+                        birth_year: r.get(4)?,
+                        ca: r.get(5)?,
+                        pa: r.get(6)?,
+                        loyalty: r.get(7)?,
+                        ambition: r.get(8)?,
+                        joined: r.get(9)?,
+                        rep: r.get(10)?,
+                    })
+                })?
                 .collect::<rusqlite::Result<_>>()?;
             // O que cada um vale para o clube: o CA e, até aos 20 anos, um terço do que ainda pode crescer
-            let worth = |r: &Row| {
-                let age = age_on(r.3.as_deref(), r.4, &today);
-                let pa = if r.6 > 0 { r.6 } else { r.5 + 20 };
-                r.5 + if age <= 20 { (pa - r.5).max(0) / 3 } else { 0 }
+            let worth = |r: &ContractRow| {
+                let age = age_on(r.birth.as_deref(), r.birth_year, &today);
+                let pa = if r.pa > 0 { r.pa } else { r.ca + 20 };
+                r.ca + if age <= 20 { (pa - r.ca).max(0) / 3 } else { 0 }
             };
-            rows.sort_by_key(|r| (std::cmp::Reverse(worth(r)), r.0));
-            let (mut renewed, mut left) = (Vec::new(), Vec::new());
-            for (rank, (id, name, expires, birth, birth_year, ..)) in rows.into_iter().enumerate() {
-                if precontracted.contains(&id) {
+            // O nível do plantel: a média dos 11 melhores CA
+            let level = {
+                let mut cas: Vec<i32> = rows.iter().map(|r| r.ca).collect();
+                cas.sort_unstable_by(|a, b| b.cmp(a));
+                cas.truncate(11);
+                if cas.is_empty() { 0 } else { cas.iter().sum::<i32>() / cas.len() as i32 }
+            };
+            rows.sort_by_key(|r| (std::cmp::Reverse(worth(r)), r.id));
+            let (mut renewed, mut left, mut said_no) = (Vec::new(), Vec::new(), Vec::new());
+            for (rank, r) in rows.into_iter().enumerate() {
+                if precontracted.contains(&r.id) {
                     continue;
                 }
-                match expires.as_deref() {
+                match r.expires.as_deref() {
                     Some(e) if e > cutoff => continue,
-                    None if !year_end => continue,
+                    None if !year_end || !playable => continue,
                     _ => {}
                 }
-                let age = age_on(birth.as_deref(), birth_year, &today);
+                let age = age_on(r.birth.as_deref(), r.birth_year, &today);
                 // Fica quem é dos melhores do plantel; os veteranos só se forem titulares e os
                 // juniores só se já forem do grupo principal
-                let keep = match age {
-                    _ if club == self.club_id && expires.is_some() && !start => false,
+                let wanted = match age {
+                    _ if club == self.club_id && r.expires.is_some() && !start => false,
+                    _ if !playable => true,
                     ..=20 => rank < YOUTH_RANK,
                     21..=33 => rank < KEEP_BEST,
                     _ => rank < VETERAN_RANK && age < 36,
                 };
-                if keep {
+                let stays = wanted && {
+                    let mood = personality::RenewalMood {
+                        loyalty: r.loyalty as f64,
+                        ambition: r.ambition as f64,
+                        seasons: r.joined.as_deref().filter(|j| j.len() >= 10).map_or(0, |j| age_on(Some(j), None, &today).max(0)),
+                        morale: self.squads.states.get(&r.id).map(|s| s.morale),
+                        unhappy: unhappy.contains(&r.id),
+                        above_squad: r.ca - level,
+                        age,
+                    };
+                    uniform(&mut mood_rng) < personality::renewal_stay_chance(&mood)
+                };
+                if stays {
                     let years = match age {
                         ..=23 => 3 + rng.next_u32() % 2,
                         24..=29 => 2 + rng.next_u32() % 3,
                         _ => 1 + rng.next_u32() % 2,
                     } as i32;
                     let until = format!("{}-06-30", year + years);
-                    self.world.conn.execute("UPDATE people SET contract_expires = ? WHERE id = ?", params![until, id])?;
+                    self.world.conn.execute("UPDATE people SET contract_expires = ? WHERE id = ?", params![until, r.id])?;
                     // O salário novo: até aos 30, o que pede pelo valor de hoje (pelo menos +10%);
                     // os mais velhos ficam com o que têm
-                    if age <= RAISE_UNTIL {
-                        self.renewal_raise(id, club)?;
+                    if age <= RAISE_UNTIL && playable {
+                        self.renewal_raise(r.id, club)?;
                     }
-                    renewed.push(format!("{name} (até {})", super::cm_date(&until)));
+                    renewed.push(format!("{} (até {})", r.name, super::cm_date(&until)));
                 } else {
                     self.world
                         .conn
-                        .execute("UPDATE people SET club_id = NULL, club_job = NULL, contract_expires = NULL WHERE id = ?", [id])?;
-                    left.push(name);
+                        .execute("UPDATE people SET club_id = NULL, club_job = NULL, contract_expires = NULL WHERE id = ?", [r.id])?;
+                    if wanted {
+                        refused.push((r.rep, r.id, r.name.clone(), club));
+                        said_no.push(r.name);
+                    } else {
+                        left.push(r.name);
+                    }
                 }
             }
-            if club == self.club_id && !(renewed.is_empty() && left.is_empty()) {
+            if !playable && !said_no.is_empty() {
+                short.push(club);
+            }
+            if club == self.club_id && !(renewed.is_empty() && left.is_empty() && said_no.is_empty()) {
                 let mut body =
                     String::from(if start { "Acabaram os contratos da época passada." } else { "Acabaram os contratos desta época." });
                 if !renewed.is_empty() {
                     body += &format!("\n\nRenovaram: {}.", join_names(&renewed));
+                }
+                if !said_no.is_empty() {
+                    body += &format!("\n\nRecusaram renovar e saem livres: {}.", join_names(&said_no));
                 }
                 if !left.is_empty() {
                     body += &format!("\n\nSaem livres: {}.", join_names(&left));
                 }
                 self.push_news(fresh, next_id, "message", "Contratos".into(), body);
             }
+        }
+        // As ligas não jogáveis não contratam: quem ficou abaixo de 18 recebe jogadores de enchimento
+        if !short.is_empty() {
+            self.top_up_squads(short)?;
+        }
+        // Os nomes maiores que recusaram renovar, numa notícia para o mercado
+        refused.sort_by_key(|r| (std::cmp::Reverse(r.0), r.1));
+        let names: Vec<String> = refused
+            .iter()
+            .filter(|r| r.0 >= NOTABLE_REFUSAL && r.3 != self.club_id)
+            .take(10)
+            .map(|r| format!("{} ({})", r.2, self.club_short(r.3)))
+            .collect();
+        if !names.is_empty() {
+            let body = format!("Recusaram renovar e estão livres para assinar por outro clube: {}.", join_names(&names));
+            self.push_news(fresh, next_id, "contract", "Recusaram renovar".into(), body);
         }
         Ok(())
     }

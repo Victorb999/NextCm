@@ -126,6 +126,48 @@ pub fn loyalty_move_wage(loyalty: f64) -> f64 {
     1.0 + 0.1 * above(loyalty, LOYALTY_MID)
 }
 
+// ---------------------------------------------------------------- renovações da IA
+
+/// O que pesa na vontade de um jogador de renovar com um clube da IA (3.19.1, item 37).
+pub struct RenewalMood {
+    pub loyalty: f64,
+    pub ambition: f64,
+    /// Épocas inteiras no clube.
+    pub seasons: i32,
+    /// Moral de 1 a 20, quando o jogo a acompanha.
+    pub morale: Option<i32>,
+    /// Tem queixas em aberto (insatisfação).
+    pub unhappy: bool,
+    /// CA do jogador menos a média dos 11 melhores do plantel.
+    pub above_squad: i32,
+    pub age: i32,
+}
+
+/// Diferença para os 11 melhores acima da qual o jogador é grande demais para o clube: 25 com
+/// Ambição 10, 10 com Ambição 20.
+pub fn outgrown_margin(ambition: f64) -> i32 {
+    (25.0 - 1.5 * (ambition.clamp(1.0, 20.0) - 10.0)).round() as i32
+}
+
+/// Probabilidade de aceitar renovar: 75% de base; a Lealdade dá ±1,5% por ponto à volta de 10;
+/// +2% por época no clube (até +10%); a moral baixa tira 15% e as queixas 30%; grande demais
+/// para o clube, −25% a −40% (pela Ambição); 32+ anos, +15%. Entre 10% e 98%.
+pub fn renewal_stay_chance(m: &RenewalMood) -> f64 {
+    let mut p = 0.75 + 0.015 * (m.loyalty.clamp(1.0, 20.0) - 10.0) + 0.02 * m.seasons.clamp(0, 5) as f64;
+    if m.unhappy {
+        p -= 0.30;
+    } else if m.morale.is_some_and(|v| v < 8) {
+        p -= 0.15;
+    }
+    if m.above_squad > outgrown_margin(m.ambition) {
+        p -= 0.25 + 0.15 * above(m.ambition, AMBITION_MID);
+    }
+    if m.age >= 32 {
+        p += 0.15;
+    }
+    p.clamp(0.10, 0.98)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,5 +232,26 @@ mod tests {
         assert!((loyalty_renewal(20.0) - 0.9).abs() < 1e-9 && loyalty_renewal(1.0) > 1.13);
         assert!((loyalty_fee(20.0) - 1.2).abs() < 1e-9 && loyalty_fee(5.0) == 1.0);
         assert!((loyalty_move_wage(20.0) - 1.1).abs() < 1e-9);
+    }
+
+    #[test]
+    fn renewal_willingness() {
+        let base = RenewalMood { loyalty: 10.0, ambition: 10.0, seasons: 0, morale: None, unhappy: false, above_squad: 0, age: 26 };
+        assert!((renewal_stay_chance(&base) - 0.75).abs() < 1e-9);
+        // O leal da casa fica quase sempre; o veterano também
+        let loyal = RenewalMood { loyalty: 20.0, seasons: 8, ..base };
+        assert!((renewal_stay_chance(&loyal) - 0.98).abs() < 1e-9);
+        assert!(renewal_stay_chance(&RenewalMood { age: 33, ..base }) > 0.89);
+        // Infeliz, ou grande demais para o clube (o ambicioso sente-o mais cedo)
+        assert!((renewal_stay_chance(&RenewalMood { unhappy: true, morale: Some(3), ..base }) - 0.45).abs() < 1e-9);
+        assert!((renewal_stay_chance(&RenewalMood { morale: Some(5), ..base }) - 0.60).abs() < 1e-9);
+        assert_eq!(outgrown_margin(10.0), 25);
+        assert_eq!(outgrown_margin(20.0), 10);
+        let star = RenewalMood { above_squad: 20, ambition: 18.0, ..base };
+        assert!(renewal_stay_chance(&star) < 0.5);
+        assert_eq!(renewal_stay_chance(&RenewalMood { ambition: 5.0, ..star }), renewal_stay_chance(&base));
+        // Nunca abaixo de 10%
+        let worst = RenewalMood { loyalty: 1.0, ambition: 20.0, unhappy: true, above_squad: 60, ..base };
+        assert!((renewal_stay_chance(&worst) - 0.10).abs() < 1e-9);
     }
 }

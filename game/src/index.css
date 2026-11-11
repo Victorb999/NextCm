@@ -13,6 +13,7 @@
   --cm-title-font: 'Trebuchet MS', Tahoma, sans-serif;
   --cm-text-font: Tahoma, Verdana, sans-serif;
   --cm-surface-alpha: 1;
+  --cm-row-hover: rgba(255, 255, 255, 0.11);
 }
 /* Com foto ou imagem de fundo, os painéis deixam-na ver (o Escurecer Fundo das Opções nota-se) */
 [data-bg='image'] {
@@ -109,6 +110,12 @@ body {
   .cm-zebra-2 > :nth-child(4n + 3),
   .cm-zebra-2 > :nth-child(4n + 4) {
     background-image: linear-gradient(rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.045));
+  }
+  /* Linha debaixo do rato: um véu mais claro que a zebra, sem transição (a selecionada mantém a cor) */
+  :where(tbody) > tr:hover > td,
+  .cm-zebra > :hover,
+  .cm-zebra-2 > :hover {
+    background-image: linear-gradient(var(--cm-row-hover), var(--cm-row-hover));
   }
 
   /* Continuar Jogo da barra do topo: verde da marca */

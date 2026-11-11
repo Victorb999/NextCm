@@ -200,7 +200,7 @@ export default function TacticsPage({ id }: { id: number }) {
           ]}
           disabled={!editable}
           onChange={(k) => {
-            if (k === 'auto' && t) void apply({ ...selectionOf(t), auto: true, positions: [] })
+            if (k === 'auto' && t) void apply({ ...selectionOf(t), auto: true })
             if (k === 'reset' && t) void apply({ ...selectionOf(t), positions: [] })
           }}
           buttonClass={headButton}

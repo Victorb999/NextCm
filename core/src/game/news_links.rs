@@ -30,13 +30,14 @@ impl Game {
         let Some(n) = self.news.iter().find(|n| n.id == news_id) else { return Ok(Vec::new()) };
         let names = candidates(&format!("{}\n{}", n.title, n.body));
         let conn = &self.world.conn;
-        // As pessoas perto do treinador: o plantel e o staff, as das propostas e as das
-        // transferências desse dia
+        // As pessoas perto do treinador: o plantel e o staff, as das propostas, as das
+        // transferências desse dia e as das listas dos olheiros
         let near: HashMap<String, i32> = conn
             .prepare_cached(
                 "SELECT id, display_name FROM people WHERE club_id = ?1
                  UNION SELECT p.id, p.display_name FROM people p JOIN offers o ON o.person_id = p.id
-                 UNION SELECT p.id, p.display_name FROM people p JOIN transfers t ON t.person_id = p.id WHERE t.date = ?2",
+                 UNION SELECT p.id, p.display_name FROM people p JOIN transfers t ON t.person_id = p.id WHERE t.date = ?2
+                 UNION SELECT p.id, p.display_name FROM people p JOIN scout_finds f ON f.person_id = p.id",
             )?
             .query_map(rusqlite::params![self.club_id, n.date], |r| Ok((r.get::<_, String>(1)?, r.get(0)?)))?
             .collect::<rusqlite::Result<_>>()?;

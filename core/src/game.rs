@@ -48,6 +48,7 @@ mod press;
 mod regen;
 mod reserve_matches;
 mod reserves;
+mod scout_reports;
 mod scout_tasks;
 mod scouting;
 mod season;
@@ -1669,7 +1670,10 @@ impl Game {
         self.stadium_works_day(fresh, next_id)?;
         if !unemployed {
             self.scouting_day(fresh, next_id)?;
+            // O resumo da semana antes das descobertas de hoje (que vão para o da próxima)
+            self.scout_digest(fresh, next_id)?;
             self.scout_tasks_day()?;
+            self.opponent_report(fresh, next_id)?;
         }
         self.jobs_day(fresh, next_id)?;
         // As transferências acertadas e as reformas do player_setup.cfg
@@ -2026,10 +2030,8 @@ impl Game {
                 let changes = self.world.cover_unavailable(club, &mut sel, &state)?;
                 Ok((self.world.tactics_from_selection(club, &sel, Some(&state))?, Some(changes)))
             }
-            other => {
-                let instructions = other.as_ref().map(|s| s.instructions).unwrap_or_default();
-                Ok((self.world.auto_tactics(club, Some(&state), instructions)?.with_orders(other.as_ref()), None))
-            }
+            Some(sel) => Ok((self.world.assistant_tactics(club, Some(&state), sel)?, None)),
+            None => Ok((self.world.auto_tactics(club, Some(&state), Instructions::default())?, None)),
         }
     }
 
@@ -2079,10 +2081,7 @@ impl Game {
         let state = self.club_state(club, self.next_competition(club));
         let mut t = match (&self.selection, club == self.club_id) {
             (Some(sel), true) if !sel.auto => self.world.tactics_from_selection(club, sel, Some(&state))?,
-            (sel, true) => self
-                .world
-                .auto_tactics(club, Some(&state), sel.as_ref().map(|s| s.instructions).unwrap_or_default())?
-                .with_orders(sel.as_ref()),
+            (Some(sel), true) => self.world.assistant_tactics(club, Some(&state), sel)?,
             _ => self.world.auto_tactics(club, Some(&state), Instructions::default())?,
         };
         t.editable = club == self.club_id;
@@ -2094,7 +2093,7 @@ impl Game {
     pub fn preview_selection(&self, sel: &Selection) -> Result<ClubTactics> {
         let state = self.club_state(self.club_id, self.next_competition(self.club_id));
         let mut t = if sel.auto {
-            self.world.auto_tactics(self.club_id, Some(&state), sel.instructions)?.with_orders(Some(sel))
+            self.world.assistant_tactics(self.club_id, Some(&state), sel)?
         } else {
             self.world.tactics_from_selection(self.club_id, sel, Some(&state))?
         };
@@ -3288,12 +3287,16 @@ mod tests {
                 news.iter().all(|n| n.offer_id.is_some()
                     || n.kind == "transfer"
                     || n.title == "Orçamentos da Direcção"
-                    || n.title.starts_with("Reservas:")),
+                    || n.title.starts_with("Reservas:")
+                    || n.title.starts_with("Relatório: ")),
                 "{}",
                 news[0].title
             );
         }
         assert_eq!(date::add_days(g.date(), 1).unwrap(), first.date);
+        // O relatório do adversário chegou 3 dias antes
+        let opp = if first.home.id == 7568 { &first.away.short_name } else { &first.home.short_name };
+        assert!(g.news.iter().any(|n| n.title == format!("Relatório: {opp}") && n.body.contains("Joga habitualmente em")));
         // No dia do jogo: a manhã (pode parar nas notícias dela) e o jogo, à tarde ou à noite
         let mut news = Vec::new();
         while g.matches.iter().any(|m| m.id == first.id && m.result.is_none()) {
@@ -3463,8 +3466,9 @@ mod tests {
             sel.auto = false;
             g.set_selection(sel).unwrap();
         }
-        let first = g.club_fixtures(7568)[0].date.clone();
-        while g.date() < first.as_str() {
+        let first = g.club_fixtures(7568)[0].clone();
+        // A manhã do dia de jogo pode parar nas notícias (o relatório do adversário seguinte)
+        while g.date() < first.date.as_str() || (g.live.is_none() && g.matches.iter().any(|m| m.id == first.id && m.result.is_none())) {
             g.advance_to_next_event().unwrap();
         }
         (g, dir)

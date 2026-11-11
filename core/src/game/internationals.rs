@@ -390,6 +390,8 @@ impl Game {
         for (team, first) in teams {
             let leaves = date::add_days(&first, -LEAVE_BEFORE).unwrap_or_else(|| first.clone());
             let leaves = if leaves < self.date { self.date.clone() } else { leaves };
+            // A convocatória nova substitui a anterior no plantel da selecção
+            self.world.conn.execute("UPDATE people SET national_team_id = NULL WHERE national_team_id = ? AND is_player = 1", [team])?;
             for id in self.choose_call_up(team, &first)? {
                 self.world
                     .conn
@@ -483,17 +485,17 @@ impl Game {
         Ok(self.world.conn.prepare_cached("SELECT club_id FROM people WHERE id = ?")?.query_row([id], |r| r.get(0)).optional()?.flatten())
     }
 
-    /// Um convocado volta ao clube.
+    /// Um convocado volta ao clube. Continua ligado à selecção (`national_team_id`): o plantel
+    /// dela fora das janelas é a última convocatória, até à próxima.
     fn release(&self, id: i32) -> Result<()> {
         self.world.conn.execute("DELETE FROM call_ups WHERE person_id = ?", [id])?;
-        self.world.conn.execute("UPDATE people SET national_team_id = NULL WHERE id = ? AND is_player = 1", [id])?;
         Ok(())
     }
 
     /// Os 23 que o seleccionador chama para os jogos a partir de `first`: os de mais CA da
     /// nação com clube, por sectores, sem os lesionados até lá, os castigados, os retirados da
     /// selecção e os de enchimento.
-    fn choose_call_up(&self, team: i32, first: &str) -> Result<Vec<i32>> {
+    pub(super) fn choose_call_up(&self, team: i32, first: &str) -> Result<Vec<i32>> {
         let banned: HashSet<i32> = self.banned_players().into_iter().collect();
         let rows: Vec<(i32, [i32; 8])> = self
             .world
@@ -719,6 +721,7 @@ mod tests {
         assert!(g.away_internationals().is_empty(), "ainda no clube");
         assert!(g.news.iter().any(|n| n.title.contains("convoca") || n.title.starts_with("Convocatórias")));
         let teams = count(&g, "SELECT COUNT(DISTINCT team_id) FROM call_ups");
+        let some_team = count(&g, "SELECT team_id FROM call_ups GROUP BY team_id HAVING COUNT(*) >= 18 ORDER BY team_id LIMIT 1");
         assert!(teams > 100, "{teams} selecções convocadas");
         assert!(count(&g, "SELECT MAX(n) FROM (SELECT COUNT(*) n FROM call_ups GROUP BY team_id)") <= 23);
         assert_eq!(
@@ -777,7 +780,9 @@ mod tests {
         assert_eq!(stages[0].tables.len(), 12);
         assert!(stages[0].tables.iter().all(|t| t.rows.iter().all(|r| r.played == 2)));
         assert_eq!(count(&g, "SELECT COUNT(*) FROM call_ups"), 0, "a janela acabou");
-        assert_eq!(count(&g, "SELECT COUNT(*) FROM people WHERE is_player = 1 AND national_team_id IS NOT NULL"), 0);
+        // O plantel das selecções fica com a última convocatória
+        let last = g.world.get_club(some_team).unwrap();
+        assert!(last.players.len() >= 18, "fora da janela: {}", last.players.len());
         assert!(count(&g, caps) > caps_before, "internacionalizações somadas");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);

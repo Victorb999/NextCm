@@ -265,8 +265,6 @@ export default function TransferTab({
       </span>,
     ])
   }
-  rows.push(["Saldo do clube", money(view.cash) || "€0"])
-  rows.push(["Orçamento de transferências", money(view.budget) || "€0"])
 
   return (
     <div>

@@ -71,7 +71,8 @@ function valueColor(v: number) {
 }
 
 /** Grade de 3 colunas "Nome .... valor", como no perfil do CM. */
-function AttributeGrid({ items }: { items: { label: string; value: ReactNode; color?: string }[] }) {
+/** `sep`: a linha abre um bloco à parte (a Forma, a Moral e a Condição depois dos atributos). */
+function AttributeGrid({ items }: { items: { label: string; value: ReactNode; color?: string; sep?: boolean }[] }) {
   const perColumn = Math.ceil(items.length / 3)
   const columns = [0, 1, 2].map((c) => items.slice(c * perColumn, (c + 1) * perColumn))
   return (
@@ -79,7 +80,10 @@ function AttributeGrid({ items }: { items: { label: string; value: ReactNode; co
       {columns.map((col, c) => (
         <div key={c} className="cm-zebra overflow-hidden rounded-md bg-cm-surface">
           {col.map((it) => (
-            <div key={it.label} className="flex h-6 items-center justify-between px-3">
+            <div
+              key={it.label}
+              className={`flex h-6 items-center justify-between px-3 ${it.sep ? 'mt-1.5 border-t-2 border-cm-yellow/40' : ''}`}
+            >
               <span className="text-[14.5px] text-[#e3e1e9]">{it.label}</span>
               <span className={`text-[14.5px] font-bold tabular-nums ${it.color ?? 'text-cm-orange'}`}>{it.value}</span>
             </div>
@@ -291,13 +295,13 @@ function Profile({ p }: { p: PersonProfile }) {
   const pl = p.player
   const attrs = pl?.attributes ?? p.staff?.attributes ?? {}
   const list = pl ? PLAYER_ATTRIBUTES : STAFF_ATTRIBUTES
-  const items: { label: string; value: ReactNode; color?: string }[] = list.map(([key, label]) => {
+  const items: { label: string; value: ReactNode; color?: string; sep?: boolean }[] = list.map(([key, label]) => {
     const v = attrs[key]
     return { label, value: v ?? '-', color: v ? valueColor(v) : 'text-[#777]' }
   })
   if (pl) {
     items.push(
-      { label: 'Forma', value: p.form.length ? p.form.map((r) => Math.round(r)).join('-') : '-' },
+      { label: 'Forma', sep: true, value: p.form.length ? p.form.map((r) => Math.round(r)).join('-') : '-' },
       { label: 'Moral', value: p.status?.moraleLabel ?? '-' },
       { label: 'Condição', value: `${p.status?.condition ?? 100}%` },
     )

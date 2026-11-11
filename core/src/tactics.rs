@@ -682,15 +682,48 @@ impl World {
 
     /// O adjunto escolhe: formação preferida do treinador e o melhor onze disponível.
     pub fn auto_tactics(&self, id: i32, state: Option<&SquadState>, instructions: Instructions) -> Result<ClubTactics> {
+        self.assistant_pick(id, state, instructions, None)
+    }
+
+    /// "Adjunto escolhe a equipa" do treinador: o adjunto escolhe os onze e o banco, mas na
+    /// formação, nas posições do campo e com as setas e instruções da táctica actual.
+    pub fn assistant_tactics(&self, id: i32, state: Option<&SquadState>, sel: &Selection) -> Result<ClubTactics> {
+        Ok(self.assistant_pick(id, state, sel.instructions, Some(sel))?.with_orders(Some(sel)))
+    }
+
+    fn assistant_pick(
+        &self,
+        id: i32,
+        state: Option<&SquadState>,
+        instructions: Instructions,
+        sel: Option<&Selection>,
+    ) -> Result<ClubTactics> {
         let Squad { club_name, coach, pool } = self.squad(id, state)?;
-        let formation = coach.as_ref().and_then(|c| c.2).filter(|f| (1..FORMATIONS.len() as i32).contains(f)).unwrap_or(3) as usize;
+        let preferred = || coach.as_ref().and_then(|c| c.2).filter(|f| (1..FORMATIONS.len() as i32).contains(f)).unwrap_or(3) as usize;
+        let sel = sel.filter(|s| (0..FORMATIONS.len() as i32).contains(&s.formation));
+        let formation = sel.map_or_else(preferred, |s| s.formation as usize);
         let (available, unavailable): (Vec<Candidate>, Vec<Candidate>) = pool.into_iter().partition(|c| c.state.can_play());
         // Os das reservas só entram se faltar gente no plantel principal
         let (mut available, mut spare): (Vec<Candidate>, Vec<Candidate>) = available.into_iter().partition(|c| !c.state.reserve);
 
         // Escolha gulosa: o melhor par (função, jogador) de todos, até fechar o onze
-        let mut layout = slots(formation);
-        layout.sort_by_key(slot_order);
+        let (layout, runs): (Vec<Slot>, Vec<Option<[i32; 2]>>) = match sel {
+            Some(sel) => {
+                let mut pairs: Vec<(Slot, Option<[i32; 2]>)> = layout_for(sel)
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, slot)| (slot, sel.runs.get(i).copied().flatten().map(|[x, y]| [x.clamp(2, 98), y.clamp(2, 98)])))
+                    .collect();
+                pairs.sort_by_key(|(slot, _)| slot_order(slot));
+                pairs.into_iter().unzip()
+            }
+            None => {
+                let mut layout = slots(formation);
+                layout.sort_by_key(slot_order);
+                let runs = vec![None; layout.len()];
+                (layout, runs)
+            }
+        };
         let mut chosen: Vec<Option<TacticPlayer>> = vec![None; layout.len()];
         let mut open: Vec<usize> = (0..layout.len()).collect();
         loop {
@@ -738,14 +771,15 @@ impl World {
             starters: layout
                 .iter()
                 .zip(chosen)
-                .map(|(&(pos, side, x, y), player)| TacticSlot { role: role_label(pos, side), x, y, player, run: None })
+                .zip(runs)
+                .map(|((&(pos, side, x, y), player), run)| TacticSlot { role: role_label(pos, side), x, y, player, run })
                 .collect(),
             bench,
             reserves,
             instructions,
             editable: false,
             auto: true,
-            custom: false,
+            custom: sel.is_some_and(|s| s.positions.len() == 11),
             takers: Takers::default(),
             orders: Vec::new(),
         })

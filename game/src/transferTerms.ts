@@ -11,5 +11,6 @@ export const LOAN_TERMS: LoanTerms = { months: 0, wageShare: 100, monthlyFee: 0,
 
 /** A frase da direção sobre o orçamento, como no CM. */
 export function budgetText(view: TransferView) {
-  return view.budgetNote ?? `A sua direcção autoriza transferências até ${money(view.budget) || '€0'}.`
+  const budget = view.budgetNote ?? `A sua direcção autoriza transferências até ${money(view.budget) || '€0'}.`
+  return `Saldo do clube: ${money(view.cash) || '€0'}. ${budget}`
 }

@@ -227,6 +227,13 @@ impl Game {
             self.matches.iter().filter(|m| m.date.starts_with(&year.to_string())).flat_map(|m| [m.home_id, m.away_id]).collect();
         clubs.sort_unstable();
         clubs.dedup();
+        self.top_up_squads(clubs)
+    }
+
+    /// Completa até 18 os plantéis destes clubes com jogadores de enchimento (sobretudo nas
+    /// posições que faltam). Devolve quantos criou.
+    pub(super) fn top_up_squads(&mut self, clubs: Vec<i32>) -> Result<usize> {
+        let year = self.season();
         let mut rng = self.season_rng(0x5EED_F111);
         let mut factory = self.player_factory()?;
         let mut created = 0;
