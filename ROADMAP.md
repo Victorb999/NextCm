@@ -213,7 +213,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 3.20 — Editor de jogos salvos (2 fatias feitas)](docs/roadmap/3.20-editor-de-saves.md)
 - [Marco 3.21 — Pré-Jogo e Pós-Jogo (passo 1 feito; e as ideias dos vídeos do FM08)](docs/roadmap/3.21-pre-jogo.md)
 - [Marco 3.22 — Economia moderna (feito a 11/11, save 56)](docs/roadmap/3.22-economia-moderna.md)
-- [Marco 3.23 — Site do jogo no GitHub Pages (por fazer)](docs/roadmap/3.23-site.md)
+- [Marco 3.23 — Site do jogo no GitHub Pages (no ar em victorb999.github.io/NextCm)](docs/roadmap/3.23-site.md)
 
 ---
 

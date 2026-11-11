@@ -39,6 +39,20 @@
       "port": 5180
     },
     {
+      "name": "site",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5190",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "site"
+      ],
+      "port": 5190
+    },
+    {
       "name": "dev-bridge-alt",
       "runtimeExecutable": "cargo",
       "runtimeArgs": [

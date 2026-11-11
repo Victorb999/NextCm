@@ -13,6 +13,8 @@ O mesmo visual, a mesma velocidade, a mesma fluidez — com o banco de dados atu
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
 ![Status](https://img.shields.io/badge/status-Fase%203%20·%20jogável-ffff40)
 
+**[Site do jogo](https://victorb999.github.io/NextCm/)** · **[Baixar o beta](https://github.com/Victorb999/NextCm/releases)** · base de dados do **[Update Coalizão](https://www.coalizaocm.com.br/)**
+
 </div>
 
 ---

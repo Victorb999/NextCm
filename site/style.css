@@ -1,0 +1,167 @@
+/* As cores do tema do jogo (game/src/index.css) */
+:root {
+  --screen: #161616;
+  --panel: #0d0d0d;
+  --surface: #1a1b21;
+  --line: #2c2c2c;
+  --text: #e3e1e9;
+  --muted: #c8c8d0;
+  --dim: #86869a;
+  --purple: #5b1fa6;
+  --purple-light: #8b5bd6;
+  --purple-hover: #6a2bc0;
+  --purple-down: #4a1888;
+  --yellow: #ffff40;
+  --dlg: #0f241b;
+  --dlg-field: #013220;
+  --dlg-border: #10b981;
+  --dlg-text: #d6efe4;
+  --title: 'Trebuchet MS', Tahoma, sans-serif;
+  --body: Tahoma, Verdana, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 56px; }
+body {
+  margin: 0;
+  background-color: var(--screen);
+  /* A textura do fundo das telas (.cm-backdrop) */
+  background-image:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.05), transparent 45%),
+    radial-gradient(ellipse at 75% 60%, rgba(255, 255, 255, 0.04), transparent 40%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 4px);
+  color: var(--text);
+  font: 16px/1.55 var(--body);
+  -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--yellow); text-underline-offset: 3px; }
+a:hover { color: #fff; }
+p, li, h1, h2, h3 { text-wrap: pretty; }
+b { color: #fff; }
+.dim { color: var(--dim); }
+.small { font-size: 13px; }
+
+.wrap { width: min(1160px, 100% - 32px); margin-inline: auto; }
+
+/* Barra do topo, como as abas escuras do CM */
+.bar {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.bar-in { display: flex; align-items: center; gap: 24px; height: 48px; }
+.brand { font: bold 22px var(--title); color: var(--yellow); text-decoration: none; }
+.tabs { display: flex; gap: 2px; margin-left: auto; overflow-x: auto; }
+.tabs a {
+  padding: 6px 12px; border-radius: 4px;
+  color: var(--muted); text-decoration: none; font: 14px var(--title); white-space: nowrap;
+}
+.tabs a:hover { background: #29292f; color: #fff; }
+
+/* Topo */
+.hero {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 40px; align-items: center; padding: 56px 0 48px;
+}
+.tag {
+  display: inline-block; padding: 2px 10px; border-radius: 4px;
+  background: var(--dlg-field); border: 1px solid var(--dlg-border);
+  color: var(--dlg-text); font: bold 12px var(--title); text-transform: uppercase; letter-spacing: 0.08em;
+}
+h1 { font: bold clamp(32px, 4.2vw, 50px)/1.1 var(--title); margin: 16px 0; color: #fff; }
+.lead { color: var(--muted); font-size: 18px; margin: 0 0 24px; }
+.cta { display: flex; flex-wrap: wrap; gap: 8px; }
+.note { color: var(--dim); font-size: 13px; margin-top: 12px; }
+
+/* Botões roxos do jogo */
+.btn {
+  display: inline-flex; flex-direction: column; justify-content: center; min-height: 44px;
+  padding: 8px 18px; border-radius: 4px;
+  background: var(--purple); border: 1px solid rgba(139, 91, 214, 0.5);
+  color: #fff; font: bold 16px var(--title); text-decoration: none;
+}
+.btn:hover { background: var(--purple-hover); color: #fff; }
+.btn:active { background: var(--purple-down); }
+.btn:focus-visible, .tabs a:focus-visible, .shot button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.btn-main { padding: 10px 26px; }
+.btn-title { font-size: 20px; color: var(--yellow); }
+.btn-sub { font: 12px var(--body); color: #e0d4f5; }
+
+/* Moldura de janela à volta dos prints */
+.window {
+  margin: 0; border-radius: 6px; overflow: hidden;
+  border: 1px solid #3a3a44; background: #000;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+.window-bar {
+  height: 26px; display: flex; align-items: center; padding: 0 10px;
+  background: #23232b; color: var(--dim); font: 12px var(--body);
+}
+
+/* Secções com o cabeçalho dos diálogos verdes */
+.section { padding: 32px 0; }
+.strip {
+  margin: 0 0 16px; padding: 10px 14px; border-radius: 4px;
+  background: var(--dlg); border: 2px solid var(--dlg-border);
+  color: #fff; font: bold 20px var(--title); text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.shot { margin: 0; }
+.shot button {
+  display: block; width: 100%; padding: 0; border: 1px solid #3a3a44; border-radius: 4px;
+  overflow: hidden; background: #000; cursor: zoom-in;
+}
+.shot button:hover { border-color: var(--purple-light); }
+.shot figcaption { color: var(--muted); font-size: 14px; margin-top: 6px; }
+
+.features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.feat {
+  background: var(--dlg-field); border: 1px solid #2f6b52; border-radius: 4px; padding: 14px 16px;
+}
+.feat h3 { margin: 0 0 8px; font: bold 18px var(--title); color: var(--yellow); }
+.feat ul { margin: 0; padding-left: 18px; color: var(--dlg-text); font-size: 15px; }
+.feat li + li { margin-top: 4px; }
+
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.two p { color: var(--muted); }
+.steps { padding-left: 20px; color: var(--muted); }
+.steps li + li { margin-top: 8px; }
+
+.credit {
+  display: flex; align-items: center; gap: 24px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 18px 20px;
+}
+.credit p { margin: 0; flex: 1; color: var(--muted); }
+.credit .btn { flex-shrink: 0; }
+
+.foot { border-top: 1px solid var(--line); background: var(--panel); margin-top: 32px; }
+.foot-in { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 18px 0; color: var(--dim); font-size: 14px; }
+
+/* Print em tamanho real */
+dialog#viewer {
+  padding: 0; border: 1px solid #3a3a44; border-radius: 6px; background: #000;
+  max-width: min(1280px, 96vw); width: auto;
+}
+dialog#viewer::backdrop { background: rgba(0, 0, 0, 0.85); }
+dialog#viewer .close {
+  position: absolute; top: 6px; right: 6px; width: 36px; height: 36px; border-radius: 4px;
+  background: var(--purple); border: 1px solid rgba(139, 91, 214, 0.5); color: #fff; font-size: 22px; cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; padding-top: 32px; }
+  .gallery, .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .two { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .tabs { display: none; }
+  .gallery, .features { grid-template-columns: 1fr; }
+  .credit { flex-direction: column; align-items: flex-start; }
+  .lead { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
