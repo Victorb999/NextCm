@@ -1322,6 +1322,22 @@ function LiveScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown])
 
+  // Ao intervalo, com o relato dito, a palestra abre sozinha (uma vez; depois das Tácticas,
+  // se o intervalo as abriu)
+  const endTalk = useRef(false)
+  const halfTalk = useRef(false)
+  const atHalf = !!view?.halfTime && shown >= lines.length
+  useEffect(() => {
+    if (!atHalf) {
+      halfTalk.current = false
+      return
+    }
+    if (halfTalk.current || tactics !== null || !view || view.userSide === null) return
+    halfTalk.current = true
+    setTalk(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [atHalf, tactics])
+
   /** Abre as Tácticas pedidas com o jogo a correr; ao sair delas, o jogo continua. */
   function openWaiting(side: 0 | 1) {
     resumeAfter.current = true
@@ -1331,11 +1347,21 @@ function LiveScreen({
   }
 
   const main = () => {
-    // Na palestra, o Continuar Jogo sai da sala (e não mexe no jogo por trás)
-    if (talk) return setTalk(false)
+    // Na palestra, o Continuar Jogo sai da sala: antes do apito fica por aí; ao intervalo
+    // recomeça o jogo e no fim segue para os resultados
+    if (talk) {
+      setTalk(false)
+      if (view?.finished) endTalk.current = true
+      if (!view || (!view.finished && !view.halfTime)) return
+    }
     if (!view || finishing || tactics !== null) return
     if (view.finished) {
       if (shown < lines.length) return setShown(lines.length)
+      // No fim, o Continuar abre primeiro a palestra (uma vez)
+      if (!endTalk.current && view.userSide !== null) {
+        endTalk.current = true
+        return setTalk(true)
+      }
       setFinishing(true)
       onFinished()
     } else if (waiting) {
@@ -1713,12 +1739,16 @@ export default function MatchDay({
   const next = () => {
     if (phase === "earlier") setPhase("list")
     else if (phase === "list") setPhase("pre")
-    // O Continuar Jogo no Pré-Jogo vai direto ao jogo
-    else if (phase === "pre") setPhase("play")
+    // O Continuar Jogo no Pré-Jogo passa pela Palestra e depois vai ao jogo
+    else if (phase === "pre") {
+      if (pre.current) pre.current.main()
+      else setPhase("play")
+    }
     else if (phase === "play") live.current?.main()
     else if (others.length > 0) void nextCompetition()
     else onDone()
   }
+  const pre = useRef<{ main: () => void } | null>(null)
   const nextRef = useRef(next)
   useEffect(() => {
     nextRef.current = next
@@ -1768,7 +1798,7 @@ export default function MatchDay({
       />
     )
   }
-  if (phase === "pre") return <PreMatch onPlay={() => setPhase("play")} />
+  if (phase === "pre") return <PreMatch ref={pre} onPlay={() => setPhase("play")} />
   if (phase === "results" && results) {
     return (
       <DayList

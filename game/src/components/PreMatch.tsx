@@ -1,5 +1,5 @@
 import { Trophy } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useImperativeHandle, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { LiveTeam } from '../bindings/LiveTeam'
@@ -125,11 +125,32 @@ function Analysis({ view, a }: { view: LiveView; a: MatchAnalysis }) {
   )
 }
 
-export default function PreMatch({ onPlay }: { onPlay: () => void }) {
+export default function PreMatch({
+  ref,
+  onPlay,
+}: {
+  /** O Continuar Jogo da coluna (e o Enter), para o pai a chamar. */
+  ref?: React.Ref<{ main: () => void }>
+  onPlay: () => void
+}) {
   const [tab, setTab] = useState<Tab>('teams')
   const [view, setView] = useState<LiveView | null>(null)
   const [analysis, setAnalysis] = useState<MatchAnalysis | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // A palestra já foi dada (ou a aba já foi vista): o Continuar vai então ao jogo
+  const [talked, setTalked] = useState(false)
+  useEffect(() => {
+    if (tab === 'talk') setTalked(true)
+  }, [tab])
+  useEffect(() => {
+    api.talkView().then(
+      (t) => t.done && setTalked(true),
+      () => {},
+    )
+  }, [])
+  // Continuar: primeiro a Palestra (fica escondida e esquece-se), depois o jogo
+  const play = () => (talked ? onPlay() : setTab('talk'))
+  useImperativeHandle(ref, () => ({ main: play }))
   useEffect(() => {
     api.liveMatch().then(
       (v) => {
@@ -155,8 +176,8 @@ export default function PreMatch({ onPlay }: { onPlay: () => void }) {
         eyebrow={view ? `${view.fixture.competition} · ${view.fixture.label}` : 'Pré-Jogo'}
         title={view ? `Pré-Jogo · ${view.home.club.shortName} v ${view.away.club.shortName}` : 'Pré-Jogo'}
         right={
-          <button className="cm-purple h-8 px-4 font-title text-[16px]" onClick={onPlay}>
-            Ir para o Jogo
+          <button className="cm-purple h-8 px-4 font-title text-[16px]" onClick={play}>
+            {talked ? 'Ir para o Jogo' : 'Palestra'}
           </button>
         }
       />
@@ -179,7 +200,7 @@ export default function PreMatch({ onPlay }: { onPlay: () => void }) {
       <BottomBar
         onLeft={at > 0 ? () => setTab(TABS[at - 1].key) : undefined}
         right={last ? 'Ir para o Jogo' : 'Seguinte'}
-        onRight={last ? onPlay : () => setTab(TABS[at + 1].key)}
+        onRight={last ? play : () => setTab(TABS[at + 1].key)}
       />
     </div>
   )

@@ -49,16 +49,15 @@ export function useMatchDay() {
       }
     : undefined
 
-  // O rótulo do Continuar Jogo: diz para onde vai (de volta ao dia, ao Pré-Jogo, ao jogo)
+  // O rótulo do Continuar Jogo: diz para onde vai (de volta ao dia, ao Pré-Jogo); no Pré-Jogo
+  // passa antes pela Palestra, então fica só "Continuar Jogo"
   const label = !match
     ? 'Continuar Jogo'
     : hidden
       ? 'Voltar ao Dia de Jogo'
       : phase === 'list'
         ? 'Ir para o Pré-Jogo'
-        : phase === 'pre'
-          ? 'Ir para o Jogo'
-          : 'Continuar Jogo'
+        : 'Continuar Jogo'
 
   return { match, open: setMatch, close, step, hidden, advance, phase, setPhase, locked, label }
 }
