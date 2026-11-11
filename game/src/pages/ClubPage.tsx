@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { ClubListItem } from '../bindings/ClubListItem'
 import type { ClubProfile } from '../bindings/ClubProfile'
@@ -11,15 +10,14 @@ import type { SquadMore } from '../bindings/SquadMore'
 import type { SquadPlayer } from '../bindings/SquadPlayer'
 import CascadeMenu, { type MenuNode } from '../components/CascadeMenu'
 import { ClubFixtureList, MatchInfo } from '../components/Fixtures'
-import FinancesPanel, { type FinanceView } from '../components/FinancesPanel'
-import SquadTable, { HeaderCell, InfBadge, type HeaderProps } from '../components/SquadTable'
+import SquadTable from '../components/SquadTable'
 import { headerColumn } from '../squadColumns'
 import TransfersPanel from '../components/TransfersPanel'
-import { BottomBar, Empty, ErrorBox, Link, PanelTitle, PurpleMenu, ScreenHeader, Tabs, type MenuOption } from '../components/Screen'
-import { money, shortListName } from '../format'
+import { BottomBar, Empty, ErrorBox, PurpleMenu, ScreenHeader, Tabs, type MenuOption } from '../components/Screen'
+import { shortListName } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
-import { BENCH, selectionOf, spotOf, swap, useDragSwap, type Spot } from '../selection'
+import { BENCH, selectionOf, spotOf, swap, useDragSwap } from '../selection'
 import {
   FILTER_OPTIONS,
   loadFilter,
@@ -33,300 +31,14 @@ import {
   sortLabel,
   type AttributeGroup,
   type HeaderSort,
-  nameClass,
   passes,
   squadName,
   type Filter,
-  type SquadView,
 } from '../squad'
-
-const TABS = [
-  { key: 'squad', label: 'Plantel' },
-  { key: 'transfers', label: 'Transferências' },
-  { key: 'next', label: 'Próximo Jogo' },
-  { key: 'fixtures', label: 'Calendário' },
-  { key: 'info', label: 'Finanças & Info' },
-]
-
-type View = SquadView | 'staff'
-type Criterion =
-  | 'name'
-  | 'position'
-  | 'number'
-  | 'form'
-  | 'morale'
-  | 'condition'
-  | 'nation'
-  | 'age'
-  | 'caps'
-  | 'intlGoals'
-  | 'wage'
-  | 'contract'
-  | 'value'
-  | 'goals'
-  | 'conceded'
-  | 'assists'
-  | 'rating'
-
-// O Vêr do CM
-const VIEWS: MenuOption<View>[] = [
-  { key: 'traditional', label: 'Tradicional' },
-  { key: 'contract', label: 'Contrato' },
-  { key: 'selection', label: 'Selecção' },
-  { key: 'stats', label: 'Estatísticas' },
-  { key: 'more', label: 'Mais Dados' },
-  { key: 'attributes', label: 'Atributos' },
-  { key: 'others', label: 'Outros' },
-  'separator',
-  { key: 'penalties', label: 'Marcadores Penalties' },
-  'separator',
-  { key: 'staff', label: 'Staff' },
-]
-
-// O Critério do CM (a ordem da lista)
-const CRITERIA: MenuOption<Criterion>[] = [
-  { key: 'name', label: 'Nome' },
-  { key: 'position', label: 'Posição' },
-  { key: 'number', label: 'Numeração' },
-  { key: 'form', label: 'Forma' },
-  { key: 'morale', label: 'Moral' },
-  { key: 'condition', label: 'Condição' },
-  { key: 'nation', label: 'Nacionalidade' },
-  { key: 'age', label: 'Idade' },
-  { key: 'caps', label: 'Internacion.' },
-  { key: 'intlGoals', label: 'Golos Intern.' },
-  { key: 'wage', label: 'Salário Base' },
-  { key: 'contract', label: 'Termo Contrato' },
-  { key: 'value', label: 'Valor' },
-  'separator',
-  { key: 'goals', label: 'Golos' },
-  { key: 'conceded', label: 'Golos Sofridos' },
-  { key: 'assists', label: 'Assistências' },
-  { key: 'rating', label: 'Class. Média' },
-]
-const criterionLabel = (c: Criterion) =>
-  CRITERIA.find((o): o is { key: Criterion; label: string } => o !== 'separator' && o.key === c)?.label ?? ''
-
-/** Uma linha do plantel: [número] [lugar/Int] Nome ... posição */
-type Entry = {
-  id: number
-  number: ReactNode
-  badge: ReactNode
-  name: string
-  detail: string
-  spot?: Spot
-  player?: SquadPlayer
-}
-
-type Bind = { 'data-spot': string; onMouseDown: (e: React.MouseEvent) => void }
-
-/** "D D" -> "DD", "M C" -> "MC": a sigla curta da função, como nas casas do plantel do CM. */
-const shortRole = (role: string) => role.replace(' ', '')
-
-const byNullsLast = (a: number | null, b: number | null) => (a ?? 999) - (b ?? 999)
-
-function SquadGrid({
-  entries,
-  selected,
-  onSelect,
-  onOpen,
-  bind,
-  onToggle,
-  header,
-  numbers,
-}: {
-  entries: Entry[]
-  selected: number
-  onSelect: (i: number) => void
-  onOpen: (e: Entry) => void
-  /** Só no clube do treinador: arrastar para mudar o lugar na equipa. */
-  bind?: (spot: Spot, label: string) => Bind
-  /** Só no clube do treinador: clicar no número ou na casa põe/tira da equipa. */
-  onToggle?: (e: Entry) => void
-  /** Os cabeçalhos que ordenam (fora do Staff). */
-  header?: HeaderProps
-  /** A coluna Nº (com o Critério Numeração ou Idade); o CM não a mostra. */
-  numbers?: boolean
-}) {
-  const row = (e: Entry, i: number) => {
-    const drag = bind && e.spot ? bind(e.spot, e.name) : undefined
-    const toggle = onToggle && (() => onToggle(e))
-    const stop = onToggle && ((ev: React.MouseEvent) => ev.stopPropagation())
-    return (
-      <div
-        key={e.id}
-        data-row={i}
-        data-person={e.id}
-        data-spot={drag?.['data-spot']}
-        onMouseDown={drag?.onMouseDown}
-        onClick={() => onSelect(i)}
-        onDoubleClick={() => onOpen(e)}
-        className={`flex h-6 items-center gap-1.5 px-2 ${i === selected ? '!bg-cm-sel' : ''} ${drag ? 'cursor-grab' : ''}`}
-      >
-        {numbers && (
-          <span
-            onMouseDown={stop}
-            onClick={toggle}
-            className={`w-8 shrink-0 text-center font-mono text-[13px] text-cm-muted ${onToggle ? 'cursor-pointer' : ''}`}
-          >
-            {e.number}
-          </span>
-        )}
-        {/* A casa na equipa e a sigla Inf em caixas escuras, vazias quando não há, como no CM */}
-        <span
-          onMouseDown={stop}
-          onClick={toggle}
-          title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
-          className={`w-10 shrink-0 text-center font-mono text-[12px] 
-            font-bold ${e.badge ? 'cm-chip' : 'h-[18px] rounded bg-black/50'} ${onToggle ? 'cursor-pointer' : ''}`}
-        >
-          {e.badge}
-        </span>
-        {e.player && (
-          <span className="flex h-[18px] w-10 shrink-0 items-center justify-center rounded bg-black/50 font-mono text-[12px]">
-            {e.player.info && <InfBadge info={e.player.info} person={e.player.id} />}
-          </span>
-        )}
-        <span
-          className={`min-w-0 flex-1 truncate text-[16px] font-semibold ${e.player ? nameClass(e.player) : 'text-white'}`}
-          title={e.player?.ghost ? 'Jogador de enchimento' : e.player?.loaned ? 'Emprestado' : e.player?.free ? 'Sem contrato' : undefined}
-        >
-          <Link onClick={() => onOpen(e)}>{e.name}</Link>
-        </span>
-        <span className={`w-28 shrink-0 truncate text-left font-mono text-[12.5px] ${i === selected ? 'text-white' : 'text-cm-yellow'}`}>
-          {e.detail}
-        </span>
-      </div>
-    )
-  }
-  const head = (
-    <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-cm-line bg-black/30 px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-dim">
-      {numbers && <HeaderCell label="Nº" className="w-8 text-center" header={header} />}
-      <span className="w-10 text-center">Esc</span>
-      {entries[0]?.player && <span className="w-10 text-center">Inf</span>}
-      <HeaderCell label="Jogador" className="flex-1" header={header} />
-      <HeaderCell label="Posição" className="w-28 text-left" header={header} />
-    </div>
-  )
-  const column = (side: 0 | 1) => (
-    <div className="min-w-0 flex-1 overflow-hidden rounded-md bg-cm-surface">
-      {head}
-      <div className="cm-zebra">{entries.map((e, i) => (i % 2 === side ? row(e, i) : null)).filter(Boolean)}</div>
-    </div>
-  )
-  return (
-    <div className="flex items-start gap-2">
-      {column(0)}
-      {column(1)}
-    </div>
-  )
-}
-
-/** Finanças pela palavra, como o CM (o banco guarda o saldo em euros). */
-function financesLabel(cash: number | null) {
-  if (cash === null) return '-'
-  if (cash >= 50_000_000) return 'Rico'
-  if (cash >= 10_000_000) return 'Seguro'
-  if (cash >= 1_000_000) return 'Razoável'
-  if (cash >= 0) return 'Apertado'
-  return 'Em dívida'
-}
-
-const INFO_VIEWS: { key: 'info' | FinanceView; label: string }[] = [
-  { key: 'info', label: 'Informação Geral' },
-  { key: 'finances', label: 'Finanças' },
-  { key: 'income', label: 'Receitas' },
-  { key: 'expenses', label: 'Despesas' },
-]
-
-/** "Finanças & Info" do CM: o Ver ▾ escolhe a Informação Geral (dados do clube e o staff) ou
- * as Finanças, Receitas e Despesas. */
-function Info({ c, mine }: { c: ClubProfile; mine: boolean }) {
-  const [view, setView] = useState<'info' | FinanceView>('info')
-  const menu = (
-    <div className="px-2 pb-1 pt-2">
-      <PurpleMenu label="Ver" options={INFO_VIEWS} value={view} onChange={setView} />
-    </div>
-  )
-  if (view !== 'info')
-    return (
-      <div className="min-h-0 flex-1 overflow-auto pb-3">
-        {menu}
-        <FinancesPanel clubId={c.club.id} view={view} mine={mine} />
-      </div>
-    )
-  return <GeneralInfo c={c} menu={menu} />
-}
-
-function GeneralInfo({ c, menu }: { c: ClubProfile; menu: ReactNode }) {
-  const nav = useNav()
-  const row = (label: string, value: ReactNode) => (
-    <div key={label} className="flex min-h-6 items-baseline gap-4 px-3 py-1">
-      <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
-      <span className="flex-1 text-[14px] text-cm-yellow">{value}</span>
-    </div>
-  )
-  const competition = c.division?.name
-  return (
-    <div className="min-h-0 flex-1 overflow-auto pb-3">
-      {menu}
-      <PanelTitle title="Informação Geral" />
-      <div className="cm-zebra">
-        {row(
-          'País',
-          c.nationId !== null && c.nation ? <Link onClick={() => nav.go({ kind: 'nation', id: c.nationId! })}>{c.nation}</Link> : '-',
-        )}
-        {row('Estatuto', `${c.status ?? '-'}${competition ? ` (${competition})` : ''}`)}
-        {row('Finanças', `${financesLabel(c.cash)} · saldo ${money(c.cash)}`)}
-        {row('Estádio', [c.stadium, c.stadiumCity].filter(Boolean).join(', ') || '-')}
-        {row(
-          'Capacidade',
-          c.stadiumCapacity
-            ? `${c.stadiumCapacity}${c.stadiumSeated === c.stadiumCapacity ? ' - todos lugares sentados' : c.stadiumSeated ? ` - (${c.stadiumSeated} lugares sentados)` : ''}${c.undersoilHeating ? ' com aquecimento subterrâneo' : ''}${c.retractableRoof ? ' e telhado retráctil' : ''}`
-            : '-',
-        )}
-        {c.stadium && c.ownsStadium && row('Propriedade', 'Estádio do clube')}
-        {c.attendance && row('Assistência', `média ${c.attendance[0]} (mín. ${c.attendance[1]}, máx. ${c.attendance[2]})`)}
-        {c.matchDay && row('Dia de Jogo', c.matchDay)}
-        {c.facilities && row('Condições Trabalho', c.facilities)}
-        {row('Reputação', c.reputation ?? '-')}
-        {c.reserveDivision &&
-          row('Estadual', <Link onClick={() => nav.go({ kind: 'competition', id: c.reserveDivision!.id })}>{c.reserveDivision.name}</Link>)}
-        {row(
-          'Rivais',
-          c.rivals.length
-            ? c.rivals.map((r, i) => (
-                <span key={r.id}>
-                  {i > 0 && ', '}
-                  <Link onClick={() => nav.go({ kind: 'club', id: r.id })}>{r.shortName}</Link>
-                </span>
-              ))
-            : '-',
-        )}
-      </div>
-      <PanelTitle title="Staff" />
-      {/* Uma linha por função, com os nomes (ligações para o perfil) */}
-      <div className="cm-zebra">
-        {[...new Set(c.staff.map((s) => s.job ?? '-'))].map((job) =>
-          row(
-            job,
-            c.staff
-              .filter((s) => (s.job ?? '-') === job)
-              .map((s, i) => (
-                <span key={s.id}>
-                  {i > 0 && ', '}
-                  <Link onClick={() => nav.go({ kind: 'person', id: s.id })}>
-                    {/* "Sobrenome, Nome" -> "Nome Sobrenome", como na lista do CM */}
-                    {s.listName.includes(', ') ? s.listName.split(', ').reverse().join(' ') : s.listName}
-                  </Link>
-                </span>
-              )),
-          ),
-        )}
-      </div>
-    </div>
-  )
-}
+import { TABS, VIEWS, CRITERIA, criterionLabel, shortRole, byNullsLast } from './club/squadView'
+import type { View, Criterion, Entry } from './club/squadView'
+import { SquadGrid } from './club/SquadGrid'
+import { Info } from './club/ClubInfo'
 
 export default function ClubPage({ id, reserves }: { id: number; reserves?: boolean }) {
   const nav = useNav()
