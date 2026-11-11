@@ -17,7 +17,7 @@ const GROUPS: [string, string[]][] = [
   ['Físicos', ['acceleration', 'agility', 'balance', 'strength', 'jumping', 'stamina', 'pace']],
 ]
 
-const GREEN = 'font-bold text-[#4cd964]'
+const GREEN = 'font-bold text-cm-green'
 const NEUTRAL = 'text-cm-orange'
 const UNKNOWN = 'text-[#777]'
 
@@ -32,7 +32,7 @@ function tone(v: number | null | undefined, other: number | null | undefined, lo
 function Bar({ v, best }: { v: number | null | undefined; best: boolean }) {
   return (
     <div className="h-2.5 w-full rounded-sm bg-black/50">
-      {v != null && <div className={`h-full rounded-sm ${best ? 'bg-[#4cd964]' : 'bg-[#8a5cd0]'}`} style={{ width: `${Math.min(100, (v / 20) * 100)}%` }} />}
+      {v != null && <div className={`h-full rounded-sm ${best ? 'bg-cm-green' : 'bg-[#8a5cd0]'}`} style={{ width: `${Math.min(100, (v / 20) * 100)}%` }} />}
     </div>
   )
 }
@@ -118,7 +118,7 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
               <div className="grid grid-cols-3 gap-3 p-2">
                 {GROUPS.map(([title, keys]) => (
                   <div key={title}>
-                    <div className="mb-0.5 bg-[#3d1a73] px-2 text-center font-title text-[15px] leading-6 text-cm-yellow">{title}</div>
+                    <div className="mb-0.5 bg-cm-headdeep px-2 text-center font-title text-[15px] leading-6 text-cm-yellow">{title}</div>
                     <div className="cm-zebra">
                       {keys.map((key) => {
                         const x = people[0].player?.attributes[key]

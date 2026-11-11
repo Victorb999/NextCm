@@ -95,10 +95,10 @@ export default function ReportDialog({
                 onClick={() => toggle(s.id)}
                 className="flex w-full justify-between px-6 py-0.5 text-left font-title text-[18px]"
               >
-                <span className={on ? "text-cm-yellow" : "text-[#7b3fd1]"}>
+                <span className={on ? "text-cm-yellow" : "text-cm-purplehover"}>
                   {s.name}
                 </span>
-                <span className={on ? "text-cm-yellow" : "text-[#7b3fd1]"}>
+                <span className={on ? "text-cm-yellow" : "text-cm-purplehover"}>
                   {s.job}
                 </span>
               </button>

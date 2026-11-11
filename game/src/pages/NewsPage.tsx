@@ -38,14 +38,14 @@ const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', '
 
 // A etiqueta de cada assunto na lista
 const KIND_LABEL: Record<string, [string, string]> = {
-  message: ['Mensagem', 'bg-[#2a2b32] text-[#c8c8d0]'],
+  message: ['Mensagem', 'bg-cm-hover text-cm-muted'],
   competition: ['Competição', 'bg-[#0f2a3a] text-[#5bc0f0]'],
-  injury: ['Lesões', 'bg-[#3a1010] text-[#ff7070]'],
-  transfer: ['Transferências', 'bg-[#2a1a45] text-[#b48cf0]'],
+  injury: ['Lesões', 'bg-[#3a1010] text-cm-red'],
+  transfer: ['Transferências', 'bg-cm-headdeep text-cm-purplelight'],
   deal: ['Negócio', 'bg-[#3a2508] text-cm-orange'],
   contract: ['Contrato', 'bg-[#3a2508] text-cm-orange'],
-  press: ['Imprensa', 'bg-[#2a2b32] text-[#c8c8d0]'],
-  jobs: ['Empregos', 'bg-[#0f3a2a] text-[#4edea3]'],
+  press: ['Imprensa', 'bg-cm-hover text-cm-muted'],
+  jobs: ['Empregos', 'bg-cm-dlgdeep text-cm-mint'],
 }
 
 /** "2025-07-01" -> "Ter 1 Jul", como na lista de notícias do CM. */
@@ -133,7 +133,7 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
         eyebrow={game.info?.managerName}
         title="Notícias"
         right={
-          <span className="rounded-md bg-black/30 px-3 py-1.5 font-mono text-[12px] uppercase tracking-wider text-[#86869a]">
+          <span className="rounded-md bg-black/30 px-3 py-1.5 font-mono text-[12px] uppercase tracking-wider text-cm-dim">
             Por ler: <b className={unread ? 'text-cm-yellow' : 'text-white'}>{unread}</b>
           </span>
         }
@@ -176,7 +176,7 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
             {current && (
               <>
                 <div className="pb-3 font-title text-[22px] font-bold text-cm-yellow">{current.title}</div>
-                <div className="whitespace-pre-line text-[16px] leading-relaxed text-[#e3e1e9]">
+                <div className="whitespace-pre-line text-[16px] leading-relaxed text-cm-text">
                   <LinkedText text={current.body} links={currentLinks} />
                 </div>
                 {current.link?.startsWith('press:') && (

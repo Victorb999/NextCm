@@ -41,15 +41,15 @@ function Panel({
       <div
         ref={ref}
         style={{ left, top }}
-        className="cm-zebra fixed z-[70] max-h-screen min-w-[170px] overflow-y-auto rounded-md border border-[#10b981]/60 bg-[#0f241b] py-1 text-[14px] text-[#e3e1e9] shadow-[0_8px_24px_rgba(0,0,0,0.65)]"
+        className="cm-zebra fixed z-[70] max-h-screen min-w-[170px] overflow-y-auto rounded-md border border-cm-dlgborder/60 bg-cm-dlg py-1 text-[14px] text-cm-text shadow-[0_8px_24px_rgba(0,0,0,0.65)]"
       >
         {items.map((item, i) =>
           item === 'separator' ? (
-            <div key={i} className="mx-2 my-1 border-t border-[#2f6b52]" />
+            <div key={i} className="mx-2 my-1 border-t border-cm-dlgline" />
           ) : (
             <button
               key={i}
-              className={`${ROW} ${open?.index === i ? '!bg-[#1d4d3a] text-cm-yellow' : 'hover:!bg-[#1d4d3a] hover:text-cm-yellow'}`}
+              className={`${ROW} ${open?.index === i ? '!bg-cm-dlghover text-cm-yellow' : 'hover:!bg-cm-dlghover hover:text-cm-yellow'}`}
               onMouseEnter={(e) => {
                 const r = e.currentTarget.getBoundingClientRect()
                 setOpen(item.children ? { index: i, x: r.right - 2, y: r.top - 2, back: r.left } : null)
@@ -62,7 +62,7 @@ function Panel({
               }}
             >
               <span>{item.label}</span>
-              {item.children && <span className="text-[10px] text-[#4edea3]">▶</span>}
+              {item.children && <span className="text-[10px] text-cm-mint">▶</span>}
             </button>
           ),
         )}

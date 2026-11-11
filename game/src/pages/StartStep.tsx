@@ -42,7 +42,7 @@ export default function StartStep({
             </button>
           ))}
         </div>
-        {detail && <div className="pt-1 text-[13px] text-[#bfe6c4]">{detail}</div>}
+        {detail && <div className="pt-1 text-[13px] text-cm-dlgtext">{detail}</div>}
       </DialogFrame>
     </Overlay>
   )

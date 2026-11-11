@@ -26,18 +26,18 @@ export default function CareerPage() {
         <Panel title="Estatísticas" className="mx-2 mb-2 shrink-0">
           <div className="cm-zebra text-[14px]">
             <div className="flex h-7 items-center gap-4 px-3">
-              <span className="w-44 text-[#c8c8d0]">Reputação</span>
+              <span className="w-44 text-cm-muted">Reputação</span>
               <span className="font-bold text-cm-yellow">{stats.level}</span>
             </div>
             <div className="flex h-7 items-center gap-4 px-3">
-              <span className="w-44 text-[#c8c8d0]">Qualificações</span>
+              <span className="w-44 text-cm-muted">Qualificações</span>
               <span className="font-bold text-cm-yellow">{stats.license}</span>
             </div>
             {stats.nations.map((n) => (
               <div key={n.nation} className="flex h-7 items-center gap-4 px-3">
-                <span className="w-44 truncate text-[#c8c8d0]">{n.nation}</span>
+                <span className="w-44 truncate text-cm-muted">{n.nation}</span>
                 <span className="w-28 font-bold text-cm-yellow">{n.level}</span>
-                <span className="text-[13px] text-[#c8c8d0]">
+                <span className="text-[13px] text-cm-muted">
                   {n.years.toLocaleString('pt-BR')} {n.years === 1 ? 'ano' : 'anos'}
                   {n.titles > 0 && ` · ${n.titles} ${n.titles === 1 ? 'título' : 'títulos'}`}
                 </span>
@@ -55,7 +55,7 @@ export default function CareerPage() {
               <thead className="sticky top-0">
                 <tr className="h-7">
                   {['Clube', 'Período', 'Compras', 'Vendas', 'Dispensas', 'Títulos'].map((h, i) => (
-                    <th key={h} className={`bg-[#3d1a73] px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 || i === 5 ? 'text-left' : 'text-center'}`}>
+                    <th key={h} className={`bg-cm-headdeep px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 || i === 5 ? 'text-left' : 'text-center'}`}>
                       {h}
                     </th>
                   ))}
@@ -73,10 +73,10 @@ export default function CareerPage() {
                       {cmDate(c.joined)} – {c.left ? cmDate(c.left) : 'actual'}
                     </td>
                     <td className="px-3 text-center tabular-nums text-cm-orange">
-                      {c.purchases} <span className="text-[#86869a]">({money(c.spent) || '€0'})</span>
+                      {c.purchases} <span className="text-cm-dim">({money(c.spent) || '€0'})</span>
                     </td>
                     <td className="px-3 text-center tabular-nums text-cm-orange">
-                      {c.sales} <span className="text-[#86869a]">({money(c.received) || '€0'})</span>
+                      {c.sales} <span className="text-cm-dim">({money(c.received) || '€0'})</span>
                     </td>
                     <td className="px-3 text-center tabular-nums text-cm-orange">{c.releases}</td>
                     <td className="px-3 text-cm-yellow">{c.titles.length ? c.titles.join(', ') : '-'}</td>

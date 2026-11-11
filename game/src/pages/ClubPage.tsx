@@ -188,7 +188,7 @@ function SquadGrid({
           <span
             onMouseDown={stop}
             onClick={toggle}
-            className={`w-8 shrink-0 text-center font-mono text-[13px] text-[#c8c8d0] ${onToggle ? "cursor-pointer" : ""}`}
+            className={`w-8 shrink-0 text-center font-mono text-[13px] text-cm-muted ${onToggle ? "cursor-pointer" : ""}`}
           >
             {e.number}
           </span>
@@ -231,7 +231,7 @@ function SquadGrid({
     )
   }
   const head = (
-    <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-cm-line bg-black/30 px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#86869a]">
+    <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-cm-line bg-black/30 px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-dim">
       {numbers && <HeaderCell label="Nº" className="w-8 text-center" header={header} />}
       <span className="w-10 text-center">Esc</span>
       {entries[0]?.player && <span className="w-10 text-center">Inf</span>}
@@ -827,7 +827,7 @@ export default function ClubPage({
                 <span className="rounded bg-black/40 px-1.5 text-cm-yellow">{club.leaguePosition}º lugar</span>
               )}
               {reserves && (
-                <span className="rounded bg-[#0f3a2a] px-1.5 text-[#4edea3]">
+                <span className="rounded bg-cm-dlgdeep px-1.5 text-cm-mint">
                   Reservas
                 </span>
               )}
@@ -840,7 +840,7 @@ export default function ClubPage({
         right={
           <>
             {club?.stadium && (
-              <span className="hidden rounded-md bg-black/30 px-3 py-1.5 font-mono text-[12px] text-[#86869a] xl:inline">
+              <span className="hidden rounded-md bg-black/30 px-3 py-1.5 font-mono text-[12px] text-cm-dim xl:inline">
                 Estádio: <b className="text-white">{club.stadium}</b>
                 {club.stadiumCapacity ? (
                   <>
@@ -893,7 +893,7 @@ export default function ClubPage({
       />
 
       {tab === "squad" && (
-        <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
+        <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-cm-headdeep px-2 py-1.5">
           <PurpleMenu
             label="Vêr"
             options={VIEWS}
@@ -1013,20 +1013,20 @@ export default function ClubPage({
                         key={`b${i}`}
                         {...b}
                         title={p?.listName ?? "vazio"}
-                        className={`min-w-[38px] cursor-grab px-1 text-center text-[12px] ${p ? "cm-chip" : "cm-chip !bg-[#2a1a45] !text-[#8a63c4]"}`}
+                        className={`min-w-[38px] cursor-grab px-1 text-center text-[12px] ${p ? "cm-chip" : "cm-chip !bg-cm-headdeep !text-cm-purpledim"}`}
                       >
                         SB{i + 1}
                       </span>
                     )
                   })}
-                  <span className="ml-2 self-center text-[11px] text-[#86869a]">
+                  <span className="ml-2 self-center text-[11px] text-cm-dim">
                     Arraste para trocar · clique no número ou na casa para
                     pôr/tirar
                   </span>
                 </>
               )}
               {reserveView && (
-                <span className="ml-2 self-center text-[11px] text-[#86869a]">
+                <span className="ml-2 self-center text-[11px] text-cm-dim">
                   {reserveLineup.picks.length
                     ? `Escolheu ${reserveLineup.picks.length} · o adjunto completa o onze`
                     : "O adjunto escolhe o onze"}{" "}

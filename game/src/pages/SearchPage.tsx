@@ -109,7 +109,7 @@ function Row({
       </td>
       <td className="px-2 text-center tabular-nums">{p.age ?? "-"}</td>
       <td
-        className={`px-3 text-right font-semibold tabular-nums ${selected ? "text-white" : "text-[#4edea3]"}`}
+        className={`px-3 text-right font-semibold tabular-nums ${selected ? "text-white" : "text-cm-mint"}`}
       >
         {p.value === null ? "-" : money(p.value)}
       </td>
@@ -135,8 +135,8 @@ function Th({
   return (
     <th
       onClick={sort ? () => onSort(sort) : undefined}
-      className={`bg-[#16171c] px-3 text-[11px] font-bold font-mono uppercase tracking-[0.12em] ${sort ? "cursor-pointer hover:text-white" : ""} ${
-        active ? "text-cm-yellow" : "text-[#86869a]"
+      className={`bg-cm-deep px-3 text-[11px] font-bold font-mono uppercase tracking-[0.12em] ${sort ? "cursor-pointer hover:text-white" : ""} ${
+        active ? "text-cm-yellow" : "text-cm-dim"
       } ${className}`}
     >
       {label}
@@ -387,7 +387,7 @@ export default function SearchPage({ active }: { active: boolean }) {
         title="Pesquisa Jogador & Staff"
         right={
           funds !== null && (
-            <span className="rounded-md bg-black/40 px-3 py-1.5 text-[13px] text-[#c8c8d0]">
+            <span className="rounded-md bg-black/40 px-3 py-1.5 text-[13px] text-cm-muted">
               Fundos: <b className="text-cm-yellow">{money(funds) || "€0"}</b>
             </span>
           )
@@ -440,7 +440,7 @@ export default function SearchPage({ active }: { active: boolean }) {
                   applyFilters({ ...filters, text: e.target.value })
                 }
                 placeholder="Filtrar por nome…"
-                className="h-8 w-56 rounded-[4px] border border-white/15 bg-[#0d0e13] px-2.5 text-cm-yellow outline-none placeholder:text-[#55565f] focus:border-[#4edea3]"
+                className="h-8 w-56 rounded-[4px] border border-white/15 bg-[#0d0e13] px-2.5 text-cm-yellow outline-none placeholder:text-cm-faint focus:border-cm-mint"
               />
             </label>
             <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
@@ -503,7 +503,7 @@ export default function SearchPage({ active }: { active: boolean }) {
 
           <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md bg-cm-surface">
             <ErrorBox>{error}</ErrorBox>
-            {listNotice && shortlist && <div className="px-3 py-1 font-semibold text-[#4edea3]">{listNotice}</div>}
+            {listNotice && shortlist && <div className="px-3 py-1 font-semibold text-cm-mint">{listNotice}</div>}
             <div
               ref={tableRef}
               className={`min-h-0 flex-1 overflow-auto ${idle ? "hidden" : ""}`}
@@ -576,8 +576,8 @@ export default function SearchPage({ active }: { active: boolean }) {
               </table>
             </div>
             {idle && (
-              <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-[#c8c8d0]">
-                <Search size={28} className="text-[#55565f]" />
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-cm-muted">
+                <Search size={28} className="text-cm-faint" />
                 <span className="text-[15px]">
                   Escreva um nome ou abra os Filtros para pesquisar.
                 </span>

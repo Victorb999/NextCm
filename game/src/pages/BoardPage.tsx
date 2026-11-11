@@ -68,7 +68,7 @@ function Meeting({ kind, onClose }: { kind: Kind; onClose: (answer: string | nul
               onClick={() => setChosen(r.key)}
               className={`flex h-[34px] w-full items-center gap-3 px-4 text-left text-[16px] ${
                 !r.available
-                  ? 'cursor-default text-[#7b3fd1]'
+                  ? 'cursor-default text-cm-purplehover'
                   : chosen === r.key
                     ? '!bg-cm-sel font-bold text-white'
                     : 'text-white hover:text-cm-yellow'
@@ -88,10 +88,10 @@ function Meeting({ kind, onClose }: { kind: Kind; onClose: (answer: string | nul
 }
 
 const LINE_STYLE: Record<string, { icon: ReactNode; colour: string; bar: string }> = {
-  performance: { icon: <Star size={20} />, colour: 'text-[#4edea3]', bar: 'bg-[#10b981]' },
+  performance: { icon: <Star size={20} />, colour: 'text-cm-mint', bar: 'bg-cm-dlgborder' },
   finances: { icon: <Euro size={20} />, colour: 'text-cm-orange', bar: 'bg-cm-orange' },
   fans: { icon: <Users size={20} />, colour: 'text-[#5bc0f0]', bar: 'bg-[#1e9cf0]' },
-  players: { icon: <Zap size={20} />, colour: 'text-[#b48cf0]', bar: 'bg-[#7c3aed]' },
+  players: { icon: <Zap size={20} />, colour: 'text-cm-purplelight', bar: 'bg-[#7c3aed]' },
 }
 
 /** O texto da frase com os nomes dos jogadores como ligações. */
@@ -188,12 +188,12 @@ export default function BoardPage() {
           </div>
         </div>
         {view && (
-          <div className="flex shrink-0 flex-wrap gap-x-6 gap-y-1 rounded-md bg-cm-surface px-4 py-2 font-mono text-[12px] uppercase tracking-wider text-[#86869a]">
+          <div className="flex shrink-0 flex-wrap gap-x-6 gap-y-1 rounded-md bg-cm-surface px-4 py-2 font-mono text-[12px] uppercase tracking-wider text-cm-dim">
             <span>
               Expectativa: <b className="normal-case text-white">{view.goal.charAt(0).toUpperCase() + view.goal.slice(1)}</b>
             </span>
             <span>
-              Orçamento: <b className="text-[#4edea3]">{money(view.transferBudget) || '€0'}</b>
+              Orçamento: <b className="text-cm-mint">{money(view.transferBudget) || '€0'}</b>
             </span>
             <span>
               Massa salarial: <b className="normal-case text-white">{wage(view.wageBill)}</b> / {wage(view.wageBudget)}

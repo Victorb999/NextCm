@@ -114,7 +114,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
 
   return (
     <>
-      <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
+      <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-cm-headdeep px-2 py-1.5">
         <PurpleMenu label="Designar Olheiro" options={TASKS} disabled={noScout} onChange={assign} />
         <div className="flex-1" />
         <ListFileButtons
@@ -144,7 +144,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
           }
         />
         <ErrorBox>{error}</ErrorBox>
-        {notice && <div className="px-3 py-1 font-semibold text-[#4edea3]">{notice}</div>}
+        {notice && <div className="px-3 py-1 font-semibold text-cm-mint">{notice}</div>}
         <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full table-fixed border-collapse">
             <colgroup>
@@ -159,7 +159,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
             <thead className="sticky top-0 z-10">
               <tr className="h-6">
                 {['Rec', 'Inf', 'Nome', 'Clube', 'Base', 'Posição', 'Valor'].map((h) => (
-                  <th key={h} className={`bg-[#3d1a73] px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${['Nome', 'Clube', 'Base', 'Posição'].includes(h) ? 'text-left' : ''}`}>
+                  <th key={h} className={`bg-cm-headdeep px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${['Nome', 'Clube', 'Base', 'Posição'].includes(h) ? 'text-left' : ''}`}>
                     {h}
                   </th>
                 ))}

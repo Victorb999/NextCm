@@ -3,34 +3,56 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
-      // Paleta do CM 01/02 com o tema Coalizão (patch CLZ)
       colors: {
+        // Paleta do CM 01/02 em variáveis: os valores de cada tema estão em index.css
         cm: {
-          screen: "#161616", // fundo das telas
-          panel: "#0d0d0d", // painéis de lista
-          // Painéis das telas: translúcidos com foto de fundo (index.css)
-          surface: "rgb(26 27 33 / var(--cm-surface-alpha))",
-          line: "#2c2c2c", // divisórias
-          // Coluna esquerda: personalizável em Opções Jogo (variáveis em settings.ts)
+          // Coluna esquerda: a cor do tema ou a escolhida em Opções Jogo (settings.ts)
           side: "var(--cm-side)",
           sidetop: "var(--cm-side-top)",
-          sidebtn: "var(--cm-sidebtn)", // botões da coluna
-          sidelight: "var(--cm-sidelight)", // relevo claro
-          sidedark: "var(--cm-sidedark)", // relevo escuro
-          sidemark: "var(--cm-side-mark)", // "NEXTCM" na vertical
-          tab: "#202020", // abas
-          tabline: "#474747",
-          purple: "#5b1fa6", // botões roxos / Atrás-Seguinte
-          purplelight: "#8b5bd6",
-          purpledim: "#8a63c4", // texto de botão roxo desabilitado
-          head: "#5a2a99", // cabeçalho de tabela
-          sel: "#563C5C", // linha selecionada
-          yellow: "#ffff40",
-          magenta: "#ff5cff",
-          pink: "#ff77ff",
-          orange: "#ff9a00",
-          green: "#3ddc4a",
-          pitch: "#0f5a16",
+          sidebtn: "var(--cm-sidebtn)",
+          sidelight: "var(--cm-sidelight)",
+          sidedark: "var(--cm-sidedark)",
+          sidemark: "var(--cm-side-mark)",
+          screen: "rgb(var(--c-screen) / <alpha-value>)",
+          panel: "rgb(var(--c-panel) / <alpha-value>)",
+          surface: "rgb(var(--c-surface) / var(--cm-surface-alpha))",
+          line: "rgb(var(--c-line) / <alpha-value>)",
+          tab: "rgb(var(--c-tab) / <alpha-value>)",
+          tabline: "rgb(var(--c-tabline) / <alpha-value>)",
+          raised: "rgb(var(--c-raised) / <alpha-value>)",
+          hover: "rgb(var(--c-hover) / <alpha-value>)",
+          deep: "rgb(var(--c-deep) / <alpha-value>)",
+          text: "rgb(var(--c-text) / <alpha-value>)",
+          muted: "rgb(var(--c-muted) / <alpha-value>)",
+          dim: "rgb(var(--c-dim) / <alpha-value>)",
+          purple: "rgb(var(--c-purple) / <alpha-value>)",
+          purplelight: "rgb(var(--c-purplelight) / <alpha-value>)",
+          purpledim: "rgb(var(--c-purpledim) / <alpha-value>)",
+          purplehover: "rgb(var(--c-purplehover) / <alpha-value>)",
+          purpledown: "rgb(var(--c-purpledown) / <alpha-value>)",
+          head: "rgb(var(--c-head) / <alpha-value>)",
+          headdeep: "rgb(var(--c-headdeep) / <alpha-value>)",
+          sel: "rgb(var(--c-sel) / <alpha-value>)",
+          yellow: "rgb(var(--c-yellow) / <alpha-value>)",
+          magenta: "rgb(var(--c-magenta) / <alpha-value>)",
+          pink: "rgb(var(--c-pink) / <alpha-value>)",
+          orange: "rgb(var(--c-orange) / <alpha-value>)",
+          green: "rgb(var(--c-green) / <alpha-value>)",
+          red: "rgb(var(--c-red) / <alpha-value>)",
+          pitch: "rgb(var(--c-pitch) / <alpha-value>)",
+          mint: "rgb(var(--c-mint) / <alpha-value>)",
+          mintlight: "rgb(var(--c-mintlight) / <alpha-value>)",
+          mintdim: "rgb(var(--c-mintdim) / <alpha-value>)",
+          onmint: "rgb(var(--c-onmint) / <alpha-value>)",
+          dlg: "rgb(var(--c-dlg) / <alpha-value>)",
+          dlgdeep: "rgb(var(--c-dlgdeep) / <alpha-value>)",
+          dlgfield: "rgb(var(--c-dlgfield) / <alpha-value>)",
+          dlgborder: "rgb(var(--c-dlgborder) / <alpha-value>)",
+          dlgline: "rgb(var(--c-dlgline) / <alpha-value>)",
+          dlghover: "rgb(var(--c-dlghover) / <alpha-value>)",
+          dlgtext: "rgb(var(--c-dlgtext) / <alpha-value>)",
+          lilac: "rgb(var(--c-lilac) / <alpha-value>)",
+          faint: "rgb(var(--c-faint) / <alpha-value>)",
         },
       },
       fontFamily: {

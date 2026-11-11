@@ -84,7 +84,7 @@ function AttributeGrid({ items }: { items: { label: string; value: ReactNode; co
               key={it.label}
               className={`flex h-6 items-center justify-between px-3 ${it.sep ? 'mt-1.5 border-t-2 border-cm-yellow/40' : ''}`}
             >
-              <span className="text-[14.5px] text-[#e3e1e9]">{it.label}</span>
+              <span className="text-[14.5px] text-cm-text">{it.label}</span>
               <span className={`text-[14.5px] font-bold tabular-nums ${it.color ?? 'text-cm-orange'}`}>{it.value}</span>
             </div>
           ))}
@@ -103,7 +103,7 @@ function PurpleTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
           {head.map((h, i) => (
             <th
               key={i}
-              className={`bg-[#3d1a73] px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 ? 'text-left' : ''}`}
+              className={`bg-cm-headdeep px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 ? 'text-left' : ''}`}
             >
               {h}
             </th>
@@ -191,16 +191,16 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
               </span>
             )}
             {p?.ghost && (
-              <span className="shrink-0 rounded bg-[#2a1a45] px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[#b48cf0]">
+              <span className="shrink-0 rounded bg-cm-headdeep px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-cm-purplelight">
                 Enchimento
               </span>
             )}
             {p && !pl && p.job && (
-              <span className="shrink-0 rounded bg-[#0f3a2a] px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[#4edea3]">{p.job}</span>
+              <span className="shrink-0 rounded bg-cm-dlgdeep px-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-cm-mint">{p.job}</span>
             )}
           </div>
           {p && (
-            <div className="truncate font-mono text-[13px] text-[#c8c8d0]">
+            <div className="truncate font-mono text-[13px] text-cm-muted">
               {born} ({p.age ?? '?'} anos)
               {dot}
               {p.nationId !== null && p.nation ? <Link onClick={() => nav.go({ kind: 'nation', id: p.nationId! })}>{p.nation}</Link> : (p.nation ?? '-')}
@@ -212,7 +212,7 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
               )}
               {pl && !p.ghost && (
                 <>
-                  {dot}Valor: <b className="text-[#4edea3]">{money(pl.value) || '-'}</b>
+                  {dot}Valor: <b className="text-cm-mint">{money(pl.value) || '-'}</b>
                 </>
               )}
               {!p.ghost && (
@@ -227,19 +227,19 @@ function PersonHeader({ p, action, tabs }: { p: PersonProfile | null; action: Re
       </div>
       {pl && (
         <div className="mt-1.5 flex h-7 items-center gap-2 rounded bg-black/30 px-3">
-          <span className="truncate font-title text-[16px] font-bold text-[#4edea3]">{pl.positionLong || '-'}</span>
+          <span className="truncate font-title text-[16px] font-bold text-cm-mint">{pl.positionLong || '-'}</span>
           <span className="ml-auto flex shrink-0 gap-1">
             {pl.positions.map((t) => (
               <span
                 key={t.code}
                 title={t.natural ? 'Posição de origem' : undefined}
-                className={`rounded px-1.5 font-mono text-[11px] font-bold tracking-wider ${t.natural ? 'bg-[#10b981] text-black' : 'bg-[#0f3a2a] text-[#4edea3]'}`}
+                className={`rounded px-1.5 font-mono text-[11px] font-bold tracking-wider ${t.natural ? 'bg-cm-dlgborder text-black' : 'bg-cm-dlgdeep text-cm-mint'}`}
               >
                 {t.code}
               </span>
             ))}
           </span>
-          <span className="shrink-0 font-mono text-[11px] uppercase tracking-wider text-[#86869a]">
+          <span className="shrink-0 font-mono text-[11px] uppercase tracking-wider text-cm-dim">
             Pé preferido: <b className="text-cm-yellow">{pl.preferredFoot ?? '-'}</b>
           </span>
         </div>
@@ -257,16 +257,16 @@ const SIDE_Y: Record<string, number> = { E: 18, C: 50, D: 82 }
 /** Campo pequeno com as posições em que joga (a de origem a cheio). */
 function Pitch({ tags }: { tags: PositionTag[] }) {
   return (
-    <div className="relative h-[118px] overflow-hidden rounded border border-[#2f6b52] bg-[#0f241b]">
-      <div className="absolute inset-y-0 left-1/2 border-l border-[#2f6b52]" />
-      <div className="absolute left-1/2 top-1/2 size-9 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#2f6b52]" />
-      <div className="absolute left-0 top-1/2 h-12 w-5 -translate-y-1/2 border border-l-0 border-[#2f6b52]" />
-      <div className="absolute right-0 top-1/2 h-12 w-5 -translate-y-1/2 border border-r-0 border-[#2f6b52]" />
+    <div className="relative h-[118px] overflow-hidden rounded border border-cm-dlgline bg-cm-dlg">
+      <div className="absolute inset-y-0 left-1/2 border-l border-cm-dlgline" />
+      <div className="absolute left-1/2 top-1/2 size-9 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cm-dlgline" />
+      <div className="absolute left-0 top-1/2 h-12 w-5 -translate-y-1/2 border border-l-0 border-cm-dlgline" />
+      <div className="absolute right-0 top-1/2 h-12 w-5 -translate-y-1/2 border border-r-0 border-cm-dlgline" />
       {tags.map((t) => (
         <span
           key={t.code}
           className={`absolute -translate-x-1/2 -translate-y-1/2 rounded px-1 font-mono text-[10px] font-bold ${
-            t.natural ? 'bg-[#10b981] text-black' : 'border border-[#10b981] bg-[#0f241b] text-[#4edea3]'
+            t.natural ? 'bg-cm-dlgborder text-black' : 'border border-cm-dlgborder bg-cm-dlg text-cm-mint'
           }`}
           style={{ left: `${ROLE_X[t.role] ?? 50}%`, top: `${SIDE_Y[t.side ?? 'C']}%` }}
         >
@@ -283,7 +283,7 @@ function InfoRows({ rows }: { rows: [string, ReactNode][] }) {
     <div className="cm-zebra">
       {rows.map(([k, v]) => (
         <div key={k} className="flex h-6 items-center justify-between gap-2 px-3 text-[13.5px]">
-          <span className="text-[#c8c8d0]">{k}</span>
+          <span className="text-cm-muted">{k}</span>
           <span className="truncate font-bold text-cm-yellow">{v}</span>
         </div>
       ))}
@@ -375,7 +375,7 @@ function Profile({ p }: { p: PersonProfile }) {
                 head={['Competição', 'Jogos', 'Golos', 'Asts', 'Nota']}
                 rows={[
                   ...p.season.map((s) => [s.competition, s.apps, s.goals, s.assists, s.rating.toFixed(2)]),
-                  [<b key="t" className="text-[#4edea3]">Total</b>, total.apps, total.goals, total.assists, rating.toFixed(2)],
+                  [<b key="t" className="text-cm-mint">Total</b>, total.apps, total.goals, total.assists, rating.toFixed(2)],
                 ]}
               />
             )}
@@ -425,7 +425,7 @@ function PersonalPanel({ p }: { p: PersonProfile }) {
       <div className="cm-zebra">
         {rows.map(([k, v]) => (
           <div key={k} className="flex min-h-6 items-start gap-3 px-3 py-0.5 text-[13.5px]">
-            <span className="w-36 shrink-0 text-[#c8c8d0]">{k}</span>
+            <span className="w-36 shrink-0 text-cm-muted">{k}</span>
             <span className="min-w-0 flex-1 text-right font-bold text-cm-yellow">{v}</span>
           </div>
         ))}
@@ -442,7 +442,7 @@ function Injuries({ p }: { p: PersonProfile }) {
     [
       'Lesão',
       st.injury ? (
-        <span key="i" className="text-[#ff5050]">
+        <span key="i" className="text-cm-red">
           {st.injury}
         </span>
       ) : (
@@ -456,7 +456,7 @@ function Injuries({ p }: { p: PersonProfile }) {
     [
       'Suspensão',
       st.suspended ? (
-        <span key="s" className="text-[#ff5050]">
+        <span key="s" className="text-cm-red">
           {`${st.suspended} jogo${st.suspended > 1 ? 's' : ''}`}
         </span>
       ) : (
@@ -468,7 +468,7 @@ function Injuries({ p }: { p: PersonProfile }) {
     [
       'Continentais',
       st.cupTied.length ? (
-        <span key="c" className="text-[#ff5050]">
+        <span key="c" className="text-cm-red">
           {`Não joga: ${st.cupTied.join(', ')}`}
         </span>
       ) : (
@@ -754,7 +754,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
       />
       <div className="mx-2 flex min-h-0 flex-1 flex-col">
         <ErrorBox className="mb-2">{error}</ErrorBox>
-        {notice && <div className="mb-2 rounded bg-[#0f3a2a] px-2 py-1 text-center text-cm-yellow">{notice}</div>}
+        {notice && <div className="mb-2 rounded bg-cm-dlgdeep px-2 py-1 text-center text-cm-yellow">{notice}</div>}
         {person && (tab === 'profile' || person.ghost) && <Profile p={person} />}
         {person && !person.ghost && tab === 'contract' && (
           <div className="flex min-h-0 flex-1 items-start gap-2 overflow-auto pb-1">

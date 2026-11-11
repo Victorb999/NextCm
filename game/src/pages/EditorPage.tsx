@@ -114,7 +114,7 @@ const STATUS: [number, string][] = [
   [3, "Amador"],
 ]
 const ROW = "flex h-7 items-center gap-2 px-2 text-[14px] text-white even:bg-black/20"
-const TAB = (on: boolean) => `h-7 px-4 text-[13px] ${on ? "cm-purple" : "bg-black/40 text-[#d8c8f4] hover:bg-black/60"}`
+const TAB = (on: boolean) => `h-7 px-4 text-[13px] ${on ? "cm-purple" : "bg-black/40 text-cm-lilac hover:bg-black/60"}`
 const BOX = "rounded border border-white/15 bg-black/20 p-2"
 
 function NumField({ label, value, onChange, min = 0, max = 999999999, width = "w-28" }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; width?: string }) {
@@ -137,7 +137,7 @@ function ColorField({ label, value, onChange }: { label: string; value: string |
 }
 
 function Header({ children }: { children: React.ReactNode }) {
-  return <div className="mb-0.5 bg-[#3d1a73] px-2 font-mono text-[11px] font-bold uppercase leading-6 tracking-[0.1em] text-cm-yellow">{children}</div>
+  return <div className="mb-0.5 bg-cm-headdeep px-2 font-mono text-[11px] font-bold uppercase leading-6 tracking-[0.1em] text-cm-yellow">{children}</div>
 }
 
 /** Data em três caixas (dia, mês, ano) como no editor do CM; devolve "AAAA-MM-DD" (o core valida). */
@@ -604,7 +604,7 @@ export default function EditorPage() {
                     <span className="w-9 text-right font-mono text-[12px]">{h.ability ?? ""}</span>
                   </button>
                 ))}
-                {notice && selected === null && <div className="p-3 text-center text-[13px] text-[#d8c8f4]">{notice}</div>}
+                {notice && selected === null && <div className="p-3 text-center text-[13px] text-cm-lilac">{notice}</div>}
               </div>
               <div className="text-[13px] text-cm-yellow">{hits.length} itens encontrados.</div>
               <form
@@ -639,9 +639,9 @@ export default function EditorPage() {
             </div>
             <div className="min-w-0 flex-1">
               {kind === "clubs" ? (
-                <div className="p-8 text-center text-[#d8c8f4]">Procure um clube pelo nome e escolha-o na lista: abre o diálogo Editar Clube.</div>
+                <div className="p-8 text-center text-cm-lilac">Procure um clube pelo nome e escolha-o na lista: abre o diálogo Editar Clube.</div>
               ) : !player || !pd || !profile ? (
-                <div className="p-8 text-center text-[#d8c8f4]">Procure um jogador pelo nome (ou deixe vazio para os melhores) e escolha-o na lista.</div>
+                <div className="p-8 text-center text-cm-lilac">Procure um jogador pelo nome (ou deixe vazio para os melhores) e escolha-o na lista.</div>
               ) : (
                 <>
                   <div className="mb-1.5 flex items-baseline gap-3">

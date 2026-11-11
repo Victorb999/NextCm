@@ -13,7 +13,7 @@ export type Bind = { 'data-spot': string; onMouseDown: (e: React.MouseEvent) => 
 
 /** Cor da casa da função, pela linha do campo (como no Stitch): GR, defesa, meio, ataque. */
 function roleChip(place: string) {
-  if (place.startsWith('SB')) return 'bg-[#2a1450] text-[#d0bcff]'
+  if (place.startsWith('SB')) return 'bg-[#2a1450] text-cm-lilac'
   if (place.startsWith('GR')) return 'bg-[#12323a] text-[#5ad1e6]'
   if (place.startsWith('D') || place.startsWith('AL')) return 'bg-[#16244a] text-[#7aa2ff]'
   if (place.startsWith('M')) return 'bg-[#3a2508] text-cm-orange'
@@ -33,7 +33,7 @@ const COL = {
 /** Cabeçalho das colunas da lista (onze, banco, resto do plantel). */
 export function RowHeader({ place, action, rating, column = 'Posição' }: { place: string; action?: string; rating?: boolean; column?: string }) {
   return (
-    <div className="flex h-7 items-center gap-2 bg-black/40 px-3 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#86869a]">
+    <div className="flex h-7 items-center gap-2 bg-black/40 px-3 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-cm-dim">
       <span className={COL.num}>Nº</span>
       <span className={COL.place}>{place}</span>
       <span className="flex-1">Jogador</span>
@@ -158,12 +158,12 @@ export function Row({
             Instr.
           </span>
         )}
-        {note && <span className="shrink-0 text-[11px] font-bold text-[#ff6060]">{note}</span>}
+        {note && <span className="shrink-0 text-[11px] font-bold text-cm-red">{note}</span>}
       </span>
       {column ? (
-        <span className={`${COL.pos} text-[13px] ${column.on ? 'font-bold text-cm-yellow' : 'text-[#9b6fe8]'}`}>{column.text}</span>
+        <span className={`${COL.pos} text-[13px] ${column.on ? 'font-bold text-cm-yellow' : 'text-cm-purplelight'}`}>{column.text}</span>
       ) : (
-        <span className={`${COL.pos} text-[13px] text-[#c8c8d0]`}>{p.position}</span>
+        <span className={`${COL.pos} text-[13px] text-cm-muted`}>{p.position}</span>
       )}
       <span className={`${COL.cond} font-semibold tabular-nums ${conditionColour(p.condition)}`}>{p.condition ?? 100}%</span>
       {rating !== undefined && <span className={`${COL.rating} font-semibold tabular-nums text-cm-yellow`}>{rating ?? '-'}</span>}
@@ -171,7 +171,7 @@ export function Row({
         {p.injured || p.suspended ? (
           <span className="rounded-[3px] bg-[#9c0000] px-1.5 text-[11px] font-bold text-white">{p.injured ? 'Les' : 'Sus'}</span>
         ) : (
-          <span className="rounded-[3px] bg-white/10 px-1.5 text-[11px] font-bold text-[#c8c8d0]">OK</span>
+          <span className="rounded-[3px] bg-white/10 px-1.5 text-[11px] font-bold text-cm-muted">OK</span>
         )}
       </span>
       {action}
@@ -188,9 +188,9 @@ function Arrow({ from, to, live }: { from: [number, number]; to: [number, number
   const head = (d: number) => [x2 - 3 * Math.cos(a + d), y2 - 3 * Math.sin(a + d)]
   const [hx1, hy1] = head(0.5)
   const [hx2, hy2] = head(-0.5)
-  const colour = live ? '#ffff40' : '#ffffff'
+  const colour = live ? 'rgb(var(--c-yellow))' : '#ffffff'
   return (
-    <g stroke={colour} strokeWidth={1.5} fill="none" vectorEffect="non-scaling-stroke">
+    <g style={{ stroke: colour }} strokeWidth={1.5} fill="none" vectorEffect="non-scaling-stroke">
       <line x1={x1} y1={y1} x2={x2} y2={y2} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
       <polyline points={`${hx1},${hy1} ${x2},${y2} ${hx2},${hy2}`} vectorEffect="non-scaling-stroke" />
     </g>
@@ -247,7 +247,7 @@ export function Pitch({
               <span
                 className={`flex size-8 items-center justify-center rounded-lg text-[14px] font-bold shadow-[0_2px_6px_rgba(0,0,0,0.5)] ${
                   s.role === 'GR'
-                    ? 'bg-[#4edea3] text-[#06281b]'
+                    ? 'bg-cm-mint text-cm-onmint'
                     : s.player
                       ? colours
                         ? 'ring-1 ring-black/40'
@@ -297,7 +297,7 @@ export function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: ()
         title="Instruções"
         right={
           onEdit && (
-            <button onClick={onEdit} className="font-bold font-mono uppercase tracking-wider text-[#4edea3] hover:text-white">
+            <button onClick={onEdit} className="font-bold font-mono uppercase tracking-wider text-cm-mint hover:text-white">
               Editar
             </button>
           )
@@ -305,9 +305,9 @@ export function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: ()
       />
       <div className="flex min-h-0 flex-col gap-2 overflow-auto p-2.5">
         {items.map(([label, value, on]) => (
-          <div key={label} className="min-w-0 rounded bg-[#1e1f25] px-2.5 py-1.5">
-            <div className="truncate text-[10px] font-bold font-mono uppercase tracking-wider text-[#86869a]">{label}</div>
-            <div className={`truncate font-semibold ${on ? 'text-[#4edea3]' : 'text-[#c8c8d0]'}`}>{value}</div>
+          <div key={label} className="min-w-0 rounded bg-cm-raised px-2.5 py-1.5">
+            <div className="truncate text-[10px] font-bold font-mono uppercase tracking-wider text-cm-dim">{label}</div>
+            <div className={`truncate font-semibold ${on ? 'text-cm-mint' : 'text-cm-muted'}`}>{value}</div>
           </div>
         ))}
       </div>

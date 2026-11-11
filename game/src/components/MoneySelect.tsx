@@ -19,7 +19,7 @@ export default function MoneySelect({ value, onChange, factor = 1 }: { value: nu
       <select
         value={shown}
         onChange={(e) => set(Number(e.target.value))}
-        className="h-7 w-44 rounded border border-[#2f6b52] bg-black px-2 text-right text-[15px] tabular-nums text-cm-yellow outline-none focus:border-cm-yellow"
+        className="h-7 w-44 rounded border border-cm-dlgline bg-black px-2 text-right text-[15px] tabular-nums text-cm-yellow outline-none focus:border-cm-yellow"
       >
         {moneyOptions(shown).map((v) => (
           <option key={v} value={v}>

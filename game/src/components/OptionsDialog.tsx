@@ -10,6 +10,7 @@ import {
   MATCH_SPEEDS,
   RESOLUTIONS,
   SIDE_PRESETS,
+  THEMES,
   TEXT_FONTS,
   WAGES,
   applyResolution,
@@ -69,8 +70,8 @@ function Option({
       onClick={onClick}
       className={`h-8 min-w-[78px] rounded-[4px] border px-3 text-[13px] disabled:cursor-default ${
         selected
-          ? "border-cm-yellow bg-[#1d4d3a] font-bold text-cm-yellow"
-          : "border-[#2f6b52] text-[#d6efe4] enabled:hover:bg-[#1d4d3a]/60"
+          ? "border-cm-yellow bg-cm-dlghover font-bold text-cm-yellow"
+          : "border-cm-dlgline text-cm-dlgtext enabled:hover:bg-cm-dlghover/60"
       }`}
     >
       {children}
@@ -95,7 +96,7 @@ function Cycle<T extends string>({
       value={value}
       disabled={disabled}
       onChange={(e) => onChange?.(e.target.value as T)}
-      className="h-8 w-72 rounded-[4px] border border-[#2f6b52] bg-[#0b1a14] px-2 font-bold text-cm-yellow outline-none focus:border-cm-yellow disabled:text-[#6b7a72]"
+      className="h-8 w-72 rounded-[4px] border border-cm-dlgline bg-cm-dlg px-2 font-bold text-cm-yellow outline-none focus:border-cm-yellow disabled:text-[#6b7a72]"
     >
       {options.map((o) => (
         <option key={o.key} value={o.key}>
@@ -164,13 +165,13 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-      <div className="cm-dialog-in flex h-[min(620px,100%)] w-[720px] max-w-full flex-col overflow-hidden rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)]">
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[#2f6b52] px-4">
-          <span className="size-2 rounded-full bg-[#4edea3]" />
+      <div className="cm-dialog-in flex h-[min(620px,100%)] w-[720px] max-w-full flex-col overflow-hidden rounded-lg border-2 border-cm-dlgborder bg-cm-dlg shadow-[0_12px_32px_rgba(0,0,0,0.7)]">
+        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-cm-dlgline px-4">
+          <span className="size-2 rounded-full bg-cm-mint" />
           <span className="font-mono font-bold uppercase tracking-[0.12em] text-white">
             Definições do Jogo
           </span>
-          <span className="ml-auto text-[12px] text-[#86869a]">
+          <span className="ml-auto text-[12px] text-cm-dim">
             Versão {VERSION}
           </span>
           <button
@@ -194,7 +195,7 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
             </button>
           ))}
         </div>
-        <div className="cm-zebra m-4 mt-3 min-h-0 flex-1 overflow-auto rounded-md border border-[#2f6b52]">
+        <div className="cm-zebra m-4 mt-3 min-h-0 flex-1 overflow-auto rounded-md border border-cm-dlgline">
           {section === "general" && (
             <>
               <Row label="Língua">
@@ -291,9 +292,12 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
           {section === "look" && (
             <>
               <Row label="Tema">
+                <Cycle options={THEMES} value={s.theme} onChange={(theme) => set({ theme })} />
+              </Row>
+              <Row label="Cor da Coluna">
                 <Cycle
-                  options={SIDE_PRESETS.map((p) => ({ key: p.colour, label: p.label }))}
-                  value={SIDE_PRESETS.some((p) => p.colour === s.sideColour) ? s.sideColour : DEFAULT_SETTINGS.sideColour}
+                  options={[{ key: "theme", label: "Do tema" }, ...SIDE_PRESETS.map((p) => ({ key: p.colour, label: p.label }))]}
+                  value={SIDE_PRESETS.some((p) => p.colour === s.sideColour) ? s.sideColour : "theme"}
                   onChange={(sideColour) => set({ sideColour })}
                 />
               </Row>
@@ -408,7 +412,7 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
           )}
         </div>
         <ErrorBox className="mx-4 -mt-1 mb-3">{error}</ErrorBox>
-        <div className="flex shrink-0 justify-end gap-2 border-t border-[#2f6b52] p-3">
+        <div className="flex shrink-0 justify-end gap-2 border-t border-cm-dlgline p-3">
           <button
             className="h-9 w-32 rounded-[4px] border border-white/20 bg-black/30 font-semibold text-white hover:bg-black/50"
             onClick={onClose}
@@ -416,7 +420,7 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
             Cancelar
           </button>
           <button
-            className="h-9 w-32 rounded-[4px] bg-[#10b981] font-bold text-[#06281b] hover:bg-[#4edea3]"
+            className="h-9 w-32 rounded-[4px] bg-cm-dlgborder font-bold text-cm-onmint hover:bg-cm-mint"
             onClick={ok}
           >
             Ok

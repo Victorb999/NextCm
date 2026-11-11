@@ -152,7 +152,7 @@ export default function LiveTactics({
             {([0, 1] as const).map((s) => {
               const goals = scorers(s)
               return goals ? (
-                <span key={s} className="text-[12px] text-[#c8c8d0]">
+                <span key={s} className="text-[12px] text-cm-muted">
                   <b className="text-white">{(s === 0 ? view.home : view.away).club.shortName}:</b> {goals}
                 </span>
               ) : null

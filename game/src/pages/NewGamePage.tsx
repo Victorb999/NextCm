@@ -319,28 +319,28 @@ export default function NewGamePage() {
                 Resumo
               </div>
               <div className="flex justify-between gap-2 py-0.5">
-                <span className="text-[#bfe6c4]">Treinador</span>
+                <span className="text-cm-dlgtext">Treinador</span>
                 <span className="truncate text-cm-yellow">
                   {`${form.firstName} ${form.lastName}`.trim() || "-"}
                 </span>
               </div>
               <div className="flex justify-between gap-2 py-0.5">
-                <span className="text-[#bfe6c4]">Nacionalidade</span>
+                <span className="text-cm-dlgtext">Nacionalidade</span>
                 <span className="truncate text-cm-yellow">
                   {nations.find((n) => n.id === form.nationId)?.name ?? "-"}
                 </span>
               </div>
               <div className="flex justify-between gap-2 py-0.5">
-                <span className="text-[#bfe6c4]">Época</span>
+                <span className="text-cm-dlgtext">Época</span>
                 <span className="text-cm-yellow">
                   {season === "brazil" ? "Brasil 2026" : "Europa 26/27"}
                 </span>
               </div>
               <div className="flex justify-between gap-2 py-0.5">
-                <span className="text-[#bfe6c4]">Ligas escolhidas</span>
+                <span className="text-cm-dlgtext">Ligas escolhidas</span>
                 <span className="text-cm-yellow">{playable.length}</span>
               </div>
-              <div className="pt-2 text-[12px] leading-snug text-[#bfe6c4]">
+              <div className="pt-2 text-[12px] leading-snug text-cm-dlgtext">
                 A seguir escolhe o clube, numa das ligas escolhidas.
               </div>
             </div>

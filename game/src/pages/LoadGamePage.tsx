@@ -96,7 +96,7 @@ export default function LoadGamePage() {
             <thead>
               <tr className="h-6">
                 {head.map((h) => (
-                  <th key={h} className="bg-[#3d1a73] px-3 text-left font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow">
+                  <th key={h} className="bg-cm-headdeep px-3 text-left font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow">
                     {h}
                   </th>
                 ))}
@@ -126,7 +126,7 @@ export default function LoadGamePage() {
           <DialogFrame title="Apagar Jogo" width={480} onCancel={() => setConfirm(null)} onOk={() => void remove(confirm)} okLabel="Apagar">
             <div className="py-3 text-center font-title text-[18px] text-white">
               Apagar o jogo <span className="text-cm-yellow">{confirm.name}</span> ({confirm.clubName})?
-              <div className="pt-1 text-[14px] text-[#d8c8f4]">Não dá para desfazer.</div>
+              <div className="pt-1 text-[14px] text-cm-lilac">Não dá para desfazer.</div>
             </div>
           </DialogFrame>
         </Overlay>

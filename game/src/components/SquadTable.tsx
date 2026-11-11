@@ -79,7 +79,7 @@ export default function SquadTable({
 }) {
   const columns = columnsFor(view, extra)
   const head =
-    "font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#86869a]"
+    "font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-dim"
   return (
     <div className="overflow-hidden rounded-md bg-cm-surface">
       <div
@@ -107,7 +107,7 @@ export default function SquadTable({
             onDoubleClick={() => onOpen(p.id)}
             className={`flex h-6 items-center gap-2 px-2 ${i === selected ? "!bg-cm-sel" : ""}`}
           >
-            <span className="w-10 shrink-0 text-center font-mono text-[12px] font-bold text-[#4edea3]">
+            <span className="w-10 shrink-0 text-center font-mono text-[12px] font-bold text-cm-mint">
               {place ?? <span className="text-[#5a5a66]">-</span>}
             </span>
             <span className="w-10 shrink-0 text-center font-mono text-[12px]">

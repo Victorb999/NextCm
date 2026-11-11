@@ -35,7 +35,7 @@ function Row({
       <button
         onClick={onToggle}
         disabled={!onToggle}
-        className={`w-96 shrink-0 text-left text-[15px] font-semibold ${on ? 'text-white' : 'text-[#9b6fe8]'} enabled:hover:underline`}
+        className={`w-96 shrink-0 text-left text-[15px] font-semibold ${on ? 'text-white' : 'text-cm-purplelight'} enabled:hover:underline`}
         title={onToggle ? (on ? 'Clique para tirar da proposta' : 'Clique para pôr na proposta') : undefined}
       >
         {label}
@@ -91,7 +91,7 @@ export default function ContractExtrasPanel({
   const minFee = value.minFee
   return (
     <Panel title={tab === 'bonuses' ? 'Prémios' : 'Cláusulas'} className="shrink-0">
-      <div className="px-4 pt-2 text-[14px] text-[#c8c8d0]">
+      <div className="px-4 pt-2 text-[14px] text-cm-muted">
         {tab === 'bonuses' ? 'Propôr ao jogador os seguintes prémios:' : 'Propôr ao jogador as seguintes cláusulas:'}
       </div>
       <div className="cm-zebra py-1">
@@ -125,7 +125,7 @@ export default function ContractExtrasPanel({
       </div>
       {tab === 'clauses' && (
         <>
-          <div className="px-4 pt-1 text-[14px] text-[#c8c8d0]">Cláusulas de Rescisão:</div>
+          <div className="px-4 pt-1 text-[14px] text-cm-muted">Cláusulas de Rescisão:</div>
           <div className="cm-zebra py-1">{flag('managerJob', 'Cláusula de dispensa por oferta de lugar de treinador')}</div>
         </>
       )}

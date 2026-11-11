@@ -35,7 +35,7 @@ export function FixtureRows({ fixtures, own, showDate = true }: { fixtures: Fixt
           <tr key={f.id} className="h-[30px] text-[15px]">
             {showDate && (
               <td className="w-48 whitespace-nowrap px-2 text-cm-magenta">
-                {matchDate(f.date)} <span className="text-[13px] text-[#c8c8d0]">{f.time}</span>
+                {matchDate(f.date)} <span className="text-[13px] text-cm-muted">{f.time}</span>
               </td>
             )}
             <td className="px-2 text-right">
@@ -124,7 +124,7 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
           return (
             <div key={f.id} className="flex h-6 items-center gap-3 px-3">
               <span className="cm-cell w-28 shrink-0 text-center text-[13px] text-white">{shortDate(f.date)}</span>
-              <span className="w-11 shrink-0 text-center text-[12.5px] text-[#c8c8d0]">{f.time}</span>
+              <span className="w-11 shrink-0 text-center text-[12.5px] text-cm-muted">{f.time}</span>
               <div className="min-w-0 flex-1 truncate">
                 <ClubName club={opponent} className="!text-[16px] font-semibold" />
               </div>

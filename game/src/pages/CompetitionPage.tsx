@@ -25,7 +25,7 @@ const TABS = [
 ]
 
 /** Cabeçalho de coluna roxo com letra amarela, como as tabelas do CM. */
-const TH = 'bg-[#3d1a73] px-2 text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow'
+const TH = 'bg-cm-headdeep px-2 text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow'
 
 function ClubLink({ club }: { club: ClubRef | null }) {
   const nav = useNav()
@@ -95,7 +95,7 @@ const values = (r: StandingRow) => [r.played, r.won, r.drawn, r.lost, r.goalsFor
 /** A legenda das faixas da classificação. */
 function ZoneLegend({ zones }: { zones: TableZone[] }) {
   return (
-    <div className="flex flex-col gap-1.5 p-3 text-[13px] text-[#e3e1e9]">
+    <div className="flex flex-col gap-1.5 p-3 text-[13px] text-cm-text">
       {zones.map((z) => (
         <span key={z.kind} className="flex items-center gap-2">
           <span className="inline-block h-3 w-1.5 rounded-sm" style={{ background: ZONE_COLOURS[z.kind] }} />
@@ -149,7 +149,7 @@ function Table({ c, rows, own, title = 'Classificação Geral' }: { c: Competiti
                     </Link>
                   </td>
                   {row.values.map((v, j) => (
-                    <td key={COLS[j]} className={`text-center tabular-nums ${j === 6 ? 'font-bold text-cm-yellow' : 'text-[#e3e1e9]'}`}>
+                    <td key={COLS[j]} className={`text-center tabular-nums ${j === 6 ? 'font-bold text-cm-yellow' : 'text-cm-text'}`}>
                       {v}
                     </td>
                   ))}
@@ -191,7 +191,7 @@ function GroupBox({ name, rows, own }: { name: string; rows: StandingRow[]; own?
                 </Link>
               </td>
               {values(r).map((v, j) => (
-                <td key={COLS[j]} className={`text-center tabular-nums ${j === 6 ? 'font-bold text-cm-yellow' : 'text-[#e3e1e9]'}`}>
+                <td key={COLS[j]} className={`text-center tabular-nums ${j === 6 ? 'font-bold text-cm-yellow' : 'text-cm-text'}`}>
                   {v}
                 </td>
               ))}

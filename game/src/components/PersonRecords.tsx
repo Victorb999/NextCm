@@ -12,7 +12,7 @@ export default function PersonRecords({ p }: { p: PersonProfile }) {
           {p.records.map((r) => (
             <div key={r.label} className="px-3 py-0.5 text-[13.5px]">
               <div className="flex min-h-6 items-center gap-2">
-                <span className="min-w-0 flex-1 truncate text-[#c8c8d0]">{r.label}</span>
+                <span className="min-w-0 flex-1 truncate text-cm-muted">{r.label}</span>
                 <span className="shrink-0 text-right font-bold text-cm-yellow">{r.value}</span>
               </div>
               {r.detail && <div className="-mt-1 truncate pb-0.5 text-[12px] text-[#9a9aa6]">{r.detail}</div>}

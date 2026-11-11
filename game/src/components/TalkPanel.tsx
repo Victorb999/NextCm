@@ -13,12 +13,12 @@ import { BottomBar, ErrorBox, Panel, ScreenHeader } from './Screen'
 // mostra a reação de cada um. As regras estão no core.
 
 const COLOURS: Record<string, string> = {
-  Motivado: 'text-[#4cd964]',
+  Motivado: 'text-cm-green',
   Focado: 'text-[#a8e6a1]',
   'Sem reação': 'text-white',
   Complacente: 'text-cm-orange',
   Nervoso: 'text-cm-orange',
-  Irritado: 'text-[#ff5050]',
+  Irritado: 'text-cm-red',
 }
 
 function Choice({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -83,7 +83,7 @@ export default function TalkPanel({
   }
   const phrase = (key: string) => view?.options.find((o) => o.key === key)?.label ?? ''
 
-  const th = 'bg-[#3d1a73] px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow'
+  const th = 'bg-cm-headdeep px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow'
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader icon={<Megaphone size={22} />} title={view?.title ?? 'Palestra'} />
@@ -138,7 +138,7 @@ export default function TalkPanel({
                     {view.players.map((p) => (
                       <tr key={p.id} className={`h-7 ${p.listens ? 'text-white' : 'text-[#6c6c78]'}`}>
                         <td className="px-2 text-center">
-                          <span className={`inline-block w-8 rounded text-[12px] font-bold ${p.listens ? 'bg-[#2f6b52] text-white' : 'bg-white/5'}`}>
+                          <span className={`inline-block w-8 rounded text-[12px] font-bold ${p.listens ? 'bg-cm-dlgline text-white' : 'bg-white/5'}`}>
                             {p.number ?? ''}
                           </span>
                         </td>

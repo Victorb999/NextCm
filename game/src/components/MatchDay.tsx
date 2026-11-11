@@ -225,10 +225,10 @@ function PossessionBar({
   return (
     <div className="flex flex-col gap-1.5 rounded border border-cm-purple/60 bg-cm-purple/25 px-3 py-2">
       <div className="flex items-center justify-between text-[12px] font-bold font-mono uppercase tracking-wider">
-        <span className="text-[#d0bcff]">{label}</span>
-        <span className="normal-case tracking-normal text-[#e3e1e9]">
+        <span className="text-cm-lilac">{label}</span>
+        <span className="normal-case tracking-normal text-cm-text">
           {view.home.club.shortName} {home}%{" "}
-          <span className="text-[#86869a]">vs</span> {view.away.club.shortName}{" "}
+          <span className="text-cm-dim">vs</span> {view.away.club.shortName}{" "}
           {100 - home}%
         </span>
       </div>
@@ -350,7 +350,7 @@ function Scorers({
           key={name}
           className={`flex font-title font-bold ${small ? "gap-4 text-[17px] leading-[22px]" : "gap-8 text-[22px]"}`}
         >
-          <span className="text-[#e8e8e8]">{name}</span>
+          <span className="text-cm-text">{name}</span>
           <span className="text-cm-yellow">{mins.join(", ")}</span>
         </div>
       ))}
@@ -416,12 +416,12 @@ function Panorama({
           <span className="font-bold font-mono uppercase tracking-wider text-cm-orange">
             {title}
           </span>
-          <span className="text-[#86869a]"> / </span>
-          <span className="text-[#c8c8d0]">
+          <span className="text-cm-dim"> / </span>
+          <span className="text-cm-muted">
             {longDate(view.fixture.date)} {view.fixture.date.slice(0, 4)}
           </span>
         </span>
-        <span className="rounded bg-black/50 px-2 py-0.5 text-[12px] font-bold font-mono uppercase tracking-wider text-[#4edea3]">
+        <span className="rounded bg-black/50 px-2 py-0.5 text-[12px] font-bold font-mono uppercase tracking-wider text-cm-mint">
           {view.fixture.competition}
           {score}
         </span>
@@ -479,17 +479,17 @@ function Panorama({
           <span className="font-bold text-cm-orange">Árbitro:</span>{" "}
           <span className="text-white">{view.referee}</span>
         </span>
-        <span className="text-[#55565f]">•</span>
-        <span className="flex items-center gap-1.5 text-[#c8c8d0]">
+        <span className="text-cm-faint">•</span>
+        <span className="flex items-center gap-1.5 text-cm-muted">
           Cartões:
-          {yellows + reds === 0 && <span className="text-[#86869a]">-</span>}
+          {yellows + reds === 0 && <span className="text-cm-dim">-</span>}
           {yellows > 0 && (
             <span className="rounded bg-cm-yellow/20 px-1.5 text-[11px] font-bold text-cm-yellow">
               {yellows} Amr
             </span>
           )}
           {reds > 0 && (
-            <span className="rounded bg-[#ff2020]/20 px-1.5 text-[11px] font-bold text-[#ff6060]">
+            <span className="rounded bg-cm-red/20 px-1.5 text-[11px] font-bold text-cm-red">
               {reds} Verm
             </span>
           )}
@@ -499,8 +499,8 @@ function Panorama({
         </span>
         {started && (
           <>
-            <span className="text-[#55565f]">•</span>
-            <span className="text-[#c8c8d0]">
+            <span className="text-cm-faint">•</span>
+            <span className="text-cm-muted">
               Assistência:{" "}
               <span className="text-white">
                 {view.attendance.toLocaleString("pt-PT")}
@@ -539,7 +539,7 @@ function Stats({ view }: { view: LiveView }) {
       pct(a.headersWon, a.headers),
     ],
     ["Cartões Amarelos", h.yellows, a.yellows, "text-cm-yellow"],
-    ["Cartões Vermelhos", h.reds, a.reds, "text-[#ff2020]"],
+    ["Cartões Vermelhos", h.reds, a.reds, "text-cm-red"],
   ]
   return (
     <div className="px-2 py-1.5">
@@ -549,7 +549,7 @@ function Stats({ view }: { view: LiveView }) {
             {x}
           </span>
           <span
-            className={`flex-1 text-center font-title text-[20px] ${colour ?? "text-[#e8e8e8]"}`}
+            className={`flex-1 text-center font-title text-[20px] ${colour ?? "text-cm-text"}`}
           >
             {label}
           </span>
@@ -570,7 +570,7 @@ function Zones({ view }: { view: LiveView }) {
         className="relative flex h-[60%] min-h-[200px] w-[78%] border-2 border-[#d8d8d8]/60"
         style={{
           background:
-            "repeating-linear-gradient(90deg, #0f5a16 0 44px, #126a1a 44px 88px)",
+            "repeating-linear-gradient(90deg, rgb(var(--c-pitch)) 0 44px, #126a1a 44px 88px)",
         }}
       >
         <div className="absolute left-0 top-1/4 h-1/2 w-[12%] border border-l-0 border-white/50" />
@@ -633,7 +633,7 @@ function Report({ lines }: { lines: Line[] }) {
               : ""}
           </span>
           <span
-            className={`truncate ${l.kind === "goal" ? "font-bold text-cm-yellow" : l.kind === "red" ? "text-[#ff6060]" : "text-[#e8e8e8]"}`}
+            className={`truncate ${l.kind === "goal" ? "font-bold text-cm-yellow" : l.kind === "red" ? "text-cm-red" : "text-cm-text"}`}
           >
             {l.text}
           </span>
@@ -647,7 +647,7 @@ const fullName = (p: LivePlayer) => p.listName.split(", ").reverse().join(" ")
 
 /** A cor de uma nota (1–10): verde das boas, amarela das médias, vermelha das más. */
 const ratingColour = (r: number | null) =>
-  r === null ? "#5a5a6a" : r >= 8 ? "#4edea3" : r >= 7 ? "#b6e35a" : r >= 6 ? "#f2d24b" : r >= 5 ? "#f29a3b" : "#ff5a5a"
+  r === null ? "#5a5a6a" : r >= 8 ? "rgb(var(--c-mint))" : r >= 7 ? "#b6e35a" : r >= 6 ? "#f2d24b" : r >= 5 ? "#f29a3b" : "#ff5a5a"
 
 /** O campo dos Dados da equipa, deitado (o ataque para a direita): quem está em campo no seu
  * lugar, com o número e a nota na cor. */
@@ -709,7 +709,7 @@ function RatingBars({ players }: { players: LivePlayer[] }) {
             </span>
             <span className="w-10 shrink-0 truncate text-cm-yellow">
               {p.goals > 0 ? "●".repeat(p.goals) : ""}
-              {p.red ? <span className="text-[#ff2020]"> ▮</span> : p.yellow ? " ▮" : ""}
+              {p.red ? <span className="text-cm-red"> ▮</span> : p.yellow ? " ▮" : ""}
             </span>
           </div>
         ))}
@@ -786,23 +786,23 @@ function TeamData({ team }: { team: LiveTeam }) {
     return (
       <div key={p.id} className="flex h-[19px] items-center gap-1 text-[13px]">
         <span
-          className={`h-full w-7 shrink-0 text-center leading-[19px] ${played ? "bg-[#262626] text-white" : "bg-[#161660] text-[#c9b8ff]"}`}
+          className={`h-full w-7 shrink-0 text-center leading-[19px] ${played ? "bg-[#262626] text-white" : "bg-[#161660] text-cm-lilac"}`}
         >
           {p.squadNumber ?? ""}
         </span>
         <span className="flex w-3 shrink-0 justify-center">
           {p.red ? (
-            <span className="h-3 w-2 bg-[#ff2020]" />
+            <span className="h-3 w-2 bg-cm-red" />
           ) : p.yellow ? (
             <span className="h-3 w-2 bg-cm-yellow" />
           ) : null}
         </span>
         <span
-          className={`w-48 shrink-0 truncate ${!played ? "text-[#8b5bd6]" : p.offMinute !== null && !p.red ? "text-[#c4a8f5]" : "text-white"}`}
+          className={`w-48 shrink-0 truncate ${!played ? "text-cm-purplelight" : p.offMinute !== null && !p.red ? "text-cm-lilac" : "text-white"}`}
         >
           {fullName(p)}
           {p.offMinute !== null && !p.red ? (
-            <span className="text-[#ff7070]"> ↓{p.offMinute}'</span>
+            <span className="text-cm-red"> ↓{p.offMinute}'</span>
           ) : null}
           {p.onMinute !== null ? (
             <span className="text-cm-green"> ↑{p.onMinute}'</span>
@@ -1009,7 +1009,7 @@ function Table({ view, own }: { view: LiveView; own: number }) {
           ].map((v, i) => (
             <span
               key={i}
-              className={`w-10 text-center ${i === 6 ? "font-bold text-cm-yellow" : "text-[#e8e8e8]"}`}
+              className={`w-10 text-center ${i === 6 ? "font-bold text-cm-yellow" : "text-cm-text"}`}
             >
               {v}
             </span>
@@ -1031,13 +1031,13 @@ function Highlights({ team }: { team: LiveTeam }) {
         <span className="truncate text-cm-orange">
           {team.club.shortName} · Destaques
         </span>
-        <span className="shrink-0 text-[#86869a]">Con / Nota</span>
+        <span className="shrink-0 text-cm-dim">Con / Nota</span>
       </div>
       {top.map((p) => (
         <div key={p.id} className="flex h-6 items-center gap-2 text-[13px]">
           <span className="min-w-0 flex-1 truncate text-white">
             {shortListName(p.listName)}{" "}
-            <span className="text-[#86869a]">({p.role ?? p.position})</span>
+            <span className="text-cm-dim">({p.role ?? p.position})</span>
           </span>
           <span
             className={`shrink-0 font-bold ${conditionColour(p.condition)}`}
@@ -1066,7 +1066,7 @@ function History({ said }: { said: Line[] }) {
         Histórico Recente
       </div>
       {recent.length === 0 && (
-        <div className="text-[13px] text-[#86869a]">Ainda sem lances.</div>
+        <div className="text-[13px] text-cm-dim">Ainda sem lances.</div>
       )}
       {recent.map((l, i) => (
         <div key={i} className="flex h-6 items-center gap-2 text-[13px]">
@@ -1074,7 +1074,7 @@ function History({ said }: { said: Line[] }) {
             {l.minute}'
           </span>
           <span
-            className={`truncate ${isGoalLine(l) ? "font-bold text-cm-yellow" : l.kind === "red" ? "text-[#ff6060]" : "text-[#e3e1e9]"}`}
+            className={`truncate ${isGoalLine(l) ? "font-bold text-cm-yellow" : l.kind === "red" ? "text-cm-red" : "text-cm-text"}`}
           >
             {l.text}
           </span>
@@ -1088,8 +1088,8 @@ function History({ said }: { said: Line[] }) {
 const matchTab = (selected: boolean) =>
   `flex h-8 min-w-0 flex-1 items-center justify-center truncate rounded px-2 ${
     selected
-      ? "bg-[#292a2f] font-bold text-cm-yellow ring-1 ring-inset ring-cm-yellow"
-      : "bg-[#1e1f25] text-[#c8c8d0] hover:bg-[#292a2f] hover:text-white"
+      ? "bg-cm-hover font-bold text-cm-yellow ring-1 ring-inset ring-cm-yellow"
+      : "bg-cm-raised text-cm-muted hover:bg-cm-hover hover:text-white"
   }`
 
 type Pane =
@@ -1125,7 +1125,7 @@ function MatchSideButton({
       className={`flex min-h-[40px] w-full items-center justify-center gap-2 rounded px-2 text-center font-bold leading-tight disabled:opacity-50 ${
         style
           ? ""
-          : "bg-[#1e1f25] text-white hover:bg-[#292a2f] disabled:hover:bg-[#1e1f25]"
+          : "bg-cm-raised text-white hover:bg-cm-hover disabled:hover:bg-cm-raised"
       } ${className}`}
       style={style}
       disabled={disabled}
@@ -1374,7 +1374,7 @@ function LiveScreen({
 
   if (!view) {
     return (
-      <div className="cm-backdrop absolute inset-0 z-50 p-6 text-[#ff7070]">
+      <div className="cm-backdrop absolute inset-0 z-50 p-6 text-cm-red">
         {error}
       </div>
     )
@@ -1438,28 +1438,28 @@ function LiveScreen({
   const stage = document.getElementById("stage")
   const screen = (
     <div className={`absolute inset-x-0 bottom-0 top-11 z-50 flex bg-[#121318] ${active ? "" : "hidden"}`}>
-      <aside className="flex w-[196px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-[#16171c] p-2">
-        <div className="flex flex-col items-center rounded bg-[#1e1f25] py-2">
-          <span className="text-[11px] font-bold font-mono uppercase tracking-widest text-[#86869a]">
+      <aside className="flex w-[196px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-cm-deep p-2">
+        <div className="flex flex-col items-center rounded bg-cm-raised py-2">
+          <span className="text-[11px] font-bold font-mono uppercase tracking-widest text-cm-dim">
             Minuto de Jogo
           </span>
           <span className="font-title text-[44px] font-bold leading-[48px] text-cm-orange">
             {view.minute}'
           </span>
-          <span className="text-[12px] font-bold font-mono uppercase tracking-wider text-[#4edea3]">
+          <span className="text-[12px] font-bold font-mono uppercase tracking-wider text-cm-mint">
             {period}
           </span>
         </div>
         <div className="flex gap-1.5">
           <button
-            className="flex h-8 flex-1 items-center justify-center rounded bg-[#1e1f25] text-[#55565f]"
+            className="flex h-8 flex-1 items-center justify-center rounded bg-cm-raised text-cm-faint"
             disabled
             aria-label="Voltar"
           >
             ◀
           </button>
           <button
-            className="flex h-8 flex-1 items-center justify-center rounded bg-[#1e1f25] text-[#55565f]"
+            className="flex h-8 flex-1 items-center justify-center rounded bg-cm-raised text-cm-faint"
             disabled
             aria-label="Avançar"
           >
@@ -1502,8 +1502,8 @@ function LiveScreen({
             Palestra
           </MatchSideButton>
         )}
-        <div className="flex flex-col gap-1 rounded bg-[#1e1f25] p-2">
-          <span className="mb-0.5 text-[11px] font-bold font-mono uppercase tracking-widest text-[#86869a]">
+        <div className="flex flex-col gap-1 rounded bg-cm-raised p-2">
+          <span className="mb-0.5 text-[11px] font-bold font-mono uppercase tracking-widest text-cm-dim">
             Velocidade Comentário
           </span>
           {MATCH_SPEEDS.map((s) => (
@@ -1515,8 +1515,8 @@ function LiveScreen({
               }
               className={`h-6 rounded text-[12px] disabled:opacity-50 ${
                 s.key === speed.key
-                  ? "bg-[#4edea3] font-bold text-[#06281b]"
-                  : "bg-[#16171c] text-[#c8c8d0] hover:text-white"
+                  ? "bg-cm-mint font-bold text-cm-onmint"
+                  : "bg-cm-deep text-cm-muted hover:text-white"
               }`}
             >
               {s.label}
@@ -1610,7 +1610,7 @@ function LiveScreen({
               {pane === "results" && <Results view={view} own={own} />}
               {pane === "table" && <Table view={view} own={own} />}
             </div>
-            {error && <div className="text-[#ff7070]">{error}</div>}
+            {error && <div className="text-cm-red">{error}</div>}
             <div className="flex shrink-0 gap-1.5">
               {bottom.map(([k, t]) => (
                 <button

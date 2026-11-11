@@ -16,7 +16,7 @@ const COLUMNS = ['Este Mês', 'Último Mês', 'Este Ano', 'Último Ano']
 
 /** "€1.234.567", ou "(€1.234.567)" a vermelho nas perdas. */
 function Amount({ v, tone }: { v: number; tone: string }) {
-  if (v < 0) return <span className="text-[#ff5050]">({moneyFull(-v)})</span>
+  if (v < 0) return <span className="text-cm-red">({moneyFull(-v)})</span>
   return <span className={tone}>{moneyFull(v)}</span>
 }
 

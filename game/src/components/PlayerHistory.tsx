@@ -49,7 +49,7 @@ function statCells(s: StatLine): ReactNode[] {
 }
 
 const TH =
-  "bg-[#3d1a73] px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow"
+  "bg-cm-headdeep px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow"
 
 /** Tabela de cabeçalho roxo; `first` são as colunas de texto à esquerda. */
 function Table({
@@ -114,11 +114,11 @@ function Table({
           </tr>
         ))}
         {total && (
-          <tr className="h-[25px] !bg-[#1d4d3a]/50 font-bold">
+          <tr className="h-[25px] !bg-cm-dlghover/50 font-bold">
             {total.map((c, j) => (
               <td
                 key={j}
-                className={`px-2 tabular-nums ${j < first ? "text-left text-[#4edea3]" : "text-center text-cm-yellow"}`}
+                className={`px-2 tabular-nums ${j < first ? "text-left text-cm-mint" : "text-center text-cm-yellow"}`}
               >
                 {c}
               </td>
@@ -162,7 +162,7 @@ function Radar({ s }: { s: StatLine }) {
           key={v}
           points={ring(v)}
           fill="none"
-          stroke="#2f6b52"
+          style={{ stroke: "rgb(var(--c-dlgline))" }}
           strokeWidth="0.8"
         />
       ))}
@@ -175,16 +175,15 @@ function Radar({ s }: { s: StatLine }) {
             y1={c}
             x2={x}
             y2={y}
-            stroke="#2f6b52"
+            style={{ stroke: "rgb(var(--c-dlgline))" }}
             strokeWidth="0.6"
           />
         )
       })}
       <polygon
         points={shape}
-        fill="#10b981"
+        style={{ fill: "rgb(var(--c-dlgborder))", stroke: "rgb(var(--c-mint))" }}
         fillOpacity="0.35"
-        stroke="#4edea3"
         strokeWidth="1.5"
       />
       {AXES.map((a, i) => {
@@ -196,7 +195,7 @@ function Radar({ s }: { s: StatLine }) {
             y={y}
             textAnchor="middle"
             dominantBaseline="middle"
-            className="fill-[#c8c8d0] font-mono text-[12px]"
+            className="fill-cm-muted font-mono text-[12px]"
           >
             {a.label}
           </text>
@@ -248,7 +247,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
       {onLoan && <span className="text-cm-yellow"> (emp.)</span>}
       {/* Como chegou ao clube nesta época (durante o jogo) */}
       {transfer && (
-        <span className="text-[12px] text-[#c8c8d0]"> · {transfer}</span>
+        <span className="text-[12px] text-cm-muted"> · {transfer}</span>
       )}
     </span>
   )
@@ -426,7 +425,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
       <div
         className="flex shrink-0 flex-wrap items-center gap-x-5 rounded-md 
       bg-cm-surface px-3 py-1.5 font-mono text-[12px] uppercase tracking-wider 
-      text-[#86869a]"
+      text-cm-dim"
       >
         <span>
           Jogos na carreira: <b className="text-white">{career.apps}</b>
@@ -435,14 +434,14 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
           Golos: <b className="text-cm-orange">{career.goals}</b>
         </span>
         <span>
-          Assistências: <b className="text-[#4edea3]">{career.assists}</b>
+          Assistências: <b className="text-cm-mint">{career.assists}</b>
         </span>
         <span>
           Títulos: <b className="text-cm-yellow">{titles}</b>
         </span>
         {average != null && (
           <span>
-            Nota média: <b className="text-[#4edea3]">{average.toFixed(2)}</b>
+            Nota média: <b className="text-cm-mint">{average.toFixed(2)}</b>
           </span>
         )}
       </div>

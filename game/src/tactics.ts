@@ -225,9 +225,9 @@ export const outOfPosition = (p: TacticPlayer | null | undefined) => !!p && p.fi
 
 /** Cor da condição: verde em forma, amarelo a cansar, vermelho esgotado. */
 export function conditionColour(c: number | null) {
-  if (c === null || c >= 90) return 'text-[#4edea3]'
+  if (c === null || c >= 90) return 'text-cm-mint'
   if (c >= 75) return 'text-cm-yellow'
-  return 'text-[#ff6060]'
+  return 'text-cm-red'
 }
 
 /** Seta a ser desenhada agora (botão direito em curso), em % do campo. */

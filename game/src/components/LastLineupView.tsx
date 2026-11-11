@@ -26,9 +26,9 @@ export default function LastLineupView({ last, colours, onBack }: { last: LastLi
             ))}
             {t.bench.map((p) => (
               <div key={`b${p.id}`} className="flex h-[28px] items-center gap-2 px-3 text-[14.5px]">
-                <span className="w-8 shrink-0 text-center font-semibold tabular-nums text-[#9b6fe8]">{p.squadNumber ?? ''}</span>
-                <span className="min-w-0 flex-1 truncate text-[#9b6fe8]">{fullName(p.listName)}</span>
-                <span className="w-16 shrink-0 text-right text-[13px] text-[#9b6fe8]">{p.position}</span>
+                <span className="w-8 shrink-0 text-center font-semibold tabular-nums text-cm-purplelight">{p.squadNumber ?? ''}</span>
+                <span className="min-w-0 flex-1 truncate text-cm-purplelight">{fullName(p.listName)}</span>
+                <span className="w-16 shrink-0 text-right text-[13px] text-cm-purplelight">{p.position}</span>
               </div>
             ))}
           </div>

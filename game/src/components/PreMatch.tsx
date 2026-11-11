@@ -41,7 +41,7 @@ function TeamSheet({ team }: { team: LiveTeam }) {
               >
                 <span
                   className="flex size-8 items-center justify-center rounded-lg text-[14px] font-bold shadow-[0_2px_6px_rgba(0,0,0,0.5)] ring-1 ring-black/40"
-                  style={p.role === 'GR' ? { background: '#4edea3', color: '#06281b' } : colours}
+                  style={p.role === 'GR' ? { background: 'rgb(var(--c-mint))', color: 'rgb(var(--c-onmint))' } : colours}
                 >
                   {p.squadNumber ?? ''}
                 </span>
@@ -54,7 +54,7 @@ function TeamSheet({ team }: { team: LiveTeam }) {
       </div>
       <div className="shrink-0 border-t border-cm-line px-3 py-1.5 text-[13px] leading-5">
         <span className="font-bold text-cm-orange">Suplentes: </span>
-        <span className="text-[#c8c8d0]">
+        <span className="text-cm-muted">
           {team.bench.map((p) => `${p.squadNumber ?? '-'} ${shortListName(p.listName)}`).join(' · ') || '-'}
         </span>
       </div>
@@ -67,7 +67,7 @@ function Row({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="flex min-h-[26px] items-baseline gap-4 px-3 py-0.5">
       <span className="w-56 shrink-0 text-[15px] font-semibold text-white">{label}</span>
-      <span className="min-w-0 flex-1 text-[15px] text-[#4edea3]">{children}</span>
+      <span className="min-w-0 flex-1 text-[15px] text-cm-mint">{children}</span>
     </div>
   )
 }
@@ -80,12 +80,12 @@ function Analysis({ view, a }: { view: LiveView; a: MatchAnalysis }) {
     <Panel title={`Marcos · ${club}`} className="min-w-0 flex-1">
       <div className="cm-zebra py-1">
         {a.milestones[side].length === 0 ? (
-          <div className="px-3 py-1 text-[14px] text-[#86869a]">Não há marcos para o {club} neste jogo.</div>
+          <div className="px-3 py-1 text-[14px] text-cm-dim">Não há marcos para o {club} neste jogo.</div>
         ) : (
           a.milestones[side].map((m) => (
             <div key={m.id} className="flex h-[26px] items-center gap-3 px-3 text-[14px]">
               <span className="w-52 shrink-0 truncate font-semibold text-white">{m.name}</span>
-              <span className="truncate text-[#4edea3]">{m.text}</span>
+              <span className="truncate text-cm-mint">{m.text}</span>
             </div>
           ))
         )}
@@ -183,7 +183,7 @@ export default function PreMatch({
       />
       <Tabs tabs={TABS} active={tab} onChange={(k) => setTab(k as Tab)} />
       <div className="mt-2 flex min-h-0 flex-1 flex-col">
-        {error && <div className="p-4 text-[#ff7070]">{error}</div>}
+        {error && <div className="p-4 text-cm-red">{error}</div>}
         {view && tab === 'teams' && (
           <div className="flex min-h-0 flex-1 gap-2 px-2">
             <TeamSheet team={view.home} />
@@ -231,12 +231,12 @@ export function PostMatchPane({ view }: { view: LiveView }) {
     <Panel title={`Marcos Cumpridos · ${club}`} className="min-w-0 flex-1">
       <div className="cm-zebra py-1">
         {r.milestones[side].length === 0 ? (
-          <div className="px-3 py-1 text-[14px] text-[#86869a]">Não houve marcos para o {club} neste jogo.</div>
+          <div className="px-3 py-1 text-[14px] text-cm-dim">Não houve marcos para o {club} neste jogo.</div>
         ) : (
           r.milestones[side].map((m) => (
             <div key={m.id} className="flex h-[26px] items-center gap-3 px-3 text-[14px]">
               <span className="w-52 shrink-0 truncate font-semibold text-white">{m.name}</span>
-              <span className="truncate text-[#4edea3]">{m.text}</span>
+              <span className="truncate text-cm-mint">{m.text}</span>
             </div>
           ))
         )}

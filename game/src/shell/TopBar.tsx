@@ -22,7 +22,7 @@ export default function TopBar({ onContinue, busy, label = 'Continuar Jogo' }: {
       <div className="flex h-full w-[150px] shrink-0 items-center gap-2 border-r border-cm-line pl-3">
         <img src="/favicon.svg" alt="" className="size-7" />
         <span className="font-title text-[17px] font-bold tracking-tight">
-          Next<span className="text-[#4edea3]">CM</span>
+          Next<span className="text-cm-mint">CM</span>
         </span>
       </div>
       <span className="font-bold text-cm-yellow">

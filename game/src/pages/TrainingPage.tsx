@@ -145,7 +145,7 @@ export default function TrainingPage() {
       () => setAttributes(new Map()),
     )
   }, [columns, clubId])
-  const head = 'font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#86869a]'
+  const head = 'font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-dim'
   // Vêr Atributos: os atributos de cada jogador do grupo escolhido (do core, como no plantel)
   const groupCols = (ATTRIBUTE_GROUPS.find((g) => g.key === group) ?? ATTRIBUTE_GROUPS[0]).columns
   const cell = (i: number) => `shrink-0 truncate font-mono text-[12.5px] ${i === selected ? 'text-white' : 'text-cm-yellow'}`
@@ -158,7 +158,7 @@ export default function TrainingPage() {
           <Tabs tabs={tabs.slice(TABS_PER_ROW)} active={tab} onChange={(k) => (setTab(k), setSelected(0))} onDrop={dropOnTab} />
         </div>
       )}
-      <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-[#3d1a73] px-2 py-1.5">
+      <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-cm-headdeep px-2 py-1.5">
         <div title={current ? `Mudar o programa de ${squadName(current)}` : undefined}>
           <PurpleMenu
             label="Programa"

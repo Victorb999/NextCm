@@ -113,7 +113,7 @@ export default function LeaguesStep({
                     </button>
                   ))}
                 </div>
-                <span className="truncate text-[13px] text-[#bfe6c4]">
+                <span className="truncate text-[13px] text-cm-dlgtext">
                   {n.divisions.join(", ")}
                   {n.calendar
                     ? " · época de ano civil"
@@ -123,7 +123,7 @@ export default function LeaguesStep({
             )
           })}
         </div>
-        <div className="pt-2 text-[13px] text-[#bfe6c4]">
+        <div className="pt-2 text-[13px] text-cm-dlgtext">
           Escolhido: joga-se com tudo (mercado, plantéis, estatísticas) e pode
           treinar lá. Fundo: só os resultados. Fora: não entra no jogo. Menos
           ligas escolhidas tornam o Continuar Jogo mais rápido.

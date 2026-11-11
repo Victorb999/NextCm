@@ -45,10 +45,10 @@ export function ScreenHeader({
           {badge.text}
         </span>
       )}
-      {icon && <span className="shrink-0 text-[#c8c8d0]">{icon}</span>}
+      {icon && <span className="shrink-0 text-cm-muted">{icon}</span>}
       <div className="min-w-0">
         {eyebrow && (
-          <div className="flex items-center gap-2 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#c8c8d0]">
+          <div className="flex items-center gap-2 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-cm-muted">
             {eyebrow}
           </div>
         )}
@@ -100,7 +100,7 @@ export function PanelTitle({
     <div className="flex h-8 shrink-0 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold font-mono uppercase tracking-[0.12em] text-cm-orange">
       {title}
       {chip && (
-        <span className="rounded bg-[#0f3a2a] px-1.5 tracking-wider text-[#4edea3]">
+        <span className="rounded bg-cm-dlgdeep px-1.5 tracking-wider text-cm-mint">
           {chip}
         </span>
       )}
@@ -298,7 +298,7 @@ export function PurpleMenu<T extends string>({
       </button>
       {open && (
         <div
-          className={`cm-zebra absolute top-full z-30 mt-1 min-w-44 overflow-hidden whitespace-nowrap rounded-md border border-[#10b981]/60 bg-[#0f241b] py-1 text-[14px] shadow-[0_8px_24px_rgba(0,0,0,0.65)] ${
+          className={`cm-zebra absolute top-full z-30 mt-1 min-w-44 overflow-hidden whitespace-nowrap rounded-md border border-cm-dlgborder/60 bg-cm-dlg py-1 text-[14px] shadow-[0_8px_24px_rgba(0,0,0,0.65)] ${
             align === "right" ? "right-0" : "left-0"
           }`}
         >
@@ -306,7 +306,7 @@ export function PurpleMenu<T extends string>({
             o === "separator" ? (
               <div
                 key={`s${i}`}
-                className="mx-2 my-1 border-t border-[#2f6b52]"
+                className="mx-2 my-1 border-t border-cm-dlgline"
               />
             ) : (
               (() => {
@@ -318,8 +318,8 @@ export function PurpleMenu<T extends string>({
                       onChange?.(o.key)
                       setOpen(false)
                     }}
-                    className={`flex h-6 w-full items-center gap-2 px-3 text-left hover:!bg-[#1d4d3a] hover:text-cm-yellow ${
-                      on ? "font-bold text-cm-yellow" : "text-[#e3e1e9]"
+                    className={`flex h-6 w-full items-center gap-2 px-3 text-left hover:!bg-cm-dlghover hover:text-cm-yellow ${
+                      on ? "font-bold text-cm-yellow" : "text-cm-text"
                     }`}
                   >
                     <span className="w-3 shrink-0 text-[11px]">

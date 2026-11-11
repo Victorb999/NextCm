@@ -93,11 +93,11 @@ export default function ManagerDialogs({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Nome do jogo"
-                  className="h-8 flex-1 rounded border border-[#2f6b52] bg-black px-2 text-[16px] text-cm-yellow outline-none focus:border-cm-yellow"
+                  className="h-8 flex-1 rounded border border-cm-dlgline bg-black px-2 text-[16px] text-cm-yellow outline-none focus:border-cm-yellow"
                 />
               </div>
               <div className="max-h-56 overflow-auto rounded bg-black/40">
-                <div className="sticky top-0 flex h-7 items-center gap-2 bg-[#3d1a73] px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow">
+                <div className="sticky top-0 flex h-7 items-center gap-2 bg-cm-headdeep px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow">
                   <span className="flex-1">Jogo</span>
                   <span className="w-48">Clube</span>
                   <span className="w-24 text-right">Data do jogo</span>
@@ -117,7 +117,7 @@ export default function ManagerDialogs({
                 </div>
                 {saves.length === 0 && <Empty className="p-3">Sem jogos gravados.</Empty>}
               </div>
-              <div className="pt-1 text-[13px] text-[#bfe6c4]">Escolha um jogo da lista para o substituir, ou escreva um nome novo.</div>
+              <div className="pt-1 text-[13px] text-cm-dlgtext">Escolha um jogo da lista para o substituir, ou escreva um nome novo.</div>
             </>
           )}
         </DialogFrame>

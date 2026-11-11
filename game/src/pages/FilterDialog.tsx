@@ -25,8 +25,8 @@ function Option({
       onClick={onClick}
       className={`h-8 min-w-[64px] rounded-[4px] border px-3 text-[13px] ${
         selected
-          ? "border-cm-yellow bg-[#1d4d3a] font-bold text-cm-yellow"
-          : "border-[#2f6b52] text-[#d6efe4] hover:bg-[#1d4d3a]/60"
+          ? "border-cm-yellow bg-cm-dlghover font-bold text-cm-yellow"
+          : "border-cm-dlgline text-cm-dlgtext hover:bg-cm-dlghover/60"
       }`}
     >
       {children}
@@ -38,7 +38,7 @@ function Option({
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex min-h-[44px] items-center gap-3 px-3 py-1.5">
-      <div className="w-28 shrink-0 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#4edea3]">
+      <div className="w-28 shrink-0 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-cm-mint">
         {label}
       </div>
       <div className="flex flex-wrap items-center gap-1.5">{children}</div>
@@ -66,10 +66,10 @@ function Stepper({
   min: number
   max: number
 }) {
-  const step = "flex h-6 w-7 items-center justify-center rounded-[3px] bg-[#0b1a14] font-bold text-white ring-1 ring-[#2f6b52] hover:bg-[#1d4d3a] disabled:text-white/25"
+  const step = "flex h-6 w-7 items-center justify-center rounded-[3px] bg-cm-dlg font-bold text-white ring-1 ring-cm-dlgline hover:bg-cm-dlghover disabled:text-white/25"
   return (
     <div className="flex h-8 items-center gap-1.5 px-3">
-      <span className={`min-w-0 flex-1 truncate ${active ? "font-bold text-cm-yellow" : "text-[#d6efe4]"}`}>{label}</span>
+      <span className={`min-w-0 flex-1 truncate ${active ? "font-bold text-cm-yellow" : "text-cm-dlgtext"}`}>{label}</span>
       <button className={step} disabled={value <= min} onClick={() => onChange(value - 1)} aria-label={`Baixar ${label}`}>
         -
       </button>
@@ -149,9 +149,9 @@ export default function FilterDialog({
   })
 
   return (
-    <div className="cm-dialog-in absolute bottom-[60px] right-2.5 top-[72px] z-30 flex w-[620px] flex-col overflow-hidden rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)]">
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[#2f6b52] px-4">
-        <span className="size-2 rounded-full bg-[#4edea3]" />
+    <div className="cm-dialog-in absolute bottom-[60px] right-2.5 top-[72px] z-30 flex w-[620px] flex-col overflow-hidden rounded-lg border-2 border-cm-dlgborder bg-cm-dlg shadow-[0_12px_32px_rgba(0,0,0,0.7)]">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-cm-dlgline px-4">
+        <span className="size-2 rounded-full bg-cm-mint" />
         <span className="font-bold font-mono uppercase tracking-[0.12em] text-white">
           {players
             ? "Filtros para Pesquisar Jogador"
@@ -187,7 +187,7 @@ export default function FilterDialog({
                 value={f.text}
                 onChange={(e) => set({ text: e.target.value })}
                 placeholder="Específico"
-                className="h-8 w-56 rounded-[4px] border border-[#2f6b52] bg-[#0b1a14] px-2.5 text-cm-yellow outline-none placeholder:text-[#4edea3]/60 focus:border-cm-yellow"
+                className="h-8 w-56 rounded-[4px] border border-cm-dlgline bg-cm-dlg px-2.5 text-cm-yellow outline-none placeholder:text-cm-mint/60 focus:border-cm-yellow"
               />
             </Row>
             <Row label="Nacionalidade">
@@ -210,7 +210,7 @@ export default function FilterDialog({
                 onChange={(e) =>
                   set({ nationId: e.target.value ? Number(e.target.value) : null })
                 }
-                className={`h-8 rounded-[4px] border bg-[#0b1a14] px-2 outline-none ${otherNation ? "border-cm-yellow text-cm-yellow" : "border-[#2f6b52] text-[#d6efe4]"}`}
+                className={`h-8 rounded-[4px] border bg-cm-dlg px-2 outline-none ${otherNation ? "border-cm-yellow text-cm-yellow" : "border-cm-dlgline text-cm-dlgtext"}`}
               >
                 <option value="">Outro…</option>
                 {nations.map((n) => (
@@ -337,7 +337,7 @@ export default function FilterDialog({
           </div>
         )}
       </div>
-      <div className="flex shrink-0 justify-end gap-2 border-t border-[#2f6b52] p-3">
+      <div className="flex shrink-0 justify-end gap-2 border-t border-cm-dlgline p-3">
         <button
           className="h-9 w-32 rounded-[4px] border border-white/20 bg-black/30 font-semibold text-white hover:bg-black/50"
           onClick={onCancel}
@@ -345,7 +345,7 @@ export default function FilterDialog({
           Cancelar
         </button>
         <button
-          className="h-9 w-32 rounded-[4px] bg-[#10b981] font-bold text-[#06281b] hover:bg-[#4edea3]"
+          className="h-9 w-32 rounded-[4px] bg-cm-dlgborder font-bold text-cm-onmint hover:bg-cm-mint"
           onClick={() => onOk(f)}
         >
           Ok

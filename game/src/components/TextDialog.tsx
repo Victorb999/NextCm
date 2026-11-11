@@ -34,7 +34,7 @@ export default function TextDialog({
             className={field}
           />
         )}
-        <div className="pt-1 text-[13px] text-[#bfe6c4]">{hint}</div>
+        <div className="pt-1 text-[13px] text-cm-dlgtext">{hint}</div>
       </DialogFrame>
     </Overlay>
   )

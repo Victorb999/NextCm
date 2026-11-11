@@ -55,12 +55,12 @@ function NumberGrid({
               mine
                 ? 'bg-cm-yellow text-black ring-2 ring-cm-yellow/40'
                 : owner !== undefined
-                  ? 'bg-[#16171c] text-[#55565f]'
-                  : 'bg-[#2b2b30] text-white hover:bg-cm-sel disabled:hover:bg-[#2b2b30]'
+                  ? 'bg-cm-deep text-cm-faint'
+                  : 'bg-cm-hover text-white hover:bg-cm-sel disabled:hover:bg-cm-hover'
             }`}
           >
             <span className="text-[15px] font-bold">{n}</span>
-            <span className={`hidden max-w-full truncate px-1 text-[9px] font-mono uppercase tracking-wide [@media(min-height:860px)]:block ${mine ? 'font-bold' : owner !== undefined ? '' : 'text-[#4edea3]'}`}>
+            <span className={`hidden max-w-full truncate px-1 text-[9px] font-mono uppercase tracking-wide [@media(min-height:860px)]:block ${mine ? 'font-bold' : owner !== undefined ? '' : 'text-cm-mint'}`}>
               {mine ? 'Escolha' : (owner ?? 'Livre')}
             </span>
           </button>
@@ -73,11 +73,11 @@ function NumberGrid({
 /** A casa do número na lista: vazia e tracejada quando ainda não tem. */
 function NumberBox({ n }: { n: number | null }) {
   return n === null ? (
-    <span className="flex h-[22px] w-9 shrink-0 items-center justify-center rounded-[3px] border border-dashed border-[#55565f] text-[11px] text-[#86869a]">
+    <span className="flex h-[22px] w-9 shrink-0 items-center justify-center rounded-[3px] border border-dashed border-cm-faint text-[11px] text-cm-dim">
       -
     </span>
   ) : (
-    <span className="flex h-[22px] w-9 shrink-0 items-center justify-center rounded-[3px] bg-[#2b2b30] text-[13px] font-bold tabular-nums text-white">{n}</span>
+    <span className="flex h-[22px] w-9 shrink-0 items-center justify-center rounded-[3px] bg-cm-hover text-[13px] font-bold tabular-nums text-white">{n}</span>
   )
 }
 
@@ -162,7 +162,7 @@ export default function SquadNumbersPage() {
         emblem={club && { text: initials(club.shortName), fg: club.fg ?? '#ffffff', bg: club.bg ?? '#3a3a3a' }}
         eyebrow={
           saved && (
-            <span className={`rounded px-1.5 tracking-wider ${saved.preSeason ? 'bg-[#0f3a2a] text-[#4edea3]' : 'bg-[#3a2508] text-cm-orange'}`}>
+            <span className={`rounded px-1.5 tracking-wider ${saved.preSeason ? 'bg-cm-dlgdeep text-cm-mint' : 'bg-[#3a2508] text-cm-orange'}`}>
               {saved.preSeason ? 'Pré-época' : 'Época a decorrer'}
             </span>
           )
@@ -170,10 +170,10 @@ export default function SquadNumbersPage() {
         title={club ? `Números Plantel ${club.shortName}` : 'Números Plantel'}
       />
       {saved && (
-        <div className="mx-2 flex shrink-0 items-center gap-3 rounded-md border border-cm-yellow/60 bg-cm-yellow/[0.06] px-4 py-2 text-[13px] text-[#e3e1e9]">
+        <div className="mx-2 flex shrink-0 items-center gap-3 rounded-md border border-cm-yellow/60 bg-cm-yellow/[0.06] px-4 py-2 text-[13px] text-cm-text">
           <span className="font-bold text-cm-yellow">i</span>
           {saved.preSeason ? 'Os números ficam fixos a partir do primeiro jogo oficial.' : 'Com a época a decorrer, só os jogadores sem número recebem um.'}
-          <span className="text-[#55565f]">·</span>
+          <span className="text-cm-faint">·</span>
           <span>
             Total no plantel: <b>{saved.players.length} jogadores</b>
           </span>
@@ -194,7 +194,7 @@ export default function SquadNumbersPage() {
       <ErrorBox className="mx-2 mt-2">{error}</ErrorBox>
       <div className="mx-2 mt-2 flex min-h-0 flex-1 gap-2">
         <div className="flex min-h-0 w-[46%] flex-col overflow-hidden rounded-md bg-cm-surface">
-          <div className="flex h-8 shrink-0 items-center gap-3 border-b border-cm-line bg-black/40 px-4 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#86869a]">
+          <div className="flex h-8 shrink-0 items-center gap-3 border-b border-cm-line bg-black/40 px-4 text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-cm-dim">
             <span className="w-9 text-center">Nº</span>
             <span className="flex-1">Jogador</span>
             <span>Posição</span>
@@ -222,7 +222,7 @@ export default function SquadNumbersPage() {
               )
             })}
           </div>
-          <div className="flex h-8 shrink-0 items-center justify-between border-t border-cm-line px-4 text-[11px] text-[#86869a]">
+          <div className="flex h-8 shrink-0 items-center justify-between border-t border-cm-line px-4 text-[11px] text-cm-dim">
             <span>Clique num jogador para escolher ou trocar o número</span>
             <span>{players.length} na lista</span>
           </div>
@@ -230,7 +230,7 @@ export default function SquadNumbersPage() {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 rounded-md bg-cm-surface p-4">
           <div className="flex shrink-0 items-center gap-3">
             <div>
-              <div className="text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-[#86869a]">Painel de escolha</div>
+              <div className="text-[11px] font-bold font-mono uppercase tracking-[0.12em] text-cm-dim">Painel de escolha</div>
               <div className="font-title text-[20px] font-bold text-white">Escolha o número</div>
             </div>
             {chosen && (
@@ -244,12 +244,12 @@ export default function SquadNumbersPage() {
             )}
           </div>
           <NumberGrid owners={owners} current={current} disabled={!chosen || locked(chosen.id)} onPick={pick} />
-          <div className="flex shrink-0 items-center gap-4 text-[12px] text-[#c8c8d0]">
+          <div className="flex shrink-0 items-center gap-4 text-[12px] text-cm-muted">
             <span className="flex items-center gap-1.5">
-              <span className="size-3 rounded-[2px] bg-[#2b2b30]" /> Livre
+              <span className="size-3 rounded-[2px] bg-cm-hover" /> Livre
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="size-3 rounded-[2px] bg-[#16171c] ring-1 ring-[#2c2c33]" /> Ocupado
+              <span className="size-3 rounded-[2px] bg-cm-deep ring-1 ring-[#2c2c33]" /> Ocupado
             </span>
             <span className="flex items-center gap-1.5">
               <span className="size-3 rounded-[2px] bg-cm-yellow" /> Escolhido

@@ -59,13 +59,13 @@ export default function DisciplineDialog({
               disabled={!r.available}
               onClick={() => setReason(r.key)}
               className={`flex min-h-7 w-full items-center gap-2 px-3 text-left text-[14px] ${
-                !r.available ? 'cursor-default text-[#8b6fc4]' : reason === r.key ? '!bg-cm-sel font-bold text-white' : 'text-white hover:text-cm-yellow'
+                !r.available ? 'cursor-default text-cm-purplelight' : reason === r.key ? '!bg-cm-sel font-bold text-white' : 'text-white hover:text-cm-yellow'
               }`}
             >
               <span className={`size-3 shrink-0 rounded-full border ${reason === r.key ? 'border-cm-yellow bg-cm-yellow' : 'border-current'}`} />
               <span className="flex-1">{r.label}</span>
               {/* Escolhe-se na mesma, mas não aconteceu: o aviso a roxo, como no CM */}
-              {r.reason && <span className="text-[12px] text-[#8b6fc4]">{r.reason}</span>}
+              {r.reason && <span className="text-[12px] text-cm-purplelight">{r.reason}</span>}
             </button>
           ))}
         </div>

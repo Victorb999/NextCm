@@ -44,7 +44,7 @@ export default function SquadRoleDialog({
               title={r.veto ?? undefined}
               onClick={() => setChosen(r.key)}
               className={`flex h-8 w-full items-center gap-3 px-3 text-left text-[15px] disabled:text-white/30 ${
-                chosen === r.key ? '!bg-cm-sel text-white' : 'text-[#e3e1e9] enabled:hover:text-cm-yellow'
+                chosen === r.key ? '!bg-cm-sel text-white' : 'text-cm-text enabled:hover:text-cm-yellow'
               }`}
             >
               <span className={`size-3 shrink-0 rounded-full border ${chosen === r.key ? 'border-cm-yellow bg-cm-yellow' : 'border-white/50'}`} />
@@ -53,7 +53,7 @@ export default function SquadRoleDialog({
             </button>
           ))}
         </div>
-        {view && !view.current && <div className="pt-2 text-[13px] text-[#bfe6c4]">Sem função definida: conta o lugar no plantel.</div>}
+        {view && !view.current && <div className="pt-2 text-[13px] text-cm-dlgtext">Sem função definida: conta o lugar no plantel.</div>}
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
       </DialogFrame>
     </Overlay>

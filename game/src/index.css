@@ -2,6 +2,180 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Temas (item 22 do 3.19.1): cada token em canais RGB, para os /60 do Tailwind. Os valores do Coalizão são as cores de sempre. */
+:root,
+[data-theme='coalizao'] {
+  --c-screen: 22 22 22;
+  --c-panel: 13 13 13;
+  --c-surface: 26 27 33;
+  --c-line: 44 44 44;
+  --c-tab: 32 32 32;
+  --c-tabline: 71 71 71;
+  --c-raised: 30 31 37;
+  --c-hover: 41 42 47;
+  --c-deep: 22 23 28;
+  --c-text: 227 225 233;
+  --c-muted: 200 200 208;
+  --c-dim: 134 134 154;
+  --c-purple: 91 31 166;
+  --c-purplelight: 139 91 214;
+  --c-purpledim: 138 99 196;
+  --c-purplehover: 106 43 192;
+  --c-purpledown: 74 24 136;
+  --c-head: 90 42 153;
+  --c-headdeep: 61 26 115;
+  --c-sel: 86 60 92;
+  --c-yellow: 255 255 64;
+  --c-magenta: 255 92 255;
+  --c-pink: 255 119 255;
+  --c-orange: 255 154 0;
+  --c-green: 61 220 74;
+  --c-red: 255 80 80;
+  --c-pitch: 15 90 22;
+  --c-mint: 78 222 163;
+  --c-mintlight: 111 251 190;
+  --c-mintdim: 43 90 72;
+  --c-onmint: 6 40 27;
+  --c-dlg: 15 36 27;
+  --c-dlgdeep: 15 58 42;
+  --c-dlgfield: 1 50 32;
+  --c-dlgborder: 16 185 129;
+  --c-dlgline: 47 107 82;
+  --c-dlghover: 29 77 58;
+  --c-dlgtext: 214 239 228;
+  --c-lilac: 208 188 255;
+  --c-faint: 85 86 95;
+}
+
+[data-theme='dracula'] {
+  --c-screen: 30 31 41;
+  --c-panel: 25 26 33;
+  --c-surface: 40 42 54;
+  --c-line: 68 71 90;
+  --c-tab: 33 34 44;
+  --c-tabline: 98 114 164;
+  --c-raised: 52 55 70;
+  --c-hover: 68 71 90;
+  --c-deep: 33 34 44;
+  --c-text: 248 248 242;
+  --c-muted: 214 214 224;
+  --c-dim: 155 166 214;
+  --c-purple: 110 79 192;
+  --c-purplelight: 189 147 249;
+  --c-purpledim: 149 128 200;
+  --c-purplehover: 127 95 212;
+  --c-purpledown: 90 63 160;
+  --c-head: 90 74 138;
+  --c-headdeep: 60 53 96;
+  --c-sel: 75 63 114;
+  --c-yellow: 241 250 140;
+  --c-magenta: 255 121 198;
+  --c-pink: 255 146 208;
+  --c-orange: 255 184 108;
+  --c-green: 80 250 123;
+  --c-red: 255 85 85;
+  --c-pitch: 31 81 48;
+  --c-mint: 139 233 253;
+  --c-mintlight: 176 242 255;
+  --c-mintdim: 61 90 102;
+  --c-onmint: 30 31 41;
+  --c-dlg: 33 34 44;
+  --c-dlgdeep: 40 42 54;
+  --c-dlgfield: 40 42 54;
+  --c-dlgborder: 80 250 123;
+  --c-dlgline: 68 71 90;
+  --c-dlghover: 52 55 70;
+  --c-dlgtext: 248 248 242;
+  --c-lilac: 214 196 255;
+  --c-faint: 77 80 104;
+}
+
+[data-theme='monokai'] {
+  --c-screen: 39 40 34;
+  --c-panel: 30 31 28;
+  --c-surface: 45 46 39;
+  --c-line: 62 61 50;
+  --c-tab: 34 35 30;
+  --c-tabline: 117 113 94;
+  --c-raised: 62 61 50;
+  --c-hover: 73 72 62;
+  --c-deep: 30 31 28;
+  --c-text: 248 248 242;
+  --c-muted: 207 207 194;
+  --c-dim: 176 172 147;
+  --c-purple: 106 79 179;
+  --c-purplelight: 174 129 255;
+  --c-purpledim: 149 133 192;
+  --c-purplehover: 122 95 200;
+  --c-purpledown: 85 61 150;
+  --c-head: 92 74 153;
+  --c-headdeep: 62 53 80;
+  --c-sel: 87 81 66;
+  --c-yellow: 230 219 116;
+  --c-magenta: 249 38 114;
+  --c-pink: 253 95 240;
+  --c-orange: 253 151 31;
+  --c-green: 166 226 46;
+  --c-red: 249 38 114;
+  --c-pitch: 58 90 20;
+  --c-mint: 102 217 239;
+  --c-mintlight: 154 230 245;
+  --c-mintdim: 58 90 96;
+  --c-onmint: 39 40 34;
+  --c-dlg: 30 31 28;
+  --c-dlgdeep: 39 40 34;
+  --c-dlgfield: 39 40 34;
+  --c-dlgborder: 166 226 46;
+  --c-dlgline: 62 61 50;
+  --c-dlghover: 73 72 62;
+  --c-dlgtext: 248 248 242;
+  --c-lilac: 212 191 255;
+  --c-faint: 90 89 77;
+}
+
+[data-theme='cyberpunk'] {
+  --c-screen: 10 10 18;
+  --c-panel: 7 7 12;
+  --c-surface: 18 18 28;
+  --c-line: 42 42 61;
+  --c-tab: 13 13 22;
+  --c-tabline: 61 61 92;
+  --c-raised: 22 22 37;
+  --c-hover: 31 31 51;
+  --c-deep: 13 13 22;
+  --c-text: 232 249 255;
+  --c-muted: 184 196 214;
+  --c-dim: 126 141 176;
+  --c-purple: 197 0 60;
+  --c-purplelight: 210 123 255;
+  --c-purpledim: 160 80 104;
+  --c-purplehover: 224 0 74;
+  --c-purpledown: 143 0 44;
+  --c-head: 107 10 36;
+  --c-headdeep: 58 10 26;
+  --c-sel: 58 16 48;
+  --c-yellow: 252 238 10;
+  --c-magenta: 255 42 109;
+  --c-pink: 255 110 199;
+  --c-orange: 255 159 28;
+  --c-green: 57 255 20;
+  --c-red: 255 0 60;
+  --c-pitch: 12 58 42;
+  --c-mint: 0 240 255;
+  --c-mintlight: 127 248 255;
+  --c-mintdim: 13 74 82;
+  --c-onmint: 0 16 24;
+  --c-dlg: 11 18 32;
+  --c-dlgdeep: 13 26 36;
+  --c-dlgfield: 13 26 36;
+  --c-dlgborder: 0 240 255;
+  --c-dlgline: 22 75 92;
+  --c-dlghover: 15 44 58;
+  --c-dlgtext: 208 250 255;
+  --c-lilac: 255 179 193;
+  --c-faint: 58 66 88;
+}
+
 :root {
   /* Valores padrão; Opções Jogo sobrescreve (settings.ts) */
   --cm-side: #45526a;
@@ -46,14 +220,14 @@ body {
   background: #111;
 }
 ::-webkit-scrollbar-thumb {
-  background: #5b1fa6;
-  border: 1px solid #8b5bd6;
+  background: rgb(var(--c-purple));
+  border: 1px solid rgb(var(--c-purplelight));
 }
 ::-webkit-scrollbar-button:single-button {
   display: block;
   height: 16px;
-  background: #5b1fa6 no-repeat center / 8px;
-  border: 1px solid #8b5bd6;
+  background: rgb(var(--c-purple)) no-repeat center / 8px;
+  border: 1px solid rgb(var(--c-purplelight));
 }
 ::-webkit-scrollbar-button:single-button:vertical:decrement {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M0 6h8L4 1z' fill='%23fff'/%3E%3C/svg%3E");
@@ -71,7 +245,7 @@ body {
 
   /* Fundo das telas: escuro com leve textura, como o mapa-múndi do tema */
   .cm-backdrop {
-    background-color: #161616;
+    background-color: rgb(var(--c-screen));
     background-image:
       radial-gradient(ellipse at 30% 35%, rgba(255, 255, 255, 0.05), transparent 45%),
       radial-gradient(ellipse at 75% 60%, rgba(255, 255, 255, 0.04), transparent 40%),
@@ -96,7 +270,7 @@ body {
     @apply bg-white/[0.13];
   }
   .cm-side-btn[aria-current='true'] {
-    @apply bg-cm-purple shadow-[inset_3px_0_0_#8b5bd6];
+    @apply bg-cm-purple shadow-[inset_3px_0_0_rgb(var(--c-purplelight))];
   }
   .cm-side-btn:disabled {
     @apply text-white/30;
@@ -122,18 +296,18 @@ body {
 
   /* Continuar Jogo da barra do topo: verde da marca */
   .cm-continue {
-    @apply flex h-8 items-center gap-2 rounded bg-[#4edea3] px-4 font-bold uppercase tracking-wide text-[#06281b] hover:bg-[#6ffbbe];
+    @apply flex h-8 items-center gap-2 rounded bg-cm-mint px-4 font-bold uppercase tracking-wide text-cm-onmint hover:bg-cm-mintlight;
   }
   .cm-continue:disabled {
-    @apply bg-[#2b5a48] text-[#9fbfb2];
+    @apply bg-cm-mintdim text-[#9fbfb2];
   }
 
   /* Abas escuras, em relevo como no CM; a selecionada tem borda e texto amarelos */
   .cm-tab {
-    @apply flex h-8 flex-1 items-center justify-center rounded-[5px] bg-[#1e1f25] text-[#c8c8d0] hover:bg-[#292a2f] hover:text-white;
+    @apply flex h-8 flex-1 items-center justify-center rounded-[5px] bg-cm-raised text-cm-muted hover:bg-cm-hover hover:text-white;
   }
   .cm-tab[aria-selected='true'] {
-    @apply bg-[#292a2f] font-bold text-cm-yellow ring-1 ring-inset ring-cm-yellow;
+    @apply bg-cm-hover font-bold text-cm-yellow ring-1 ring-inset ring-cm-yellow;
   }
   .cm-tab:disabled {
     @apply text-[#6c3fb0];
@@ -141,10 +315,10 @@ body {
 
   /* Botões roxos (Filtros, Atrás, Seguinte, Ok...) */
   .cm-purple {
-    @apply rounded-[4px] border border-cm-purplelight/50 bg-cm-purple px-3 font-semibold text-white hover:bg-[#6a2bc0];
+    @apply rounded-[4px] border border-cm-purplelight/50 bg-cm-purple px-3 font-semibold text-white hover:bg-cm-purplehover;
   }
   .cm-purple:active:not(:disabled) {
-    @apply bg-[#4a1888];
+    @apply bg-cm-purpledown;
   }
   .cm-purple:disabled {
     @apply text-cm-purpledim;
@@ -152,10 +326,10 @@ body {
 
   /* Casa escura (número da camisola, datas e resultados, GR/DD/SB1 nas tácticas) */
   .cm-cell {
-    @apply rounded-[3px] bg-[#2a2b32];
+    @apply rounded-[3px] bg-cm-hover;
   }
   .cm-cell:active {
-    @apply bg-[#1e1f25];
+    @apply bg-cm-raised;
   }
   /* Casa roxa (as casas da equipa por cima do plantel) */
   .cm-chip {
@@ -166,7 +340,7 @@ body {
   }
   /* Barra de progresso dos ecrãs de carregamento */
   .cm-progress {
-    background: repeating-linear-gradient(-45deg, #ffff40 0 10px, #c8c800 10px 20px);
+    background: repeating-linear-gradient(-45deg, rgb(var(--c-yellow)) 0 10px, #c8c800 10px 20px);
     background-size: 28px 28px;
     animation: cm-progress 0.6s linear infinite;
   }

@@ -163,7 +163,7 @@ export function YellowList<T>({
 function OfferRow({ label, active, children }: { label: ReactNode; active: boolean; children: ReactNode }) {
   return (
     <div className="flex min-h-[30px] items-center gap-2">
-      <span className={`w-80 shrink-0 font-title text-[19px] leading-none ${active ? 'text-white' : 'text-[#b48cf0]'}`}>{label}</span>
+      <span className={`w-80 shrink-0 font-title text-[19px] leading-none ${active ? 'text-white' : 'text-cm-purplelight'}`}>{label}</span>
       <div className="flex items-center gap-1">{children}</div>
     </div>
   )
@@ -184,14 +184,14 @@ function MoneyCell({ value, onChange }: { value: number; onChange: (eur: number)
       {/* O campo todo abre a lista; a seta fica numa faixa à direita, dentro da borda */}
       <div>
         <button
-          className="flex h-7 w-44 items-center overflow-hidden rounded border border-[#2f6b52] bg-black text-[16px] tabular-nums text-cm-yellow hover:border-cm-yellow"
+          className="flex h-7 w-44 items-center overflow-hidden rounded border border-cm-dlgline bg-black text-[16px] tabular-nums text-cm-yellow hover:border-cm-yellow"
           onClick={(e) => {
             const el = e.currentTarget
             setAnchor((a) => (a ? null : el))
           }}
         >
           <span className="flex-1 px-2 text-right">{value > 0 ? money(value) : `${currency().symbol}0`}</span>
-          <span className="flex h-full w-6 items-center justify-center border-l border-[#2f6b52] bg-cm-purple text-white">
+          <span className="flex h-full w-6 items-center justify-center border-l border-cm-dlgline bg-cm-purple text-white">
             <ChevronDown size={15} />
           </span>
         </button>
@@ -280,7 +280,7 @@ function ExchangePicker({
                   {rows.map((p) => (
                     <tr
                       key={p.id}
-                      className={`h-8 cursor-pointer ${p.id === chosen ? 'bg-cm-sel text-white' : 'text-[#e3e1e9] hover:bg-[#1d4d3a]'}`}
+                      className={`h-8 cursor-pointer ${p.id === chosen ? 'bg-cm-sel text-white' : 'text-cm-text hover:bg-cm-dlghover'}`}
                       onClick={() => setChosen(p.id)}
                       onDoubleClick={() => onPick(p.id)}
                     >
@@ -400,7 +400,7 @@ export function TransferOfferDialog({
               Remover
             </button>
             <span className="ml-3 truncate text-[17px] text-cm-yellow">
-              {exchange ? `${exchange.name} (${exchange.position}) vai na troca` : <span className="text-[15px] text-[#b48cf0]">Nenhum jogador na troca</span>}
+              {exchange ? `${exchange.name} (${exchange.position}) vai na troca` : <span className="text-[15px] text-cm-purplelight">Nenhum jogador na troca</span>}
             </span>
           </div>
         )}

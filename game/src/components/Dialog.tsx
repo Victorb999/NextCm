@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 // Peças dos diálogos verdes do CM (Definições do Jogo, Novo Jogo, Carregar Jogo...).
 
 /** Verde liso e escuro dos diálogos (sem as listras de relvado). */
-export const GREEN_FIELD = "#01322099"
+export const GREEN_FIELD = "rgb(var(--c-dlgfield) / 0.6)"
 
 /** Moldura: título preto, área verde e os botões Cancelar / Ok. */
 export function DialogFrame({
@@ -31,7 +31,7 @@ export function DialogFrame({
   return (
     <div
       className="cm-dialog-in flex max-h-full max-w-full flex-col
-       rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)] p-2"
+       rounded-lg border-2 border-cm-dlgborder bg-cm-dlg shadow-[0_12px_32px_rgba(0,0,0,0.7)] p-2"
       style={full ? { width: "100%", height: "100%" } : { width }}
     >
       <div

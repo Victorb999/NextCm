@@ -131,7 +131,7 @@ export default function TacticsPage({ id }: { id: number }) {
   const toggler = (p: TacticPlayer) => (editable ? () => void toggle(p.id) : undefined)
 
   const headButton =
-    'flex h-[34px] items-center gap-1.5 rounded-md bg-[#1e1f25] px-3 text-[13px] font-semibold text-[#4edea3] hover:bg-[#292a2f] disabled:text-white/25 disabled:hover:bg-[#1e1f25]'
+    'flex h-[34px] items-center gap-1.5 rounded-md bg-cm-raised px-3 text-[13px] font-semibold text-cm-mint hover:bg-cm-hover disabled:text-white/25 disabled:hover:bg-cm-raised'
   const picking = pending !== null
   const hint = pending?.kind === 'starter' ? 'Clique em quem entra' : 'Clique no titular que sai'
   /** Escolhe (ou larga) o primeiro jogador da troca. */
@@ -162,16 +162,16 @@ export default function TacticsPage({ id }: { id: number }) {
                 {initials(name)}
               </span>
               <span className="min-w-0">
-                <span className="flex items-center gap-2 text-[10px] font-bold font-mono uppercase tracking-[0.12em] text-[#c8c8d0]">
+                <span className="flex items-center gap-2 text-[10px] font-bold font-mono uppercase tracking-[0.12em] text-cm-muted">
                   Tácticas {name}
-                  <span className="rounded bg-[#0f3a2a] px-1.5 tracking-wider text-[#4edea3]">{t?.auto ? 'O adjunto escolhe' : 'Táctica activa'}</span>
+                  <span className="rounded bg-cm-dlgdeep px-1.5 tracking-wider text-cm-mint">{t?.auto ? 'O adjunto escolhe' : 'Táctica activa'}</span>
                 </span>
                 <span className="block font-title text-[22px] font-bold leading-tight text-cm-orange">
                   {t?.formation}
                   {t?.custom && '*'}
                 </span>
               </span>
-              {editable && <ChevronDown size={16} className="text-[#86869a]" />}
+              {editable && <ChevronDown size={16} className="text-cm-dim" />}
             </>
           }
         />
@@ -212,7 +212,7 @@ export default function TacticsPage({ id }: { id: number }) {
         />
       </div>
       <ErrorBox className="mx-2 mt-2">{error}</ErrorBox>
-      {notice && <div className="mx-2 mt-2 rounded-md bg-[#0f3a2a] px-3 py-1.5 font-semibold text-[#4edea3]">{notice}</div>}
+      {notice && <div className="mx-2 mt-2 rounded-md bg-cm-dlgdeep px-3 py-1.5 font-semibold text-cm-mint">{notice}</div>}
       {t && (
         <div className="mx-2 mt-2 flex min-h-0 flex-1 gap-2">
           {/* Onze, banco e resto do plantel numa coluna só, que rola */}
@@ -259,7 +259,7 @@ export default function TacticsPage({ id }: { id: number }) {
                               onClick={() => choose(spot)}
                               title="Troca rápida: escolha depois quem entra"
                               className={`flex h-[22px] w-8 items-center justify-center rounded-[3px] ${
-                                sameSpot(pending, spot) ? 'bg-cm-yellow text-black' : 'text-[#c8c8d0] hover:bg-white/10 hover:text-white'
+                                sameSpot(pending, spot) ? 'bg-cm-yellow text-black' : 'text-cm-muted hover:bg-white/10 hover:text-white'
                               }`}
                             >
                               <ArrowLeftRight size={15} />
@@ -318,7 +318,7 @@ export default function TacticsPage({ id }: { id: number }) {
                   ) : (
                     <div key={`b-empty${i}`} {...drag.bind(spot, `SB${i + 1}`)} className="flex h-[30px] items-center gap-2 px-3 text-[14px]">
                       <span className="w-8 shrink-0" />
-                      <span className="w-12 shrink-0 text-[11px] font-bold text-[#d0bcff]">SB{i + 1}</span>
+                      <span className="w-12 shrink-0 text-[11px] font-bold text-cm-lilac">SB{i + 1}</span>
                       <span className="italic text-[#6a5a8a]">— vazio —</span>
                     </div>
                   )
@@ -331,7 +331,7 @@ export default function TacticsPage({ id }: { id: number }) {
                   title="Resto do Plantel"
                   right={
                     t.reserves.some((p) => p.reserve) && (
-                      <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#d0bcff]">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-cm-lilac">
                         <input type="checkbox" checked={withReserves} onChange={(e) => setWithReserves(e.target.checked)} />
                         Equipa de Reservas
                       </label>
@@ -369,7 +369,7 @@ export default function TacticsPage({ id }: { id: number }) {
                 right={
                   editable && (
                     <span
-                      className="cursor-help text-[#86869a]"
+                      className="cursor-help text-cm-dim"
                       title="Arraste, ⇄ ou Substituir para trocar · botão direito e arrastar faz a seta (atacar/recuar) · clique no número para pôr/tirar · botão direito num jogador da lista: instruções individuais"
                     >
                       Como mexer ?

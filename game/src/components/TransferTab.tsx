@@ -117,13 +117,13 @@ export function OfferButtons({
           </div>,
         )}
       {error && (
-        <div className="mt-1 text-[15px] font-bold text-[#ff5050]">{error}</div>
+        <div className="mt-1 text-[15px] font-bold text-cm-red">{error}</div>
       )}
       {confirmSale && (
         <Overlay>
           <div
             className="cm-dialog-in flex w-[640px] max-w-full flex-col
-       rounded-lg border-2 border-[#10b981] bg-[#0f241b] shadow-[0_12px_32px_rgba(0,0,0,0.7)] p-2"
+       rounded-lg border-2 border-cm-dlgborder bg-cm-dlg shadow-[0_12px_32px_rgba(0,0,0,0.7)] p-2"
           >
             <div
               className="flex h-12 shrink-0 items-center justify-center rounded
@@ -274,7 +274,7 @@ export default function TransferTab({
             key={i}
             className="flex min-h-6 items-center justify-between gap-4 px-3 text-[13.5px]"
           >
-            <span className="shrink-0 text-[#c8c8d0]">{k}</span>
+            <span className="shrink-0 text-cm-muted">{k}</span>
             <span className="text-right font-bold text-cm-yellow">{v}</span>
           </div>
         ))}
@@ -297,7 +297,7 @@ export default function TransferTab({
         </div>
       )}
       {error && (
-        <div className="px-3 py-1.5 text-center text-[14px] font-bold text-[#ff5050]">
+        <div className="px-3 py-1.5 text-center text-[14px] font-bold text-cm-red">
           {error}
         </div>
       )}

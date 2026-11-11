@@ -24,6 +24,7 @@ export type TextFont = 'inter' | 'tahoma' | 'googleSans' | 'roboto' | 'robotoCon
 export type ScreenMode = 'window' | 'fullscreen'
 export type Resolution = '1280x720' | '1366x768' | '1600x900' | '1920x1080'
 export type Background = 'default' | 'plain' | 'photo' | 'image'
+export type Theme = 'coalizao' | 'dracula' | 'monokai' | 'cyberpunk'
 export type MatchSpeed = 'veryFast' | 'fast' | 'normal' | 'slow' | 'verySlow'
 export type AutoSave = 'off' | 'weekly' | 'monthly'
 
@@ -38,7 +39,9 @@ export type Settings = {
   screen: ScreenMode
   /** Tamanho da janela (só em modo janela): sempre 16:9, para o layout não perder a proporção. */
   resolution: Resolution
-  /** Cor base da coluna esquerda (#rrggbb), um dos temas de `SIDE_PRESETS`; os relevos saem dela. */
+  /** A paleta inteira (os valores de cada tema estão em index.css). */
+  theme: Theme
+  /** Cor base da coluna esquerda: 'theme' (a do tema) ou uma de `SIDE_PRESETS`; os relevos saem dela. */
   sideColour: string
   background: Background
   /** Foto de fundo que vem com o jogo (chave de `BACKGROUND_PHOTOS`). */
@@ -66,7 +69,8 @@ export const DEFAULT_SETTINGS: Settings = {
   fontsVersion: 2,
   screen: 'window',
   resolution: '1280x720',
-  sideColour: '#45526a',
+  theme: 'coalizao',
+  sideColour: 'theme',
   background: 'default',
   backgroundPhoto: null,
   backgroundImage: null,
@@ -160,9 +164,16 @@ export const TEXT_FONTS: { key: TextFont; label: string; family: string }[] = [
   { key: 'oswald', label: 'Oswald', family: 'Oswald, Tahoma, sans-serif' },
 ]
 
-/** Os temas da coluna esquerda (o 1º é o da Coalizão). */
+/** Os temas (item 22 do 3.19.1): a paleta vem de index.css, a coluna esquerda daqui. */
+export const THEMES: { key: Theme; label: string; side: string }[] = [
+  { key: 'coalizao', label: 'Coalizão', side: '#45526a' },
+  { key: 'dracula', label: 'Dracula', side: '#3b3e54' },
+  { key: 'monokai', label: 'Monokai', side: '#3e3d32' },
+  { key: 'cyberpunk', label: 'Cyberpunk', side: '#2a0f1c' },
+]
+
+/** As outras cores da coluna esquerda (por defeito, a do tema). */
 export const SIDE_PRESETS: { label: string; colour: string }[] = [
-  { label: 'Coalizão', colour: '#45526a' },
   { label: 'Azul CM', colour: '#24448a' },
   { label: 'Grafite', colour: '#434343' },
   { label: 'Verde', colour: '#2e5c3a' },
@@ -177,6 +188,9 @@ function load(): Settings {
     const s: Settings = raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS
     // Uma resolução que já não existe (ex.: a antiga "Livre") volta à de origem
     if (!RESOLUTIONS.some((r) => r.key === s.resolution)) s.resolution = DEFAULT_SETTINGS.resolution
+    // A cor da Coalizão (o antigo defeito) e as que já não existem seguem o tema
+    if (!THEMES.some((t) => t.key === s.theme)) s.theme = DEFAULT_SETTINGS.theme
+    if (!SIDE_PRESETS.some((p) => p.colour === s.sideColour)) s.sideColour = 'theme'
     // Quem ficou com as fontes de origem antigas passa uma vez às novas (Inter); quem escolheu outras fica com elas
     if ((s.fontsVersion ?? 1) < 2) {
       if (s.font === 'futurista' && s.textFont === 'tahoma') Object.assign(s, { font: 'inter', textFont: 'inter' })
@@ -232,8 +246,10 @@ export function shade(hex: string, t: number) {
 /** Variáveis CSS do tema, fundo e modo de ecrã. */
 export function applySettings(s: Settings) {
   const root = document.documentElement.style
-  // A cor da coluna vem do tema escolhido; uma cor antiga fora dos temas volta à da Coalizão
-  const base = SIDE_PRESETS.some((p) => p.colour === s.sideColour) ? s.sideColour : DEFAULT_SETTINGS.sideColour
+  // A paleta do tema e a cor da coluna (a do tema, se não se escolheu outra)
+  const theme = THEMES.find((t) => t.key === s.theme) ?? THEMES[0]
+  document.documentElement.dataset.theme = theme.key
+  const base = SIDE_PRESETS.some((p) => p.colour === s.sideColour) ? s.sideColour : theme.side
   root.setProperty('--cm-side', base)
   root.setProperty('--cm-side-top', shade(base, 0.12))
   root.setProperty('--cm-sidebtn', shade(base, -0.17))

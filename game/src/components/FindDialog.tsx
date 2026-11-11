@@ -88,8 +88,8 @@ export default function FindDialog({
         }
       >
         <div className="h-[420px]">
-          {!found && <div className="text-[14px] text-[#bfe6c4]">Escreva pelo menos duas letras.</div>}
-          {empty && <div className="text-[14px] text-[#bfe6c4]">Nada encontrado com esse nome.</div>}
+          {!found && <div className="text-[14px] text-cm-dlgtext">Escreva pelo menos duas letras.</div>}
+          {empty && <div className="text-[14px] text-cm-dlgtext">Nada encontrado com esse nome.</div>}
           {groups
             .filter(([, hits]) => hits.length > 0)
             .map(([label, hits]) => (
@@ -102,7 +102,7 @@ export default function FindDialog({
                     className="flex h-[24px] w-full items-center gap-3 px-2 text-left text-[14px] text-white hover:bg-cm-sel"
                   >
                     <span className="truncate">{h.name}</span>
-                    {h.detail && <span className="ml-auto shrink-0 truncate text-[#bfe6c4]">{h.detail}</span>}
+                    {h.detail && <span className="ml-auto shrink-0 truncate text-cm-dlgtext">{h.detail}</span>}
                   </button>
                 ))}
               </div>

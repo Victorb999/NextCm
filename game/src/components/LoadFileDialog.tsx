@@ -28,8 +28,8 @@ export default function LoadFileDialog({
   return (
     <Overlay>
       <DialogFrame title={title} width={560} onCancel={onCancel} onOk={chosen ? () => onOk(chosen) : undefined}>
-        {error && <div className="text-[#ff7070]">{error}</div>}
-        {files && files.length === 0 && <div className="py-2 text-[15px] text-[#bfe6c4]">{empty}</div>}
+        {error && <div className="text-cm-red">{error}</div>}
+        {files && files.length === 0 && <div className="py-2 text-[15px] text-cm-dlgtext">{empty}</div>}
         <div className="cm-zebra max-h-[360px] overflow-auto">
           {files?.map((f) => (
             <button

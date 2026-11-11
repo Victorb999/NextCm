@@ -125,7 +125,7 @@ export function ProgramDialog({
             </select>
           </DialogRow>
           <div className="flex items-center gap-3 pt-1">
-            <span className="flex-1 text-[12px] text-[#bfe6c4]">
+            <span className="flex-1 text-[12px] text-cm-dlgtext">
               A Prep. Física intensiva cansa e aumenta o risco de lesão; uma posição nova aprende-se em meses.
             </span>
             {canDelete && (
@@ -178,7 +178,7 @@ export function CoachesDialog({
                     {/* O perfil do treinador (sai do diálogo e da tela sem gravar) */}
                     <Link onClick={() => nav.go({ kind: 'person', id: c.id })}>{c.name}</Link>
                   </span>
-                  <span className="w-20 shrink-0 text-[12px] text-[#bfe6c4]" title="Qualidade a treinar">
+                  <span className="w-20 shrink-0 text-[12px] text-cm-dlgtext" title="Qualidade a treinar">
                     {c.quality}
                   </span>
                   {COACH_AREAS.map((label, i) => (
@@ -189,7 +189,7 @@ export function CoachesDialog({
                 </div>
               ))}
             </div>
-            <div className="pt-1 text-[12px] text-[#bfe6c4]">
+            <div className="pt-1 text-[12px] text-cm-dlgtext">
               Clique numa área para a dar ou tirar a um treinador. Quem treina muitas áreas rende menos; uma área sem
               ninguém treina-se mal.
             </div>

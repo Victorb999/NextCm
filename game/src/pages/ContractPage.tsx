@@ -222,7 +222,7 @@ function Proposal({
             >
               {reply && (reply.accepted || over) ? reply.text : wants}
             </div>
-            <div className="mt-2 text-[14px] text-[#c8c8d0]">
+            <div className="mt-2 text-[14px] text-cm-muted">
               {terms.renewal
                 ? `Contrato actual: ${wageText(terms.currentWage, true)} até ${monthYear(terms.currentExpires ?? "")}.`
                 : terms.precontract
@@ -231,16 +231,16 @@ function Proposal({
                     ? `Transferência acordada: ${money(terms.fee)}.`
                     : "Jogador livre."}
             </div>
-            <div className="mt-1 text-[14px] text-[#c8c8d0]">
+            <div className="mt-1 text-[14px] text-cm-muted">
               A sua direcção autoriza salários até{" "}
               {wageText(terms.maxWage, true)} e transferências até{" "}
               {money(terms.budget) || "€0"}.
             </div>
             {/* A folha de hoje e o que sobra (sem o salário actual dele, numa renovação) */}
-            <div className="mt-1 text-[14px] text-[#c8c8d0]">
+            <div className="mt-1 text-[14px] text-cm-muted">
               Folha salarial: {wageText(terms.wageBill, true)} de{" "}
               {wageText(terms.wageBudget, true)} autorizados · sobram{" "}
-              <b className={terms.wageBudget - terms.wageBill + (terms.renewal ? terms.currentWage : 0) > 0 ? "text-cm-yellow" : "text-[#ff7070]"}>
+              <b className={terms.wageBudget - terms.wageBill + (terms.renewal ? terms.currentWage : 0) > 0 ? "text-cm-yellow" : "text-cm-red"}>
                 {wageText(Math.max(0, terms.wageBudget - terms.wageBill + (terms.renewal ? terms.currentWage : 0)), true)}
               </b>
               .
