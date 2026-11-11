@@ -3,187 +3,300 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NextCM — o CM 01/02 com a base 2025/26</title>
-  <meta name="description" content="NextCM: remake de fãs do Championship Manager 01/02, com a base de dados 2025/26 do Update Coalizão. Beta grátis para Windows.">
-  <meta property="og:title" content="NextCM — o CM 01/02 com a base 2025/26">
-  <meta property="og:description" content="Remake de fãs do Championship Manager 01/02, com a base 2025/26. Beta grátis para Windows.">
+  <title>NextCM · O Championship Manager 01/02 com a base 2025/26</title>
+  <meta name="description" content="NextCM é um remake de fãs do Championship Manager 01/02, com a base de dados 2025/26 do Update Coalizão. Grátis para Windows, sem precisar do jogo original.">
+  <meta property="og:title" content="NextCM · O CM 01/02 com os plantéis de 2025/26">
+  <meta property="og:description" content="Remake de fãs do Championship Manager 01/02. Grátis para Windows.">
   <meta property="og:image" content="https://victorb999.github.io/NextCm/prints/partida.png">
   <meta property="og:url" content="https://victorb999.github.io/NextCm/">
+  <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#000000">
   <link rel="icon" href="icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500;600&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
   <link rel="stylesheet" href="style.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "O NextCM é grátis?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. É um projeto de fãs, sem fins comerciais, e o instalador é grátis." } },
+      { "@type": "Question", "name": "Preciso do CM 01/02 original?", "acceptedAnswer": { "@type": "Answer", "text": "Não. A base de dados 2025/26 já vem dentro do instalador." } },
+      { "@type": "Question", "name": "Funciona no Mac, no Linux ou no Android?", "acceptedAnswer": { "@type": "Answer", "text": "Por enquanto só no Windows 10 e 11." } }
+    ]
+  }
+  </script>
 </head>
 <body>
-  <header class="bar">
-    <div class="wrap bar-in">
-      <a class="brand" href="#topo">NextCM</a>
-      <nav class="tabs" aria-label="Secções">
-        <a href="#prints">Prints</a>
-        <a href="#funcionalidades">Funcionalidades</a>
-        <a href="#sobre">Sobre</a>
-        <a href="#beta">Beta</a>
-        <a href="#creditos">Créditos</a>
-      </nav>
-    </div>
+  <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="nav" id="nav">
+    <a class="nav-logo title-3" href="#topo" aria-label="NextCM, voltar ao topo">
+      <img src="icon.png" width="24" height="24" alt="">NextCM
+    </a>
+    <nav class="nav-links" aria-label="Secções">
+      <a class="title-4" href="#tour">Tour</a>
+      <a class="title-4" href="#recursos">Recursos</a>
+      <a class="title-4" href="#como">Como jogar</a>
+      <a class="title-4" href="#faq">Dúvidas</a>
+    </nav>
+    <a class="btn btn-sm nav-cta" href="#baixar">Baixar</a>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu">
+      <span></span><span></span>
+    </button>
   </header>
 
-  <main id="topo">
-    <section class="hero wrap">
-      <div class="hero-text">
-        <span class="tag">Beta aberto</span>
-        <h1>O CM 01/02 que você lembra, com os plantéis de&nbsp;hoje.</h1>
-        <p class="lead">
-          O NextCM é um remake de fãs do Championship Manager 01/02: a mesma velocidade, a mesma
-          densidade de informação, as mesmas telas. A diferença está no mundo, com a base de dados 2025/26.
+  <div class="menu" id="menu" hidden>
+    <a class="heading-4" href="#tour">Tour</a>
+    <a class="heading-4" href="#recursos">Recursos</a>
+    <a class="heading-4" href="#como">Como jogar</a>
+    <a class="heading-4" href="#faq">Dúvidas</a>
+    <a class="btn btn-lg" href="#baixar">Baixar o beta</a>
+  </div>
+
+  <main id="conteudo">
+    <!-- Topo -->
+    <section class="hero" id="topo">
+      <!-- Campo desenhado: as linhas pintam-se ao abrir a página -->
+      <div class="pitch" aria-hidden="true">
+        <svg viewBox="-20 -20 1090 720" preserveAspectRatio="xMidYMid slice">
+          <g class="lines">
+            <rect x="0" y="0" width="1050" height="680" pathLength="1"/>
+            <line x1="525" y1="0" x2="525" y2="680" pathLength="1"/>
+            <circle cx="525" cy="340" r="91.5" pathLength="1"/>
+            <rect x="0" y="138.5" width="165" height="403" pathLength="1"/>
+            <rect x="885" y="138.5" width="165" height="403" pathLength="1"/>
+            <rect x="0" y="248.5" width="55" height="183" pathLength="1"/>
+            <rect x="995" y="248.5" width="55" height="183" pathLength="1"/>
+            <path d="M165 266.9 A91.5 91.5 0 0 1 165 413.1" pathLength="1"/>
+            <path d="M885 266.9 A91.5 91.5 0 0 0 885 413.1" pathLength="1"/>
+          </g>
+          <circle class="spot" cx="525" cy="340" r="4"/>
+          <circle class="spot" cx="110" cy="340" r="4"/>
+          <circle class="spot" cx="940" cy="340" r="4"/>
+        </svg>
+      </div>
+      <div class="glow" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <a class="pill caption-4 enter" style="--d:0ms" href="https://github.com/Victorb999/NextCm/releases">
+          <span class="dot"></span><span id="pill-version">Beta aberto</span> · grátis para Windows
+        </a>
+        <h1 class="heading-1 hero-title enter" style="--d:80ms">O CM 01/02 de sempre, <br>com os plantéis de hoje</h1>
+        <p class="body-3 hero-sub enter" style="--d:160ms">
+          A mesma velocidade, a mesma densidade e as mesmas telas do Championship Manager 01/02,
+          num motor novo e com a base de dados 2025/26.
         </p>
-        <div class="cta">
-          <a class="btn btn-main" id="download" href="https://github.com/Victorb999/NextCm/releases">
-            <span class="btn-title">Baixar para Windows</span>
-            <span class="btn-sub" id="download-sub">Página das versões</span>
+        <div class="hero-cta enter" style="--d:240ms" id="baixar">
+          <a class="btn btn-lg download" href="https://github.com/Victorb999/NextCm/releases">
+            <i class="ph ph-windows-logo" aria-hidden="true"></i>Baixar o beta grátis
           </a>
-          <a class="btn" href="https://github.com/Victorb999/NextCm">Código no GitHub</a>
+          <span class="caption-2 download-meta" aria-live="polite"><span class="skeleton"></span></span>
         </div>
-        <p class="note">Windows 10 ou 11 · ecrã de 1280×720 ou maior · grátis</p>
+        <p class="caption-2 hero-proof enter" style="--d:320ms">
+          Plantéis do <a href="https://www.coalizaocm.com.br/">Update Coalizão</a>, o maior acervo nacional de CM 01/02
+        </p>
       </div>
-      <figure class="window hero-shot">
-        <div class="window-bar"><span>NextCM</span></div>
-        <img src="prints/partida.png" width="1280" height="720" alt="Palmeiras v Grêmio ao vivo, aos 34 minutos, com o relato do lance">
-      </figure>
-    </section>
 
-    <section id="prints" class="section wrap">
-      <h2 class="strip">Prints</h2>
-      <div class="gallery">
-        <figure class="shot"><button type="button" data-full="prints/tacticas.png"><img src="prints/tacticas.png" width="1280" height="720" loading="lazy" alt="Tácticas do Palmeiras em 4-4-2, com o quadro táctico e as instruções"></button><figcaption>Tácticas: formação, quadro táctico e instruções à equipa</figcaption></figure>
-        <figure class="shot"><button type="button" data-full="prints/plantel.png"><img src="prints/plantel.png" width="1280" height="720" loading="lazy" alt="Plantel do Palmeiras com as posições escolhidas"></button><figcaption>Plantel: escolher o onze e os suplentes como no CM</figcaption></figure>
-        <figure class="shot"><button type="button" data-full="prints/jogador.png"><img src="prints/jogador.png" width="1280" height="720" loading="lazy" alt="Perfil de Felipe Anderson com os atributos"></button><figcaption>Perfil do jogador, com o relatório do adjunto</figcaption></figure>
-        <figure class="shot"><button type="button" data-full="prints/pre-jogo.png"><img src="prints/pre-jogo.png" width="1280" height="720" loading="lazy" alt="Pré-Jogo Palmeiras v Bahia com as duas equipas no campo"></button><figcaption>Pré-Jogo: as duas equipas e a análise</figcaption></figure>
-        <figure class="shot"><button type="button" data-full="prints/palestra.png"><img src="prints/palestra.png" width="1280" height="720" loading="lazy" alt="Palestra antes do jogo, com o tom e as instruções a cada jogador"></button><figcaption>Palestras antes do jogo, ao intervalo e no fim</figcaption></figure>
-        <figure class="shot"><button type="button" data-full="prints/estatisticas.png"><img src="prints/estatisticas.png" width="1280" height="720" loading="lazy" alt="Estatísticas da partida Palmeiras 2-0 Bahia"></button><figcaption>Estatísticas do jogo, no formato do CM</figcaption></figure>
-        <figure class="shot"><button type="button" data-full="prints/fim-de-jogo.png"><img src="prints/fim-de-jogo.png" width="1280" height="720" loading="lazy" alt="Fim de jogo: marcadores e melhor em campo"></button><figcaption>Fim de jogo: marcadores e melhor em campo</figcaption></figure>
-        <figure class="shot"><button type="button" data-full="prints/classificacao.png"><img src="prints/classificacao.png" width="1280" height="720" loading="lazy" alt="Classificação do Brasileirão Série A à 7ª jornada"></button><figcaption>Classificação, jornada a jornada</figcaption></figure>
-        <figure class="shot"><button type="button" data-full="prints/noticias.png"><img src="prints/noticias.png" width="1280" height="720" loading="lazy" alt="Notícias com a actualização da confiança da Direcção"></button><figcaption>Notícias: jogos, imprensa, lesões e a Direcção</figcaption></figure>
+      <div class="hero-stage enter" style="--d:400ms">
+        <figure class="hero-shot" id="hero-shot">
+          <img src="prints/partida.png" width="1280" height="720" alt="Palmeiras contra Grêmio ao vivo, aos 34 minutos, com o relato do lance">
+        </figure>
+        <div class="float float-a caption-3" aria-hidden="true"><span class="live"></span>Ao vivo · 34'</div>
+        <div class="float float-b caption-3" aria-hidden="true"><i class="ph-fill ph-trophy"></i>1º na Série A</div>
       </div>
     </section>
 
-    <section id="funcionalidades" class="section wrap">
-      <h2 class="strip">Funcionalidades</h2>
-      <div class="features">
-        <article class="feat">
-          <h3>Dia de jogo</h3>
-          <ul>
-            <li>Motor por lances, minuto a minuto, com relato em texto</li>
-            <li>Mexer na táctica e substituir a meio do jogo</li>
-            <li>Pré-Jogo e palestras antes, ao intervalo e no fim</li>
-          </ul>
+    <!-- Competições -->
+    <section class="comps reveal" aria-label="Competições no jogo">
+      <p class="caption-3 eyebrow">Época viva em</p>
+      <ul class="comp-list body-5">
+        <li>Brasileirão Série A a D</li><li>Copa do Brasil</li><li>Estaduais</li><li>Libertadores</li>
+        <li>Premier League</li><li>La Liga</li><li>Serie A</li><li>Bundesliga</li><li>Ligue 1</li>
+        <li>Liga Portugal</li><li>Eredivisie</li><li>Liga dos Campeões</li><li>Liga Europa</li>
+        <li>Copa do Mundo</li><li>Copa América</li><li>Euro</li>
+      </ul>
+    </section>
+
+    <!-- Frase -->
+    <section class="tagline" aria-label="A ideia do NextCM">
+      <p class="heading-2 tagline-text" id="tagline">Sem telas lentas e sem menus escondidos. Só você, o plantel e o próximo jogo, como era em 2001.</p>
+    </section>
+
+    <!-- Tour -->
+    <section class="section" id="tour">
+      <div class="section-head reveal">
+        <p class="caption-3 eyebrow">Tour</p>
+        <h2 class="heading-3">Telas do CM, dados de hoje</h2>
+        <p class="body-3 muted">Cada print saiu de um jogo real com o Palmeiras na época 2025.</p>
+      </div>
+      <div class="tour reveal">
+        <div class="tour-tabs" role="tablist" aria-label="Telas do jogo">
+          <button class="tab title-4" role="tab" aria-selected="true" data-img="prints/partida.png" data-alt="Partida ao vivo com o relato do lance">Partida ao vivo</button>
+          <button class="tab title-4" role="tab" aria-selected="false" data-img="prints/tacticas.png" data-alt="Tácticas em 4-4-2 com o quadro táctico">Tácticas</button>
+          <button class="tab title-4" role="tab" aria-selected="false" data-img="prints/plantel.png" data-alt="Plantel do Palmeiras">Plantel</button>
+          <button class="tab title-4" role="tab" aria-selected="false" data-img="prints/jogador.png" data-alt="Perfil do Felipe Anderson com os atributos">Jogador</button>
+          <button class="tab title-4" role="tab" aria-selected="false" data-img="prints/palestra.png" data-alt="Palestra antes do jogo">Palestra</button>
+          <button class="tab title-4" role="tab" aria-selected="false" data-img="prints/classificacao.png" data-alt="Classificação da Série A na 7ª jornada">Classificação</button>
+          <button class="tab title-4" role="tab" aria-selected="false" data-img="prints/noticias.png" data-alt="Notícias com a confiança da Direcção">Notícias</button>
+        </div>
+        <figure class="tour-frame">
+          <img class="tour-img is-on" src="prints/partida.png" width="1280" height="720" alt="Partida ao vivo com o relato do lance">
+          <img class="tour-img" width="1280" height="720" alt="" aria-hidden="true">
+          <span class="tour-bar"><span id="tour-progress"></span></span>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Recursos -->
+    <section class="section" id="recursos">
+      <div class="section-head reveal">
+        <p class="caption-3 eyebrow">Recursos</p>
+        <h2 class="heading-3">Tudo o que fazia o CM viciar</h2>
+      </div>
+      <div class="cards">
+        <article class="card reveal">
+          <i class="ph ph-soccer-ball icon" aria-hidden="true"></i>
+          <h3 class="title-1">Jogo lance a lance</h3>
+          <p class="body-6 muted">Relato minuto a minuto, substituições e táctica a meio do jogo, palestras antes, ao intervalo e no fim.</p>
         </article>
-        <article class="feat">
-          <h3>O seu clube</h3>
-          <ul>
-            <li>Plantel, tácticas e treino por grupos</li>
-            <li>Equipa de reservas e equipas B</li>
-            <li>Moral, condição, lesões e castigos</li>
-          </ul>
+        <article class="card reveal">
+          <i class="ph ph-strategy icon" aria-hidden="true"></i>
+          <h3 class="title-1">Tácticas como no CM</h3>
+          <p class="body-6 muted">Formação, funções, instruções à equipa e a cada jogador. Grave a sua táctica e leve para outro save.</p>
         </article>
-        <article class="feat">
-          <h3>Mercado e olheiros</h3>
-          <ul>
-            <li>Propostas, contratos, empréstimos e renovações</li>
-            <li>Atributos tapados até os olheiros conhecerem o jogador</li>
-            <li>Economia com receitas de cada clube e fair-play financeiro</li>
-          </ul>
+        <article class="card reveal">
+          <i class="ph ph-binoculars icon" aria-hidden="true"></i>
+          <h3 class="title-1">Olheiros de verdade</h3>
+          <p class="body-6 muted">Os atributos ficam tapados até alguém observar o jogador. Contratar um desconhecido volta a ser um risco.</p>
         </article>
-        <article class="feat">
-          <h3>Carreira</h3>
-          <ul>
-            <li>Direcção com expectativas, reuniões e despedimentos</li>
-            <li>Ofertas de emprego e mudança de clube</li>
-            <li>Imprensa, disciplina e jogadores insatisfeitos</li>
-          </ul>
+        <article class="card reveal">
+          <i class="ph ph-handshake icon" aria-hidden="true"></i>
+          <h3 class="title-1">Mercado com números de hoje</h3>
+          <p class="body-6 muted">Receitas por clube, salários e fair play financeiro. Os grandes gastam como gastam hoje.</p>
         </article>
-        <article class="feat">
-          <h3>O mundo</h3>
-          <ul>
-            <li>Brasileirão das Séries A a D, Copa do Brasil e estaduais</li>
-            <li>Libertadores, Sul-Americana, Liga dos Campeões e Liga Europa</li>
-            <li>Inglaterra, Espanha, Itália, Alemanha, França, Portugal, Holanda, Argentina e Arábia Saudita</li>
-            <li>Selecções nas datas FIFA</li>
-          </ul>
+        <article class="card reveal">
+          <i class="ph ph-briefcase icon" aria-hidden="true"></i>
+          <h3 class="title-1">Carreira com consequências</h3>
+          <p class="body-6 muted">A Direcção cobra resultados, a imprensa pergunta e os jogadores insatisfeitos pedem para sair.</p>
         </article>
-        <article class="feat">
-          <h3>Extras</h3>
-          <ul>
-            <li>Época após época, com juniores e reformas</li>
-            <li>Editor de jogos gravados</li>
-            <li>Gravar e carregar tácticas</li>
-          </ul>
+        <article class="card reveal">
+          <i class="ph ph-globe-hemisphere-west icon" aria-hidden="true"></i>
+          <h3 class="title-1">Um mundo que anda sozinho</h3>
+          <p class="body-6 muted">Épocas seguidas com juniores, reformas, selecções nas datas FIFA e treinadores a mudar de clube.</p>
         </article>
       </div>
     </section>
 
-    <section id="sobre" class="section wrap two">
-      <div>
-        <h2 class="strip">Sobre</h2>
-        <p>
-          O CM 01/02 ainda é jogado por uma comunidade enorme, graças a quem mantém os updates de pé.
-          O NextCM nasceu da vontade de ter esse jogo, com o mesmo jeito de jogar, a correr num
-          motor novo que dá para continuar a crescer.
-        </p>
-        <p>
-          A regra é simples: tem de parecer o CM 01/02. Coluna lateral, faixas com as cores do clube,
-          botões roxos, diálogos verdes, sem animações a atrasar o jogo. O que é novo (pré-jogo,
-          palestras, economia moderna) entra no mesmo estilo.
-        </p>
-        <p class="dim">Feito em Rust, Tauri e React. Projeto de fãs, sem fins comerciais.</p>
+    <!-- Números -->
+    <section class="stats reveal" aria-label="O jogo em números">
+      <div class="stat"><span class="heading-2 mono" data-count="57">57</span><span class="caption-2 muted">competições com regulamento próprio</span></div>
+      <div class="stat"><span class="heading-2 mono">25/26</span><span class="caption-2 muted">época da base de dados</span></div>
+      <div class="stat"><span class="heading-2 mono" data-count="27">27</span><span class="caption-2 muted">MB de instalador, base incluída</span></div>
+      <div class="stat"><span class="heading-2 mono" data-count="0">0</span><span class="caption-2 muted">reais. É grátis</span></div>
+    </section>
+
+    <!-- Como jogar -->
+    <section class="section" id="como">
+      <div class="section-head reveal">
+        <p class="caption-3 eyebrow">Como jogar</p>
+        <h2 class="heading-3">Do download ao primeiro jogo em minutos</h2>
       </div>
-      <div id="beta">
-        <h2 class="strip">Beta</h2>
-        <ol class="steps">
-          <li>Baixe o <b>setup.exe</b> da última versão.</li>
-          <li>Se o Windows mostrar "O Windows protegeu o computador", clique em
-            <b>Mais informações → Executar assim mesmo</b>. O instalador não tem certificado pago.</li>
-          <li>Não precisa do CM original nem de extrair nada: a base vem no instalador.</li>
-        </ol>
-        <p>
-          Achou um erro? Leia o <a href="https://github.com/Victorb999/NextCm/blob/main/docs/BETA.md">guia do beta</a>
-          e abra uma <a href="https://github.com/Victorb999/NextCm/issues">Issue</a> com a versão, os passos e o log.
-        </p>
+      <ol class="steps">
+        <li class="step reveal">
+          <span class="step-n mono caption-3">01</span>
+          <h3 class="title-1">Baixe o instalador</h3>
+          <p class="body-6 muted">Um único setup.exe com a base de dados dentro. Não precisa do CM original.</p>
+        </li>
+        <li class="step reveal">
+          <span class="step-n mono caption-3">02</span>
+          <h3 class="title-1">Instale sem administrador</h3>
+          <p class="body-6 muted">Se o Windows avisar, clique em Mais informações e depois em Executar assim mesmo.</p>
+        </li>
+        <li class="step reveal">
+          <span class="step-n mono caption-3">03</span>
+          <h3 class="title-1">Escolha o seu clube</h3>
+          <p class="body-6 muted">Do Brasileirão à Premier League. Monte a táctica e carregue em Continuar Jogo.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- Créditos -->
+    <section class="section">
+      <div class="credit reveal">
+        <div>
+          <p class="caption-3 eyebrow">Créditos</p>
+          <h2 class="heading-5">Plantéis da Coalizão CM</h2>
+          <p class="body-6 muted">
+            A base de dados 2025/26 e o tema vêm do Update Coalizão, feito pela equipe Coalizão CM,
+            o maior acervo nacional de CM 01/02. Lá você encontra também o Update para o jogo original,
+            databases, utilitários e tutoriais.
+          </p>
+        </div>
+        <a class="btn btn-ghost" href="https://www.coalizaocm.com.br/">Visitar a Coalizão CM<i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
       </div>
     </section>
 
-    <section id="creditos" class="section wrap">
-      <h2 class="strip">Créditos</h2>
-      <div class="credit">
-        <p>
-          A base de dados 2025/26 e o tema vêm do <b>Update Coalizão</b>, da equipe
-          <b>Coalizão CM</b>, o maior acervo nacional de CM 01-02. Sem o trabalho deles,
-          este jogo não teria plantéis. Lá estão também o Update para o CM original, databases,
-          utilitários e tutoriais.
-        </p>
-        <a class="btn" href="https://www.coalizaocm.com.br/">Visitar a Coalizão CM</a>
+    <!-- Dúvidas -->
+    <section class="section" id="faq">
+      <div class="section-head reveal">
+        <p class="caption-3 eyebrow">Dúvidas</p>
+        <h2 class="heading-3">Perguntas frequentes</h2>
       </div>
-      <p class="dim small">
-        Championship Manager é uma marca dos seus donos. O NextCM é um projeto de fãs independente,
-        sem ligação à Sports Interactive, à Eidos ou à Square Enix.
-      </p>
+      <div class="faq reveal">
+        <details><summary class="title-2">O NextCM é grátis?<i class="ph ph-plus" aria-hidden="true"></i></summary><div class="answer body-6 muted">Sim. É um projeto de fãs, sem fins comerciais, e continuará grátis.</div></details>
+        <details><summary class="title-2">Preciso do CM 01/02 original?<i class="ph ph-plus" aria-hidden="true"></i></summary><div class="answer body-6 muted">Não. A base de dados 2025/26 já vem dentro do instalador, pronta a jogar.</div></details>
+        <details><summary class="title-2">Por que o Windows diz que protegeu o computador?<i class="ph ph-plus" aria-hidden="true"></i></summary><div class="answer body-6 muted">O instalador não tem um certificado pago, por isso o SmartScreen avisa. Clique em Mais informações e depois em Executar assim mesmo. O código está aberto no GitHub.</div></details>
+        <details><summary class="title-2">Funciona no Mac, no Linux ou no Android?<i class="ph ph-plus" aria-hidden="true"></i></summary><div class="answer body-6 muted">Por enquanto só no Windows 10 e 11, com ecrã de 1280×720 ou maior. Linux está nos planos.</div></details>
+        <details><summary class="title-2">Os meus saves passam para a próxima versão?<i class="ph ph-plus" aria-hidden="true"></i></summary><div class="answer body-6 muted">O jogo migra os saves antigos, mas isto é um beta: um save pode deixar de abrir entre versões. Cada versão avisa nas notas.</div></details>
+        <details><summary class="title-2">Encontrei um erro. Onde aviso?<i class="ph ph-plus" aria-hidden="true"></i></summary><div class="answer body-6 muted">Abra uma <a href="https://github.com/Victorb999/NextCm/issues">Issue no GitHub</a> com a versão, os passos e o ficheiro NextCM.log. O <a href="https://github.com/Victorb999/NextCm/blob/main/docs/BETA.md">guia do beta</a> mostra onde ele fica.</div></details>
+        <details><summary class="title-2">Tem ligação com a Sports Interactive?<i class="ph ph-plus" aria-hidden="true"></i></summary><div class="answer body-6 muted">Não. O NextCM é independente, sem ligação à Sports Interactive, à Eidos ou à Square Enix. Championship Manager é uma marca dos seus donos.</div></details>
+      </div>
+    </section>
+
+    <!-- Fim -->
+    <section class="final reveal">
+      <div class="glow" aria-hidden="true"></div>
+      <h2 class="heading-2 final-title">O próximo jogo começa <br>quando você quiser</h2>
+      <div class="hero-cta">
+        <a class="btn btn-lg download" href="https://github.com/Victorb999/NextCm/releases">
+          <i class="ph ph-windows-logo" aria-hidden="true"></i>Baixar o beta grátis
+        </a>
+        <span class="caption-2 download-meta"><span class="skeleton"></span></span>
+      </div>
     </section>
   </main>
 
   <footer class="foot">
-    <div class="wrap foot-in">
-      <span>NextCM · base de dados: Update Coalizão</span>
-      <span>
-        <a href="https://github.com/Victorb999/NextCm">GitHub</a> ·
-        <a href="https://github.com/Victorb999/NextCm/releases">Versões</a> ·
-        <a href="https://www.coalizaocm.com.br/">Coalizão CM</a>
-      </span>
+    <div class="foot-in">
+      <div class="foot-col foot-brand">
+        <a class="nav-logo title-2" href="#topo"><img src="icon.png" width="28" height="28" alt="">NextCM</a>
+        <p class="body-6 muted">Remake de fãs do Championship Manager 01/02, com a base de dados 2025/26. Projeto aberto e sem fins comerciais.</p>
+      </div>
+      <div class="foot-col">
+        <p class="caption-3 eyebrow">Créditos</p>
+        <p class="body-6 muted">
+          Base de dados 2025/26 e tema: <a href="https://www.coalizaocm.com.br/">Update Coalizão</a>,
+          da equipe <b>Coalizão CM</b>, o maior acervo nacional de CM 01/02. Sem o trabalho deles, este jogo não teria plantéis.
+        </p>
+      </div>
+      <nav class="foot-col foot-links body-6" aria-label="Links">
+        <p class="caption-3 eyebrow">Links</p>
+        <a href="https://github.com/Victorb999/NextCm">Código no GitHub</a>
+        <a href="https://github.com/Victorb999/NextCm/releases">Todas as versões</a>
+        <a href="https://github.com/Victorb999/NextCm/blob/main/docs/BETA.md">Guia do beta</a>
+        <a href="https://github.com/Victorb999/NextCm/issues">Reportar um erro</a>
+        <a href="privacidade.html">Privacidade</a>
+      </nav>
     </div>
+    <p class="foot-legal caption-5 muted">
+      Championship Manager é uma marca dos seus donos. O NextCM é um projeto de fãs independente,
+      sem ligação à Sports Interactive, à Eidos ou à Square Enix.
+    </p>
   </footer>
-
-  <dialog id="viewer" aria-label="Print em tamanho real">
-    <form method="dialog"><button class="close" aria-label="Fechar">×</button></form>
-    <img alt="">
-  </dialog>
 
   <script src="main.js"></script>
 </body>
