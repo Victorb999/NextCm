@@ -26,6 +26,7 @@ mod contracts;
 mod cup_tied;
 mod deals;
 mod discipline;
+mod fair_play;
 mod finances;
 mod hosts;
 mod internationals;
@@ -140,7 +141,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// (`stadiums.undersoil_heating`), do banco.
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
-pub const SAVE_VERSION: i32 = 55;
+pub const SAVE_VERSION: i32 = 56;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -792,6 +793,7 @@ impl Game {
             tx.execute_batch(club_moves::STAFF_MOVES_SCHEMA)?;
             tx.execute_batch(player_setup::SETUP_SCHEMA)?;
             tx.execute_batch(ECONOMY_SCHEMA)?;
+            tx.execute_batch(fair_play::FAIR_PLAY_SCHEMA)?;
             tx.execute_batch(internationals::CALL_UPS_SCHEMA)?;
             tx.execute_batch(internationals::FRIENDLY_SCHEMA)?;
             tx.execute_batch(hosts::HOSTS_SCHEMA)?;
@@ -941,6 +943,12 @@ impl Game {
             .map_err(|_| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?
             .ok_or_else(|| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?;
         let (version, name, date, seed, manager_id, club_id, created): (i32, String, String, i64, i32, i32, String) = row;
+        // A economia moderna (3.22) muda salários, saldos e receitas de todos: os jogos de antes não abrem
+        if version < 56 {
+            return Err(Error::Invalid(
+                "Jogo gravado antes da economia nova do NextCM (salários e receitas de hoje): comece um jogo novo.".into(),
+            ));
+        }
         let mut version = version;
         if version == 3 {
             migrate_v3(&world, club_id)?;
@@ -4048,50 +4056,17 @@ mod tests {
     }
 
     #[test]
-    fn version_3_saves_are_migrated() {
+    fn saves_before_the_modern_economy_do_not_open() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let dir = temp_dir("migrate");
-        let palmeiras = 7568;
-        let mut g = Game::create(&world, &dir, &new_game(palmeiras), 8).unwrap();
-        let mut sel = g.club_tactics(palmeiras).unwrap().selection();
-        sel.auto = false;
-        let expected = g.set_selection(sel.clone()).unwrap();
+        let mut g = Game::create(&world, &dir, &new_game(7568), 8).unwrap();
         g.save().unwrap();
         let path = g.path().to_path_buf();
         drop(g);
-
-        // Volta o arquivo ao formato 3: sem x/y e titulares na ordem antiga da formação
-        {
-            let w = World::open_save(&path).unwrap();
-            let perm = crate::tactics::cm_order_permutation(sel.formation);
-            let mut old = [None; 11];
-            for (k, &from) in perm.iter().enumerate() {
-                old[from] = sel.starters[k];
-            }
-            w.conn.execute("DELETE FROM selection_players WHERE slot <= 10", []).unwrap();
-            w.conn
-                .execute_batch("ALTER TABLE selection_players DROP COLUMN x; ALTER TABLE selection_players DROP COLUMN y; ALTER TABLE selection_players DROP COLUMN run_x; ALTER TABLE selection_players DROP COLUMN run_y; ALTER TABLE player_state DROP COLUMN reserve; ALTER TABLE player_state DROP COLUMN missed; ALTER TABLE player_state DROP COLUMN apps; DROP TABLE unhappy; DROP TABLE knowledge; DROP TABLE scouting; DROP TABLE scout_tasks; DROP TABLE scout_finds; DROP TABLE board_requests; DROP TABLE stadium_works; DROP TABLE league_issues; DROP TABLE player_log; DROP TABLE contract_talks; DROP TABLE ai_boards; DROP TABLE vacancies; DROP TABLE manager_info; DROP TABLE shortlist; DROP TABLE payments; DROP TABLE sell_on; DROP TABLE apps_bonus; DROP TABLE player_orders; DROP TABLE press; DROP TABLE player_matches; DROP TABLE nicknames; DROP TABLE notes; DROP TABLE manager_history; DROP TABLE league_modes; DROP TABLE injury_log; DROP TABLE suspension_log; DROP TABLE player_honours; DROP TABLE ghosts; DROP TABLE training_programs; DROP TABLE training_players; DROP TABLE contract_extras; ALTER TABLE selection DROP COLUMN penalty_taker; ALTER TABLE selection DROP COLUMN free_kick_taker; ALTER TABLE selection DROP COLUMN corner_taker; ALTER TABLE selection DROP COLUMN playmaker; ALTER TABLE selection DROP COLUMN captain; DROP TABLE retired; DROP TABLE cards; ALTER TABLE fixtures DROP COLUMN stage; ALTER TABLE fixtures DROP COLUMN grp; ALTER TABLE fixtures DROP COLUMN tie; ALTER TABLE fixtures DROP COLUMN leg; ALTER TABLE fixtures DROP COLUMN neutral; ALTER TABLE fixtures DROP COLUMN home_pens; ALTER TABLE fixtures DROP COLUMN away_pens; DROP TABLE finances; DROP TABLE club_economy; DROP TABLE transfers; DROP TABLE loans; DROP TABLE offers; DROP TABLE transfer_list; DROP TABLE talks; DROP TABLE squad_roles; DROP TABLE board; ALTER TABLE news DROP COLUMN offer_id; ALTER TABLE news DROP COLUMN link; ALTER TABLE players DROP COLUMN preferred_number; ALTER TABLE game DROP COLUMN masking; DROP TABLE last_lineups; DROP TABLE coach_areas; DROP TABLE reserve_matches; DROP TABLE reserve_apps; DROP TABLE absences; DROP TABLE reserve_picks; DROP TABLE setup_transfers; DROP TABLE setup_retirements; DROP TABLE bans; DROP TABLE finances_month; ALTER TABLE game DROP COLUMN part; ALTER TABLE news DROP COLUMN part; DROP TABLE call_ups; DROP TABLE intl_apps; DROP TABLE hosts; DELETE FROM competitions WHERE id = 458; ALTER TABLE clubs DROP COLUMN training; ALTER TABLE stadiums DROP COLUMN undersoil_heating; ALTER TABLE stadiums DROP COLUMN retractable_roof; ALTER TABLE clubs DROP COLUMN owns_stadium; ALTER TABLE clubs DROP COLUMN match_day; ALTER TABLE clubs DROP COLUMN avg_attendance; ALTER TABLE clubs DROP COLUMN min_attendance; ALTER TABLE clubs DROP COLUMN max_attendance; UPDATE game SET version = 3;")
-                .unwrap();
-            for (slot, pid) in old.iter().enumerate() {
-                w.conn
-                    .execute(
-                        "INSERT INTO selection_players (club_id, slot, person_id) VALUES (?, ?, ?)",
-                        params![palmeiras, slot as i32, pid],
-                    )
-                    .unwrap();
-            }
-        }
-
-        let g = Game::load(&path).unwrap();
-        let t = g.club_tactics(palmeiras).unwrap();
-        let ids = |t: &ClubTactics| t.starters.iter().map(|s| (s.role.clone(), s.player.as_ref().map(|p| p.id))).collect::<Vec<_>>();
-        assert_eq!(ids(&t), ids(&expected), "cada jogador fica na sua função");
-        // Sem jogos disputados, as competições voltam a ser sorteadas no formato novo
-        assert_eq!(g.fixtures(SERIE_A).len(), 380);
-        assert!(g.fixtures(SERIE_A).iter().all(|f| f.date.as_str() <= "2025-12-10"));
-        // As colunas do banco do esquema 8 voltam (vazias: não há world.sqlite perto do save de teste)
-        assert!(g.world.get_club(palmeiras).is_ok());
-        drop(g);
+        // Um save de antes do 3.22 (formato 55) pede um jogo novo
+        World::open_save(&path).unwrap().conn.execute("UPDATE game SET version = 55", []).unwrap();
+        let err = Game::load(&path).err().map(|e| e.to_string()).unwrap_or_default();
+        assert!(err.contains("comece um jogo novo"), "{err}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

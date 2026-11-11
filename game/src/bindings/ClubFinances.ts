@@ -24,4 +24,9 @@ expectedRevenue: number,
 /**
  * "2026" ou "2025/26".
  */
-season: string, income: Array<FinanceRow>, expenses: Array<FinanceRow>, totalIncome: FinanceRow, totalExpenses: FinanceRow, result: FinanceRow, };
+season: string, income: Array<FinanceRow>, expenses: Array<FinanceRow>, totalIncome: FinanceRow, totalExpenses: FinanceRow, result: FinanceRow, 
+/**
+ * Fair-play financeiro: o resultado das últimas 3 épocas (sem dividendos), o limite (as
+ * perdas permitidas, negativo) e se o clube está proibido de contratar.
+ */
+fairPlayResult: number, fairPlayLimit: number, fairPlayBanned: boolean, };

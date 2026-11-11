@@ -51,10 +51,10 @@ const FORCED_SALE_DEBT: f64 = 0.25;
 pub(super) const BANKRUPT_DEBT: f64 = 0.6;
 /// Parte das receitas de uma época que entra no orçamento mesmo sem saldo.
 const BUDGET_REVENUE: f64 = 0.2;
-const WAGE_CAP: f64 = 0.90;
-/// Parte do saldo que um clube rico aceita gastar por época em salários, além do teto (o
-/// dinheiro que junta espalhado por quatro épocas): sem isto o saldo crescia sem parar.
-const CASH_WAGES: f64 = 0.4;
+/// Parte do saldo que um clube rico aceita gastar por época em salários, além do teto (sem isto
+/// o saldo crescia sem parar). Era 40% com o dinheiro do CM; com os saldos de hoje e o fair-play
+/// (3.22), 10%: mais fazia a folha dos clubes médios subir até à proibição de contratar.
+const CASH_WAGES: f64 = 0.1;
 /// A contratação bombástica, como no CM: um clube com o saldo acima de `SPLURGE_CASH` épocas de
 /// receitas, de vez em quando (`SPLURGE_CHANCE` por tentativa de compra), vai ao melhor que
 /// encontrar acima do nível da equipa (até `SPLURGE_CEILING` de CA), precise ou não da posição,
@@ -732,8 +732,8 @@ impl Game {
             kind,
             cash,
             base,
-            budget: ((cash as f64 + base * BUDGET_REVENUE) * BUDGET_SHARE).max(0.0),
-            wage_room: (base * WAGE_CAP + cash.max(0) as f64 * CASH_WAGES) / 52.0 - bill as f64,
+            budget: self.ai_budget(club, cash)?,
+            wage_room: (base * finance::WAGE_SHARE + cash.max(0) as f64 * CASH_WAGES) / 52.0 - bill as f64,
             squad,
             count,
             weakest,
@@ -741,6 +741,18 @@ impl Game {
             continent,
             nation,
         })
+    }
+
+    /// O que um clube da IA pode gastar numa janela: metade do saldo mais 20% das receitas, sem
+    /// passar do que o fair-play ainda deixa perder (as vendas abrem espaço); nada se estiver
+    /// proibido de contratar.
+    pub(super) fn ai_budget(&self, club: i32, cash: i64) -> Result<f64> {
+        if self.fair_play_banned(club)? {
+            return Ok(0.0);
+        }
+        let base = self.club_base(club)?;
+        let budget = ((cash as f64 + base * BUDGET_REVENUE) * BUDGET_SHARE).max(0.0);
+        Ok(budget.min(self.fair_play_room(club)?))
     }
 
     /// Continente e nação de um clube (−1 se não houver).

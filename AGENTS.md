@@ -24,7 +24,8 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/competitions.rs` | Sorteios, calendários por fase, eliminatórias, passagem de fase, campeões, vistas da Classificação |
 | `core/src/game/season.rs` | Fim de época (20/12) e nova época (1/1), contratos, reformas, evolução do CA, juniores |
 | `core/src/game/regen.rs` | Jogadores criados pelo jogo (juniores e plantéis dos clubes pequenos) |
-| `core/src/finance.rs`, `core/src/game/finances.rs` | Valor de mercado, salário pedido, receitas e despesas de cada clube (livro de contas) |
+| `core/src/finance.rs`, `core/src/game/finances.rs`, `core/economy.json` | Valor de mercado, salário pedido, receitas de referência (reais ou pela curva), receitas e despesas de cada clube (livro de contas) |
+| `core/src/game/fair_play.rs` | Fair-play financeiro (avisos e proibição de contratar) e o relatório da economia para a CLI |
 | `core/src/game/market.rs` | Mercado da IA nas janelas: compras, livres, empréstimos, dispensas, histórico `transfers` |
 | `core/src/game/deals.rs` | Mercado do treinador: propostas (`offers`), respostas, contratos, renovações, lista de transferências |
 | `core/src/game/unhappy.rs` | Insatisfação do plantel do treinador (motivos, moral) e pedidos para sair |

@@ -225,8 +225,9 @@ impl Game {
             }
             "transfers" => {
                 let budget = self.transfer_budget()?;
-                // Os fundos já são o saldo: a direção aceita ficar a dever até 10% das receitas
-                let room = cash - budget + (OVERDRAFT * base) as i64;
+                // Os fundos já são o saldo e o adiantamento das receitas: a direção aceita ficar a
+                // dever até mais 10% das receitas
+                let room = cash - budget + ((super::board::SEASON_FUNDS + OVERDRAFT) * base) as i64;
                 let extra = if confidence >= 60 {
                     0.25
                 } else if confidence >= 50 {

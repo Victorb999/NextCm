@@ -4,10 +4,10 @@
 //! O saldo é `clubs.cash`; o livro de contas guarda o total de cada rubrica por época do clube
 //! (`finances`) e por mês (`finances_month`, só o corrente e o anterior).
 //!
-//! As receitas de referência de um clube (`club_economy.base`) ficam fixas quando ele entra no
-//! jogo: 1,3 vezes a folha salarial anual de então. A TV é da liga: cada clube de uma liga recebe
-//! o mesmo, a média das bases dela. Números e partes em `finance.rs`, docs/roadmap/3.08-mercado.md
-//! e 3.15c-pendencias.md (os prints do CM).
+//! As receitas de referência de um clube (`club_economy.base`) são as reais ou as da curva
+//! (`finance::club_revenue`), refeitas em cada época nova. A TV é da liga: cada clube de uma liga
+//! recebe o mesmo, a média das bases dela. Números e partes em `finance.rs` e
+//! docs/roadmap/3.22-economia-moderna.md.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -40,21 +40,41 @@ impl Game {
         Ok(regulation::season_of(self.division_of(club)?.unwrap_or(0), &self.date))
     }
 
-    /// Receitas de uma época normal do clube, fixadas na primeira vez que ele aparece.
+    /// Receitas de uma época normal do clube ([`finance::club_revenue`]), guardadas na primeira
+    /// vez que ele aparece em cada época (pela divisão e reputação de então).
     pub(super) fn club_base(&self, club: i32) -> Result<f64> {
         if let Some(base) =
             self.world.conn.prepare_cached("SELECT base FROM club_economy WHERE club_id = ?")?.query_row([club], |r| r.get(0)).optional()?
         {
             return Ok(base);
         }
-        let bill: i64 = self
+        let (rep, division): (i32, Option<i32>) = self
             .world
             .conn
-            .prepare_cached("SELECT COALESCE(SUM(wage), 0) FROM people WHERE is_player = 1 AND club_id = ?")?
-            .query_row([club], |r| r.get(0))?;
-        let base = (finance::REVENUE_OVER_WAGES * bill as f64 * 52.0).max(finance::MIN_REVENUE);
+            .prepare_cached("SELECT COALESCE(reputation, 0), division_id FROM clubs WHERE id = ?")?
+            .query_row([club], |r| Ok((r.get(0)?, r.get(1)?)))
+            .optional()?
+            .unwrap_or((0, None));
+        let base = finance::club_revenue(club, rep, division);
         self.world.conn.prepare_cached("INSERT INTO club_economy (club_id, base) VALUES (?, ?)")?.execute(params![club, base])?;
         Ok(base)
+    }
+
+    /// Época nova: as receitas dos clubes deste tipo de época voltam a ser calculadas (quem subiu
+    /// ou desceu muda de liga).
+    pub(super) fn reset_bases(&self, kind: regulation::SeasonKind) -> Result<()> {
+        let clubs: Vec<(i32, Option<i32>)> = self
+            .world
+            .conn
+            .prepare("SELECT c.id, c.division_id FROM club_economy e JOIN clubs c ON c.id = e.club_id")?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        for (club, division) in clubs {
+            if self.club_kind(division) == kind {
+                self.world.conn.execute("DELETE FROM club_economy WHERE club_id = ?", [club])?;
+            }
+        }
+        Ok(())
     }
 
     /// Direitos de TV por mês de um clube: a média das bases da liga dele (fora das ligas
@@ -234,7 +254,7 @@ impl Game {
     }
 
     /// Prémios de uma competição acabada, sobre as receitas de referência de cada clube: numa
-    /// liga de 0,3× (o último) a 1,5× (o campeão) a parte da competição; nas taças e
+    /// liga de 0,6× (o último) a 1,2× (o campeão) a parte da competição; nas taças e
     /// continentais, metade a quem jogou, mais 1× ao campeão e ½× ao vice.
     pub(super) fn prizes(&self, comp: i32, year: i32) -> Result<()> {
         let Some(reg) = regulation::get(comp) else { return Ok(()) };
@@ -261,7 +281,7 @@ impl Game {
             let last = (table.len() as f64 - 1.0).max(1.0);
             for r in &table {
                 let place = (table.len() as f64 - r.position as f64) / last;
-                *share.entry(r.club.id).or_default() += rate * self.club_base(r.club.id)? * (0.3 + 1.2 * place);
+                *share.entry(r.club.id).or_default() += rate * self.club_base(r.club.id)? * (0.6 + 0.6 * place);
             }
         } else {
             let (winner, second) = self.podium(comp, year).map_or((None, None), |(w, s, _)| (Some(w), s));
@@ -347,6 +367,9 @@ impl Game {
             total_income,
             total_expenses,
             result,
+            fair_play_result: self.fair_play_result(club)?,
+            fair_play_limit: self.fair_play_limit(club)?,
+            fair_play_banned: self.fair_play_banned(club)?,
         })
     }
 }

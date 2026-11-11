@@ -55,6 +55,21 @@ pub(super) struct Factory {
 }
 
 impl Game {
+    /// Salário semanal de um jogador criado pelo jogo: metade da mediana do plantel do clube, entre
+    /// €100 e €500 por semana no banco (× a escala). No banco, os jovens fracos ganham ~€100 em quase
+    /// todas as ligas; um valor fixo mais alto fazia a folha dos clubes pequenos rebentar (3.22).
+    fn junior_wage(&self, club: i32) -> Result<i64> {
+        let wages: Vec<i64> = self
+            .world
+            .conn
+            .prepare_cached("SELECT wage FROM people WHERE club_id = ? AND is_player = 1 AND wage > 0 ORDER BY wage")?
+            .query_map([club], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let scale = crate::finance::WAGE_SCALE;
+        let median = wages.get(wages.len() / 2).copied().unwrap_or(0) as f64;
+        Ok((median / 2.0).clamp(100.0 * scale, 500.0 * scale) as i64)
+    }
+
     pub(super) fn player_factory(&self) -> Result<Factory> {
         // Colunas de `players` copiadas do modelo (todas menos id, número, CA/PA e reputações)
         let copied: Vec<String> = self
@@ -132,7 +147,7 @@ impl Game {
                                  club_id, club_job, club_joined, contract_expires, wage,
                                  adaptability, ambition, determination, loyalty, pressure, professionalism, sportsmanship, temperament,
                                  is_player, is_non_player, ability, birth_sort, positions)
-             SELECT ?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10, ?11, ?12, ?13, 1500,
+             SELECT ?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10, ?11, ?12, ?13, ?16,
                     adaptability, ambition, determination, loyalty, pressure, professionalism, sportsmanship, temperament,
                     1, 0, ?14, ?7, positions
              FROM people WHERE id = ?15",
@@ -151,7 +166,8 @@ impl Game {
                 self.date,
                 p.contract_until,
                 p.ca,
-                template
+                template,
+                self.junior_wage(p.club)?
             ],
         )?;
         self.world.conn.execute(&f.insert_player, params![id, p.ca, p.pa, template])?;

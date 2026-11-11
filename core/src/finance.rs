@@ -1,11 +1,14 @@
-//! Dinheiro (marco 3.8): valor de mercado e salário pedido de um jogador, e as partes das
-//! receitas e despesas de um clube. Funções puras, calibradas com o patch: a folha salarial
-//! anual de um clube cresce com a reputação, ≈ e^(10,06 + 0,000929 × reputação) (€1M com
-//! 4000, €6M com 6000, €40M com 8000 no banco; o jogo paga `WAGE_SCALE` vezes isso, como o CM);
-//! serve de referência ao salário pedido. As receitas de cada clube partem da folha dele
-//! (`REVENUE_OVER_WAGES`). Economia do CM medida nos prints de 4/11: docs/roadmap/3.15c-pendencias.md.
+//! Dinheiro (marco 3.8; economia moderna no 3.22): valor de mercado e salário pedido de um
+//! jogador, e as receitas e despesas de um clube. A folha salarial anual típica cresce com a
+//! reputação, ≈ e^(10,06 + 0,000929 × reputação) no banco (o jogo paga `WAGE_SCALE` vezes isso)
+//! e serve de referência ao salário pedido. As receitas de um clube são as reais (a tabela de
+//! `core/economy.json`) ou a curva por reputação vezes o peso da liga ([`club_revenue`]).
+//! Números e decisões em docs/roadmap/3.22-economia-moderna.md.
 
-use serde::Serialize;
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// Categorias do livro de contas (a chave no save e o texto da tela de Finanças), pela ordem
@@ -44,30 +47,30 @@ pub fn line_key(key: &str) -> &str {
     }
 }
 
-/// O dinheiro do CM 01/02 (patch CLZ) sobre o do banco: os salários e os saldos do 1.º dia
-/// são cerca de 3× (o Kane tem €75.000 por semana no banco e €875.000 por mês no CM; o Bayern
-/// paga ~€14,7M por mês para uma folha de €957.700 por semana no banco).
-pub const WAGE_SCALE: f64 = 3.0;
-/// Receitas de uma época normal sobre a folha salarial anual do clube quando entra no jogo
-/// (a referência dos orçamentos e das partes das receitas).
-pub const REVENUE_OVER_WAGES: f64 = 1.3;
+/// Os salários do jogo sobre os do banco. O CM paga 3× (o Kane tem €75.000 por semana no banco
+/// e €875.000 por mês no CM); o NextCM paga os de hoje (3.22): a folha do City fica em ~€410M
+/// por ano, ~50% das receitas reais.
+pub const WAGE_SCALE: f64 = 7.0;
 /// Receitas mínimas de uma época (clubes do patch sem salários).
 pub const MIN_REVENUE: f64 = 900_000.0;
-/// O saldo de um clube no 1.º dia de um jogo novo, sobre o do banco: o CM começa com 2,9 a
-/// 3,1× (Bayern €56M → €172,8M, Hoffenheim €10M → €28,65M, 1860 €1,82M → €5,32M).
-pub const START_CASH: f64 = 3.0;
+/// O saldo de um clube no 1.º dia de um jogo novo, sobre o do banco: a mesma escala dos salários
+/// (o CM começa com ~3×).
+pub const START_CASH: f64 = WAGE_SCALE;
+/// A folha salarial que a direção aceita, sobre as receitas de uma época (os clubes europeus
+/// andam pelos 55–70%).
+pub const WAGE_SHARE: f64 = 0.7;
 
-/// Partes das receitas de uma época normal (o Bayern do CM: merchandising €62,9M, TV €3,9M
-/// numa época com receitas de referência ~€194M).
-pub const MERCH_SHARE: f64 = 0.36;
-pub const TV_SHARE: f64 = 0.06;
-/// Prémios, sobre as receitas de referência de cada clube: na liga de 0,3× (último) a 1,5×
+/// Partes das receitas de uma época normal (3.22, como nos clubes reais: comercial ~40%, TV e
+/// prémios ~40%, bilheteira o resto). A TV é igual para todos na liga (a média das receitas dela).
+pub const MERCH_SHARE: f64 = 0.42;
+pub const TV_SHARE: f64 = 0.25;
+/// Prémios, sobre as receitas de referência de cada clube: na liga de 0,6× (último) a 1,2×
 /// (campeão) esta parte; nas taças, metade a quem joga; no fim de taças e continentais, mais
-/// 1× ao campeão e ½× ao vice. Nas continentais cada jogo paga `CONTINENTAL_MATCH` aos dois,
-/// como o CM, que paga prémios durante a época. O Bayern do CM ganha €173M numa época.
-pub const LEAGUE_PRIZES: f64 = 0.4;
-pub const CUP_PRIZES: f64 = 0.08;
-pub const CONTINENTAL_PRIZES: f64 = 0.35;
+/// 1× ao campeão e ½× ao vice. Nas continentais cada jogo paga `CONTINENTAL_MATCH` desta parte
+/// aos dois (~1,2% das receitas por jogo).
+pub const LEAGUE_PRIZES: f64 = 0.17;
+pub const CUP_PRIZES: f64 = 0.04;
+pub const CONTINENTAL_PRIZES: f64 = 0.2;
 pub const CONTINENTAL_MATCH: f64 = 0.06;
 /// Despesas fixas: staff sobre a folha dos jogadores (entra no Salário), estádio sobre as receitas.
 pub const STAFF_SHARE: f64 = 0.12;
@@ -91,9 +94,47 @@ pub fn typical_wage_bill(reputation: i32) -> f64 {
     WAGE_SCALE * (10.062 + 0.000929 * reputation.clamp(0, 10_000) as f64).exp()
 }
 
-/// Receitas de uma época normal de um clube com esta reputação.
-pub fn season_revenue(reputation: i32) -> f64 {
-    1.25 * typical_wage_bill(reputation)
+/// Receitas de uma época normal pela reputação do clube (0–10 000), numa liga de peso 1:
+/// ~€850M com 10 000, ~€260M com 8000, €77M com 6000, €13M com 4000, ~€2M com 2000.
+pub fn revenue_curve(reputation: i32) -> f64 {
+    let r = reputation.clamp(0, 10_000) as f64;
+    let ln = if r >= 6000.0 { 6.75 + 0.0006 * (r - 10_000.0) } else { 4.35 + 0.0009 * (r - 6000.0) };
+    (ln.exp() * 1e6).max(MIN_REVENUE)
+}
+
+/// As receitas reais e os pesos das ligas (`core/economy.json`).
+#[derive(Deserialize)]
+struct Economy {
+    leagues: HashMap<String, f64>,
+    clubs: Vec<RealRevenue>,
+}
+
+#[derive(Deserialize)]
+struct RealRevenue {
+    id: i32,
+    division: i32,
+    /// Milhões de euros.
+    revenue: f64,
+}
+
+fn economy() -> &'static Economy {
+    static ECONOMY: OnceLock<Economy> = OnceLock::new();
+    ECONOMY.get_or_init(|| serde_json::from_str(include_str!("../economy.json")).unwrap_or_else(|e| panic!("economy.json inválido: {e}")))
+}
+
+/// Peso de uma liga nas receitas (1 nas que não estão na tabela).
+pub fn league_weight(division: Option<i32>) -> f64 {
+    division.and_then(|d| economy().leagues.get(&d.to_string()).copied()).unwrap_or(1.0)
+}
+
+/// Receitas de uma época normal de um clube: as reais (fora da divisão delas, vezes a razão dos
+/// pesos, para quem desce ou sobe) ou a curva por reputação vezes o peso da liga.
+pub fn club_revenue(club: i32, reputation: i32, division: Option<i32>) -> f64 {
+    let weight = league_weight(division);
+    match economy().clubs.iter().find(|c| c.id == club) {
+        Some(c) => (c.revenue * 1e6 * weight / league_weight(Some(c.division))).max(MIN_REVENUE),
+        None => revenue_curve(reputation) * weight,
+    }
 }
 
 /// Arredonda como o CM mostra: €5K abaixo de 100 mil, €25K abaixo de 1 milhão, €50K abaixo
@@ -108,32 +149,31 @@ pub fn round_money(v: f64) -> i64 {
     ((v / step).round() * step) as i64
 }
 
-/// Valor de mercado. CA pela curva 12 × (CA/10)^5,5 (CA 80 ≈ €1M, 130 ≈ €16M, 180 ≈ €95M na
-/// liga mais forte); peso da liga (reputação 1–20, as mais fracas valem ~¼); jovens com
-/// potencial acima do CA valem mais e depois dos 28 anos menos; a reputação do jogador
-/// (0–200) de 80% a 120%; o último ano de contrato metade; sem contrato, nada.
+/// Valor de mercado (forma da curva ajustada aos prints do CM de 9/11, escala de hoje): CA pela
+/// curva 199 × (CA/10)^4,5 (CA 80 ≈ €2,3M, 140 ≈ €29M, 180 ≈ €89M na liga mais forte); peso da
+/// liga (reputação 1–20, as mais fracas valem ~¼); jovens com potencial acima do CA valem mais,
+/// e a partir dos 28 anos menos, cada vez mais depressa depois dos 30; a reputação do jogador
+/// (0–200) de 80% a 120%; o contrato pesa (anos/5)^0,5 (2 anos 63%, 7 anos 118%); sem contrato, nada.
 pub fn market_value(ca: i32, pa: i32, age: i32, player_rep: i32, league_rep: i32, years_left: f64) -> i64 {
     if years_left <= 0.0 {
         return 0;
     }
     let ca = ca.clamp(1, 200) as f64;
-    let base = 12.0 * (ca / 10.0).powf(5.5);
+    let base = 199.0 * (ca / 10.0).powf(4.5);
     let league = 0.15 + 0.85 * (league_rep.clamp(1, 20) as f64 / 20.0).powf(1.5);
     let gap = (pa.max(0) as f64 - ca).max(0.0);
     let age_factor = match age {
-        ..=21 => 1.0 + gap / 60.0,
-        22..=23 => 1.0 + gap / 120.0,
-        24..=28 => 1.0,
-        _ => (1.0 - 0.15 * (age - 28) as f64).max(0.15),
+        ..=21 => 1.0 + gap / 45.0,
+        22..=23 => 1.0 + gap / 160.0,
+        24..=27 => 1.0,
+        _ => {
+            let past = (age - 27) as f64;
+            let late = (age - 30).max(0) as f64;
+            (1.0 - 0.05 * past - 0.02 * late * late).max(0.15)
+        }
     };
     let rep = 0.8 + 0.4 * player_rep.clamp(0, 200) as f64 / 200.0;
-    let contract = if years_left >= 2.0 {
-        1.0
-    } else if years_left >= 1.0 {
-        0.8
-    } else {
-        0.5
-    };
+    let contract = (years_left / 5.0).sqrt().clamp(0.3, 1.2);
     round_money(base * league * age_factor * rep * contract)
 }
 
@@ -184,6 +224,13 @@ pub struct ClubFinances {
     pub total_income: FinanceRow,
     pub total_expenses: FinanceRow,
     pub result: FinanceRow,
+    /// Fair-play financeiro: o resultado das últimas 3 épocas (sem dividendos), o limite (as
+    /// perdas permitidas, negativo) e se o clube está proibido de contratar.
+    #[ts(type = "number")]
+    pub fair_play_result: i64,
+    #[ts(type = "number")]
+    pub fair_play_limit: i64,
+    pub fair_play_banned: bool,
 }
 
 /// O valor de mercado numa data pelas colunas do banco (o perfil e a ordenação da pesquisa).
@@ -240,10 +287,10 @@ mod tests {
         assert!(star > 100_000_000, "{star}");
         let brazil = market_value(130, 135, 26, 60, 13, 3.0);
         assert!((3_000_000..15_000_000).contains(&brazil), "{brazil}");
-        assert!(market_value(80, 85, 27, 20, 5, 2.0) < 500_000);
+        assert!(market_value(80, 85, 27, 20, 5, 2.0) < 1_000_000);
         // Idade, contrato e liga
-        assert!(market_value(140, 150, 33, 100, 20, 3.0) < market_value(140, 150, 26, 100, 20, 3.0) / 3);
-        assert_eq!(market_value(140, 150, 26, 100, 20, 0.5) * 2, market_value(140, 150, 26, 100, 20, 3.0));
+        assert!(market_value(140, 150, 34, 100, 20, 3.0) < market_value(140, 150, 26, 100, 20, 3.0) / 3);
+        assert!(market_value(140, 150, 26, 100, 20, 6.0) > market_value(140, 150, 26, 100, 20, 2.0) * 3 / 2);
         assert_eq!(market_value(140, 150, 26, 100, 20, 0.0), 0);
         assert!(market_value(140, 150, 26, 100, 20, 3.0) > market_value(140, 150, 26, 100, 10, 3.0));
     }
@@ -265,8 +312,13 @@ mod tests {
     }
 
     #[test]
-    fn revenue_tracks_reputation() {
-        assert!((season_revenue(6500) / typical_wage_bill(6500) - 1.25).abs() < 1e-9);
-        assert!(season_revenue(9500) > 300_000_000.0 && season_revenue(4000) < 6_000_000.0);
+    fn revenue_tracks_reputation_league_and_the_real_table() {
+        assert!(revenue_curve(9500) > 500_000_000.0 && revenue_curve(4000) < 20_000_000.0);
+        assert!(revenue_curve(0) >= MIN_REVENUE);
+        // Um clube médio da Premier fatura mais do que um da Liga Portugal com a mesma reputação
+        assert!(club_revenue(-1, 6500, Some(7)) > club_revenue(-1, 6500, Some(46)) * 1.4);
+        // O City pela tabela; se descer, as receitas descem com o peso da liga
+        assert!((club_revenue(6269, 10_000, Some(7)) - 829_300_000.0).abs() < 1.0);
+        assert!(club_revenue(6269, 10_000, Some(8)) < club_revenue(6269, 10_000, Some(7)));
     }
 }

@@ -85,6 +85,17 @@ export default function FinancesPanel({ clubId, view, mine }: { clubId: number; 
               <span className="text-[17px] font-semibold text-white">Fundos Transferências</span>
               <span className="text-[13px] tabular-nums text-cm-green">{moneyFull(data.funds)}</span>
             </div>
+            {/* Fair-play financeiro (não há no CM): o resultado das últimas 3 épocas contra o limite */}
+            <div className="grid h-[22px] grid-cols-[minmax(13rem,1.6fr)_4fr] items-center px-4">
+              <span className="text-[17px] font-semibold text-white">Fair-play (3 épocas)</span>
+              <span className="text-[13px] tabular-nums">
+                <Amount v={data.fairPlayResult} tone="text-cm-green" />
+                <span className="text-cm-yellow">
+                  {' '}
+                  (perdas até {moneyFull(-data.fairPlayLimit)}){data.fairPlayBanned ? ' — proibido de contratar' : ''}
+                </span>
+              </span>
+            </div>
             {/* O que o CM mostra noutras telas da Direcção: fica aqui, no clube do treinador */}
             {mine && board && (
               <div className="mt-4">

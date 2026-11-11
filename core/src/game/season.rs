@@ -72,8 +72,18 @@ pub(super) fn join_names(names: &[String]) -> String {
 const RAISE_UNTIL: i32 = 30;
 
 impl Game {
-    /// Uma renovação da IA: o salário passa ao que o jogador pede pelo valor de hoje.
+    /// Uma renovação da IA: o salário passa ao que o jogador pede pelo valor de hoje, sem a folha
+    /// passar do teto (`finance::WAGE_SHARE` das receitas); um clube já acima dele renova sem
+    /// aumento (3.22: sem isto a folha dos clubes subia ~4% ao ano até ao fair-play).
     fn renewal_raise(&self, id: i32, club: i32) -> Result<()> {
+        let bill: i64 =
+            self.world
+                .conn
+                .query_row("SELECT COALESCE(SUM(wage), 0) FROM people WHERE club_id = ? AND is_player = 1", [club], |r| r.get(0))?;
+        let room = (self.club_base(club)? * crate::finance::WAGE_SHARE / 52.0) as i64 - bill;
+        if room <= 0 {
+            return Ok(());
+        }
         let (wage, ca): (i64, i32) = self.world.conn.query_row(
             "SELECT COALESCE(p.wage, 0), COALESCE(pl.current_ability, 1) FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
             [id],
@@ -82,7 +92,7 @@ impl Game {
         let value = self.world.market_value_of(id, &self.date)?.unwrap_or(0);
         let rep: i32 = self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
         let ask = crate::finance::wage_demand(value.max(ca as i64 * 20_000), wage, rep);
-        self.world.conn.execute("UPDATE people SET wage = ? WHERE id = ?", params![ask.max(wage), id])?;
+        self.world.conn.execute("UPDATE people SET wage = ? WHERE id = ?", params![ask.min(wage + room).max(wage), id])?;
         Ok(())
     }
 
@@ -121,6 +131,7 @@ impl Game {
     fn season_end_with_clauses(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let mine = !self.sacked() && self.kind_of(self.club_id)? == kind;
         let before = self.division_of(self.club_id)?;
+        self.fair_play_review(kind, fresh, next_id)?;
         self.end_of_season(kind, fresh, next_id)?;
         if mine {
             self.release_by_clauses(before, fresh, next_id)?;
@@ -676,6 +687,7 @@ impl Game {
         if kind == SeasonKind::Calendar {
             self.carry_apps_bonus()?;
         }
+        self.reset_bases(kind)?;
         for st in self.squads.states.values_mut() {
             if kind == SeasonKind::Calendar {
                 st.apps = 0;

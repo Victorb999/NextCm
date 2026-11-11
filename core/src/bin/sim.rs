@@ -15,6 +15,8 @@
 //! Passo 3.15c (13): `sim -- <clube> fundo <seed>` joga a Premier League 2025/26 a jogar e de
 //! fundo (motor rápido) com a mesma seed e compara os golos, as vitórias em casa, o tempo e a
 //! classificação.
+//! Marco 3.22: `sim -- <clube> carreira <seed> [épocas]` mostra também a economia de cada época
+//! (transferências de €100M+, quem mais comprou, saldos e folha dos grandes, fair-play).
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -143,6 +145,9 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
             game.market_totals(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("mercado");
         println!("  mercado: {sold} transferências (€{:.0}M), {free} livres, {loans} empréstimos, {released} dispensas", fees as f64 / 1e6);
         println!("  Série A: {}", top.join(", "));
+        for line in game.economy_report(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("economia") {
+            println!("  {line}");
+        }
         // As notícias da época: campeões e o resumo do fim de época
         let fresh: Vec<_> = game.news()[..game.news().len() - before].iter().rev().collect();
         for n in &fresh {

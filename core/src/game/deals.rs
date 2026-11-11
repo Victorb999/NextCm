@@ -2065,7 +2065,7 @@ Confirme até {}.",
         let name = self.person_name(o.person)?;
         let buyer = self.club(o.buyer).short_name;
         let asked = o.deal_terms();
-        let budget = (self.cash_of(o.buyer)? as f64 + 0.2 * self.club_base(o.buyer)?) * 0.5;
+        let budget = self.ai_budget(o.buyer, self.cash_of(o.buyer)?)?;
         let Some(f) = self.facts(o.person)?.filter(|f| f.club == Some(self.club_id)) else {
             self.set_status(o.id, "collapsed", None)?;
             return Ok(());
@@ -2263,7 +2263,7 @@ Confirme até {}.",
                  WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC LIMIT 11)",
                 )?
                 .query_row([id], |r| r.get(0))?;
-            let budget = (cash as f64 + 0.2 * self.club_base(id)?) * 0.5;
+            let budget = self.ai_budget(id, cash)?;
             buyers.push((id, rep, budget, level as i32));
         }
         Ok(buyers)

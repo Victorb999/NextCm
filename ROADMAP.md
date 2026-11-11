@@ -211,7 +211,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Passo 3.19.2 — Reservas e equipas B como no CM (feito)](docs/roadmap/3.19.2-reservas-e-equipas-b.md)
 - [Marco 3.20 — Editor de jogos salvos (2 fatias feitas)](docs/roadmap/3.20-editor-de-saves.md)
 - [Marco 3.21 — Pré-Jogo e Pós-Jogo (passo 1 feito; e as ideias dos vídeos do FM08)](docs/roadmap/3.21-pre-jogo.md)
-- [Marco 3.22 — Economia moderna (plano de 9/11, por fazer)](docs/roadmap/3.22-economia-moderna.md)
+- [Marco 3.22 — Economia moderna (feito a 11/11, save 56)](docs/roadmap/3.22-economia-moderna.md)
 
 ---
 
