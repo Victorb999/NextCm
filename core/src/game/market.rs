@@ -310,9 +310,15 @@ pub(super) fn window_open(kind: SeasonKind, md: &str) -> bool {
     }
 }
 
-/// Os primeiros 10 dias de uma janela (todas abrem a 1/1 ou a 1/7).
+/// Os 10 dias depois da primeira semana de uma janela ([`window_opening`]).
 fn early_window(md: &str) -> bool {
-    ("07-01"..="07-10").contains(&md) || ("01-01"..="01-10").contains(&md)
+    ("07-08"..="07-17").contains(&md) || ("01-08"..="01-17").contains(&md)
+}
+
+/// A primeira semana de uma janela (todas abrem a 1/1 ou a 1/7): a IA ainda não fecha negócios,
+/// para o treinador ver o mercado antes (o jogo começa a 1/7; no CM o início é calmo).
+fn window_opening(md: &str) -> bool {
+    ("07-01"..="07-07").contains(&md) || ("01-01"..="01-07").contains(&md)
 }
 
 /// O último dia de uma janela (dispensas).
@@ -539,12 +545,13 @@ impl Game {
             if !window_open(kind, &md) {
                 continue;
             }
-            if trading && let Some(deal) = self.ai_forced_sale(club, rep, &market, &loaned, &managed, &mut done, &mut rng)? {
+            let dealing = trading && !window_opening(&md);
+            if dealing && let Some(deal) = self.ai_forced_sale(club, rep, &market, &loaned, &managed, &mut done, &mut rng)? {
                 market.move_player(deal.person_id, deal.to.as_ref().map(|c| c.id));
                 deals.push(deal);
                 moved = true;
             }
-            if trading && uniform(&mut rng) < 0.5 {
+            if dealing && uniform(&mut rng) < 0.5 {
                 if let Some(deal) = self.ai_buy(club, rep, kind, &market, &loaned, &mut done, &mut rng)? {
                     market.move_player(deal.person_id, deal.to.as_ref().map(|c| c.id));
                     deals.push(deal);
