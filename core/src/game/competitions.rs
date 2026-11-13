@@ -921,7 +921,7 @@ impl Game {
 
     /// "12ª jornada", "1ª fase · 12ª jornada", "Grupo B · 3ª jornada", "Oitavas de final · 1ª mão".
     pub(super) fn match_label(&self, m: &Match) -> String {
-        if m.competition_id == super::internationals::FRIENDLY {
+        if m.competition_id == super::internationals::FRIENDLY || m.competition_id == super::friendlies::CLUB_FRIENDLY {
             return "Amigável".into();
         }
         let Some(st) = regulation::get(m.competition_id).and_then(|r| r.stages.get(m.stage as usize).map(|s| (r, s))) else {

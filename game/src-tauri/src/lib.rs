@@ -25,6 +25,7 @@ use nextcm_core::{
 use nextcm_core::{CareerClub, ContinueStep, ManagerStats};
 use nextcm_core::{DealTerms, LoanTerms};
 use nextcm_core::{EditorClub, EditorHit, EditorPlayer, EditorProfile, EditorProfileView, EditorValue};
+use nextcm_core::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
 use nextcm_core::{SavedFile, TrainingPlan, TrainingView};
 use nextcm_core::{TalkLine, TalkReaction, TalkView};
 use tauri::{Manager, State};
@@ -123,6 +124,13 @@ session_command!(press_comment(id: i32, kind: String) -> String);
 session_command!(set_reserve(id: i32, reserve: bool) -> String);
 session_command!(reserve_lineup() -> ReserveLineup);
 session_command!(set_reserve_picks(ids: Vec<i32>) -> ReserveLineup);
+session_command!(friendly_dates(chosen: Vec<String>) -> Vec<FriendlyDay>);
+session_command!(tour_nations() -> Vec<TourNation>);
+session_command!(friendly_clubs(nation: i32, dates: Vec<String>) -> Vec<FriendlyClub>);
+session_command!(arrange_friendlies(kind: String, games: Vec<FriendlyGame>) -> Vec<Fixture>);
+session_command!(cancel_friendly(id: i32) -> ());
+session_command!(friendly_invite(id: i32) -> FriendlyInvite);
+session_command!(answer_friendly_invite(id: i32, accept: bool) -> FriendlyInvite);
 session_command!(give_leave(id: i32) -> String);
 session_command!(jobs_view(nation: Option<i32>) -> JobsView);
 session_command!(apply_job(id: i32) -> String);
@@ -362,6 +370,13 @@ pub fn run() {
             set_reserve,
             reserve_lineup,
             set_reserve_picks,
+            friendly_dates,
+            tour_nations,
+            friendly_clubs,
+            arrange_friendlies,
+            cancel_friendly,
+            friendly_invite,
+            answer_friendly_invite,
             give_leave,
             jobs_view,
             apply_job,

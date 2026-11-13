@@ -489,6 +489,8 @@ pub fn world_cup_year(year: i32) -> bool {
 
 /// Os amigáveis internacionais (competição criada no save, sem regulamento): época internacional.
 pub const FRIENDLY: i32 = 458;
+/// Os amigáveis de clubes (a competição "Friendly" do banco, sem regulamento): ano civil.
+pub const CLUB_FRIENDLY: i32 = 72;
 
 /// Tipo de época de uma competição (as que não têm regulamento contam como ano civil).
 pub fn season_kind(competition: i32) -> SeasonKind {

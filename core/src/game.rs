@@ -28,6 +28,7 @@ mod deals;
 mod discipline;
 mod fair_play;
 mod finances;
+mod friendlies;
 mod hosts;
 mod internationals;
 mod jobs;
@@ -77,6 +78,7 @@ pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use contract_extras::ContractExtras;
 pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, SquadRoleView, TransferView};
 pub use discipline::DisciplineOptions;
+pub use friendlies::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
 pub use jobs::{JobNation, JobRow, JobsView};
 pub use leagues::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use lineup_check::LineupCheck;
@@ -148,7 +150,8 @@ pub use training::{TrainingPlan, TrainingView};
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
 /// 59: o valor depois de N internacionalizações (`offers.caps_bonus`, `caps_bonus`), marco 4.0.
-pub const SAVE_VERSION: i32 = 59;
+/// 60: os amigáveis de clubes (competição 72, `friendly_apps`, `friendly_invites`), marco 4.0.
+pub const SAVE_VERSION: i32 = 60;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -827,6 +830,7 @@ impl Game {
             tx.execute_batch(hosts::HOSTS_SCHEMA)?;
             tx.execute_batch(internationals::SHEET_SCHEMA)?;
             tx.execute_batch(ORDERS_BY_SLOT)?;
+            tx.execute_batch(friendlies::FRIENDLIES_SCHEMA)?;
             // O saldo do 1.º dia, como no CM (as dívidas ficam como estão)
             tx.execute("UPDATE clubs SET cash = CAST(cash * ? AS INTEGER) WHERE cash > 0", [crate::finance::START_CASH])?;
             // Os salários do CM: os do banco × WAGE_SCALE
@@ -1327,6 +1331,12 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 59", [])?;
             version = 59;
         }
+        // Save 60: os amigáveis de clubes (marco 4.0)
+        if version == 59 {
+            world.conn.execute_batch(friendlies::FRIENDLIES_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 60", [])?;
+            version = 60;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1731,6 +1741,8 @@ impl Game {
         self.jobs_day(fresh, next_id)?;
         // As transferências acertadas e as reformas do player_setup.cfg
         self.setup_day(fresh, next_id)?;
+        // Amigáveis: os que chocam com jogos oficiais saem; os convites dos outros clubes
+        self.friendlies_day(fresh, next_id)?;
         // As reservas jogam na véspera do jogo do campeonato
         self.reserve_day(fresh, next_id)
     }
@@ -1895,7 +1907,11 @@ impl Game {
             // As durações das lesões continuam o sorteio da partida
             let mut rng = engine::match_rng(self.seed ^ 0x1E5A_0C0D, live.fixture.id);
             let comp = live.fixture.competition_id;
-            let events = self.squads.after_match(sides, &date, comp, &mut rng);
+            let events = if comp == friendlies::CLUB_FRIENDLY {
+                self.squads.after_friendly(sides, &date, comp, &mut rng)
+            } else {
+                self.squads.after_match(sides, &date, comp, &mut rng)
+            };
             if self.comp_mode(comp) == leagues::LeagueMode::Play {
                 self.log_events(&events, comp)?;
                 live.quiet_stats(&mut engine::match_rng(self.seed ^ 0x57A7_5000, live.fixture.id));
@@ -1929,11 +1945,15 @@ impl Game {
                 self.record_match(m.id, m.competition_id, [m.home_id, m.away_id], [live.player_lines(0), live.player_lines(1)])?;
             }
             if (m.home_id == self.club_id || m.away_id == self.club_id) && !self.sacked() {
+                fresh.push(self.result_news(next_id, m, live));
+                next_id += 1;
+                // Um amigável não mexe na moral do resultado individual, na direcção nem na imprensa
+                if m.competition_id == friendlies::CLUB_FRIENDLY {
+                    continue;
+                }
                 let side = usize::from(m.home_id != self.club_id);
                 let against = self.club(if side == 0 { m.away_id } else { m.home_id }).short_name;
                 self.match_moods(&live.player_lines(side), &against)?;
-                fresh.push(self.result_news(next_id, m, live));
-                next_id += 1;
                 let (h, a) = live.score();
                 let (ours, theirs) = if m.home_id == self.club_id { (h, a) } else { (a, h) };
                 // Expulsões e cartões: motivo para uma queixa à Liga
@@ -2336,7 +2356,11 @@ impl Game {
         Fixture {
             id: m.id,
             competition_id: m.competition_id,
-            competition: self.competition_name(m.competition_id).into(),
+            competition: if m.competition_id == friendlies::CLUB_FRIENDLY {
+                self.friendly_name(m)
+            } else {
+                self.competition_name(m.competition_id).into()
+            },
             round: m.round,
             date: m.date.clone(),
             time: Self::kickoff(m).into(),
@@ -2431,7 +2455,15 @@ impl Game {
 
     /// Partidas de um clube, por data.
     pub fn club_fixtures(&self, club_id: i32) -> Vec<Fixture> {
-        let mut out: Vec<&Match> = self.season_matches().filter(|m| m.home_id == club_id || m.away_id == club_id).collect();
+        let mine = |m: &&Match| m.home_id == club_id || m.away_id == club_id;
+        // Os amigáveis (do ano civil) contam desde o início da época do clube (a de julho também)
+        let start = self.season_start(Some(club_id)).unwrap_or_default();
+        let friendly = |m: &&Match| m.competition_id == friendlies::CLUB_FRIENDLY;
+        let mut out: Vec<&Match> = self
+            .season_matches()
+            .filter(|m| mine(m) && !friendly(m))
+            .chain(self.matches.iter().filter(|m| mine(m) && friendly(m) && m.date >= start))
+            .collect();
         out.sort_by(|a, b| a.date.cmp(&b.date).then(a.id.cmp(&b.id)));
         out.into_iter().map(|m| self.fixture(m)).collect()
     }
@@ -2455,8 +2487,8 @@ impl Game {
         } else {
             format!("O {} perdeu {place} com o {} por {gf}-{ga}.", ours.short_name, theirs.short_name)
         };
-        let standing = self
-            .table_for(m)
+        let table = if m.competition_id == friendlies::CLUB_FRIENDLY { Vec::new() } else { self.table_for(m) };
+        let standing = table
             .iter()
             .find(|r| r.club.id == self.club_id)
             .map(|r| format!("\n\nCom este resultado, o {} é {}º classificado com {} pontos.", ours.short_name, r.position, r.points))
@@ -2485,7 +2517,11 @@ impl Game {
             date: self.date.clone(),
             kind: "competition".into(),
             title: format!("{} {hg}-{ag} {}", home.short_name, away.short_name),
-            body: format!("{}, {}.\n\n{what}{pens}{scorers}{standing}", self.competition_name(m.competition_id), self.match_label(m)),
+            body: {
+                let (comp, label) = (self.fixture(m).competition, self.match_label(m));
+                let head = if comp == label { comp } else { format!("{comp}, {label}") };
+                format!("{head}.\n\n{what}{pens}{scorers}{standing}")
+            },
             read: false,
             offer_id: None,
             link: None,
@@ -2542,8 +2578,11 @@ impl Game {
     /// Notícia do início de uma época (do ano civil ou europeia): as competições dessa época
     /// em que joga o clube do treinador e o primeiro jogo; `None` se não joga nenhuma.
     fn season_news(&self, id: i32, kind: SeasonKind) -> Option<NewsItem> {
-        let mine =
-            |m: &&Match| (m.home_id == self.club_id || m.away_id == self.club_id) && regulation::season_kind(m.competition_id) == kind;
+        let mine = |m: &&Match| {
+            (m.home_id == self.club_id || m.away_id == self.club_id)
+                && m.competition_id != friendlies::CLUB_FRIENDLY
+                && regulation::season_kind(m.competition_id) == kind
+        };
         let mut ours: Vec<&Match> = self.season_matches().filter(mine).collect();
         ours.sort_by(|a, b| a.date.cmp(&b.date).then(a.id.cmp(&b.id)));
         let first = ours.first()?;

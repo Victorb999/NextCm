@@ -816,7 +816,10 @@ impl Game {
     /// Volta a ler os clubes vivos (os que jogam nesta época, mais o do treinador): nomes,
     /// números de camisola e os atributos que o estado dos jogadores usa.
     pub(super) fn refresh_live(&mut self) -> Result<()> {
-        let mut live: Vec<i32> = self.season_matches().flat_map(|m| [m.home_id, m.away_id]).chain([self.club_id]).collect();
+        // Também os adversários dos amigáveis por jogar (de uma excursão, ou já da época seguinte)
+        let friendlies = self.matches.iter().filter(|m| m.competition_id == super::friendlies::CLUB_FRIENDLY && m.result.is_none());
+        let mut live: Vec<i32> =
+            self.season_matches().chain(friendlies).flat_map(|m| [m.home_id, m.away_id]).chain([self.club_id]).collect();
         live.sort_unstable();
         live.dedup();
         super::numbers::fix_squad_numbers(&self.world, &live, self.seed, Some(self.club_id))?;

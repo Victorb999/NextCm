@@ -103,7 +103,21 @@ export function RoundGames({ fixtures, table, own }: { fixtures: Fixture[]; tabl
 }
 
 /** Calendário do clube, como o do CM: data, adversário, C/F, competição e o resultado. */
-export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures: Fixture[] }) {
+export function ClubFixtureList({
+  clubId,
+  fixtures,
+  actions,
+  selected,
+  onSelect,
+}: {
+  clubId: number
+  fixtures: Fixture[]
+  /** Botões à esquerda das épocas (Cancelar e Marcar, no clube do treinador). */
+  actions?: ReactNode
+  /** O jogo escolhido na lista (para o Cancelar). */
+  selected?: number | null
+  onSelect?: (f: Fixture) => void
+}) {
   const nav = useNav()
   if (fixtures.length === 0) return <Empty>Sem jogos marcados.</Empty>
   return (
@@ -112,6 +126,7 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
         title={`Época ${fixtures[0]?.season ?? ''}`}
         right={
           <>
+            {actions}
             <button className="cm-purple h-6 w-28" disabled>
               {'<< Época'}
             </button>
@@ -126,7 +141,11 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
           const home = f.home.id === clubId
           const opponent = home ? f.away : f.home
           return (
-            <div key={f.id} className="flex h-6 items-center gap-3 px-3">
+            <div
+              key={f.id}
+              className={`flex h-6 items-center gap-3 px-3 ${onSelect ? 'cursor-pointer' : ''} ${f.id === selected ? '!bg-cm-sel' : ''}`}
+              onMouseDown={onSelect ? () => onSelect(f) : undefined}
+            >
               <span className="cm-cell w-28 shrink-0 text-center text-[13px] text-white">{shortDate(f.date)}</span>
               <span className="w-11 shrink-0 text-center text-[12.5px] text-cm-muted">{f.time}</span>
               <div className="min-w-0 flex-1 truncate">

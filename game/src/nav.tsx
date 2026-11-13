@@ -18,13 +18,15 @@ export type Screen =
   | { kind: 'compare'; a: number; b: number }
   | { kind: 'worldTransfers' }
   | { kind: 'career' }
-  | { kind: 'club'; id: number; reserves?: boolean }
+  | { kind: 'club'; id: number; reserves?: boolean; tab?: string }
   | { kind: 'tactics'; id: number }
   | { kind: 'clubHistory'; id: number }
   | { kind: 'competitions' }
   | { kind: 'competition'; id: number; tab?: string }
   | { kind: 'nations' }
   | { kind: 'nation'; id: number }
+  /** Marcar amigáveis: Amistoso em Casa, Amistoso Fora ou Excursão. */
+  | { kind: 'friendly'; mode: 'home' | 'away' | 'tour' }
 
 type Nav = {
   current: Screen

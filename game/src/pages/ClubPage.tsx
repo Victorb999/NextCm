@@ -40,14 +40,15 @@ import { TABS, VIEWS, CRITERIA, criterionLabel, shortRole, byNullsLast } from '.
 import type { View, Criterion, Entry } from './club/squadView'
 import { SquadGrid } from './club/SquadGrid'
 import { Info } from './club/ClubInfo'
+import { FriendlyActions, InviteButton } from './club/FriendlyButtons'
 
-export default function ClubPage({ id, reserves }: { id: number; reserves?: boolean }) {
+export default function ClubPage({ id, reserves, initialTab }: { id: number; reserves?: boolean; initialTab?: string }) {
   const nav = useNav()
   const game = useGame()
   const [club, setClub] = useState<ClubProfile | null>(null)
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState('squad')
+  const [tab, setTab] = useState(initialTab ?? 'squad')
   const [view, setView] = useState<View>('traditional')
   const [filter, setFilterState] = useState<Filter>(loadFilter)
   const setFilter = (update: (f: Filter) => Filter) =>
@@ -75,6 +76,9 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
 
   // Jogos do clube e a tabela da competição, recarregados a cada dia do jogo
   const date = game.info?.date
+  // O jogo escolhido no Calendário (para cancelar um amigável); `reload` volta a pedir a lista
+  const [picked, setPicked] = useState<Fixture | null>(null)
+  const [reload, setReload] = useState(0)
   useEffect(() => {
     if (!date) return
     api.clubFixtures(id).then(
@@ -83,7 +87,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
       },
       () => {},
     )
-  }, [id, date])
+  }, [id, date, reload])
   // Nas reservas do treinador, o onze do próximo jogo delas: clicar no número ou na casa põe
   // ou tira da equipa (o adjunto completa o resto)
   const [reserveLineup, setReserveLineup] = useState<ReserveLineup | null>(null)
@@ -439,6 +443,7 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
                 ) : null}
               </span>
             )}
+            {!reserves && <InviteButton clubId={id} />}
             {vacancy?.club === id &&
               (vacancy.text === null ? (
                 <button
@@ -653,7 +658,26 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
               />
             )}
             {tab === 'transfers' && <TransfersPanel clubId={id} />}
-            {tab === 'fixtures' && <ClubFixtureList clubId={id} fixtures={reserves ? reserveFixtures : fixtures} />}
+            {tab === 'fixtures' &&
+              (reserves || !mine ? (
+                <ClubFixtureList clubId={id} fixtures={reserves ? reserveFixtures : fixtures} />
+              ) : (
+                <ClubFixtureList
+                  clubId={id}
+                  fixtures={fixtures}
+                  selected={picked?.id ?? null}
+                  onSelect={setPicked}
+                  actions={
+                    <FriendlyActions
+                      selected={picked}
+                      onCancelled={() => {
+                        setPicked(null)
+                        setReload((r) => r + 1)
+                      }}
+                    />
+                  }
+                />
+              ))}
           </div>
         )}
       </div>

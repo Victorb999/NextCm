@@ -36,6 +36,11 @@ import type { ClubTactics } from './bindings/ClubTactics'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import type { CompetitionProfile } from './bindings/CompetitionProfile'
 import type { Fixture } from './bindings/Fixture'
+import type { FriendlyClub } from './bindings/FriendlyClub'
+import type { FriendlyDay } from './bindings/FriendlyDay'
+import type { FriendlyGame } from './bindings/FriendlyGame'
+import type { FriendlyInvite } from './bindings/FriendlyInvite'
+import type { TourNation } from './bindings/TourNation'
 import type { GameInfo } from './bindings/GameInfo'
 import type { ContractReply } from './bindings/ContractReply'
 import type { ContractTerms } from './bindings/ContractTerms'
@@ -234,6 +239,13 @@ export const api = {
   editorSetClub: (file: string, club: EditorClub) => call<EditorClub>('editor_set_club', { file, club }),
   squadRoleView: (id: number) => call<SquadRoleView>('squad_role_view', { id }),
   statusBar: (kind: string, id: number | null) => call<StatusBar>('status_bar', { kind, id }),
+  friendlyDates: (chosen: string[]) => call<FriendlyDay[]>('friendly_dates', { chosen }),
+  tourNations: () => call<TourNation[]>('tour_nations'),
+  friendlyClubs: (nation: number, dates: string[]) => call<FriendlyClub[]>('friendly_clubs', { nation, dates }),
+  arrangeFriendlies: (kind: string, games: FriendlyGame[]) => call<Fixture[]>('arrange_friendlies', { kind, games }),
+  cancelFriendly: (id: number) => call<null>('cancel_friendly', { id }),
+  friendlyInvite: (id: number) => call<FriendlyInvite>('friendly_invite', { id }),
+  answerFriendlyInvite: (id: number, accept: boolean) => call<FriendlyInvite>('answer_friendly_invite', { id, accept }),
   setSquadRole: (id: number, role: string) => call<string>('set_squad_role', { id, role }),
   offerToClubs: (id: number, loan: boolean, fee: number, excludeRivals: boolean) =>
     call<string>('offer_to_clubs', { id, loan, fee, excludeRivals }),

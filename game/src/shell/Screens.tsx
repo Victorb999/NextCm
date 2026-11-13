@@ -4,6 +4,7 @@ import ClubHistoryPage from '../pages/ClubHistoryPage'
 import ClubPage from '../pages/ClubPage'
 import CompetitionPage from '../pages/CompetitionPage'
 import CompetitionsPage from '../pages/CompetitionsPage'
+import FriendlyPage from '../pages/FriendlyPage'
 import ContractPage from '../pages/ContractPage'
 import JobsPage from '../pages/JobsPage'
 import NationPage from '../pages/NationPage'
@@ -45,7 +46,12 @@ export default function Screens() {
       {current.kind === 'career' && <CareerPage />}
       {current.kind === 'compare' && <ComparePage key={`${current.a}-${current.b}`} a={current.a} b={current.b} />}
       {current.kind === 'club' && (
-        <ClubPage key={`${current.id}-${current.reserves ?? false}`} id={current.id} reserves={current.reserves} />
+        <ClubPage
+          key={`${current.id}-${current.reserves ?? false}-${current.tab ?? ''}`}
+          id={current.id}
+          reserves={current.reserves}
+          initialTab={current.tab}
+        />
       )}
       {current.kind === 'tactics' && <TacticsPage key={current.id} id={current.id} />}
       {current.kind === 'clubHistory' && <ClubHistoryPage key={current.id} id={current.id} />}
@@ -55,6 +61,7 @@ export default function Screens() {
       )}
       {current.kind === 'nations' && <NationsPage />}
       {current.kind === 'nation' && <NationPage key={current.id} id={current.id} />}
+      {current.kind === 'friendly' && <FriendlyPage key={current.mode} mode={current.mode} />}
     </>
   )
 }

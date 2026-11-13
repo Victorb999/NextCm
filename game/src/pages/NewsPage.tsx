@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import type { NewsLink } from '../bindings/NewsLink'
 import LinkedText from '../components/LinkedText'
+import type { FriendlyInvite } from '../bindings/FriendlyInvite'
 import type { NewsItem } from '../bindings/NewsItem'
 import type { OfferView } from '../bindings/OfferView'
 import { BottomBar, Empty, Panel, ScreenHeader, Tabs } from '../components/Screen'
@@ -63,6 +64,47 @@ const inOrder = (news: NewsItem[], tab: string) => news.filter((n) => inTab(n, t
 function startAt(news: NewsItem[], tab: string, latest = false): number | null {
   const list = inOrder(news, tab)
   return ((latest ? undefined : list.findLast((n) => !n.read)) ?? list[0])?.id ?? null
+}
+
+const INVITE_STATUS: Record<string, string> = {
+  accepted: 'Convite aceite: o amigável está no Calendário.',
+  declined: 'Convite recusado.',
+  expired: 'O prazo para responder acabou.',
+}
+
+/** O convite de outro clube para um amigável: Aceitar / Recusar enquanto espera resposta. */
+function InviteReply({ id }: { id: number }) {
+  const [invite, setInvite] = useState<FriendlyInvite | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    api.friendlyInvite(id).then(setInvite, () => setInvite(null))
+  }, [id])
+  if (!invite) return null
+  const answer = (accept: boolean) =>
+    api.answerFriendlyInvite(id, accept).then(
+      (i) => {
+        setInvite(i)
+        setError(null)
+      },
+      (e) => setError(String(e)),
+    )
+  return (
+    <div className="mt-4 flex items-center gap-1 border-t border-cm-line pt-3">
+      {invite.status === 'pending' ? (
+        <>
+          <button className="cm-purple h-7 w-36 text-cm-yellow" onClick={() => void answer(true)}>
+            Aceitar
+          </button>
+          <button className="cm-purple h-7 w-36" onClick={() => void answer(false)}>
+            Recusar
+          </button>
+        </>
+      ) : (
+        <span className="text-[15px] text-cm-mint">{INVITE_STATUS[invite.status] ?? ''}</span>
+      )}
+      {error && <span className="ml-2 text-[14px] text-cm-red">{error}</span>}
+    </div>
+  )
 }
 
 /** "Notícias para <treinador>": lista em cima, texto da notícia em baixo. */
@@ -204,6 +246,7 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
                     </button>
                   </div>
                 )}
+                {current.link?.startsWith('friendly:') && <InviteReply key={current.id} id={Number(current.link.slice(9))} />}
                 {current.link === 'squadNumbers' && (
                   <div className="mt-4 border-t border-cm-line pt-3">
                     <button

@@ -288,6 +288,19 @@ impl Squads {
 
     /// Depois de uma partida de `comp`: suspensões cumpridas, condição com que acabaram, moral,
     /// lesões (a duração é sorteada aqui, com o RNG da partida) e cartões.
+    /// Um amigável: como um jogo (condição, moral, cartões e lesões), mas não conta para os
+    /// jogos seguidos sem jogar.
+    pub fn after_friendly(&mut self, sides: [Side; 2], today: &str, comp: i32, rng: &mut impl RngCore) -> Vec<Event> {
+        let clubs = [sides[0].club, sides[1].club];
+        let missed: Vec<(i32, i32)> =
+            self.traits.iter().filter(|(_, t)| clubs.contains(&t.club_id)).map(|(&id, _)| (id, self.state(id).missed)).collect();
+        let events = self.after_match(sides, today, comp, rng);
+        for (id, m) in missed {
+            self.state_mut(id).missed = m;
+        }
+        events
+    }
+
     pub fn after_match(&mut self, sides: [Side; 2], today: &str, comp: i32, rng: &mut impl RngCore) -> Vec<Event> {
         let mut events = Vec::new();
         for side in &sides {

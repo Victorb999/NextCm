@@ -214,16 +214,21 @@ impl Game {
     /// cortes, dribles, remates); o homem do jogo é a melhor nota dos dois lados.
     pub(super) fn record_match(&self, fixture: i32, competition: i32, clubs: [i32; 2], lines: [Vec<PlayerLine>; 2]) -> Result<()> {
         let mom = lines.iter().flatten().max_by(|a, b| a.rating.total_cmp(&b.rating)).map(|l| l.id);
+        // Os amigáveis ficam à parte ("Não Competitivos") e não pagam prémios
+        let friendly = competition == super::friendlies::CLUB_FRIENDLY;
         // Os prémios por golo, assistência e jogo sem sofrer golos dos contratos do treinador
         for side in 0..2 {
             let conceded: u32 = lines[1 - side].iter().map(|l| l.goals as u32).sum();
-            self.pay_match_bonuses(clubs[side], &lines[side], conceded)?;
+            if !friendly {
+                self.pay_match_bonuses(clubs[side], &lines[side], conceded)?;
+            }
         }
-        let mut insert = self.world.conn.prepare_cached(
-            "INSERT INTO player_matches (person_id, fixture, date, competition, club, rating, goals, assists, sub, mom,
-                                         passes, passes_ok, tackles, dribbles, shots, on_target, minute_on, minute_off, cards)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )?;
+        let table = if friendly { "friendly_apps" } else { "player_matches" };
+        let mut insert = self.world.conn.prepare_cached(&format!(
+            "INSERT INTO {table} (person_id, fixture, date, competition, club, rating, goals, assists, sub, mom,
+                                  passes, passes_ok, tackles, dribbles, shots, on_target, minute_on, minute_off, cards)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ))?;
         for (side, players) in lines.iter().enumerate() {
             for l in players {
                 insert.execute(params![
@@ -265,7 +270,13 @@ impl Game {
         type Row = (i32, i32, String, Option<i32>, f64, i32, i32, bool, Option<i32>, Option<i32>, i32, bool);
         // Os jogos de selecções ficam em `intl_apps`, com a selecção no lugar do clube
         let national = super::internationals::is_national_comp(m.competition_id);
-        let (table, side) = if national { ("intl_apps", "team") } else { ("player_matches", "club") };
+        let (table, side) = if national {
+            ("intl_apps", "team")
+        } else if m.competition_id == super::friendlies::CLUB_FRIENDLY {
+            ("friendly_apps", "club")
+        } else {
+            ("player_matches", "club")
+        };
         let sql = format!(
             "SELECT m.person_id, m.{side}, COALESCE((SELECT nickname FROM nicknames n WHERE n.person_id = p.id), p.list_name),
                     pl.squad_number, ROUND(m.rating, 1), m.goals, m.assists, m.mom, m.minute_on, m.minute_off, m.cards, m.sub
@@ -532,11 +543,15 @@ impl Game {
                 );
             }
         }
-        // Os jogos das reservas: "Não Competitivos", à cabeça e fora dos Jogos Oficiais (como no CM)
+        // Os jogos das reservas e os amigáveis: "Não Competitivos", à cabeça e fora dos Jogos
+        // Oficiais (como no CM)
         let reserve: Vec<(i32, String, i32, i32, f64)> = self
             .world
             .conn
-            .prepare_cached("SELECT club, date, goals, assists, rating FROM reserve_apps WHERE person_id = ? ORDER BY date")?
+            .prepare_cached(
+                "SELECT club, date, goals, assists, rating FROM reserve_apps WHERE person_id = ?1
+                 UNION ALL SELECT club, date, goals, assists, rating FROM friendly_apps WHERE person_id = ?1 ORDER BY 2",
+            )?
             .query_map([p.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
             .collect::<rusqlite::Result<_>>()?;
         let mut friendly: BTreeMap<(i32, i32), Totals> = BTreeMap::new();

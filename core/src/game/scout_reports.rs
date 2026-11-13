@@ -7,7 +7,7 @@ use super::season::join_names;
 use super::{Game, NewsItem};
 use crate::Result;
 use crate::date;
-use crate::regulation::FRIENDLY;
+use crate::regulation::{CLUB_FRIENDLY, FRIENDLY};
 
 /// Estrelas a partir das quais um jogador entra no resumo semanal.
 const DIGEST_STARS: i32 = 4;
@@ -74,7 +74,7 @@ impl Game {
         let Some(m) = self
             .matches
             .iter()
-            .filter(|m| m.date == day && m.result.is_none() && m.competition_id != FRIENDLY)
+            .filter(|m| m.date == day && m.result.is_none() && m.competition_id != FRIENDLY && m.competition_id != CLUB_FRIENDLY)
             .find(|m| m.home_id == self.club_id || m.away_id == self.club_id)
         else {
             return Ok(());

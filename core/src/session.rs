@@ -25,6 +25,7 @@ use crate::StatusBar;
 use crate::WorldTransfers;
 use crate::tactic_file::{self, SavedFile};
 use crate::{DealTerms, LoanTerms};
+use crate::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
 use crate::{ReserveLineup, TrainingPlan, TrainingView};
 use crate::{TalkLine, TalkReaction, TalkView};
 
@@ -776,6 +777,38 @@ impl Session {
 
     pub fn set_reserve_picks(&mut self, ids: Vec<i32>) -> Result<ReserveLineup> {
         self.game_mut()?.set_reserve_picks(&ids)
+    }
+
+    /// Amigáveis: os dias para escolher (com os já escolhidos).
+    pub fn friendly_dates(&self, chosen: Vec<String>) -> Result<Vec<FriendlyDay>> {
+        self.game()?.friendly_dates(&chosen)
+    }
+
+    /// Os países da excursão.
+    pub fn tour_nations(&self) -> Result<Vec<TourNation>> {
+        self.game()?.tour_nations()
+    }
+
+    /// Os clubes de um país livres nas datas escolhidas.
+    pub fn friendly_clubs(&self, nation: i32, dates: Vec<String>) -> Result<Vec<FriendlyClub>> {
+        self.game()?.friendly_clubs(nation, &dates)
+    }
+
+    /// Marca amigáveis ("home", "away" ou "tour").
+    pub fn arrange_friendlies(&mut self, kind: String, games: Vec<FriendlyGame>) -> Result<Vec<Fixture>> {
+        self.game_mut()?.arrange_friendlies(&kind, &games)
+    }
+
+    pub fn cancel_friendly(&mut self, id: i32) -> Result<()> {
+        self.game_mut()?.cancel_friendly(id)
+    }
+
+    pub fn friendly_invite(&self, id: i32) -> Result<FriendlyInvite> {
+        self.game()?.friendly_invite(id)
+    }
+
+    pub fn answer_friendly_invite(&mut self, id: i32, accept: bool) -> Result<FriendlyInvite> {
+        self.game_mut()?.answer_friendly_invite(id, accept)
     }
 
     /// "Dar Folga" a quem tem saudades de casa; devolve a frase para a tela.

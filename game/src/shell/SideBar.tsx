@@ -94,6 +94,7 @@ function sectionOf(s: Screen, club: number | undefined, manager: number | undefi
     case 'career':
     case 'squadNumbers':
     case 'training':
+    case 'friendly':
       return 'manager'
     case 'club':
     case 'tactics':

@@ -114,7 +114,7 @@ impl Game {
         };
         let exists: bool =
             self.world.conn.query_row("SELECT COUNT(*) FROM press WHERE fixture = ? AND kind = 'pre'", [m.id], |r| r.get::<_, i64>(0))? > 0;
-        if exists || !self.important(&m)? {
+        if exists || m.competition_id == super::friendlies::CLUB_FRIENDLY || !self.important(&m)? {
             return Ok(());
         }
         let opp = if m.home_id == self.club_id { m.away_id } else { m.home_id };

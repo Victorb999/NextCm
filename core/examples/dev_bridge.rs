@@ -232,6 +232,27 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let club: nextcm_core::EditorClub = serde_json::from_value(args["club"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.editor_set_club(file, club).map_err(e)?))
         }
+        "friendly_dates" => {
+            let chosen: Vec<String> = serde_json::from_value(args["chosen"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.friendly_dates(chosen).map_err(e)?))
+        }
+        "tour_nations" => out(serde_json::to_value(session.tour_nations().map_err(e)?)),
+        "friendly_clubs" => {
+            let nation = args["nation"].as_i64().ok_or("falta nation")? as i32;
+            let dates: Vec<String> = serde_json::from_value(args["dates"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.friendly_clubs(nation, dates).map_err(e)?))
+        }
+        "arrange_friendlies" => {
+            let kind = args["kind"].as_str().ok_or("falta kind")?.to_string();
+            let games: Vec<nextcm_core::FriendlyGame> = serde_json::from_value(args["games"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.arrange_friendlies(kind, games).map_err(e)?))
+        }
+        "cancel_friendly" => out(serde_json::to_value(session.cancel_friendly(id()?).map_err(e)?)),
+        "friendly_invite" => out(serde_json::to_value(session.friendly_invite(id()?).map_err(e)?)),
+        "answer_friendly_invite" => {
+            let accept = args["accept"].as_bool().ok_or("falta accept")?;
+            out(serde_json::to_value(session.answer_friendly_invite(id()?, accept).map_err(e)?))
+        }
         "status_bar" => {
             let kind = args["kind"].as_str().unwrap_or("").to_string();
             let id = args["id"].as_i64().map(|v| v as i32);
