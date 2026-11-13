@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ClubRef } from '../bindings/ClubRef'
 import { initials, localText } from '../format'
+import StatusStrip from './StatusStrip'
 
 /** As cores de um clube, com o cinzento de sempre quando o patch não as tem. */
 function clubColours(club: Pick<ClubRef, 'fg' | 'bg'>) {
@@ -171,6 +172,7 @@ export function BottomBar({
       <button className="cm-purple flex-[2] font-title text-lg" disabled={!onLeft} onClick={onLeft}>
         {left}
       </button>
+      <StatusStrip />
       {/* O de avançar distingue-se do Atrás pelo texto amarelo (desligado, fica como o outro) */}
       <button className="cm-purple flex-1 font-title text-lg enabled:text-cm-yellow" disabled={!onRight} onClick={onRight}>
         {right}

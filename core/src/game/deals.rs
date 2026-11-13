@@ -310,6 +310,8 @@ pub(super) struct Offer {
     pub(super) monthly_fee: i64,
     pub(super) option_fee: i64,
     pub(super) apps_needed: i32,
+    pub(super) caps_bonus: i64,
+    pub(super) caps_needed: i32,
     pub(super) public: bool,
     pub(super) exchange: Option<i32>,
 }
@@ -350,7 +352,7 @@ impl Facts {
     }
 }
 
-const OFFER_COLUMNS: &str = "id, kind, person_id, buyer, seller, fee, asked, status, answer_on, months, sell_on, apps_bonus, rounds, loan_months, wage_share, monthly_fee, option_fee, apps_needed, public, exchange";
+const OFFER_COLUMNS: &str = "id, kind, person_id, buyer, seller, fee, asked, status, answer_on, months, sell_on, apps_bonus, rounds, loan_months, wage_share, monthly_fee, option_fee, apps_needed, public, exchange, caps_bonus, caps_needed";
 
 fn offer_row(r: &rusqlite::Row) -> rusqlite::Result<Offer> {
     Ok(Offer {
@@ -374,6 +376,8 @@ fn offer_row(r: &rusqlite::Row) -> rusqlite::Result<Offer> {
         apps_needed: r.get(17)?,
         public: r.get(18)?,
         exchange: r.get(19)?,
+        caps_bonus: r.get(20)?,
+        caps_needed: r.get(21)?,
     })
 }
 
@@ -1715,7 +1719,7 @@ Confirme até {}.",
             self.execute_move(o.person, Some(self.club_id), Some(o.buyer), fee, wage, years, "transfer", kind)?;
             self.settle_terms(o.person, o.buyer, self.club_id, &terms)?;
             self.world.conn.execute("UPDATE offers SET fee = ? WHERE id = ?", params![fee, o.id])?;
-            self.sale_to_budget(terms.budget_cost() - terms.apps_bonus)?;
+            self.sale_to_budget(terms.budget_cost() - terms.bonuses())?;
             let mut body = format!("{name} foi vendido ao {buyer} por {}.", terms.text());
             // A maior venda da história do clube (no jogo)
             if let Some(before) = self.beats_club_record(o.person, fee, false)? {

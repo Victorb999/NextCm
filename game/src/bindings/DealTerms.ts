@@ -21,6 +21,14 @@ appsBonus: number,
  */
 appsNeeded: number, 
 /**
+ * Valor pago depois de `caps_needed` internacionalizações (marco 4.0).
+ */
+capsBonus: number, 
+/**
+ * 5, 10, 15, 20 ou 25 internacionalizações (0 = 5).
+ */
+capsNeeded: number, 
+/**
  * "Tornar proposta pública".
  */
 public: boolean, 

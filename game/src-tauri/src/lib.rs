@@ -13,6 +13,7 @@ use nextcm_core::NewsLink;
 use nextcm_core::PressView;
 use nextcm_core::ReserveLineup;
 use nextcm_core::SquadRoleView;
+use nextcm_core::StatusBar;
 use nextcm_core::WorldTransfers;
 use nextcm_core::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem,
@@ -138,8 +139,10 @@ session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
 session_command!(exchange_candidates(id: i32) -> Vec<i32>);
 session_command!(squad_role_view(id: i32) -> SquadRoleView);
+session_command!(status_bar(kind: String, id: Option<i32>) -> StatusBar);
 session_command!(editor_search(file: String, query: String) -> Vec<EditorHit>);
 session_command!(editor_player(file: String, id: i32) -> EditorPlayer);
+session_command!(editor_export_csv(file: String, ids: Vec<i32>) -> String);
 session_command!(editor_set_attributes(file: String, id: i32, values: Vec<EditorValue>) -> EditorPlayer);
 session_command!(editor_profile(file: String, id: i32) -> EditorProfileView);
 session_command!(editor_set_profile(file: String, id: i32, profile: EditorProfile) -> EditorProfileView);
@@ -371,8 +374,10 @@ pub fn run() {
             exchange_candidates,
             offer_to_clubs,
             squad_role_view,
+            status_bar,
             editor_search,
             editor_player,
+            editor_export_csv,
             editor_set_attributes,
             editor_profile,
             editor_set_profile,

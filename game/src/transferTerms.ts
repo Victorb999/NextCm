@@ -6,7 +6,17 @@ import { money } from './format'
 // Condições iniciais dos diálogos do mercado e a frase da direção (aba Transferência,
 // menu Acção e mensagens).
 
-export const NO_TERMS: DealTerms = { fee: 0, months: 0, sellOn: 0, appsBonus: 0, appsNeeded: 10, public: false, exchange: null }
+export const NO_TERMS: DealTerms = {
+  fee: 0,
+  months: 0,
+  sellOn: 0,
+  appsBonus: 0,
+  appsNeeded: 10,
+  capsBonus: 0,
+  capsNeeded: 5,
+  public: false,
+  exchange: null,
+}
 export const LOAN_TERMS: LoanTerms = { months: 0, wageShare: 100, monthlyFee: 0, optionFee: 0 }
 
 /** A frase da direção sobre o orçamento, como no CM. */

@@ -2,7 +2,8 @@
 //! como no diálogo do CM (valor, prestações mensais, percentagem da próxima venda, um valor
 //! depois de 10 a 50 jogos, proposta pública e um jogador do plantel na troca), o empréstimo com duração, parte do salário, taxa mensal e opção de compra, e as
 //! respostas dos clubes em rondas (contraproposta com condições, paciência que acaba). Os
-//! pagamentos a prazo ficam em `payments`, as cláusulas em `sell_on` e `apps_bonus`.
+//! pagamentos a prazo ficam em `payments`, as cláusulas em `sell_on`, `apps_bonus` e
+//! `caps_bonus` (o valor depois de N internacionalizações, marco 4.0).
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::RngCore;
@@ -23,6 +24,8 @@ pub const INSTALMENT_MONTHS: [i32; 5] = [0, 6, 12, 24, 36];
 pub const MAX_SELL_ON: i32 = 50;
 /// Jogos pelo clube até pagar o valor extra (o treinador escolhe).
 pub const APPS_FOR_BONUS: [i32; 5] = [10, 20, 30, 40, 50];
+/// Internacionalizações até pagar o valor extra (o treinador escolhe).
+pub const CAPS_FOR_BONUS: [i32; 5] = [5, 10, 15, 20, 25];
 /// Durações de um empréstimo em meses (0 = até ao fim da época).
 pub const LOAN_MONTHS: [i32; 3] = [0, 6, 12];
 /// Quanto vale cada parte para quem vende: cada ano de prestações tira 6% ao valor, a
@@ -31,6 +34,9 @@ pub const LOAN_MONTHS: [i32; 3] = [0, 6, 12];
 const INSTALMENT_DISCOUNT: f64 = 0.06;
 const SELL_ON_WORTH: f64 = 0.5;
 const APPS_BONUS_WORTH: f64 = 0.8;
+/// O valor por internacionalizações vale menos (o jogador pode nunca ser chamado): 40% depois
+/// de 5, menos 1% por cada uma a mais.
+const CAPS_BONUS_WORTH: f64 = 0.4;
 /// Um jogador na troca vale esta parte do valor dele; uma proposta pública por um ambicioso
 /// (de um clube maior) desestabiliza-o e o clube baixa o que pede.
 pub(super) const EXCHANGE_WORTH: f64 = 0.8;
@@ -72,6 +78,13 @@ pub struct DealTerms {
     /// 10, 20, 30, 40 ou 50 jogos (0 = 10).
     #[serde(default)]
     pub apps_needed: i32,
+    /// Valor pago depois de `caps_needed` internacionalizações (marco 4.0).
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub caps_bonus: i64,
+    /// 5, 10, 15, 20 ou 25 internacionalizações (0 = 5).
+    #[serde(default)]
+    pub caps_needed: i32,
     /// "Tornar proposta pública".
     #[serde(default)]
     pub public: bool,
@@ -114,11 +127,17 @@ impl DealTerms {
         if self.apps_needed != 0 && !APPS_FOR_BONUS.contains(&self.apps_needed) {
             return Err(Error::Invalid("O valor por jogos é depois de 10, 20, 30, 40 ou 50 jogos.".into()));
         }
+        if self.caps_needed != 0 && !CAPS_FOR_BONUS.contains(&self.caps_needed) {
+            return Err(Error::Invalid("O valor por internacionalizações é depois de 5, 10, 15, 20 ou 25.".into()));
+        }
         if !(0..=MAX_SELL_ON).contains(&self.sell_on) {
             return Err(Error::Invalid(format!("A percentagem da próxima venda vai até {MAX_SELL_ON}%.")));
         }
         if self.apps_bonus < 0 {
             return Err(Error::Invalid("O valor por jogos não pode ser negativo.".into()));
+        }
+        if self.caps_bonus < 0 {
+            return Err(Error::Invalid("O valor por internacionalizações não pode ser negativo.".into()));
         }
         Ok(())
     }
@@ -126,7 +145,7 @@ impl DealTerms {
     /// Quanto vale a proposta para quem vende um jogador de valor `value`.
     pub fn worth(&self, value: i64) -> f64 {
         self.fee as f64 * (1.0 - INSTALMENT_DISCOUNT * self.months as f64 / 12.0)
-            + self.apps_bonus as f64 * self.apps_worth()
+            + self.bonus_worth()
             + value as f64 * self.sell_on as f64 / 100.0 * SELL_ON_WORTH
     }
 
@@ -135,14 +154,30 @@ impl DealTerms {
         if self.apps_needed > 0 { self.apps_needed } else { APPS_FOR_BONUS[0] }
     }
 
+    /// Internacionalizações para o valor extra (0 conta como 5).
+    pub fn caps(&self) -> i32 {
+        if self.caps_needed > 0 { self.caps_needed } else { CAPS_FOR_BONUS[0] }
+    }
+
     fn apps_worth(&self) -> f64 {
         (APPS_BONUS_WORTH - 0.01 * self.games() as f64).max(0.3)
     }
 
+    /// O que valem para quem vende os valores por jogos e por internacionalizações.
+    fn bonus_worth(&self) -> f64 {
+        let caps = (CAPS_BONUS_WORTH - 0.01 * (self.caps() - CAPS_FOR_BONUS[0]) as f64).max(0.1);
+        self.apps_bonus as f64 * self.apps_worth() + self.caps_bonus as f64 * caps
+    }
+
+    /// Os valores extra (por jogos e por internacionalizações).
+    pub fn bonuses(&self) -> i64 {
+        self.apps_bonus + self.caps_bonus
+    }
+
     /// O que sai do orçamento da direção: a parte do valor paga nos primeiros 12 meses e o
-    /// valor por jogos.
+    /// valor por jogos e por internacionalizações.
     pub fn budget_cost(&self) -> i64 {
-        self.first_year() + self.apps_bonus
+        self.first_year() + self.bonuses()
     }
 
     fn first_year(&self) -> i64 {
@@ -160,6 +195,9 @@ impl DealTerms {
         }
         if self.apps_bonus > 0 {
             parts.push(format!("{} depois de {} jogos", money_text(self.apps_bonus), self.games()));
+        }
+        if self.caps_bonus > 0 {
+            parts.push(format!("{} depois de {} internacionalizações", money_text(self.caps_bonus), self.caps()));
         }
         join(&parts)
     }
@@ -234,7 +272,7 @@ pub(super) fn seller_reply(t: &DealTerms, asking: i64, value: i64, age: i32, rou
     if age <= 23 && c.sell_on == 0 && uniform(rng) < 0.5 {
         c.sell_on = 10 + 5 * (rng.next_u32() % 3) as i32;
     }
-    let rest = target - c.apps_bonus as f64 * c.apps_worth() - value as f64 * c.sell_on as f64 / 100.0 * SELL_ON_WORTH - extra;
+    let rest = target - c.bonus_worth() - value as f64 * c.sell_on as f64 / 100.0 * SELL_ON_WORTH - extra;
     let fee = rest / (1.0 - INSTALMENT_DISCOUNT * c.months as f64 / 12.0);
     // Um pouco acima: arredondada, a contraproposta tem de valer o que o clube pede
     c.fee = finance::round_money(fee * 1.01).max(t.fee);
@@ -266,7 +304,7 @@ pub(super) fn buyer_reply(asked: &DealTerms, value: i64, offered: f64, budget: f
     }
     let target = ((offered + worth) / 2.0).min(max);
     let mut c = *asked;
-    let rest = target - c.apps_bonus as f64 * c.apps_worth() - value as f64 * c.sell_on as f64 / 100.0 * SELL_ON_WORTH;
+    let rest = target - c.bonus_worth() - value as f64 * c.sell_on as f64 / 100.0 * SELL_ON_WORTH;
     c.fee = finance::round_money(rest / (1.0 - INSTALMENT_DISCOUNT * c.months as f64 / 12.0));
     while c.fee > 0 && c.budget_cost() as f64 > budget {
         c.fee = finance::round_money(c.fee as f64 * 0.9);
@@ -320,6 +358,8 @@ impl Offer {
             sell_on: self.sell_on,
             apps_bonus: self.apps_bonus,
             apps_needed: self.apps_needed,
+            caps_bonus: self.caps_bonus,
+            caps_needed: self.caps_needed,
             public: self.public,
             exchange: self.exchange,
         }
@@ -346,7 +386,7 @@ impl Game {
     pub(super) fn set_terms(&self, id: i32, d: &DealTerms, l: &LoanTerms) -> Result<()> {
         self.world.conn.execute(
             "UPDATE offers SET fee = ?, months = ?, sell_on = ?, apps_bonus = ?, loan_months = ?, wage_share = ?, monthly_fee = ?,
-                    option_fee = ?, apps_needed = ?, public = ?, exchange = ? WHERE id = ?",
+                    option_fee = ?, apps_needed = ?, public = ?, exchange = ?, caps_bonus = ?, caps_needed = ? WHERE id = ?",
             params![
                 d.fee,
                 d.months,
@@ -359,6 +399,8 @@ impl Game {
                 d.games(),
                 d.public,
                 d.exchange,
+                d.caps_bonus,
+                d.caps(),
                 id
             ],
         )?;
@@ -423,6 +465,14 @@ impl Game {
                 params![person, buyer, seller, t.apps_bonus, apps, t.games()],
             )?;
         }
+        if t.caps_bonus > 0 {
+            let caps: i32 =
+                self.world.conn.query_row("SELECT COALESCE(international_apps, 0) FROM people WHERE id = ?", [person], |r| r.get(0))?;
+            self.world.conn.execute(
+                "INSERT OR REPLACE INTO caps_bonus (person_id, payer, payee, amount, caps_at, needed) VALUES (?, ?, ?, ?, ?, ?)",
+                params![person, buyer, seller, t.caps_bonus, caps, t.caps()],
+            )?;
+        }
         Ok(())
     }
 
@@ -443,6 +493,7 @@ impl Game {
             self.world.conn.execute("DELETE FROM sell_on WHERE person_id = ?", [person])?;
         }
         self.world.conn.execute("DELETE FROM apps_bonus WHERE person_id = ? AND payer IS ?", params![person, from])?;
+        self.world.conn.execute("DELETE FROM caps_bonus WHERE person_id = ? AND payer IS ?", params![person, from])?;
         Ok(())
     }
 
@@ -486,6 +537,39 @@ impl Game {
                     format!("Valor por jogos de {name}"),
                     format!(
                         "{name} cumpriu os jogos combinados: o clube {verb} {who} {}, como ficou na transferência.",
+                        money_text(amount)
+                    ),
+                ));
+            }
+        }
+        // O valor por internacionalizações (pela soma de sempre, que não volta a zero)
+        let caps: Vec<(i32, i32, i32, i64, i32, i32, i32)> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT c.person_id, c.payer, c.payee, c.amount, c.caps_at, c.needed, COALESCE(p.international_apps, 0)
+                 FROM caps_bonus c JOIN people p ON p.id = c.person_id ORDER BY c.person_id",
+            )?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        for (person, payer, payee, amount, at, needed, now) in caps {
+            if now - at < needed {
+                continue;
+            }
+            self.book(payer, "purchases", amount)?;
+            self.book(payee, "sales", amount)?;
+            self.world.conn.execute("DELETE FROM caps_bonus WHERE person_id = ?", [person])?;
+            if payer == self.club_id || payee == self.club_id {
+                let name = self.person_name(person)?;
+                let (who, verb) = if payer == self.club_id {
+                    (self.club(payee).short_name, "pagou ao")
+                } else {
+                    (self.club(payer).short_name, "recebeu do")
+                };
+                news.push((
+                    format!("Valor por internacionalizações de {name}"),
+                    format!(
+                        "{name} chegou às {needed} internacionalizações combinadas: o clube {verb} {who} {}, como ficou na transferência.",
                         money_text(amount)
                     ),
                 ));
@@ -646,6 +730,13 @@ mod tests {
         let sell_on = DealTerms { sell_on: 20, ..cash };
         assert!(sell_on.worth(10_000_000) > cash.worth(10_000_000));
         assert_eq!(spread.text(), "€10,0M em 24 prestações mensais");
+        // O valor por internacionalizações vale menos do que o mesmo valor por jogos
+        let apps = DealTerms { apps_bonus: 1_000_000, ..cash };
+        let caps = DealTerms { caps_bonus: 1_000_000, caps_needed: 10, ..cash };
+        assert!(cash.worth(10_000_000) < caps.worth(10_000_000) && caps.worth(10_000_000) < apps.worth(10_000_000));
+        assert_eq!(caps.budget_cost(), 11_000_000);
+        assert_eq!(caps.text(), "€10,0M e €1,0M depois de 10 internacionalizações");
+        assert!(DealTerms { caps_needed: 7, ..caps }.check().is_err());
     }
 
     #[test]
@@ -691,7 +782,7 @@ mod tests {
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .unwrap();
-        let terms = DealTerms { fee: 12_000_000, months: 12, sell_on: 20, ..Default::default() };
+        let terms = DealTerms { fee: 12_000_000, months: 12, sell_on: 20, caps_bonus: 500_000, caps_needed: 5, ..Default::default() };
         let (mine, theirs) = (g.cash_of(7568).unwrap(), g.cash_of(seller).unwrap());
         let kind = g.kind_of(7568).unwrap();
         g.execute_move(person, Some(seller), Some(7568), terms.fee, 10_000, 3, "transfer", kind).unwrap();
@@ -701,9 +792,17 @@ mod tests {
         g.date = date::add_days(&g.date, 30).unwrap();
         g.payments_day().unwrap();
         assert_eq!(g.cash_of(7568).unwrap(), mine - 2_000_000, "a segunda prestação um mês depois");
+        // 5 internacionalizações depois: o valor combinado
+        g.world.conn.execute("UPDATE people SET international_apps = COALESCE(international_apps, 0) + 4 WHERE id = ?", [person]).unwrap();
+        g.payments_day().unwrap();
+        assert_eq!(g.cash_of(7568).unwrap(), mine - 2_000_000, "ainda faltava uma");
+        g.world.conn.execute("UPDATE people SET international_apps = international_apps + 1 WHERE id = ?", [person]).unwrap();
+        let news = g.payments_day().unwrap();
+        assert_eq!(g.cash_of(7568).unwrap(), mine - 2_500_000, "o valor por internacionalizações");
+        assert!(news.iter().any(|(t, _)| t.starts_with("Valor por internacionalizações")));
         // Vendido de novo: 20% da venda para o clube de onde veio
         g.execute_move(person, Some(7568), Some(other), 5_000_000, 10_000, 3, "transfer", kind).unwrap();
-        assert_eq!(g.cash_of(seller).unwrap(), theirs + 2_000_000 + 1_000_000);
+        assert_eq!(g.cash_of(seller).unwrap(), theirs + 2_000_000 + 500_000 + 1_000_000);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

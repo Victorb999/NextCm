@@ -40,6 +40,7 @@ import type { GameInfo } from './bindings/GameInfo'
 import type { ContractReply } from './bindings/ContractReply'
 import type { ContractTerms } from './bindings/ContractTerms'
 import type { SquadRoleView } from './bindings/SquadRoleView'
+import type { StatusBar } from './bindings/StatusBar'
 import type { EditorClub } from './bindings/EditorClub'
 import type { EditorHit } from './bindings/EditorHit'
 import type { EditorCommand } from './bindings/EditorCommand'
@@ -211,6 +212,7 @@ export const api = {
   /** Editor de jogos salvos (save fechado): procurar jogadores, abrir um e gravar os atributos. */
   editorSearch: (file: string, query: string) => call<EditorHit[]>('editor_search', { file, query }),
   editorPlayer: (file: string, id: number) => call<EditorPlayer>('editor_player', { file, id }),
+  editorExportCsv: (file: string, ids: number[]) => call<string>('editor_export_csv', { file, ids }),
   editorSetAttributes: (file: string, id: number, values: EditorValue[]) =>
     call<EditorPlayer>('editor_set_attributes', { file, id, values }),
   editorProfile: (file: string, id: number) => call<EditorProfileView>('editor_profile', { file, id }),
@@ -225,6 +227,7 @@ export const api = {
   editorClub: (file: string, id: number) => call<EditorClub>('editor_club', { file, id }),
   editorSetClub: (file: string, club: EditorClub) => call<EditorClub>('editor_set_club', { file, club }),
   squadRoleView: (id: number) => call<SquadRoleView>('squad_role_view', { id }),
+  statusBar: (kind: string, id: number | null) => call<StatusBar>('status_bar', { kind, id }),
   setSquadRole: (id: number, role: string) => call<string>('set_squad_role', { id, role }),
   offerToClubs: (id: number, loan: boolean, fee: number, excludeRivals: boolean) =>
     call<string>('offer_to_clubs', { id, loan, fee, excludeRivals }),

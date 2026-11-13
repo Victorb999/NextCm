@@ -3,12 +3,13 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { PLAYER_ATTRIBUTES } from '../attributes'
 import type { PersonProfile } from '../bindings/PersonProfile'
+import CompareRadar from '../components/CompareRadar'
 import { BottomBar, Link, Panel, ScreenHeader, Tabs } from '../components/Screen'
 import { cmDate, money, wage } from '../format'
 import { useEscBack, useNav } from '../nav'
 
 // Comparar Jogadores (3.19.1, item 21): a organização do FM08 (dados dos dois no topo e, por baixo, os
-// atributos em Técnicos / Mentais / Físicos com barras, ou as estatísticas), no visual do CM 01/02.
+// atributos em Técnicos / Mentais / Físicos com barras, o radar da Visão Geral ou as estatísticas), no visual do CM 01/02.
 
 const LABEL = Object.fromEntries(PLAYER_ATTRIBUTES)
 const GROUPS: [string, string[]][] = [
@@ -159,6 +160,7 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
             <div className="mt-1 px-2">
               <Tabs
                 tabs={[
+                  { key: 'overview', label: 'Visão Geral' },
                   { key: 'attributes', label: 'Atributos' },
                   { key: 'stats', label: 'Estatísticas' },
                 ]}
@@ -166,7 +168,9 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
                 onChange={setTab}
               />
             </div>
-            {tab === 'attributes' ? (
+            {tab === 'overview' ? (
+              <CompareRadar people={people} />
+            ) : tab === 'attributes' ? (
               <div className="grid grid-cols-3 gap-3 p-2">
                 {GROUPS.map(([title, keys]) => (
                   <div key={title}>

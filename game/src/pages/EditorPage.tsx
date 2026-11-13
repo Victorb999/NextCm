@@ -1,9 +1,6 @@
-import { useLoad } from '../useLoad'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import type { EditorAttribute } from '../bindings/EditorAttribute'
-import type { EditorClub } from '../bindings/EditorClub'
-import type { EditorCommand } from '../bindings/EditorCommand'
 import type { EditorHit } from '../bindings/EditorHit'
 import type { EditorPlayer } from '../bindings/EditorPlayer'
 import type { EditorProfile } from '../bindings/EditorProfile'
@@ -13,482 +10,20 @@ import { DialogFrame, Overlay } from '../components/Dialog'
 import Loading from '../components/Loading'
 import { ErrorBox } from '../components/Screen'
 import { useGame } from '../game'
+import ClubDialog from './editor/ClubDialog'
+import CommandDialog from './editor/CommandDialog'
+import { BOX, LABELS, POS_LEFT, POS_RIGHT, POSITION_LABELS, TAB } from './editor/editorText'
+import { AttributeRow, DateField, Header, NationSelect, NumField } from './editor/Fields'
 
 // Editor de jogos salvos (marco 3.20, primeira fatia): procura um jogador num save fechado e
 // edita os atributos pelo valor de 1 a 20 que o jogo mostra. O core converte para o valor
 // guardado (ao lado, só de leitura); os atributos ocultos vão a branco, como no editor do CM.
 
-const LABELS: Record<string, string> = {
-  acceleration: 'Aceleração',
-  adaptability: 'Adaptabilidade',
-  aggression: 'Agressividade',
-  agility: 'Agilidade',
-  ambition: 'Ambição',
-  anticipation: 'Antecipação',
-  balance: 'Balanço',
-  bravery: 'Bravura',
-  consistency: 'Consistência',
-  corners: 'Cantos',
-  crossing: 'Cruzamentos',
-  decisions: 'Decisões',
-  determination: 'Determinação',
-  dirtiness: 'Jogo Sujo',
-  dribbling: 'Finta',
-  finishing: 'Finalização',
-  flair: 'Instinto',
-  free_kicks: 'Bolas Paradas',
-  handling: 'Jogo Mãos',
-  heading: 'Cabeceamento',
-  important_matches: 'Jogos Importantes',
-  injury_proneness: 'Propensão a Lesões',
-  jumping: 'Impulsão',
-  leadership: 'Influência',
-  left_foot: 'Pé Esquerdo',
-  long_shots: 'Remates Longe',
-  loyalty: 'Lealdade',
-  marking: 'Marcação',
-  natural_fitness: 'Condição Física Natural',
-  off_the_ball: 'Sem Bola',
-  one_on_ones: 'Um-contra-um',
-  pace: 'Velocidade',
-  passing: 'Passe',
-  penalties: 'Penáltis',
-  positioning: 'Posicionamento',
-  pressure: 'Pressão',
-  professionalism: 'Profissionalismo',
-  reflexes: 'Reflexos',
-  right_foot: 'Pé Direito',
-  sportsmanship: 'Desportivismo',
-  stamina: 'Resistência',
-  strength: 'Força',
-  tackling: 'Desarme',
-  teamwork: 'Trabalho Equipa',
-  technique: 'Técnica',
-  temperament: 'Temperamento',
-  throw_ins: 'Lançamentos',
-  versatility: 'Versatilidade',
-  vision: 'Criatividade',
-  work_rate: 'Índice Trabalho',
-}
-
-function AttributeRow({ a, value, onChange }: { a: EditorAttribute; value: number; onChange: (v: number) => void }) {
-  const changed = value !== a.shown
-  return (
-    <div
-      className={`flex h-7 items-center gap-2 px-2 text-[14px] ${a.hidden ? 'rounded bg-white/90 text-black' : 'even:bg-black/20 text-white'}`}
-    >
-      <span className="min-w-0 flex-1 truncate">{LABELS[a.key] ?? a.key}</span>
-      <input
-        type="number"
-        min={1}
-        max={20}
-        value={value}
-        onChange={(e) => onChange(Math.min(20, Math.max(1, Number(e.target.value) || 1)))}
-        className={`cm-field h-6 w-14 text-center text-[14px] ${changed ? '!text-cm-yellow' : ''}`}
-      />
-      <span className="w-10 text-right font-mono text-[12px] text-[#8a8a8a]" title="Valor guardado no save (só leitura)">
-        {a.relative ? a.stored : ''}
-      </span>
-    </div>
-  )
-}
-
-const POSITION_LABELS: Record<string, string> = {
-  goalkeeper: 'Guarda-Redes',
-  sweeper: 'Líbero',
-  defender: 'Defesa',
-  defensive_midfielder: 'Méd. Defensivo',
-  midfielder: 'Médio',
-  attacking_midfielder: 'Méd. Ofensivo',
-  attacker: 'Avançado',
-  wing_back: 'Ala',
-  right_side: 'Direita',
-  left_side: 'Esquerda',
-  central: 'Centro',
-  free_role: 'Livre',
-}
-/** Colunas das posições (chaves) como no editor do CM. */
-const POS_LEFT = [
-  'goalkeeper',
-  'sweeper',
-  'defender',
-  'defensive_midfielder',
-  'midfielder',
-  'attacking_midfielder',
-  'attacker',
-  'wing_back',
-  'free_role',
-]
-const POS_RIGHT = ['right_side', 'left_side', 'central']
-
-const STATUS: [number, string][] = [
-  [1, 'Profissional'],
-  [2, 'Semiprofissional'],
-  [3, 'Amador'],
-]
-const ROW = 'flex h-7 items-center gap-2 px-2 text-[14px] text-white even:bg-black/20'
-const TAB = (on: boolean) => `h-7 px-4 text-[13px] ${on ? 'cm-purple' : 'bg-black/40 text-cm-lilac hover:bg-black/60'}`
-const BOX = 'rounded border border-white/15 bg-black/20 p-2'
-
-function NumField({
-  label,
-  value,
-  onChange,
-  min = 0,
-  max = 999999999,
-  width = 'w-28',
-}: {
-  label: string
-  value: number
-  onChange: (v: number) => void
-  min?: number
-  max?: number
-  width?: string
-}) {
-  return (
-    <label className={ROW}>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <input
-        type="number"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className={`cm-field h-6 ${width} text-right text-[14px]`}
-      />
-    </label>
-  )
-}
-
-function ColorField({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string) => void }) {
-  return (
-    <label className={ROW}>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <input
-        value={value ?? ''}
-        placeholder="#rrggbb"
-        onChange={(e) => onChange(e.target.value)}
-        className="cm-field h-6 w-24 text-center font-mono text-[13px]"
-      />
-      <span className="h-5 w-12 rounded border border-black/60" style={{ background: value || 'transparent' }} />
-    </label>
-  )
-}
-
-function Header({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-0.5 bg-cm-headdeep px-2 font-mono text-[11px] font-bold uppercase leading-6 tracking-[0.1em] text-cm-yellow">
-      {children}
-    </div>
-  )
-}
-
-/** Data em três caixas (dia, mês, ano) como no editor do CM; devolve "AAAA-MM-DD" (o core valida). */
-function DateField({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) {
-  const [y = '', m = '', d = ''] = (value ?? '').split('-')
-  const set = (yy: string, mm: string, dd: string) =>
-    onChange(yy || mm || dd ? `${yy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}` : null)
-  const box = 'cm-field h-6 text-center text-[14px]'
-  return (
-    <div className={ROW}>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <input
-        className={`${box} w-12`}
-        inputMode="numeric"
-        maxLength={2}
-        value={d === '' ? '' : String(Number(d))}
-        placeholder="dd"
-        onChange={(e) => set(y, m, e.target.value.replace(/\D/g, ''))}
-      />
-      <input
-        className={`${box} w-12`}
-        inputMode="numeric"
-        maxLength={2}
-        value={m === '' ? '' : String(Number(m))}
-        placeholder="mm"
-        onChange={(e) => set(y, e.target.value.replace(/\D/g, ''), d)}
-      />
-      <input
-        className={`${box} w-20`}
-        inputMode="numeric"
-        maxLength={4}
-        value={y}
-        placeholder="aaaa"
-        onChange={(e) => set(e.target.value.replace(/\D/g, ''), m, d)}
-      />
-    </div>
-  )
-}
-
-function NationSelect({
-  label,
-  value,
-  nations,
-  onChange,
-}: {
-  label: string
-  value: number | null
-  nations: { id: number; name: string }[]
-  onChange: (v: number | null) => void
-}) {
-  return (
-    <label className={ROW}>
-      <span className="w-24">{label}</span>
-      <select
-        className="cm-field h-6 min-w-0 flex-1 text-[14px]"
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      >
-        <option value="">—</option>
-        {nations.map((n) => (
-          <option key={n.id} value={n.id}>
-            {n.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
-}
-
 type Kind = 'players' | 'clubs'
 type Tab = 'data' | 'attr1' | 'attr2' | 'contract'
 type Sub = 'details' | 'unhappy' | 'club'
 
-/** Diálogo "Editar Clube" (como o Edit Club do editor do CM) com |< << >> >| entre os clubes da lista. */
-function ClubDialog({
-  file,
-  clubId,
-  ids,
-  onClose,
-  onSquad,
-  onSwitch,
-}: {
-  file: string
-  clubId: number
-  ids: number[]
-  onClose: () => void
-  onSquad: (id: number) => void
-  onSwitch: (id: number) => void
-}) {
-  const [saved, setSaved] = useState<EditorClub | null>(null)
-  const [draft, setDraft] = useState<EditorClub | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    let live = true
-    api.editorClub(file, clubId).then(
-      (c) => {
-        if (!live) return
-        setSaved(c)
-        setDraft(c)
-        setError(null)
-        setNotice(null)
-      },
-      (e) => live && setError(String(e)),
-    )
-    return () => {
-      live = false
-    }
-  }, [file, clubId])
-
-  const dirty = !!saved && !!draft && JSON.stringify(saved) !== JSON.stringify(draft)
-  const set = (patch: Partial<EditorClub>) => setDraft((d) => (d ? { ...d, ...patch } : d))
-
-  const update = async (): Promise<boolean> => {
-    if (!draft) return false
-    setBusy(true)
-    setError(null)
-    try {
-      const c = await api.editorSetClub(file, draft)
-      setSaved(c)
-      setDraft(c)
-      setNotice('Gravado.')
-      return true
-    } catch (e) {
-      setError(String(e))
-      return false
-    } finally {
-      setBusy(false)
-    }
-  }
-  const go = async (id: number | undefined) => {
-    if (id === undefined || id === clubId) return
-    if (dirty && !(await update())) return
-    onSwitch(id)
-  }
-  const at = ids.indexOf(clubId)
-  const nav = at >= 0 && ids.length > 1
-
-  return (
-    <Overlay>
-      <DialogFrame title="Editar Clube" full={false} width={760} onCancel={undefined}>
-        <ErrorBox className="mb-2">{error}</ErrorBox>
-        {!draft ? (
-          <Loading title="Clube" detail="A abrir…" />
-        ) : (
-          <div className="flex flex-col gap-2 text-white">
-            <div className="flex items-baseline gap-3">
-              <span className="font-title text-[22px]">{draft.name}</span>
-              {notice && <span className="text-[13px] text-cm-yellow">{notice}</span>}
-              <button className="cm-purple ml-auto h-7 px-3 text-[13px]" onClick={() => onSquad(draft.id)}>
-                Listar jogadores na janela principal
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <div className={`${BOX} min-w-0 flex-1`}>
-                <Header>Dados gerais</Header>
-                <label className={ROW}>
-                  <span className="flex-1">Estatuto profissional</span>
-                  <select
-                    className="cm-field h-6 w-40 text-[14px]"
-                    value={draft.professionalStatus}
-                    onChange={(e) => set({ professionalStatus: Number(e.target.value) })}
-                  >
-                    {STATUS.map(([v, n]) => (
-                      <option key={v} value={v}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <NumField label="Treino (1–20)" value={draft.training} min={1} max={20} onChange={(v) => set({ training: v })} />
-                <NumField label="Reputação" value={draft.reputation} max={10000} onChange={(v) => set({ reputation: v })} />
-                <NumField label="Saldo bancário" value={draft.cash} onChange={(v) => set({ cash: v })} width="w-36" />
-              </div>
-              <div className={`${BOX} min-w-0 flex-1`}>
-                <Header>Estádio · {draft.stadiumName ?? 'sem estádio'}</Header>
-                <NumField label="Capacidade" value={draft.capacity} max={200000} onChange={(v) => set({ capacity: v })} />
-                <NumField label="Lugares sentados" value={draft.seating} max={200000} onChange={(v) => set({ seating: v })} />
-                <NumField label="Expansão" value={draft.expansion} max={200000} onChange={(v) => set({ expansion: v })} />
-                <label className={ROW}>
-                  <span className="flex-1">Aquecimento subterrâneo</span>
-                  <input type="checkbox" checked={draft.undersoilHeating} onChange={(e) => set({ undersoilHeating: e.target.checked })} />
-                </label>
-              </div>
-            </div>
-            <div className={BOX}>
-              <Header>Equipamentos</Header>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <ColorField label="Principal · texto" value={draft.homeFg} onChange={(v) => set({ homeFg: v })} />
-                  <ColorField label="Principal · fundo" value={draft.homeBg} onChange={(v) => set({ homeBg: v })} />
-                </div>
-                <div className="flex-1">
-                  <ColorField label="Alternativo · texto" value={draft.awayFg} onChange={(v) => set({ awayFg: v })} />
-                  <ColorField label="Alternativo · fundo" value={draft.awayBg} onChange={(v) => set({ awayBg: v })} />
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-1">
-              <button className="cm-purple h-8 w-16 disabled:opacity-40" disabled={!nav || at === 0} onClick={() => void go(ids[0])}>
-                |&lt;
-              </button>
-              <button className="cm-purple h-8 w-16 disabled:opacity-40" disabled={!nav || at <= 0} onClick={() => void go(ids[at - 1])}>
-                &lt;&lt;
-              </button>
-              <button
-                className="cm-purple h-8 w-16 disabled:opacity-40"
-                disabled={!nav || at >= ids.length - 1}
-                onClick={() => void go(ids[at + 1])}
-              >
-                &gt;&gt;
-              </button>
-              <button
-                className="cm-purple h-8 w-16 disabled:opacity-40"
-                disabled={!nav || at >= ids.length - 1}
-                onClick={() => void go(ids[ids.length - 1])}
-              >
-                &gt;|
-              </button>
-              <span className="flex-1" />
-              <button
-                className="cm-purple h-8 w-28 disabled:opacity-40 enabled:text-cm-yellow"
-                disabled={!dirty || busy}
-                onClick={() => void update()}
-              >
-                Actualizar
-              </button>
-              <button
-                className="cm-purple h-8 w-28"
-                onClick={() => {
-                  void (async () => {
-                    if (!dirty || (await update())) onClose()
-                  })()
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
-      </DialogFrame>
-    </Overlay>
-  )
-}
-
 /** "Editor de Jogos Salvos": no formato do editor do CM (lista à esquerda, abas à direita). */
-/** O "Custom Command" do editor do CM: os comandos marcados aplicam-se à lista da esquerda (ou só
- * ao jogador aberto), de uma vez. Quais existem e o que fazem decide o core. */
-function CommandDialog({
-  count,
-  person,
-  onRun,
-  onClose,
-}: {
-  count: number
-  person: string | null
-  onRun: (commands: string[], firstTeam: boolean, onlyPerson: boolean) => void
-  onClose: () => void
-}) {
-  const [list, setList] = useState<EditorCommand[]>([])
-  const [failed, setFailed] = useState<string | null>(null)
-  const [picked, setPicked] = useState<string[]>([])
-  const [firstTeam, setFirstTeam] = useState(false)
-  const [onlyPerson, setOnlyPerson] = useState(false)
-  useLoad(() => api.editorCommands(), [], setList, setFailed)
-  const toggle = (key: string, on: boolean) => setPicked((p) => (on ? [...p.filter((k) => k !== key), key] : p.filter((k) => k !== key)))
-  return (
-    <Overlay>
-      <DialogFrame
-        title="Comando Personalizado"
-        width={460}
-        onCancel={onClose}
-        onOk={picked.length ? () => onRun(picked, firstTeam, onlyPerson) : undefined}
-        okLabel="OK"
-      >
-        {failed && (
-          <div className="p-2 text-[13px] text-[#ff8080]">
-            Não foi possível ler os comandos ({failed}). Se o jogo corre no navegador, reinicie a ponte (web.ps1).
-          </div>
-        )}
-        <div className="max-h-[420px] overflow-auto">
-          {list.map((c) => (
-            <label key={c.key} className="flex h-6 items-center gap-2 px-1 text-[14px] text-white hover:bg-black/30">
-              <input type="checkbox" checked={picked.includes(c.key)} onChange={(e) => toggle(c.key, e.target.checked)} />
-              {c.label}
-            </label>
-          ))}
-        </div>
-        <div className="mt-2 border-t border-white/15 pt-2">
-          <label className="flex h-6 items-center gap-2 px-1 text-[14px] text-cm-yellow">
-            <input type="checkbox" checked={firstTeam} onChange={(e) => setFirstTeam(e.target.checked)} />
-            Só o plantel principal?
-          </label>
-          <label className={`flex h-6 items-center gap-2 px-1 text-[14px] ${person ? 'text-cm-yellow' : 'text-[#777]'}`}>
-            <input type="checkbox" disabled={!person} checked={onlyPerson} onChange={(e) => setOnlyPerson(e.target.checked)} />
-            Só a pessoa actual?{person ? ` (${person})` : ''}
-          </label>
-          <div className="px-1 pt-1 text-[12px] text-[#9a9aa6]">
-            {onlyPerson && person ? `Aplica a ${person}.` : `Aplica aos ${count} jogadores da lista.`}
-          </div>
-        </div>
-      </DialogFrame>
-    </Overlay>
-  )
-}
-
 export default function EditorPage() {
   const game = useGame()
   const [saves, setSaves] = useState<SaveSummary[]>([])
@@ -504,6 +39,8 @@ export default function EditorPage() {
   const [profileDraft, setProfileDraft] = useState<EditorProfile | null>(null)
   const [clubOpen, setClubOpen] = useState<number | null>(null)
   const [commandOpen, setCommandOpen] = useState(false)
+  // Copiar/Colar atributos: os valores mostrados de um jogador, para colar no rascunho de outro
+  const [clip, setClip] = useState<{ name: string; values: Record<string, number> } | null>(null)
   const [selected, setSelected] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -622,6 +159,33 @@ export default function EditorPage() {
       for (const a of list) next[a.key] = value
       return next
     })
+  }
+
+  /** Copia os atributos do jogador aberto (com o que estiver por gravar). */
+  const copyAttributes = () => {
+    if (!player) return
+    setClip({ name: player.name, values: Object.fromEntries(player.attributes.map((a) => [a.key, draft[a.key] ?? a.shown])) })
+    setNotice(`Atributos de ${player.name} copiados.`)
+  }
+
+  /** Cola no rascunho do jogador aberto: só grava com o Actualizar Jogador (e o core valida). */
+  const pasteAttributes = () => {
+    if (!player || !clip) return
+    const next: Record<string, number> = {}
+    for (const a of player.attributes) if (clip.values[a.key] !== undefined) next[a.key] = clip.values[a.key]
+    setDraft(next)
+    setNotice(`Atributos de ${clip.name} colados: Actualizar Jogador grava-os.`)
+  }
+
+  /** Exporta a lista da esquerda para CSV, ao lado dos saves. */
+  const exportCsv = async () => {
+    const path = await run(() =>
+      api.editorExportCsv(
+        file,
+        hits.map((h) => h.id),
+      ),
+    )
+    if (path) setNotice(`Exportado para ${path}`)
   }
 
   /** Corre o Comando Personalizado e reabre o jogador aberto, para se ver o que mudou. */
@@ -748,6 +312,9 @@ export default function EditorPage() {
               </button>
               <button className="cm-purple h-8" disabled={kind !== 'players' || !hits.length || busy} onClick={() => setCommandOpen(true)}>
                 Comando Personalizado
+              </button>
+              <button className="cm-purple h-8" disabled={kind !== 'players' || !hits.length || busy} onClick={() => void exportCsv()}>
+                Exportar CSV
               </button>
               <button className="cm-purple h-8" onClick={() => game.setMode('start')}>
                 Sair
@@ -892,6 +459,21 @@ export default function EditorPage() {
                             </button>
                             <button className="cm-purple h-7 text-[13px]" onClick={() => setAll(playingOf, 'min')}>
                               Mín. Todos
+                            </button>
+                            <button
+                              className="cm-purple h-7 text-[13px]"
+                              title="Copiar todos os atributos deste jogador"
+                              onClick={copyAttributes}
+                            >
+                              Copiar
+                            </button>
+                            <button
+                              className="cm-purple h-7 text-[13px]"
+                              disabled={!clip}
+                              title={clip ? `Colar os atributos de ${clip.name}` : 'Copie primeiro os atributos de um jogador'}
+                              onClick={pasteAttributes}
+                            >
+                              Colar
                             </button>
                             {pd.morale != null && (
                               <NumField

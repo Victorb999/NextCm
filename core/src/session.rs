@@ -21,6 +21,7 @@ use crate::MatchSheet;
 use crate::NewsLink;
 use crate::PressView;
 use crate::SquadRoleView;
+use crate::StatusBar;
 use crate::WorldTransfers;
 use crate::tactic_file::{self, SavedFile};
 use crate::{DealTerms, LoanTerms};
@@ -219,6 +220,11 @@ impl Session {
 
     pub fn editor_search(&self, file: String, query: String) -> Result<Vec<crate::EditorHit>> {
         crate::editor_search(&self.saves_dir, self.editor_file(&file)?, &query)
+    }
+
+    /// Exporta para CSV os jogadores da lista do editor; devolve o caminho do ficheiro.
+    pub fn editor_export_csv(&self, file: String, ids: Vec<i32>) -> Result<String> {
+        crate::editor_export_csv(&self.saves_dir, self.editor_file(&file)?, &ids)
     }
 
     pub fn editor_player(&self, file: String, id: i32) -> Result<crate::EditorPlayer> {
@@ -729,6 +735,11 @@ impl Session {
     /// Ficha do "Próximo Jogo".
     pub fn match_preview(&self, id: i32) -> Result<MatchPreview> {
         self.game()?.match_preview(id)
+    }
+
+    /// A barra de baixo da tela `kind` (o caminho e os últimos resultados).
+    pub fn status_bar(&self, kind: String, id: Option<i32>) -> Result<StatusBar> {
+        self.game()?.status_bar(&kind, id)
     }
 
     /// Partidas de um clube, por data.

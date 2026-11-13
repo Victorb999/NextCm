@@ -215,6 +215,34 @@ pub fn player(saves: &Path, file: &str, id: i32) -> Result<EditorPlayer> {
     build(&open_save(saves, file)?, id)
 }
 
+/// Exporta para CSV (`;`, para o Excel em português) os jogadores `ids`: nome, clube, CA/PA e
+/// os atributos como o jogo os mostra. Grava em `exports/<save>.csv`, ao lado dos saves (por cima
+/// do anterior), e devolve o caminho.
+pub fn export_csv(saves: &Path, file: &str, ids: &[i32]) -> Result<String> {
+    let world = open_save(saves, file)?;
+    let players: Vec<EditorPlayer> = ids.iter().filter_map(|&id| build(&world, id).ok()).collect();
+    let Some(first) = players.first() else {
+        return Err(Error::Invalid("Nenhum jogador para exportar.".into()));
+    };
+    let keys: Vec<&str> = first.attributes.iter().map(|a| a.key.as_str()).collect();
+    let cell = |s: &str| if s.contains([';', '"', '\n']) { format!("\"{}\"", s.replace('"', "\"\"")) } else { s.to_string() };
+    let num = |v: Option<i32>| v.map_or(String::new(), |v| v.to_string());
+    let mut out = format!("id;nome;clube;ca;pa;{}\n", keys.join(";"));
+    for p in &players {
+        let mut row = vec![p.id.to_string(), cell(&p.name), cell(p.club.as_deref().unwrap_or("")), num(p.ability), num(p.potential)];
+        row.extend(keys.iter().map(|k| num(p.attributes.iter().find(|a| a.key == *k).map(|a| a.shown))));
+        out.push_str(&row.join(";"));
+        out.push('\n');
+    }
+    let dir = saves.join("exports");
+    std::fs::create_dir_all(&dir)?;
+    let stem = Path::new(file).file_stem().and_then(|s| s.to_str()).unwrap_or("jogo");
+    let path = dir.join(format!("{stem}.csv"));
+    // Com BOM, para o Excel ler os acentos
+    std::fs::write(&path, format!("\u{feff}{out}"))?;
+    Ok(path.display().to_string())
+}
+
 /// Grava os atributos editados (valores de 1 a 20 como o jogo os mostra) e devolve o jogador
 /// como ficou: os relativos passam por [`stored_for_shown`], por isso o valor mostrado pode
 /// diferir um ponto quando o par CA/atributo não permite o valor pedido.

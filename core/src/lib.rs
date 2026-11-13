@@ -29,7 +29,7 @@ mod world;
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry, TableZone};
 pub use editor::{EditorAttribute, EditorClub, EditorHit, EditorNation, EditorPlayer, EditorProfile, EditorProfileView, EditorValue};
-pub use editor::{EditorCommand, command as editor_command, commands as editor_commands};
+pub use editor::{EditorCommand, command as editor_command, commands as editor_commands, export_csv as editor_export_csv};
 pub use editor::{
     club as editor_club, profile as editor_profile, search_clubs as editor_search_clubs, set_club as editor_set_club,
     set_profile as editor_set_profile, squad as editor_squad,
@@ -42,6 +42,7 @@ pub use game::LineupCheck;
 pub use game::MatchSheet;
 pub use game::NewsLink;
 pub use game::SquadRoleView;
+pub use game::StatusBar;
 pub use game::WorldTransfers;
 pub use game::{
     BoardConfidence, BoardRequest, BoardView, ContractReply, ContractTerms, DisciplineOptions, DivisionStats, Game, GameInfo, GroupTable,

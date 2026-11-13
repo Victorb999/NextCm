@@ -57,6 +57,7 @@ mod shortlist;
 mod squad_view;
 mod staff_reports;
 mod start_loans;
+mod status_bar;
 mod team_talk;
 mod training;
 pub(crate) mod unhappy;
@@ -95,6 +96,7 @@ pub use season::DivisionStats;
 pub(crate) use season::age_on;
 pub use squad_view::{SquadAttributes, SquadMore};
 pub use staff_reports::ReportStaff;
+pub use status_bar::StatusBar;
 pub use team_talk::{TalkLine, TalkOption, TalkReaction, TalkView};
 pub use training::{TrainingPlan, TrainingView};
 
@@ -144,7 +146,8 @@ pub use training::{TrainingPlan, TrainingView};
 /// (`stadiums.undersoil_heating`), do banco.
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
-pub const SAVE_VERSION: i32 = 58;
+/// 59: o valor depois de N internacionalizações (`offers.caps_bonus`, `caps_bonus`), marco 4.0.
+pub const SAVE_VERSION: i32 = 59;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -270,6 +273,14 @@ const LICENSE_SCHEMA: &str = "ALTER TABLE manager_info ADD COLUMN license INTEGE
 
 /// A experiência passada do treinador (save 58): 0 Nenhuma a 4 Jogador internacional.
 const EXPERIENCE_SCHEMA: &str = "ALTER TABLE manager_info ADD COLUMN experience INTEGER NOT NULL DEFAULT 0;";
+
+/// O valor por internacionalizações nas propostas (save 59).
+const CAPS_BONUS_SCHEMA: &str = "
+ALTER TABLE offers ADD COLUMN caps_bonus INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE offers ADD COLUMN caps_needed INTEGER NOT NULL DEFAULT 5;
+CREATE TABLE caps_bonus (person_id INTEGER PRIMARY KEY, payer INTEGER NOT NULL, payee INTEGER NOT NULL, amount INTEGER NOT NULL,
+                         caps_at INTEGER NOT NULL, needed INTEGER NOT NULL);
+";
 
 /// Reservas (save 21).
 const RESERVES_SCHEMA: &str = "ALTER TABLE player_state ADD COLUMN reserve INTEGER NOT NULL DEFAULT 0;";
@@ -797,6 +808,7 @@ impl Game {
             tx.execute_batch(contract_extras::EXTRAS_SCHEMA)?;
             tx.execute_batch(LICENSE_SCHEMA)?;
             tx.execute_batch(EXPERIENCE_SCHEMA)?;
+            tx.execute_batch(CAPS_BONUS_SCHEMA)?;
             tx.execute_batch(DAY_PARTS_SCHEMA)?;
             tx.execute_batch(PROVOKE_SCHEMA)?;
             tx.execute_batch(MASKING_SCHEMA)?;
@@ -1307,6 +1319,12 @@ impl Game {
             world.conn.execute_batch(EXPERIENCE_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 58", [])?;
             version = 58;
+        }
+        // Save 59: o valor por internacionalizações nas propostas (marco 4.0)
+        if version == 58 {
+            world.conn.execute_batch(CAPS_BONUS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 59", [])?;
+            version = 59;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -2006,12 +2024,17 @@ impl Game {
     /// Os resultados de hoje para a barra do "Processando" ("Série A: Santos 2-1 Bahia"),
     /// primeiro os do país do treinador.
     pub fn day_results(&self) -> Vec<String> {
+        self.results_where(|m| m.date == self.date && Self::match_part(m) == self.part)
+    }
+
+    /// Os resultados dos jogos que passam no filtro, primeiro os do país do treinador (até 60).
+    fn results_where(&self, keep: impl Fn(&Match) -> bool) -> Vec<String> {
         let own: Option<i32> =
             self.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [self.club_id], |r| r.get(0)).unwrap_or(None);
         let mut out: Vec<(bool, String)> = self
             .matches
             .iter()
-            .filter(|m| m.date == self.date && Self::match_part(m) == self.part)
+            .filter(|m| keep(m))
             .filter_map(|m| {
                 let (h, a) = m.result?;
                 let nation = self.comp_nations.get(&m.competition_id).copied();

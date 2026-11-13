@@ -222,6 +222,7 @@ function MoneyCell({ value, onChange }: { value: number; onChange: (eur: number)
 
 /** 10 → 20 → ... → 50 → 10 jogos. */
 const nextGames = (n: number) => (n >= 50 ? 10 : n + 10)
+const nextCaps = (n: number) => (n >= 25 ? 5 : n + 5)
 
 const SELL_ON: [number, string][] = Array.from({ length: 11 }, (_, i) => [i * 5, i ? `${i * 5}%` : '-'])
 const LOAN_LENGTH: [number, string][] = [
@@ -389,6 +390,24 @@ export function TransferOfferDialog({
           >
             <MoneyCell value={t.appsBonus} onChange={(appsBonus) => set({ appsBonus })} />
           </OfferRow>
+          <OfferRow
+            label={
+              <>
+                Valor após{' '}
+                <button
+                  className="underline decoration-dotted underline-offset-4 hover:text-cm-yellow"
+                  title="Mudar o número de internacionalizações"
+                  onClick={() => set({ capsNeeded: nextCaps(t.capsNeeded || 5) })}
+                >
+                  {t.capsNeeded || 5}
+                </button>{' '}
+                internacionalizações
+              </>
+            }
+            active={t.capsBonus > 0}
+          >
+            <MoneyCell value={t.capsBonus} onChange={(capsBonus) => set({ capsBonus })} />
+          </OfferRow>
           {squad && (
             <OfferRow label="Tornar proposta pública" active={t.public}>
               <span className="w-8" />
@@ -420,7 +439,7 @@ export function TransferOfferDialog({
         )}
         <div className="mt-3 flex items-center">
           <span className="w-80 font-title text-[19px] text-white">Valor Total</span>
-          <span className="text-[19px] font-bold text-cm-yellow">{money(t.fee + t.appsBonus)}</span>
+          <span className="text-[19px] font-bold text-cm-yellow">{money(t.fee + t.appsBonus + t.capsBonus)}</span>
         </div>
         <div className="pt-2 text-[15px] text-white">O {club} responde dentro de alguns dias.</div>
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}

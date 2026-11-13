@@ -1,0 +1,91 @@
+// Rótulos e classes partilhados pelas partes do Editor de Jogos Salvos.
+
+export const LABELS: Record<string, string> = {
+  acceleration: 'Aceleração',
+  adaptability: 'Adaptabilidade',
+  aggression: 'Agressividade',
+  agility: 'Agilidade',
+  ambition: 'Ambição',
+  anticipation: 'Antecipação',
+  balance: 'Balanço',
+  bravery: 'Bravura',
+  consistency: 'Consistência',
+  corners: 'Cantos',
+  crossing: 'Cruzamentos',
+  decisions: 'Decisões',
+  determination: 'Determinação',
+  dirtiness: 'Jogo Sujo',
+  dribbling: 'Finta',
+  finishing: 'Finalização',
+  flair: 'Instinto',
+  free_kicks: 'Bolas Paradas',
+  handling: 'Jogo Mãos',
+  heading: 'Cabeceamento',
+  important_matches: 'Jogos Importantes',
+  injury_proneness: 'Propensão a Lesões',
+  jumping: 'Impulsão',
+  leadership: 'Influência',
+  left_foot: 'Pé Esquerdo',
+  long_shots: 'Remates Longe',
+  loyalty: 'Lealdade',
+  marking: 'Marcação',
+  natural_fitness: 'Condição Física Natural',
+  off_the_ball: 'Sem Bola',
+  one_on_ones: 'Um-contra-um',
+  pace: 'Velocidade',
+  passing: 'Passe',
+  penalties: 'Penáltis',
+  positioning: 'Posicionamento',
+  pressure: 'Pressão',
+  professionalism: 'Profissionalismo',
+  reflexes: 'Reflexos',
+  right_foot: 'Pé Direito',
+  sportsmanship: 'Desportivismo',
+  stamina: 'Resistência',
+  strength: 'Força',
+  tackling: 'Desarme',
+  teamwork: 'Trabalho Equipa',
+  technique: 'Técnica',
+  temperament: 'Temperamento',
+  throw_ins: 'Lançamentos',
+  versatility: 'Versatilidade',
+  vision: 'Criatividade',
+  work_rate: 'Índice Trabalho',
+}
+
+export const POSITION_LABELS: Record<string, string> = {
+  goalkeeper: 'Guarda-Redes',
+  sweeper: 'Líbero',
+  defender: 'Defesa',
+  defensive_midfielder: 'Méd. Defensivo',
+  midfielder: 'Médio',
+  attacking_midfielder: 'Méd. Ofensivo',
+  attacker: 'Avançado',
+  wing_back: 'Ala',
+  right_side: 'Direita',
+  left_side: 'Esquerda',
+  central: 'Centro',
+  free_role: 'Livre',
+}
+/** Colunas das posições (chaves) como no editor do CM. */
+export const POS_LEFT = [
+  'goalkeeper',
+  'sweeper',
+  'defender',
+  'defensive_midfielder',
+  'midfielder',
+  'attacking_midfielder',
+  'attacker',
+  'wing_back',
+  'free_role',
+]
+export const POS_RIGHT = ['right_side', 'left_side', 'central']
+
+export const STATUS: [number, string][] = [
+  [1, 'Profissional'],
+  [2, 'Semiprofissional'],
+  [3, 'Amador'],
+]
+export const ROW = 'flex h-7 items-center gap-2 px-2 text-[14px] text-white even:bg-black/20'
+export const TAB = (on: boolean) => `h-7 px-4 text-[13px] ${on ? 'cm-purple' : 'bg-black/40 text-cm-lilac hover:bg-black/60'}`
+export const BOX = 'rounded border border-white/15 bg-black/20 p-2'
