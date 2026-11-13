@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import type { NationOption } from '../../bindings/NationOption'
 import type { NationProfile } from '../../bindings/NationProfile'
+import NationFlag from '../../components/NationFlag'
 import PickList, { type PickGroup } from '../../components/PickList'
 import { EXPERIENCES, LICENSES } from '../../format'
 import ClubCard from './ClubCard'
@@ -89,6 +90,7 @@ export default function ManagerStep({
             <input autoFocus className={FIELD} value={form.firstName} onChange={(e) => onForm({ firstName: e.target.value })} />
           </Field>
           <Field label="Nacionalidade">
+            <NationFlag name={nations.find((n) => n.id === form.nationId)?.name} className="text-[15px]" />
             <select className={FIELD} value={form.nationId ?? ''} onChange={(e) => onForm({ nationId: Number(e.target.value) })}>
               {nations.map((n) => (
                 <option key={n.id} value={n.id}>
@@ -160,8 +162,9 @@ export default function ManagerStep({
         <div className="flex min-h-0 w-[46%] flex-col rounded bg-black/40">
           <div className="flex shrink-0 items-center gap-2 px-3 pb-1 pt-2">
             <span className="font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-cm-orange">Escolher Clube</span>
+            <NationFlag name={nations.find((n) => n.id === clubNation)?.name} className="ml-auto text-[15px]" />
             <select
-              className="cm-field ml-auto h-7 w-44 text-[15px]"
+              className="cm-field h-7 w-44 text-[15px]"
               value={clubNation ?? ''}
               onChange={(e) => onClubNation(Number(e.target.value))}
             >

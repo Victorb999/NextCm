@@ -3,6 +3,7 @@ import type { LeagueChoice } from '../bindings/LeagueChoice'
 import type { LeagueMode } from '../bindings/LeagueMode'
 import type { LeagueNation } from '../bindings/LeagueNation'
 import type { StartSeason } from '../bindings/StartSeason'
+import NationFlag from '../components/NationFlag'
 
 // Passo 1 do Novo Jogo: "Escolher Campeonato(s)" do CM, com as opções do jogo ao lado (como o
 // "New Game" do FM08): o nome do jogo, a época em que começa, Jogadores Reais e Definição Atributos.
@@ -89,7 +90,12 @@ export default function LeaguesStep({
               const m = mode(n.nationId)
               return (
                 <div key={n.nationId} className="flex min-h-[32px] items-center gap-3 px-2">
-                  <span className={`w-44 shrink-0 font-title text-[19px] ${m === 'play' ? 'text-cm-yellow' : 'text-white'}`}>{n.name}</span>
+                  <span
+                    className={`flex w-48 shrink-0 items-center gap-2 font-title text-[19px] ${m === 'play' ? 'text-cm-yellow' : 'text-white'}`}
+                  >
+                    <NationFlag name={n.name} className="text-[15px]" />
+                    {n.name}
+                  </span>
                   <div className="flex shrink-0 gap-1.5">
                     {MODES.map(([k, label]) => (
                       <button
