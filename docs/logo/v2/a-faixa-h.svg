@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 256">
+    <clipPath id="ta-faixa"><rect width="256" height="256" rx="56"/></clipPath>
+  <g clip-path="url(#ta-faixa)">
+    <rect width="256" height="256" fill="#4A1FC9"/>
+    <rect x="58" y="48" width="50" height="160" fill="#FFFFFF"/>
+    <rect x="150" y="48" width="50" height="160" fill="#FFFFFF"/>
+    <polygon points="25.7,-8 75.7,-8 232.7,264 182.7,264" fill="#1ED67A" stroke="#4A1FC9" stroke-width="12" stroke-linejoin="miter"/>
+  </g>
+  <text x="300" y="182" font-family="Bahnschrift" font-weight="700" font-stretch="condensed" font-size="170" fill="#140A2E" letter-spacing="-2">Next<tspan fill="#4A1FC9">CM</tspan></text>
+</svg>

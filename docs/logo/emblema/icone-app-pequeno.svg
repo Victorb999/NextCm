@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>NextCM — ícone (pequeno)</title>
+  <rect width="256" height="256" rx="56" fill="#140A2E"/><g transform="translate(5.1 7.1) scale(0.96)"><polygon points="128.0,2.0 136.2,18.7 154.6,21.3 141.3,34.3 144.5,52.7 128.0,44.0 111.5,52.7 114.7,34.3 101.4,21.3 119.8,18.7" fill="#1ED67A"/><circle cx="128" cy="154" r="96" fill="#4A1FC9"/><circle cx="128" cy="154" r="82.56" fill="none" stroke="#FFFFFF" stroke-width="13.44"/><path transform="translate(92.72 106.96) scale(0.5880)" d="M0 160V0H34L86 96V0H120V160H86L34 64V160Z" fill="#FFFFFF"/></g>
+</svg>

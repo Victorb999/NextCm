@@ -1,0 +1,36 @@
+{
+  "brand": "NextCM",
+  "tagline": "Planeje · Contrate · Conquiste",
+  "brief": "Remake do Championship Manager 01/02 com os plantéis de 2025/26. O logo tem de ser bonito, nostálgico e simples, funcionar como ícone da app e dentro do jogo, e ter uma versão maior e mais chamativa para a tela inicial.",
+  "adjectives": ["nostálgico", "simples", "de clube", "competitivo"],
+  "criteria": "Lê-se aos 16 px, funciona numa cor, mantém o roxo e o verde, não parece e-sports nem copia o CM.",
+  "mockups": ["app-icon", "favicon-tab", "website", "tshirt", "sticker", "social"],
+  "nav": ["Jogar", "Novidades", "Download"],
+  "brand_color": "#4A1FC9",
+  "tile_color": "#140A2E",
+  "greyscale": false,
+  "final": true,
+  "round": 3,
+  "designer": "NextCM",
+  "concepts": [
+    {
+      "name": "Emblema",
+      "symbol": "simbolo.svg",
+      "lockup": "horizontal.svg",
+      "stacked": "empilhado.svg",
+      "avatar": "icone-app.svg",
+      "symbol_on_tile": "simbolo.svg",
+      "symbol_on_dark": "simbolo.svg",
+      "lockup_on_dark": "horizontal-negativo.svg",
+      "stacked_on_dark": "empilhado-negativo.svg",
+      "stacked_on_tile": "empilhado-negativo.svg",
+      "idea": "O emblema redondo de um clube antigo, com a estrela de campeão por cima do N.",
+      "rationale": [
+        "Lembra os emblemas e as moedas de clube de antigamente, sem escudo nem bola",
+        "Moeda + N lê-se aos 16 px; a estrela some só no favicon",
+        "A versão completa, com o anel escrito e três estrelas, é a da tela inicial"
+      ]
+    }
+  ],
+  "recommendation": "Emblema: o símbolo na app e no jogo, o emblema completo com o NextCM ao lado na tela inicial."
+}

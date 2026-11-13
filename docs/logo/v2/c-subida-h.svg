@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 256">
+    <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <path d="M52 208 V96 H102 L154 172 V92 L204 42 V208 H154 L102 132 V208 Z" fill="#FFFFFF"/>
+  <path d="M154 92 L204 42 V92 Z" fill="#1ED67A"/>
+  <text x="300" y="182" font-family="Bahnschrift" font-weight="700" font-stretch="condensed" font-size="170" fill="#140A2E" letter-spacing="-2">Next<tspan fill="#4A1FC9">CM</tspan></text>
+</svg>

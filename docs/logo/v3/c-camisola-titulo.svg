@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500">
+  <rect width="1200" height="500" fill="#140A2E"/>
+  <g transform="translate(40 20) scale(1.75)">
+    <path d="M88 60 L56 76 L36 120 L68 134 L78 114 V208 H178 V114 L188 134 L220 120 L200 76 L168 60 C160 76 148 84 128 84 C108 84 96 76 88 60 Z" fill="#1E0866" transform="translate(6 6)"/>
+    <path d="M88 60 L56 76 L36 120 L68 134 L78 114 V208 H178 V114 L188 134 L220 120 L200 76 L168 60 C160 76 148 84 128 84 C108 84 96 76 88 60 Z" fill="#4A1FC9" stroke="#FFFFFF" stroke-width="4"/>
+    <path d="M88 60 C96 76 108 84 128 84 C148 84 160 76 168 60 L154 54 C148 66 140 72 128 72 C116 72 108 66 102 54 Z" fill="#1ED67A"/>
+    <polygon points="36,120 68,134 62,147 30,133" fill="#1ED67A"/><polygon points="220,120 188,134 194,147 226,133" fill="#1ED67A"/>
+    <rect x="78" y="150" width="100" height="14" fill="#1ED67A"/>
+    <path d="M104 140 V102 H114 L128 124 V102 H138 V140 H128 L114 118 V140 Z" fill="#FFFFFF" transform="translate(-11 0)"/>
+    <text x="128" y="200" text-anchor="middle" font-family="Bahnschrift" font-weight="700" font-stretch="condensed" font-size="34" fill="#FFFFFF">01</text>
+  </g>
+  <g transform="translate(500 300) skewX(-12)" font-family="Bahnschrift" font-weight="700" font-stretch="condensed" font-size="190" letter-spacing="-3">
+    <text x="9" y="9" fill="#1E0866">NextCM</text>
+    <text fill="#FFFFFF">Next<tspan fill="#1ED67A">CM</tspan></text>
+  </g>
+  <text x="508" y="370" font-family="Bahnschrift" font-weight="600" font-size="26" fill="#b9addf" letter-spacing="6">PLANEJE · CONTRATE · CONQUISTE</text>
+</svg>

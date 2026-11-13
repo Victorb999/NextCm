@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="840" viewBox="0 0 1600 840"><rect width="1600" height="840" fill="#f7f7f4"/><text x="60" y="78" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="40" font-weight="700" fill="#161616">NextCM — ronda 2: ícones</text><text x="60" y="116" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="20" fill="#6b6b6b">Ícone da app e do jogo, a 64, 32 e 16 px</text><rect x="60" y="150" width="474.667" height="630" rx="18" fill="#fff" stroke="#161616" stroke-width="2"/><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="90" y="190" width="414.667" height="300" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <polygon points="66,62 202,62 134,232" fill="#1E0866"/>
+  <polygon points="60,56 196,56 128,226" fill="#FFFFFF"/>
+  <polygon points="60,56 196,56 184.8,84 71.2,84" fill="#1ED67A"/>
+  <rect x="44" y="46" width="168" height="12" rx="6" fill="#140A2E"/>
+  <path d="M104 160 V104 H119 L139 137 V104 H152 V160 H138 L117 127 V160 Z" fill="#4A1FC9"/>
+</svg>
+</g><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="90" y="516" width="64" height="64" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <polygon points="66,62 202,62 134,232" fill="#1E0866"/>
+  <polygon points="60,56 196,56 128,226" fill="#FFFFFF"/>
+  <polygon points="60,56 196,56 184.8,84 71.2,84" fill="#1ED67A"/>
+  <rect x="44" y="46" width="168" height="12" rx="6" fill="#140A2E"/>
+  <path d="M104 160 V104 H119 L139 137 V104 H152 V160 H138 L117 127 V160 Z" fill="#4A1FC9"/>
+</svg>
+</g><text x="122" y="600" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8a8a8a" text-anchor="middle">64px</text><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="180" y="548" width="32" height="32" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <polygon points="66,62 202,62 134,232" fill="#1E0866"/>
+  <polygon points="60,56 196,56 128,226" fill="#FFFFFF"/>
+  <polygon points="60,56 196,56 184.8,84 71.2,84" fill="#1ED67A"/>
+  <rect x="44" y="46" width="168" height="12" rx="6" fill="#140A2E"/>
+  <path d="M104 160 V104 H119 L139 137 V104 H152 V160 H138 L117 127 V160 Z" fill="#4A1FC9"/>
+</svg>
+</g><text x="196" y="600" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8a8a8a" text-anchor="middle">32px</text><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="238" y="564" width="16" height="16" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <polygon points="66,62 202,62 134,232" fill="#1E0866"/>
+  <polygon points="60,56 196,56 128,226" fill="#FFFFFF"/>
+  <polygon points="60,56 196,56 184.8,84 71.2,84" fill="#1ED67A"/>
+  <rect x="44" y="46" width="168" height="12" rx="6" fill="#140A2E"/>
+  <path d="M104 160 V104 H119 L139 137 V104 H152 V160 H138 L117 127 V160 Z" fill="#4A1FC9"/>
+</svg>
+</g><text x="246" y="600" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8a8a8a" text-anchor="middle">16px</text><text x="90.0" y="636" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="26" font-weight="700" fill="#161616">A · Flâmula</text><text x="90.0" y="664" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#161616" letter-spacing="1.5">RECOMMENDED</text><text x="90.0" y="698" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="19" fill="#555">A flâmula de clube pendurada no quarto: o N</text><text x="90.0" y="724" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="19" fill="#555">bordado, a barra verde no topo.</text><rect x="562.667" y="150" width="474.667" height="630" rx="18" fill="#fff" stroke="#e4e4e0" stroke-width="1"/><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="592.667" y="190" width="414.667" height="300" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <circle cx="128" cy="138" r="82" fill="none" stroke="#FFFFFF" stroke-width="14"/>
+  <polygon points="128.0,26.0 135.4,45.8 156.5,46.7 140.0,59.9 145.6,80.3 128.0,68.6 110.4,80.3 116.0,59.9 99.5,46.7 120.6,45.8" fill="#1ED67A" stroke="#4A1FC9" stroke-width="10" paint-order="stroke" stroke-linejoin="round"/>
+  <path d="M92 182 V94 H113 L143 146 V94 H164 V182 H143 L113 130 V182 Z" fill="#FFFFFF"/>
+</svg>
+</g><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="592.667" y="516" width="64" height="64" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <circle cx="128" cy="138" r="82" fill="none" stroke="#FFFFFF" stroke-width="14"/>
+  <polygon points="128.0,26.0 135.4,45.8 156.5,46.7 140.0,59.9 145.6,80.3 128.0,68.6 110.4,80.3 116.0,59.9 99.5,46.7 120.6,45.8" fill="#1ED67A" stroke="#4A1FC9" stroke-width="10" paint-order="stroke" stroke-linejoin="round"/>
+  <path d="M92 182 V94 H113 L143 146 V94 H164 V182 H143 L113 130 V182 Z" fill="#FFFFFF"/>
+</svg>
+</g><text x="624.667" y="600" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8a8a8a" text-anchor="middle">64px</text><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="682.667" y="548" width="32" height="32" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <circle cx="128" cy="138" r="82" fill="none" stroke="#FFFFFF" stroke-width="14"/>
+  <polygon points="128.0,26.0 135.4,45.8 156.5,46.7 140.0,59.9 145.6,80.3 128.0,68.6 110.4,80.3 116.0,59.9 99.5,46.7 120.6,45.8" fill="#1ED67A" stroke="#4A1FC9" stroke-width="10" paint-order="stroke" stroke-linejoin="round"/>
+  <path d="M92 182 V94 H113 L143 146 V94 H164 V182 H143 L113 130 V182 Z" fill="#FFFFFF"/>
+</svg>
+</g><text x="698.667" y="600" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8a8a8a" text-anchor="middle">32px</text><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="740.667" y="564" width="16" height="16" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <circle cx="128" cy="138" r="82" fill="none" stroke="#FFFFFF" stroke-width="14"/>
+  <polygon points="128.0,26.0 135.4,45.8 156.5,46.7 140.0,59.9 145.6,80.3 128.0,68.6 110.4,80.3 116.0,59.9 99.5,46.7 120.6,45.8" fill="#1ED67A" stroke="#4A1FC9" stroke-width="10" paint-order="stroke" stroke-linejoin="round"/>
+  <path d="M92 182 V94 H113 L143 146 V94 H164 V182 H143 L113 130 V182 Z" fill="#FFFFFF"/>
+</svg>
+</g><text x="748.667" y="600" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8a8a8a" text-anchor="middle">16px</text><text x="592.6666666666667" y="636" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="26" font-weight="700" fill="#161616">B · Emblema</text><text x="592.6666666666667" y="670" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="19" fill="#555">O emblema redondo de clube antigo, com a</text><text x="592.6666666666667" y="696" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="19" fill="#555">estrela de campeão por cima do N.</text><rect x="1065.33" y="150" width="474.667" height="630" rx="18" fill="#fff" stroke="#e4e4e0" stroke-width="1"/><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="1095.33" y="190" width="414.667" height="300" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <path d="M88 60 L56 76 L36 120 L68 134 L78 114 V208 H178 V114 L188 134 L220 120 L200 76 L168 60 C160 76 148 84 128 84 C108 84 96 76 88 60 Z" fill="#1E0866" transform="translate(6 6)"/>
+  <path d="M88 60 L56 76 L36 120 L68 134 L78 114 V208 H178 V114 L188 134 L220 120 L200 76 L168 60 C160 76 148 84 128 84 C108 84 96 76 88 60 Z" fill="#FFFFFF"/>
+  <path d="M88 60 C96 76 108 84 128 84 C148 84 160 76 168 60 L154 54 C148 66 140 72 128 72 C116 72 108 66 102 54 Z" fill="#1ED67A"/>
+  <polygon points="36,120 68,134 62,147 30,133" fill="#1ED67A"/><polygon points="220,120 188,134 194,147 226,133" fill="#1ED67A"/>
+  <path d="M104 186 V112 H121 L136 140 V112 H152 V186 H135 L120 158 V186 Z" fill="#4A1FC9"/>
+</svg>
+</g><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="1095.33" y="516" width="64" height="64" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <path d="M88 60 L56 76 L36 120 L68 134 L78 114 V208 H178 V114 L188 134 L220 120 L200 76 L168 60 C160 76 148 84 128 84 C108 84 96 76 88 60 Z" fill="#1E0866" transform="translate(6 6)"/>
+  <path d="M88 60 L56 76 L36 120 L68 134 L78 114 V208 H178 V114 L188 134 L220 120 L200 76 L168 60 C160 76 148 84 128 84 C108 84 96 76 88 60 Z" fill="#FFFFFF"/>
+  <path d="M88 60 C96 76 108 84 128 84 C148 84 160 76 168 60 L154 54 C148 66 140 72 128 72 C116 72 108 66 102 54 Z" fill="#1ED67A"/>
+  <polygon points="36,120 68,134 62,147 30,133" fill="#1ED67A"/><polygon points="220,120 188,134 194,147 226,133" fill="#1ED67A"/>
+  <path d="M104 186 V112 H121 L136 140 V112 H152 V186 H135 L120 158 V186 Z" fill="#4A1FC9"/>
+</svg>
+</g><text x="1127.33" y="600" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8a8a8a" text-anchor="middle">64px</text><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="1185.33" y="548" width="32" height="32" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <path d="M88 60 L56 76 L36 120 L68 134 L78 114 V208 H178 V114 L188 134 L220 120 L200 76 L168 60 C160 76 148 84 128 84 C108 84 96 76 88 60 Z" fill="#1E0866" transform="translate(6 6)"/>
+  <path d="M88 60 L56 76 L36 120 L68 134 L78 114 V208 H178 V114 L188 134 L220 120 L200 76 L168 60 C160 76 148 84 128 84 C108 84 96 76 88 60 Z" fill="#FFFFFF"/>
+  <path d="M88 60 C96 76 108 84 128 84 C148 84 160 76 168 60 L154 54 C148 66 140 72 128 72 C116 72 108 66 102 54 Z" fill="#1ED67A"/>
+  <polygon points="36,120 68,134 62,147 30,133" fill="#1ED67A"/><polygon points="220,120 188,134 194,147 226,133" fill="#1ED67A"/>
+  <path d="M104 186 V112 H121 L136 140 V112 H152 V186 H135 L120 158 V186 Z" fill="#4A1FC9"/>
+</svg>
+</g><text x="1201.33" y="600" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8a8a8a" text-anchor="middle">32px</text><g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" x="1243.33" y="564" width="16" height="16" preserveAspectRatio="xMidYMid meet">
+  <rect width="256" height="256" rx="56" fill="#4A1FC9"/>
+  <path d="M88 60 L56 76 L36 120 L68 134 L78 114 V208 H178 V114 L188 134 L220 120 L200 76 L168 60 C160 76 148 84 128 84 C108 84 96 76 88 60 Z" fill="#1E0866" transform="translate(6 6)"/>
+  <path d="M88 60 L56 76 L36 120 L68 134 L78 114 V208 H178 V114 L188 134 L220 120 L200 76 L168 60 C160 76 148 84 128 84 C108 84 96 76 88 60 Z" fill="#FFFFFF"/>
+  <path d="M88 60 C96 76 108 84 128 84 C148 84 160 76 168 60 L154 54 C148 66 140 72 128 72 C116 72 108 66 102 54 Z" fill="#1ED67A"/>
+  <polygon points="36,120 68,134 62,147 30,133" fill="#1ED67A"/><polygon points="220,120 188,134 194,147 226,133" fill="#1ED67A"/>
+  <path d="M104 186 V112 H121 L136 140 V112 H152 V186 H135 L120 158 V186 Z" fill="#4A1FC9"/>
+</svg>
+</g><text x="1251.33" y="600" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8a8a8a" text-anchor="middle">16px</text><text x="1095.3333333333335" y="636" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="26" font-weight="700" fill="#161616">C · Camisola</text><text x="1095.3333333333335" y="670" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="19" fill="#555">A camisola retro de gola redonda, com o N</text><text x="1095.3333333333335" y="696" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="19" fill="#555">no peito.</text></svg>
