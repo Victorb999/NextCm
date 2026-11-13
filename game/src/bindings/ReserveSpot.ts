@@ -2,6 +2,10 @@
 
 export type ReserveSpot = { person: number, 
 /**
- * "GR", "D D", "M C"...
+ * "GR", "D D", "M C"... (no banco, "SB1"...)
  */
-role: string, };
+role: string, name: string, 
+/**
+ * Do plantel principal: desce para este jogo para ganhar ritmo.
+ */
+firstTeam: boolean, };

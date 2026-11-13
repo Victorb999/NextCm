@@ -5,4 +5,8 @@ import type { ReserveSpot } from "./ReserveSpot";
  * O onze das reservas do treinador para o próximo jogo delas: a função de cada um e quem
  * foi escolhido por ele (os outros, o adjunto).
  */
-export type ReserveLineup = { starters: Array<ReserveSpot>, picks: Array<number>, };
+export type ReserveLineup = { starters: Array<ReserveSpot>, 
+/**
+ * O banco: um de cada sector (GR, defesa, médio, avançado) e o resto pelos melhores.
+ */
+bench: Array<ReserveSpot>, picks: Array<number>, };

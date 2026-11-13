@@ -220,7 +220,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 3.23 — Site do jogo no GitHub Pages (no ar em victorb999.github.io/NextCm)](docs/roadmap/3.23-site.md)
 - [Marco 3.24 — Mercado com vontades e em etapas (save 57)](docs/roadmap/3.24-mercado-com-vontades.md)
 - [Marco 4.0 — Pendências (a lista viva)](docs/roadmap/4.0-pendencias.md)
-- [Marco 4.1 — Reservas com o adjunto](docs/roadmap/4.1-reservas.md)
+- [Marco 4.1 — Reservas com o adjunto (feito a 13/11, save 61)](docs/roadmap/4.1-reservas.md)
 - [Marco 4.2 — Treinar uma selecção](docs/roadmap/4.2-seleccoes.md)
 
 ---

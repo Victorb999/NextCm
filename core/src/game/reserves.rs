@@ -391,7 +391,8 @@ mod tests {
         assert!(g.selection.as_ref().unwrap().starters.contains(&Some(reserve)), "a escolha fica");
         // O onze das reservas não o usa
         let comp = g.division_of(PALMEIRAS).unwrap().unwrap();
-        let r = g.reserve_team(PALMEIRAS, comp).unwrap();
+        let today = g.date.clone();
+        let r = g.reserve_team(PALMEIRAS, comp, &today).unwrap();
         assert!(r.starters.iter().filter_map(|s| s.player.as_ref()).all(|p| p.id != reserve));
         g.selection = None;
         let star = squad[0];

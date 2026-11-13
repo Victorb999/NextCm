@@ -50,6 +50,7 @@ mod player_setup;
 mod press;
 mod regen;
 mod reserve_matches;
+mod reserve_report;
 mod reserves;
 mod scout_reports;
 mod scout_tasks;
@@ -151,7 +152,8 @@ pub use training::{TrainingPlan, TrainingView};
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
 /// 59: o valor depois de N internacionalizações (`offers.caps_bonus`, `caps_bonus`), marco 4.0.
 /// 60: os amigáveis de clubes (competição 72, `friendly_apps`, `friendly_invites`), marco 4.0.
-pub const SAVE_VERSION: i32 = 60;
+/// 61: o CA no relatório mensal das reservas (`reserve_report_ca`), marco 4.1.
+pub const SAVE_VERSION: i32 = 61;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -831,6 +833,7 @@ impl Game {
             tx.execute_batch(internationals::SHEET_SCHEMA)?;
             tx.execute_batch(ORDERS_BY_SLOT)?;
             tx.execute_batch(friendlies::FRIENDLIES_SCHEMA)?;
+            tx.execute_batch(reserve_report::REPORT_SCHEMA)?;
             // O saldo do 1.º dia, como no CM (as dívidas ficam como estão)
             tx.execute("UPDATE clubs SET cash = CAST(cash * ? AS INTEGER) WHERE cash > 0", [crate::finance::START_CASH])?;
             // Os salários do CM: os do banco × WAGE_SCALE
@@ -1337,6 +1340,12 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 60", [])?;
             version = 60;
         }
+        // Save 61: o relatório mensal das reservas (marco 4.1)
+        if version == 60 {
+            world.conn.execute_batch(reserve_report::REPORT_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 61", [])?;
+            version = 61;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1743,6 +1752,8 @@ impl Game {
         self.setup_day(fresh, next_id)?;
         // Amigáveis: os que chocam com jogos oficiais saem; os convites dos outros clubes
         self.friendlies_day(fresh, next_id)?;
+        // Dia 1: o relatório do adjunto sobre as reservas (depois da evolução do mês)
+        self.reserve_report(fresh, next_id)?;
         // As reservas jogam na véspera do jogo do campeonato
         self.reserve_day(fresh, next_id)
     }

@@ -22,6 +22,8 @@
 //! médias do motor não mudam) e conta no perfil como "Não Competitivos", fora dos Jogos
 //! Oficiais.
 
+use std::collections::{HashMap, HashSet};
+
 use rand_core::RngCore;
 use rusqlite::params;
 use serde::Serialize;
@@ -52,6 +54,8 @@ pub(super) const PICKS_SCHEMA: &str = "CREATE TABLE reserve_picks (person_id INT
 #[serde(rename_all = "camelCase")]
 pub struct ReserveLineup {
     pub starters: Vec<ReserveSpot>,
+    /// O banco: um de cada sector (GR, defesa, médio, avançado) e o resto pelos melhores.
+    pub bench: Vec<ReserveSpot>,
     pub picks: Vec<i32>,
 }
 
@@ -60,8 +64,11 @@ pub struct ReserveLineup {
 #[serde(rename_all = "camelCase")]
 pub struct ReserveSpot {
     pub person: i32,
-    /// "GR", "D D", "M C"...
+    /// "GR", "D D", "M C"... (no banco, "SB1"...)
     pub role: String,
+    pub name: String,
+    /// Do plantel principal: desce para este jogo para ganhar ritmo.
+    pub first_team: bool,
 }
 
 /// O nome da competição no Calendário e no perfil.
@@ -81,6 +88,22 @@ const SCORE_WEIGHT: [f64; 4] = [0.0, 1.0, 3.0, 6.0];
 const ASSIST_WEIGHT: [f64; 4] = [0.2, 1.0, 3.0, 2.0];
 /// Probabilidade de um golo ter assistência.
 const ASSIST_CHANCE: f64 = 0.7;
+/// O adjunto nas reservas do treinador (marco 4.1): do plantel principal descem no máximo
+/// tantos, os que precisam de ritmo (menos de 90 minutos nas últimas 3 jornadas do campeonato,
+/// ou de volta de uma lesão há menos de 21 dias).
+const RHYTHM_MAX: usize = 4;
+const RHYTHM_MINUTES: i32 = 90;
+const RHYTHM_ROUNDS: usize = 3;
+const BACK_FROM_INJURY: i32 = 21;
+/// O banco das reservas.
+const RESERVE_BENCH: usize = 5;
+
+/// Quem joga nas reservas do treinador (ver [`Game::reserve_plan`]).
+#[derive(Debug, Default)]
+pub(super) struct ReservePlan {
+    pub first: HashSet<i32>,
+    pub second: HashSet<i32>,
+}
 
 /// O jogo de um jogador nas reservas.
 struct App {
@@ -316,9 +339,12 @@ impl Game {
         Ok(super::player_record::MatchSheet { fixture: fixture_view, home: home_lines, away: away_lines })
     }
 
-    /// A equipa das reservas de um clube: o adjunto escolhe o onze entre quem joga nelas (os
-    /// despromovidos, no clube do treinador; na IA, quem fica fora dos 18 melhores).
-    pub(super) fn reserve_team(&self, club: i32, comp: i32) -> Result<ClubTactics> {
+    /// A equipa das reservas de um clube para o jogo de `day`: o adjunto escolhe o onze entre
+    /// quem joga nelas. Na IA, quem fica fora dos 18 melhores. No clube do treinador (marco
+    /// 4.1), na formação do treinador e cada um na posição em que joga: primeiro os das
+    /// reservas e quem desce do plantel principal para ganhar ritmo ([`Game::reserve_plan`]);
+    /// os de enchimento só completam.
+    pub(super) fn reserve_team(&self, club: i32, comp: i32, day: &str) -> Result<ClubTactics> {
         let state = self.club_state(club, Some(comp));
         let players: Vec<i32> = self
             .world
@@ -331,32 +357,244 @@ impl Game {
             .collect::<rusqlite::Result<_>>()?;
         let own = club == self.club_id;
         let fresh = Availability { condition: 100, morale: 12, injured: false, suspended: false, reserve: false };
-        // As reservas relacionadas pelo treinador para a equipa principal não jogam nas reservas
-        let first_team: std::collections::HashSet<i32> = match (&self.selection, own) {
-            (Some(sel), true) => sel.starters.iter().flatten().chain(&sel.bench).copied().collect(),
-            _ => Default::default(),
-        };
+        let plan = if own { Some(self.reserve_plan(comp, day)?) } else { None };
         let mut pool = SquadState::new();
         for (rank, id) in players.into_iter().enumerate() {
             let a = state.get(&id).copied().unwrap_or(fresh);
-            let plays = if own { a.reserve && !first_team.contains(&id) } else { rank >= FIRST_TEAM };
+            // `reserve` aqui é a segunda escolha do adjunto (só completa o onze e o banco)
+            let (plays, second) = match &plan {
+                Some(p) => (p.first.contains(&id) || p.second.contains(&id), p.second.contains(&id)),
+                None => (rank >= FIRST_TEAM, false),
+            };
             // Os castigos são das competições oficiais; quem não joga fica "lesionado" para o adjunto
-            pool.insert(id, Availability { injured: a.injured || !plays, suspended: false, reserve: false, ..a });
+            pool.insert(id, Availability { injured: a.injured || !plays, suspended: false, reserve: second, ..a });
         }
-        // Os escolhidos pelo treinador: o adjunto arruma-os no onze e completa com as outras reservas
-        let picks: Vec<i32> = if own { self.reserve_picks()? } else { Vec::new() };
-        let picks: Vec<i32> = picks.into_iter().filter(|id| pool.get(id).is_some_and(|a| a.can_play())).collect();
-        if picks.is_empty() {
+        if plan.is_none() {
             return self.world.auto_tactics(club, Some(&pool), Instructions::default());
         }
-        let mut only = pool.clone();
-        for (id, a) in only.iter_mut() {
-            a.injured |= !picks.contains(id);
+        let instructions = self.selection.as_ref().map(|s| s.instructions).unwrap_or_default();
+        // Os escolhidos pelo treinador: o adjunto arruma-os no onze e completa com os outros
+        let picks: Vec<i32> = self.reserve_picks()?.into_iter().filter(|id| pool.get(id).is_some_and(|a| a.can_play())).collect();
+        let mut t = if picks.is_empty() {
+            self.reserve_auto(club, &pool, instructions)?
+        } else {
+            let mut only = pool.clone();
+            for (id, a) in only.iter_mut() {
+                a.injured |= !picks.contains(id);
+            }
+            let mut sel = self.reserve_auto(club, &only, instructions)?.selection();
+            sel.bench.clear();
+            self.world.cover_unavailable(club, &mut sel, &pool)?;
+            self.world.tactics_from_selection(club, &sel, Some(&pool))?
+        };
+        self.keeper_in_goal(club, &mut t, &pool)?;
+        self.reserve_bench(&mut t, &pool)?;
+        Ok(t)
+    }
+
+    /// Na baliza vai um guarda-redes: sem nenhum na primeira escolha, o adjunto põe lá um de
+    /// enchimento antes de um jogador de campo.
+    fn keeper_in_goal(&self, club: i32, t: &mut ClubTactics, pool: &SquadState) -> Result<()> {
+        let Some(slot) = t.starters.iter().position(|s| s.role == "GR") else { return Ok(()) };
+        if t.starters[slot].player.as_ref().is_none_or(|p| p.fit.unwrap_or(0) >= 15) {
+            return Ok(());
         }
-        let mut sel = self.world.auto_tactics(club, Some(&only), Instructions::default())?.selection();
-        sel.bench.clear();
-        self.world.cover_unavailable(club, &mut sel, &pool)?;
-        self.world.tactics_from_selection(club, &sel, Some(&pool))
+        let on: HashSet<i32> = t.starters.iter().filter_map(|s| s.player.as_ref().map(|p| p.id)).collect();
+        let mut keeper: Option<(i32, i32)> = None;
+        for (&id, _) in pool.iter().filter(|(id, a)| a.can_play() && !on.contains(id)) {
+            let (gk, ca): (i32, i32) = self
+                .world
+                .conn
+                .prepare_cached("SELECT COALESCE(pos_goalkeeper, 1), COALESCE(current_ability, 1) FROM players WHERE person_id = ?")?
+                .query_row([id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            if gk >= 15 && keeper.is_none_or(|k| (ca, std::cmp::Reverse(id)) > (k.1, std::cmp::Reverse(k.0))) {
+                keeper = Some((id, ca));
+            }
+        }
+        let Some((id, _)) = keeper else { return Ok(()) };
+        let mut sel = t.selection();
+        sel.starters[slot] = Some(id);
+        sel.bench.retain(|b| *b != id);
+        // O banco refaz-se a seguir, dos que ficam de fora
+        *t = self.world.tactics_from_selection(club, &sel, Some(pool))?;
+        Ok(())
+    }
+
+    /// Quem joga nas reservas do treinador no jogo de `day` (marco 4.1):
+    /// - primeira escolha: os das reservas e até [`RHYTHM_MAX`] do plantel principal que
+    ///   precisam de ritmo (de volta de lesão, depois menos minutos nas últimas jornadas);
+    /// - segunda escolha: os de enchimento (só completam);
+    /// - de fora: quem jogou pela equipa principal (ou num amigável) na véspera ou no próprio
+    ///   dia, os relacionados das reservas e quem vai ser titular no próximo jogo.
+    pub(super) fn reserve_plan(&self, comp: i32, day: &str) -> Result<ReservePlan> {
+        let club = self.club_id;
+        let squad: Vec<(i32, i32, bool)> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT p.id, COALESCE(pl.current_ability, 1), COALESCE(pl.pos_goalkeeper, 1) >= 15
+                 FROM people p JOIN players pl ON pl.person_id = p.id
+                 WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC, p.id",
+            )?
+            .query_map([club], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        // O próximo onze da equipa principal (e os relacionados, que não descem)
+        let t = self.club_tactics(club)?;
+        let next_xi: HashSet<i32> = t.starters.iter().filter_map(|s| s.player.as_ref().map(|p| p.id)).collect();
+        let named: HashSet<i32> = next_xi.iter().copied().chain(t.bench.iter().map(|p| p.id)).collect();
+        // Quem jogou na véspera ou hoje
+        let yesterday = date::add_days(day, -1).unwrap_or_default();
+        let tired: HashSet<i32> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT person_id FROM player_matches WHERE club = ?1 AND date BETWEEN ?2 AND ?3
+                 UNION SELECT person_id FROM friendly_apps WHERE club = ?1 AND date BETWEEN ?2 AND ?3",
+            )?
+            .query_map(params![club, yesterday, day], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut plan = ReservePlan::default();
+        let mut rhythm: Vec<(bool, i32, i32, i32)> = Vec::new();
+        let minutes = self.league_minutes(comp, day)?;
+        let back = self.back_from_injury(day)?;
+        for (id, ca, keeper) in squad {
+            if tired.contains(&id) {
+                continue;
+            }
+            let st = self.squads.state(id);
+            if st.reserve {
+                if named.contains(&id) {
+                    continue;
+                }
+                if self.is_ghost(id) {
+                    plan.second.insert(id);
+                } else {
+                    plan.first.insert(id);
+                }
+                continue;
+            }
+            if next_xi.contains(&id) {
+                continue;
+            }
+            // Precisa de ritmo: de volta de uma lesão, ou poucos minutos nas últimas jornadas
+            // (os guarda-redes suplentes não: quase nunca jogam)
+            let returning = back.contains(&id);
+            let short = minutes.as_ref().is_some_and(|m| !keeper && m.get(&id).copied().unwrap_or(0) < RHYTHM_MINUTES);
+            if returning || short {
+                rhythm.push((!returning, minutes.as_ref().and_then(|m| m.get(&id).copied()).unwrap_or(0), -ca, id));
+            }
+        }
+        rhythm.sort();
+        plan.first.extend(rhythm.into_iter().take(RHYTHM_MAX).map(|r| r.3));
+        Ok(plan)
+    }
+
+    /// Os minutos de cada jogador do treinador nas últimas [`RHYTHM_ROUNDS`] jornadas do
+    /// campeonato antes de `day`; `None` se ainda não as houve (a pré-época).
+    fn league_minutes(&self, comp: i32, day: &str) -> Result<Option<HashMap<i32, i32>>> {
+        let mut last: Vec<&crate::league::Match> = self
+            .matches
+            .iter()
+            .filter(|m| {
+                m.competition_id == comp
+                    && m.result.is_some()
+                    && m.date.as_str() < day
+                    && (m.home_id == self.club_id || m.away_id == self.club_id)
+            })
+            .collect();
+        if last.len() < RHYTHM_ROUNDS {
+            return Ok(None);
+        }
+        last.sort_by(|a, b| b.date.cmp(&a.date));
+        let mut out = HashMap::new();
+        for m in last.into_iter().take(RHYTHM_ROUNDS) {
+            let rows: Vec<(i32, i32)> = self
+                .world
+                .conn
+                .prepare_cached(
+                    "SELECT person_id, COALESCE(minute_off, 90) - COALESCE(minute_on, 0) FROM player_matches
+                     WHERE fixture = ? AND club = ?",
+                )?
+                .query_map(params![m.id, self.club_id], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<_>>()?;
+            for (id, min) in rows {
+                *out.entry(id).or_insert(0) += min.max(0);
+            }
+        }
+        Ok(Some(out))
+    }
+
+    /// Os do treinador que voltaram de uma lesão há menos de [`BACK_FROM_INJURY`] dias.
+    fn back_from_injury(&self, day: &str) -> Result<HashSet<i32>> {
+        let from = date::add_days(day, -BACK_FROM_INJURY).unwrap_or_default();
+        Ok(self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT l.person_id FROM injury_log l JOIN people p ON p.id = l.person_id
+                 WHERE p.club_id = ?1 AND date(l.date, '+' || l.days || ' days') BETWEEN ?2 AND ?3",
+            )?
+            .query_map(params![self.club_id, from, day], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// O onze do adjunto na formação do treinador (a da táctica dele, senão a preferida).
+    fn reserve_auto(&self, club: i32, pool: &SquadState, instructions: Instructions) -> Result<ClubTactics> {
+        match &self.selection {
+            Some(sel) => {
+                // A formação e as posições do treinador; os jogadores, o adjunto escolhe
+                let mut base = sel.clone();
+                base.starters.clear();
+                base.bench.clear();
+                base.orders.clear();
+                base.takers = Default::default();
+                base.instructions = instructions;
+                self.world.assistant_tactics(club, Some(pool), &base)
+            }
+            None => self.world.auto_tactics(club, Some(pool), instructions),
+        }
+    }
+
+    /// O banco das reservas: um de cada sector (GR, defesa, médio, avançado), se houver, e o
+    /// resto pelos melhores; os de primeira escolha antes dos de enchimento.
+    fn reserve_bench(&self, t: &mut ClubTactics, pool: &SquadState) -> Result<()> {
+        let on: std::collections::HashSet<i32> = t.starters.iter().filter_map(|s| s.player.as_ref().map(|p| p.id)).collect();
+        let mut rest: Vec<(i32, bool, i32, usize)> = Vec::new();
+        for (&id, a) in pool.iter().filter(|(id, a)| a.can_play() && !on.contains(id)) {
+            let (ca, pos): (i32, [i32; 4]) = self
+                .world
+                .conn
+                .prepare_cached(
+                    "SELECT COALESCE(current_ability, 1), COALESCE(pos_goalkeeper, 1),
+                        MAX(COALESCE(pos_sweeper, 1), COALESCE(pos_defender, 1), COALESCE(pos_wing_back, 1)),
+                        MAX(COALESCE(pos_defensive_midfielder, 1), COALESCE(pos_midfielder, 1), COALESCE(pos_attacking_midfielder, 1)),
+                        COALESCE(pos_attacker, 1)
+                 FROM players WHERE person_id = ?",
+                )?
+                .query_row([id], |r| Ok((r.get(0)?, [r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?])))?;
+            rest.push((id, a.reserve, ca, super::market::role_of(pos[0], pos[1], pos[2], pos[3])));
+        }
+        // Primeira escolha antes dos de enchimento, e o melhor primeiro
+        rest.sort_by_key(|&(id, second, ca, _)| (second, std::cmp::Reverse(ca), id));
+        let mut bench: Vec<i32> = Vec::new();
+        for sector in 0..super::market::ROLES {
+            if let Some(&(id, ..)) = rest.iter().find(|r| r.3 == sector) {
+                bench.push(id);
+            }
+        }
+        for &(id, ..) in &rest {
+            if bench.len() >= RESERVE_BENCH {
+                break;
+            }
+            if !bench.contains(&id) {
+                bench.push(id);
+            }
+        }
+        bench.truncate(RESERVE_BENCH);
+        let players: Vec<crate::tactics::TacticPlayer> =
+            t.bench.iter().chain(&t.reserves).filter(|p| bench.contains(&p.id)).cloned().collect();
+        t.bench = bench.iter().filter_map(|id| players.iter().find(|p| p.id == *id).cloned()).collect();
+        Ok(())
     }
 
     /// Os escolhidos para as reservas, pela ordem em que foram escolhidos.
@@ -372,13 +610,42 @@ impl Game {
     /// O onze das reservas para o próximo jogo delas (o que o adjunto faria hoje).
     pub fn reserve_lineup(&self) -> Result<ReserveLineup> {
         let comp = self.division_of(self.club_id)?.unwrap_or(0);
-        let t = self.reserve_team(self.club_id, comp)?;
-        let starters =
-            t.starters.iter().filter_map(|s| s.player.as_ref().map(|p| ReserveSpot { person: p.id, role: s.role.clone() })).collect();
+        // O dia do próximo jogo delas (sem nenhum, hoje)
+        let day = self
+            .reserve_slots(self.club_id)?
+            .into_iter()
+            .map(|s| s.date)
+            .find(|d| d.as_str() >= self.date.as_str())
+            .unwrap_or_else(|| self.date.clone());
+        let t = self.reserve_team(self.club_id, comp, &day)?;
+        let first_team = |id: i32| !self.squads.state(id).reserve;
+        let starters = t
+            .starters
+            .iter()
+            .filter_map(|s| {
+                s.player.as_ref().map(|p| ReserveSpot {
+                    person: p.id,
+                    role: s.role.clone(),
+                    name: p.list_name.clone(),
+                    first_team: first_team(p.id),
+                })
+            })
+            .collect();
+        let bench = t
+            .bench
+            .iter()
+            .enumerate()
+            .map(|(i, p)| ReserveSpot {
+                person: p.id,
+                role: format!("SB{}", i + 1),
+                name: p.list_name.clone(),
+                first_team: first_team(p.id),
+            })
+            .collect();
         let reserves: Vec<i32> =
             self.squads.squad_state(self.club_id, None).into_iter().filter(|(_, a)| a.reserve).map(|(id, _)| id).collect();
         let picks = self.reserve_picks()?.into_iter().filter(|id| reserves.contains(id)).collect();
-        Ok(ReserveLineup { starters, picks })
+        Ok(ReserveLineup { starters, bench, picks })
     }
 
     /// O treinador escolhe quem joga nas reservas (até 11, todos das reservas); vazio, o adjunto.
@@ -414,7 +681,8 @@ impl Game {
     /// Joga o jogo das reservas e grava o resultado. Há sempre jogo: as funções sem jogador
     /// ficam com fantasmas, como no CM (só neste jogo, sem registo).
     fn play_reserves(&mut self, fixture: i32, home: i32, away: i32, comp: i32) -> Result<()> {
-        let teams = [self.reserve_team(home, comp)?, self.reserve_team(away, comp)?];
+        let today = self.date.clone();
+        let teams = [self.reserve_team(home, comp, &today)?, self.reserve_team(away, comp, &today)?];
         let strength = |t: &ClubTactics| -> Result<TeamStrength> { Ok(TeamStrength::from_tactics_with(t, self.ghost_ability(t.club_id)?)) };
         let mut rng = engine::match_rng(self.seed ^ RNG_KEY, fixture);
         let (xh, xa) = engine::expected_goals(&strength(&teams[0])?, &strength(&teams[1])?);

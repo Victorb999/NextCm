@@ -241,7 +241,8 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
   const placeOf = (pid: number) => {
     if (reserves) {
       const r = reserveLineup?.starters.find((s) => s.person === pid)
-      return r ? shortRole(r.role) : null
+      if (r) return shortRole(r.role)
+      return reserveLineup?.bench.find((s) => s.person === pid)?.role ?? null
     }
     const spot = sel ? spotOf(sel, pid) : undefined
     return spot?.kind === 'starter'
@@ -275,6 +276,8 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
   // Casas da equipa, Limpar Equipa e pôr/tirar: na vista Tradicional (nas reservas, o onze delas)
   const teamView = !reserves && view === 'traditional'
   const reserveView = reserves && mine && view === 'traditional' && !!reserveLineup
+  // Os do plantel principal que o adjunto põe nas reservas (não estão na lista delas)
+  const guests = reserveLineup ? [...reserveLineup.starters, ...reserveLineup.bench].filter((s) => s.firstTeam) : []
   const rowCount = table ? players.length : entries.length
 
   const open = (e: { id: number } | undefined) => e && nav.go({ kind: 'person', id: e.id })
@@ -599,6 +602,11 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
                     ? `Escolheu ${reserveLineup.picks.length} · o adjunto completa o onze`
                     : 'O adjunto escolhe o onze'}{' '}
                   · clique no número ou na casa para pôr/tirar da equipa das reservas
+                </span>
+              )}
+              {reserveView && guests.length > 0 && (
+                <span className="ml-2 self-center text-[11px] text-cm-mint" title="Do plantel principal, para ganhar ritmo">
+                  Descem para ganhar ritmo: {guests.map((g) => `${shortListName(g.name)} (${shortRole(g.role)})`).join(', ')}
                 </span>
               )}
             </div>
