@@ -4,7 +4,7 @@ import { api } from '../api'
 import type { TransferItem } from '../bindings/TransferItem'
 import type { WorldTransfers } from '../bindings/WorldTransfers'
 import { BottomBar, Empty, Link, PurpleMenu, ScreenHeader, type MenuOption } from '../components/Screen'
-import { cmDate, money } from '../format'
+import { cmDate, money, ymd } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -22,7 +22,7 @@ const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Jul
 
 /** O mês antes (-1) ou depois (+1) de "2025-08". */
 function shift(month: string, d: number) {
-  const [y, m] = month.split('-').map(Number)
+  const [y, m] = ymd(month)
   const t = y * 12 + (m - 1) + d
   return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`
 }
@@ -45,7 +45,7 @@ export default function WorldTransfersPage() {
     api.worldTransfers(month, page, kind).then(setData, () => setData(null))
   }, [month, page, kind])
   const pages = Math.max(1, Math.ceil((data?.total ?? 0) / 200))
-  const [y, m] = month.split('-').map(Number)
+  const [y, m] = ymd(month)
   const go = (d: number) => {
     setMonth((mo) => shift(mo, d))
     setPage(0)

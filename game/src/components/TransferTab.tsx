@@ -169,6 +169,7 @@ export function OfferButtons({
           club={offer.seller?.shortName ?? ''}
           value={again.value}
           budgetText={budgetText(again)}
+          comments={again.comments}
           initial={offer.deal}
           error={error}
           onCancel={() => setAgain(null)}

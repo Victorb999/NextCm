@@ -253,7 +253,7 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
                   onClick={() =>
                     set({
                       background: 'photo',
-                      backgroundPhoto: s.backgroundPhoto ?? BACKGROUND_PHOTOS[0].key,
+                      backgroundPhoto: s.backgroundPhoto ?? BACKGROUND_PHOTOS[0]?.key ?? null,
                     })
                   }
                 >

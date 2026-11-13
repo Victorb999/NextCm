@@ -100,9 +100,7 @@ export function Report({ lines }: { lines: Line[] }) {
     <div ref={box} className="px-2 py-1">
       {lines.map((l, i) => (
         <div key={i} className="flex h-[19px] items-center border-b border-white/5 text-[13px]">
-          <span className="w-24 shrink-0 pl-6 font-bold text-cm-yellow">
-            {i === 0 || lines[i - 1].minute !== l.minute ? `${l.minute} min` : ''}
-          </span>
+          <span className="w-24 shrink-0 pl-6 font-bold text-cm-yellow">{lines[i - 1]?.minute !== l.minute ? `${l.minute} min` : ''}</span>
           <span
             className={`truncate ${l.kind === 'goal' ? 'font-bold text-cm-yellow' : l.kind === 'red' ? 'text-cm-red' : 'text-cm-text'}`}
           >

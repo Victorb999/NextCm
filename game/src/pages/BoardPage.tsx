@@ -91,7 +91,8 @@ function Meeting({ kind, onClose }: { kind: Kind; onClose: (answer: string | nul
   )
 }
 
-const LINE_STYLE: Record<string, { icon: ReactNode; colour: string; bar: string }> = {
+type LineStyle = { icon: ReactNode; colour: string; bar: string }
+const LINE_STYLE: Record<string, LineStyle> & { performance: LineStyle } = {
   performance: { icon: <Star size={20} />, colour: 'text-cm-mint', bar: 'bg-cm-dlgborder' },
   finances: { icon: <Euro size={20} />, colour: 'text-cm-orange', bar: 'bg-cm-orange' },
   fans: { icon: <Users size={20} />, colour: 'text-[#5bc0f0]', bar: 'bg-[#1e9cf0]' },

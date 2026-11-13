@@ -4,6 +4,7 @@ import type { NumberAssign } from '../bindings/NumberAssign'
 import type { SquadNumbers } from '../bindings/SquadNumbers'
 import { BottomBar, Empty, ErrorBox, PurpleMenu, ScreenHeader } from '../components/Screen'
 import { initials, shortListName } from '../format'
+import { surname } from '../tactics'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -154,7 +155,7 @@ export default function SquadNumbersPage() {
   const owners = new Map<number, string>()
   for (const p of saved?.players ?? []) {
     const n = numbers.get(p.id)
-    if (n !== null && n !== undefined && p.id !== selected) owners.set(n, p.listName.split(', ')[0])
+    if (n !== null && n !== undefined && p.id !== selected) owners.set(n, surname(p.listName))
   }
   const chosen = saved?.players.find((p) => p.id === selected)
   const club = saved?.club

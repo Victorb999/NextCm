@@ -109,7 +109,7 @@ export function ClubFixtureList({ clubId, fixtures }: { clubId: number; fixtures
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PanelTitle
-        title={`Época ${fixtures[0].season}`}
+        title={`Época ${fixtures[0]?.season ?? ''}`}
         right={
           <>
             <button className="cm-purple h-6 w-28" disabled>

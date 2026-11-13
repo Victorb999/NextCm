@@ -108,6 +108,7 @@ export default function TransferActions({
       initial={{ ...NO_TERMS, fee: Math.min(view.value, view.budget) || view.value }}
       squad={squad}
       exchangeable={exchangeable}
+      comments={view.comments}
       error={error}
       onCancel={onClose}
       onOk={(t) => void run(() => api.makeOffer(id, t))}

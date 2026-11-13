@@ -33,7 +33,9 @@ export const MORE_COMPETITIONS: { key: string; label: string }[] = [
 
 /** Os grupos do Vêr Atributos (plantel e Treinos): o título e as colunas (atributo, sigla). */
 export type AttributeGroup = 'physical' | 'technical' | 'mental' | 'goalkeeping'
-export const ATTRIBUTE_GROUPS: { key: AttributeGroup; label: string; title: string; columns: [string, string][] }[] = [
+type AttributeGroupInfo = { key: AttributeGroup; label: string; title: string; columns: [string, string][] }
+
+export const ATTRIBUTE_GROUPS: [AttributeGroupInfo, ...AttributeGroupInfo[]] = [
   {
     key: 'physical',
     label: 'Físicos',

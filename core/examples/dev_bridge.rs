@@ -171,6 +171,21 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let file = args["file"].as_str().ok_or("falta file")?.to_string();
             out(serde_json::to_value(session.editor_player(file, id()?).map_err(e)?))
         }
+        "editor_search_staff" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            let query = args["query"].as_str().unwrap_or("").to_string();
+            out(serde_json::to_value(session.editor_search_staff(file, query).map_err(e)?))
+        }
+        "editor_staff" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            out(serde_json::to_value(session.editor_staff(file, id()?).map_err(e)?))
+        }
+        "editor_set_staff" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            let data: nextcm_core::EditorStaffData = serde_json::from_value(args["data"].clone()).map_err(|e| e.to_string())?;
+            let values: Vec<nextcm_core::EditorValue> = serde_json::from_value(args["values"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.editor_set_staff(file, id()?, data, values).map_err(e)?))
+        }
         "editor_set_attributes" => {
             let file = args["file"].as_str().ok_or("falta file")?.to_string();
             let values: Vec<nextcm_core::EditorValue> = serde_json::from_value(args["values"].clone()).map_err(|e| e.to_string())?;

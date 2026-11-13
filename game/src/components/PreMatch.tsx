@@ -172,6 +172,7 @@ export default function PreMatch({
   }, [])
   const at = TABS.findIndex((t) => t.key === tab)
   const last = at === TABS.length - 1
+  const [prev, next] = [TABS[at - 1], TABS[at + 1]]
   return (
     <div className="cm-backdrop absolute inset-0 z-50 flex flex-col">
       <ScreenHeader
@@ -205,9 +206,9 @@ export default function PreMatch({
         )}
       </div>
       <BottomBar
-        onLeft={at > 0 ? () => setTab(TABS[at - 1].key) : undefined}
+        onLeft={prev ? () => setTab(prev.key) : undefined}
         right={last ? 'Ir para o Jogo' : 'Seguinte'}
-        onRight={last ? play : () => setTab(TABS[at + 1].key)}
+        onRight={last || !next ? play : () => setTab(next.key)}
       />
     </div>
   )

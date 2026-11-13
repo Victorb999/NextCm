@@ -95,7 +95,7 @@ export function LiveScreen({
   }, [finishedSaid])
   const [stepping, setStepping] = useState(false)
   const settings = useSettings()
-  const speed = MATCH_SPEEDS.find((s) => s.key === settings.matchSpeed) ?? MATCH_SPEEDS[2]
+  const speed = MATCH_SPEEDS.find((s) => s.key === settings.matchSpeed) ?? MATCH_SPEEDS[2] ?? MATCH_SPEEDS[0]
 
   const accept = (v: LiveView) => {
     setView(v)
@@ -146,6 +146,7 @@ export function LiveScreen({
         () => {
           setShown(shown + 1)
           const l = lines[shown]
+          if (!l) return
           // Um lesionado da equipa do treinador: o jogo pára nas Tácticas, com o aviso (como no CM)
           if (l.kind === 'injury' && l.last && l.side !== null && l.side === view.userSide && !view.finished) {
             const team = l.side === 0 ? view.home : view.away
@@ -281,7 +282,7 @@ export function LiveScreen({
         : view.halfTime
           ? 'Recomeçar Jogo'
           : 'Retomar Jogo'
-  const current = shown > 0 ? lines[Math.min(shown, lines.length) - 1] : null
+  const current = shown > 0 ? (lines[Math.min(shown, lines.length) - 1] ?? null) : null
   const said = lines.slice(0, shown)
   // O placar só muda quando o relato chega ao golo
   const goalsSaid = (side: number) => said.filter((l) => isGoalLine(l) && l.side === side).length

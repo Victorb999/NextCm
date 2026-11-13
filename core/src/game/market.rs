@@ -23,11 +23,11 @@ use crate::willingness;
 use crate::{Result, date};
 
 /// Papel de um jogador: 0 GR, 1 defesa, 2 meio, 3 ataque.
-const ROLES: usize = 4;
+pub(super) const ROLES: usize = 4;
 /// Mínimo por papel num plantel (abaixo disto o clube procura e não vende).
 pub(super) const MIN_ROLE: [usize; ROLES] = [2, 6, 6, 3];
 /// Titulares por papel (para o titular mais fraco de cada posição).
-const STARTERS: [usize; ROLES] = [1, 4, 4, 2];
+pub(super) const STARTERS: [usize; ROLES] = [1, 4, 4, 2];
 /// Plantel máximo (jogadores de 21 anos ou mais) para comprar; acima de `RELEASE_ABOVE`
 /// dispensa os piores no fim da janela, até `MAX_RELEASES`. Os mais novos não contam.
 const MAX_SQUAD: usize = 30;
@@ -65,7 +65,7 @@ const SPLURGE_CHANCE: f64 = 0.04;
 const SPLURGE_BUDGET: f64 = 0.8;
 const SPLURGE_CEILING: i32 = 50;
 /// Um titular este CA abaixo do nível da equipa (a média dos 11 melhores) é para trocar.
-const WEAK_STARTER: i32 = 6;
+pub(super) const WEAK_STARTER: i32 = 6;
 /// Listas da IA: quantos na de transferências e na de empréstimos, o preço dos listados (parte
 /// do valor) e a vantagem (em CA) que têm na escolha de quem compra.
 const MAX_LISTED: usize = 3;

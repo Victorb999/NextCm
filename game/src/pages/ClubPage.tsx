@@ -240,7 +240,11 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
       return r ? shortRole(r.role) : null
     }
     const spot = sel ? spotOf(sel, pid) : undefined
-    return spot?.kind === 'starter' ? shortRole(tactics!.starters[spot.index].role) : spot?.kind === 'bench' ? `SB${spot.index + 1}` : null
+    return spot?.kind === 'starter'
+      ? shortRole(tactics?.starters[spot.index]?.role ?? '')
+      : spot?.kind === 'bench'
+        ? `SB${spot.index + 1}`
+        : null
   }
 
   const entries: Entry[] = !club
@@ -382,11 +386,11 @@ export default function ClubPage({ id, reserves }: { id: number; reserves?: bool
   const filterChecked = (key: string) => {
     if (key === 'seniors') return filter.seniors
     if (key === 'reserves') return filter.reserves
-    const [group, value] = key.split(':')
+    const [group, value = ''] = key.split(':')
     return group === 'line' ? filter.line === value : group === 'side' ? filter.side === value : filter.avail === value
   }
   const changeFilter = (key: string) => {
-    const [group, value] = key.split(':')
+    const [group, value = ''] = key.split(':')
     setFilter((f) =>
       key === 'seniors'
         ? { ...f, seniors: !f.seniors }

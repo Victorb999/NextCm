@@ -7,7 +7,7 @@ import type { NewsItem } from '../bindings/NewsItem'
 import type { OfferView } from '../bindings/OfferView'
 import { BottomBar, Empty, Panel, ScreenHeader, Tabs } from '../components/Screen'
 import { OfferButtons } from '../components/TransferTab'
-import { partLabel } from '../format'
+import { partLabel, ymd } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -37,7 +37,7 @@ const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 // A etiqueta de cada assunto na lista
-const KIND_LABEL: Record<string, [string, string]> = {
+const KIND_LABEL: Record<string, [string, string]> & { message: [string, string] } = {
   message: ['Mensagem', 'bg-cm-hover text-cm-muted'],
   competition: ['Competição', 'bg-[#0f2a3a] text-[#5bc0f0]'],
   injury: ['Lesões', 'bg-[#3a1010] text-cm-red'],
@@ -50,7 +50,7 @@ const KIND_LABEL: Record<string, [string, string]> = {
 
 /** "2025-07-01" -> "Ter 1 Jul", como na lista de notícias do CM. */
 function newsDate(iso: string, part: number) {
-  const [y, m, d] = iso.split('-').map(Number)
+  const [y, m, d] = ymd(iso)
   const wd = new Date(y, m - 1, d).getDay()
   return `${WEEKDAYS[wd]} ${d} ${MONTHS[m - 1]} ${partLabel(part)}`
 }

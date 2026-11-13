@@ -144,6 +144,11 @@ session_command!(editor_search(file: String, query: String) -> Vec<EditorHit>);
 session_command!(editor_player(file: String, id: i32) -> EditorPlayer);
 session_command!(editor_export_csv(file: String, ids: Vec<i32>) -> String);
 session_command!(editor_set_attributes(file: String, id: i32, values: Vec<EditorValue>) -> EditorPlayer);
+session_command!(editor_search_staff(file: String, query: String) -> Vec<nextcm_core::EditorHit>);
+session_command!(editor_staff(file: String, id: i32) -> nextcm_core::EditorStaff);
+session_command!(
+    editor_set_staff(file: String, id: i32, data: nextcm_core::EditorStaffData, values: Vec<EditorValue>) -> nextcm_core::EditorStaff
+);
 session_command!(editor_profile(file: String, id: i32) -> EditorProfileView);
 session_command!(editor_set_profile(file: String, id: i32, profile: EditorProfile) -> EditorProfileView);
 session_command!(editor_search_clubs(file: String, query: String) -> Vec<EditorHit>);
@@ -379,6 +384,9 @@ pub fn run() {
             editor_player,
             editor_export_csv,
             editor_set_attributes,
+            editor_search_staff,
+            editor_staff,
+            editor_set_staff,
             editor_profile,
             editor_set_profile,
             editor_search_clubs,

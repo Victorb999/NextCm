@@ -77,9 +77,13 @@ function filter(c: AudioContext, type: BiquadFilterType, frequency: number, q = 
 }
 
 /** Liga os nós em fila e devolve o último. */
-function chain(...nodes: AudioNode[]): AudioNode {
-  for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1])
-  return nodes[nodes.length - 1]
+function chain(first: AudioNode, ...rest: AudioNode[]): AudioNode {
+  let last = first
+  for (const n of rest) {
+    last.connect(n)
+    last = n
+  }
+  return last
 }
 
 /** A torcida de fundo: liga com o jogo a correr. */

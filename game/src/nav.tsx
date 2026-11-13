@@ -59,7 +59,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      current: state.stack[state.index],
+      current: state.stack[state.index] ?? { kind: 'search' },
       go,
       back,
       forward,

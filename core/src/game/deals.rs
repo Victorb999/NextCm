@@ -142,6 +142,9 @@ pub struct TransferView {
     pub future: Vec<String>,
     /// Possíveis Despesas: os prémios do contrato que o clube pode ter de pagar.
     pub expenses: Vec<String>,
+    /// Os Comentários do agente na proposta de transferência (FM08): o que o clube procura, a
+    /// cláusula, o prazo e os extras. Vazio para os do treinador e os livres.
+    pub comments: Vec<String>,
 }
 
 /// Funções no clube ("Definir Função No Clube" do CM): chave, texto e peso (0 = a mais
@@ -888,6 +891,7 @@ impl Game {
             interested,
             future,
             expenses: self.expenses(person, mine)?,
+            comments: if mine || f.is_free() || loan.is_some() { Vec::new() } else { self.offer_comments(person, &f)? },
             person_id: person,
             mine,
             free: f.is_free(),

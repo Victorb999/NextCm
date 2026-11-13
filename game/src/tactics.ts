@@ -209,11 +209,11 @@ export function withOrders(sel: Selection, id: number, orders: PlayerOrders): Se
 }
 
 /** "Sobrenome, Nome" -> "Sobrenome" (como os nomes no campo do CM). */
-export const surname = (listName: string) => listName.split(', ')[0]
+export const surname = (listName: string) => listName.split(', ')[0] ?? listName
 
 /** Nome na lista: "Nome Sobrenome", como na tela de tácticas do CM. */
 export const fullName = (listName: string) => {
-  const [last, first] = listName.split(', ')
+  const [last = listName, first] = listName.split(', ')
   return first ? `${first} ${last}` : last
 }
 
@@ -244,7 +244,7 @@ export function useRunArrow(t: ClubTactics | null, apply: (sel: Selection) => vo
     const at = (e: MouseEvent) => {
       const r = pitch.getBoundingClientRect()
       const clamp = (v: number) => Math.round(Math.min(98, Math.max(2, v)))
-      return [clamp(((e.clientX - r.left) / r.width) * 100), clamp(((e.clientY - r.top) / r.height) * 100)]
+      return [clamp(((e.clientX - r.left) / r.width) * 100), clamp(((e.clientY - r.top) / r.height) * 100)] as const
     }
     const move = (e: MouseEvent) => {
       const [x, y] = at(e)
@@ -256,6 +256,7 @@ export function useRunArrow(t: ClubTactics | null, apply: (sel: Selection) => vo
       setRun(null)
       if (!t) return
       const slot = t.starters[index]
+      if (!slot) return
       const runs = t.starters.map((s) => s.run)
       runs[index] = Math.hypot(x - slot.x, y - slot.y) < 5 ? null : [x, y]
       apply({ ...selectionOf(t), runs, auto: false })
@@ -268,13 +269,16 @@ export function useRunArrow(t: ClubTactics | null, apply: (sel: Selection) => vo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run?.index])
-  const start = (index: number) => t && setRun({ index, x: t.starters[index].x, y: t.starters[index].y })
+  const start = (index: number) => {
+    const s = t?.starters[index]
+    if (s) setRun({ index, x: s.x, y: s.y })
+  }
   return { run, start }
 }
 
 /** Soltar um titular num lugar vazio do campo: a escolha com a posição (e a função) nova. */
 export function moveOnPitch(t: ClubTactics, index: number, x: number, y: number): Selection | null {
-  if (t.starters[index].role === 'GR') return null
+  if (t.starters[index]?.role === 'GR') return null
   const positions = t.starters.map((s) => [s.x, s.y] as [number, number])
   positions[index] = [Math.round(Math.min(96, Math.max(4, x))), Math.round(Math.min(85, Math.max(4, y)))]
   return { ...selectionOf(t), positions, auto: false }

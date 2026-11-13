@@ -235,7 +235,7 @@ export function Pitch({
       >
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           {t.starters.map((s, i) => (s.run && run?.index !== i ? <Arrow key={i} from={[s.x, s.y]} to={[s.run[0], s.run[1]]} /> : null))}
-          {run && <Arrow from={[t.starters[run.index].x, t.starters[run.index].y]} to={[run.x, run.y]} live />}
+          {run && t.starters[run.index] && <Arrow from={[t.starters[run.index]!.x, t.starters[run.index]!.y]} to={[run.x, run.y]} live />}
         </svg>
         {t.starters.map((s, i) => {
           const b = bind({ kind: 'starter', index: i }, s.player ? surname(s.player.listName) : s.role)

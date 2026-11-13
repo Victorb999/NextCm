@@ -44,7 +44,8 @@ export function liveLineup(team: LiveTeam): LineupEntry[] {
       // O titular que saiu quando ele entrou fica neste lugar
       const k = out.findIndex((o) => (o.onMinute === null || o.onMinute === 0) && o.offMinute === p.onMinute)
       entered.push(fromLive(p))
-      if (k >= 0) starters.push(fromLive(out.splice(k, 1)[0]))
+      const [back] = k >= 0 ? out.splice(k, 1) : []
+      if (back) starters.push(fromLive(back))
     } else starters.push(fromLive(p))
   }
   // Os titulares que saíram sem ninguém no lugar (expulsos) e os suplentes que entraram e já saíram

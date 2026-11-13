@@ -69,7 +69,7 @@ const HIDDEN: [&str; 11] = [
 const EXTRA: [&str; 6] = ["consistency", "dirtiness", "important_matches", "injury_proneness", "versatility", "penalties"];
 const GOALKEEPING: [&str; 2] = ["throw_ins", "one_on_ones"];
 /// Os 8 atributos mentais, guardados na pessoa e não no jogador.
-const MENTAL: [&str; 8] =
+pub(crate) const MENTAL: [&str; 8] =
     ["adaptability", "ambition", "determination", "loyalty", "pressure", "professionalism", "sportsmanship", "temperament"];
 
 /// Um resultado da procura.
@@ -141,7 +141,7 @@ pub fn stored_for_shown(raw: &Attributes, ca: i32, gk: i32, key: &str, target: i
     best.2
 }
 
-fn open_save(saves: &Path, file: &str) -> Result<World> {
+pub(crate) fn open_save(saves: &Path, file: &str) -> Result<World> {
     let name = Path::new(file).file_name().ok_or_else(|| Error::Invalid("Arquivo inválido.".into()))?;
     let world = World::open_save(&saves.join(name))?;
     let version: i32 = world
@@ -606,7 +606,7 @@ pub fn profile(saves: &Path, file: &str, id: i32) -> Result<EditorProfileView> {
     profile_view(&open_save(saves, file)?, id)
 }
 
-fn check_range(label: &str, v: i32, min: i32, max: i32) -> Result<()> {
+pub(crate) fn check_range(label: &str, v: i32, min: i32, max: i32) -> Result<()> {
     if (min..=max).contains(&v) { Ok(()) } else { Err(Error::Invalid(format!("{label}: o valor vai de {min} a {max} (recebi {v})."))) }
 }
 

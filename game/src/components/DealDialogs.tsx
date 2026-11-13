@@ -81,13 +81,14 @@ function Choice<T>({ value, options, onChange }: { value: T; options: [T, string
     0,
     options.findIndex((o) => o[0] === value),
   )
+  const [prev, here, next] = [options[i - 1], options[i], options[i + 1]]
   return (
     <div className="flex items-center gap-1">
-      <button className="cm-purple h-7 w-8" disabled={i === 0} onClick={() => onChange(options[i - 1][0])}>
+      <button className="cm-purple h-7 w-8" disabled={!prev} onClick={() => prev && onChange(prev[0])}>
         −
       </button>
-      <span className="w-44 text-center text-[17px] text-cm-yellow">{options[i][1]}</span>
-      <button className="cm-purple h-7 w-8" disabled={i === options.length - 1} onClick={() => onChange(options[i + 1][0])}>
+      <span className="w-44 text-center text-[17px] text-cm-yellow">{here?.[1]}</span>
+      <button className="cm-purple h-7 w-8" disabled={!next} onClick={() => next && onChange(next[0])}>
         +
       </button>
     </div>
@@ -319,6 +320,7 @@ export function TransferOfferDialog({
   initial,
   squad,
   exchangeable = null,
+  comments,
   okLabel = 'Oferecer',
   error,
   onCancel,
@@ -334,6 +336,8 @@ export function TransferOfferDialog({
   squad?: ExchangeOption[]
   /** Quais deles o clube aceita (null enquanto carrega). */
   exchangeable?: number[] | null
+  /** Os Comentários do agente (o que o clube procura, a cláusula, o prazo e os extras). */
+  comments?: string[]
   okLabel?: string
   error?: string | null
   onCancel: () => void
@@ -441,7 +445,18 @@ export function TransferOfferDialog({
           <span className="w-80 font-title text-[19px] text-white">Valor Total</span>
           <span className="text-[19px] font-bold text-cm-yellow">{money(t.fee + t.appsBonus + t.capsBonus)}</span>
         </div>
-        <div className="pt-2 text-[15px] text-white">O {club} responde dentro de alguns dias.</div>
+        {comments?.length ? (
+          <div className="mt-2 rounded bg-black/30 px-2 py-1">
+            <div className="font-title text-[15px] text-cm-yellow">Comentários</div>
+            <ul className="text-[14px] leading-snug text-white">
+              {comments.map((c) => (
+                <li key={c}>· {c}</li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="pt-2 text-[15px] text-white">O {club} responde dentro de alguns dias.</div>
+        )}
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
       </DialogFrame>
       {picking && squad && (

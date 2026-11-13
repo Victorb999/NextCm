@@ -48,6 +48,8 @@ import type { EditorPlayer } from './bindings/EditorPlayer'
 import type { EditorProfile } from './bindings/EditorProfile'
 import type { EditorProfileView } from './bindings/EditorProfileView'
 import type { EditorValue } from './bindings/EditorValue'
+import type { EditorStaff } from './bindings/EditorStaff'
+import type { EditorStaffData } from './bindings/EditorStaffData'
 import type { Instructions } from './bindings/Instructions'
 import type { LiveView } from './bindings/LiveView'
 import type { MatchPreview } from './bindings/MatchPreview'
@@ -215,6 +217,10 @@ export const api = {
   editorExportCsv: (file: string, ids: number[]) => call<string>('editor_export_csv', { file, ids }),
   editorSetAttributes: (file: string, id: number, values: EditorValue[]) =>
     call<EditorPlayer>('editor_set_attributes', { file, id, values }),
+  editorSearchStaff: (file: string, query: string) => call<EditorHit[]>('editor_search_staff', { file, query }),
+  editorStaff: (file: string, id: number) => call<EditorStaff>('editor_staff', { file, id }),
+  editorSetStaff: (file: string, id: number, data: EditorStaffData, values: EditorValue[]) =>
+    call<EditorStaff>('editor_set_staff', { file, id, data, values }),
   editorProfile: (file: string, id: number) => call<EditorProfileView>('editor_profile', { file, id }),
   editorSetProfile: (file: string, id: number, profile: EditorProfile) =>
     call<EditorProfileView>('editor_set_profile', { file, id, profile }),

@@ -1,11 +1,17 @@
 // Formatos de exibição no estilo do CM 01/02.
 
-import { CURRENCIES, WAGES, getSettings } from './settings'
+import { CURRENCIES, type NonEmpty, WAGES, getSettings } from './settings'
+
+/** "2007-07-13" -> [2007, 7, 13] (o que faltar fica 0). */
+export function ymd(iso: string): [number, number, number] {
+  const [y = 0, m = 0, d = 0] = iso.split('-').map(Number)
+  return [y, m, d]
+}
 
 /** "2007-07-13" -> "13.7.2007" */
 export function cmDate(iso: string | null | undefined): string {
   if (!iso) return '-'
-  const [y, m, d] = iso.split('-').map(Number)
+  const [y, m, d] = ymd(iso)
   return `${d}.${m}.${y}`
 }
 
@@ -42,11 +48,11 @@ export function shortListName(listName: string): string {
   return i < 0 ? listName : `${listName.slice(0, i)}, ${listName[i + 2] ?? ''}`
 }
 
-const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+const WEEKDAYS_SHORT: NonEmpty<string> = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 /** "2025-08-02" -> "Sáb 2.8.2025" (calendários e jogos). */
 export function matchDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
+  const [y, m, d] = ymd(iso)
   return `${WEEKDAYS_SHORT[new Date(y, m - 1, d).getDay()]} ${d}.${m}.${y}`
 }
 
@@ -70,19 +76,19 @@ const MONTHS_LONG = [
 /** "2036-06-30" -> "Jun 2036" (fim de contrato). */
 export function monthYear(iso: string): string {
   if (!iso) return '-'
-  const [y, m] = iso.split('-').map(Number)
+  const [y, m] = ymd(iso)
   return `${MONTHS_SHORT[m - 1]} ${y}`
 }
 
 /** "2025-08-02" -> "Sáb 2 Ago" (calendários do CM). */
 export function shortDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
+  const [y, m, d] = ymd(iso)
   return `${WEEKDAYS_SHORT[new Date(y, m - 1, d).getDay()]} ${d} ${MONTHS_SHORT[m - 1]}`
 }
 
 /** "2025-08-02" -> "Sábado 2 Agosto", com "(hoje)"/"(amanhã)" em relação a `today`. */
 export function longDate(iso: string, today?: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
+  const [y, m, d] = ymd(iso)
   const base = `${WEEKDAYS_LONG[new Date(y, m - 1, d).getDay()]} ${d} ${MONTHS_LONG[m - 1]}`
   if (!today) return base
   const days = Math.round((Date.UTC(y, m - 1, d) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)
@@ -154,7 +160,8 @@ export function moneyNext(v: number, dir: 1 | -1): number {
 /** "Palmeiras" -> "PA", "Real Madrid" -> "RM": o emblema do clube (placar, Tácticas). */
 export function initials(name: string): string {
   const words = name.split(/\s+/).filter((w) => /^\p{Lu}/u.test(w))
-  return (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase()
+  const [a, b] = words
+  return (a && b ? (a[0] ?? '') + (b[0] ?? '') : name.slice(0, 2)).toUpperCase()
 }
 
 /** As qualificações do treinador no Novo Jogo, pela ordem do core (0 a 4). */

@@ -231,6 +231,25 @@ impl Session {
         crate::editor_player(&self.saves_dir, self.editor_file(&file)?, id)
     }
 
+    /// Editor: procurar, abrir e gravar staff (não jogadores).
+    pub fn editor_search_staff(&self, file: String, query: String) -> Result<Vec<crate::EditorHit>> {
+        crate::editor_search_staff(&self.saves_dir, self.editor_file(&file)?, &query)
+    }
+
+    pub fn editor_staff(&self, file: String, id: i32) -> Result<crate::EditorStaff> {
+        crate::editor_staff(&self.saves_dir, self.editor_file(&file)?, id)
+    }
+
+    pub fn editor_set_staff(
+        &self,
+        file: String,
+        id: i32,
+        data: crate::EditorStaffData,
+        values: Vec<crate::EditorValue>,
+    ) -> Result<crate::EditorStaff> {
+        crate::editor_set_staff(&self.saves_dir, self.editor_file(&file)?, id, &data, &values)
+    }
+
     pub fn editor_set_attributes(&self, file: String, id: i32, values: Vec<crate::EditorValue>) -> Result<crate::EditorPlayer> {
         crate::editor_set_attributes(&self.saves_dir, self.editor_file(&file)?, id, &values)
     }

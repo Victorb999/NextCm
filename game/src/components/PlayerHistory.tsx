@@ -160,7 +160,7 @@ export function SeasonTable({ byKind }: { byKind: [string, StatLine][] }) {
     <Table
       head={['Competição', ...STAT_HEAD]}
       rows={byKind.slice(0, -1).map(([k, s]) => [k, ...statCells(s)])}
-      total={['Jogos Oficiais', ...statCells(byKind[byKind.length - 1][1])]}
+      total={byKind.length ? ['Jogos Oficiais', ...statCells(byKind[byKind.length - 1]![1])] : undefined}
     />
   )
 }
@@ -234,7 +234,8 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
         selected={season ? p.seasons.indexOf(season) : undefined}
         total={['Total', '', ...statCells(careerLine)]}
         onSelect={(i) => {
-          const k = played.indexOf(p.seasons[i])
+          const s = p.seasons[i]
+          const k = s ? played.indexOf(s) : -1
           if (k >= 0) setIndex(k)
         }}
       />

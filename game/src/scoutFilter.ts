@@ -29,11 +29,11 @@ export function scoutPasses(f: ScoutFind, filter: ScoutFilter) {
 
 /** Marca a opção escolhida no menu. */
 export function scoutChecked(filter: ScoutFilter, key: string) {
-  const [group, value] = key.split(':')
+  const [group, value = ''] = key.split(':')
   return group === 'line' ? filter.line === value : group === 'side' ? filter.side === value : filter.stars === Number(value)
 }
 
 export function scoutChange(filter: ScoutFilter, key: string): ScoutFilter {
-  const [group, value] = key.split(':')
+  const [group, value = ''] = key.split(':')
   return group === 'line' ? { ...filter, line: value } : group === 'side' ? { ...filter, side: value } : { ...filter, stars: Number(value) }
 }

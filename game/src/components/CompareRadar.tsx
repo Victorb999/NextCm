@@ -102,7 +102,7 @@ export default function CompareRadar({ people }: { people: [PersonProfile, Perso
         </div>
         <div className="cm-zebra">
           {axes.map(([label], i) => {
-            const [x, y] = [values[0][i], values[1][i]]
+            const [x, y] = [values[0]?.[i] ?? null, values[1]?.[i] ?? null]
             const cell = (v: number | null, o: number | null) => (
               <span
                 className={`text-right ${v == null ? 'text-[#777]' : o != null && v > o + 0.05 ? 'font-bold text-cm-green' : 'text-cm-orange'}`}

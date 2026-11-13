@@ -85,6 +85,7 @@ export default function MatchDay({
   const nextCompetition = async () => {
     const [id, ...rest] = others
     setOthers(rest)
+    if (id === undefined) return onDone()
     try {
       const [all, table] = await Promise.all([api.listFixtures(id), api.leagueTable(id)])
       const games = all.filter((f) => f.date === fixture.date && f.homeGoals !== null)

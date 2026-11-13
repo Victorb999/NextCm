@@ -128,7 +128,7 @@ export default function NewGamePage() {
     const calendar = leagueNations.some((n) => n.calendar && playable.includes(n.nationId))
     if (!calendar) setSeason('europe')
     // O clube escolhe-se numa nação escolhida
-    if (clubNation === null || !playable.includes(clubNation)) changeClubNation(playable[0])
+    if ((clubNation === null || !playable.includes(clubNation)) && playable[0] !== undefined) changeClubNation(playable[0])
     setError(null)
     setStep(1)
   }

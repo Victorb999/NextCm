@@ -1,6 +1,7 @@
 import type { ClubRef } from '../../bindings/ClubRef'
 import type { LiveView } from '../../bindings/LiveView'
 import { initials, longDate } from '../../format'
+import { surname } from '../../tactics'
 import { clubStyle, clubBand, isGoalLine, lineLabel, manOfTheMatch } from './lines'
 import type { Line } from './lines'
 
@@ -81,7 +82,7 @@ function Scorers({ view, said, side, small }: { view: LiveView; said: Line[]; si
   for (const l of said) {
     if (l.side !== side) continue
     const p = [...team.players, ...team.out].find((p) => p.id === l.playerId)
-    const name = p ? p.listName.split(', ')[0] : '?'
+    const name = p ? surname(p.listName) : '?'
     if (isGoalLine(l)) goals.set(name, [...(goals.get(name) ?? []), l.minute])
     else if (l.kind === 'injury' && l.last) injuries.push([name, l.minute])
   }

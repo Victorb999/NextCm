@@ -51,6 +51,27 @@ export const LABELS: Record<string, string> = {
   versatility: 'Versatilidade',
   vision: 'Criatividade',
   work_rate: 'Índice Trabalho',
+  // Staff
+  attacking: 'Ataque',
+  business: 'Negócios',
+  coaching: 'Treinar',
+  coaching_gks: 'Treinar GR',
+  coaching_technique: 'Treinar Técnica',
+  directness: 'Jogo Directo',
+  discipline: 'Disciplina',
+  free_roles: 'Funções Livres',
+  interference: 'Interferência',
+  judgement: 'Avaliar Jogadores',
+  judging_potential: 'Avaliar Potencial',
+  man_handling: 'Gestão Humana',
+  motivating: 'Motivação',
+  offside: 'Fora de Jogo',
+  patience: 'Paciência',
+  physiotherapy: 'Fisioterapia',
+  pressing: 'Pressing',
+  resources: 'Recursos',
+  tactics: 'Táctica',
+  youngsters: 'Jovens',
 }
 
 export const POSITION_LABELS: Record<string, string> = {

@@ -11,6 +11,7 @@ import Loading from '../components/Loading'
 import { ErrorBox } from '../components/Screen'
 import { useGame } from '../game'
 import ClubDialog from './editor/ClubDialog'
+import StaffPanel from './editor/StaffPanel'
 import CommandDialog from './editor/CommandDialog'
 import { BOX, LABELS, POS_LEFT, POS_RIGHT, POSITION_LABELS, TAB } from './editor/editorText'
 import { AttributeRow, DateField, Header, NationSelect, NumField } from './editor/Fields'
@@ -19,7 +20,7 @@ import { AttributeRow, DateField, Header, NationSelect, NumField } from './edito
 // edita os atributos pelo valor de 1 a 20 que o jogo mostra. O core converte para o valor
 // guardado (ao lado, só de leitura); os atributos ocultos vão a branco, como no editor do CM.
 
-type Kind = 'players' | 'clubs'
+type Kind = 'players' | 'staff' | 'clubs'
 type Tab = 'data' | 'attr1' | 'attr2' | 'contract'
 type Sub = 'details' | 'unhappy' | 'club'
 
@@ -82,10 +83,16 @@ export default function EditorPage() {
 
   const search = async () => {
     if (!file) return
-    const found = await run(() => (kind === 'players' ? api.editorSearch(file, query) : api.editorSearchClubs(file, query)))
+    const found = await run(() =>
+      kind === 'players'
+        ? api.editorSearch(file, query)
+        : kind === 'staff'
+          ? api.editorSearchStaff(file, query)
+          : api.editorSearchClubs(file, query),
+    )
     if (found) {
       setHits(found)
-      setNotice(found.length ? null : kind === 'players' ? 'Nenhum jogador encontrado.' : 'Nenhum clube encontrado.')
+      setNotice(found.length ? null : kind === 'clubs' ? 'Nenhum clube encontrado.' : 'Ninguém encontrado.')
     }
   }
 
@@ -104,6 +111,11 @@ export default function EditorPage() {
     if (kind === 'clubs') {
       setSelected(id)
       setClubOpen(id)
+      return
+    }
+    if (kind === 'staff') {
+      setSelected(id)
+      setNotice(null)
       return
     }
     const both = await run(() => Promise.all([api.editorPlayer(file, id), api.editorProfile(file, id)]))
@@ -138,7 +150,7 @@ export default function EditorPage() {
         api.editorSetAttributes(
           file,
           player.id,
-          changes.map((a) => ({ key: a.key, value: draft[a.key] })),
+          changes.map((a) => ({ key: a.key, value: draft[a.key] ?? a.shown })),
         ),
       )
       if (!p) return
@@ -172,7 +184,10 @@ export default function EditorPage() {
   const pasteAttributes = () => {
     if (!player || !clip) return
     const next: Record<string, number> = {}
-    for (const a of player.attributes) if (clip.values[a.key] !== undefined) next[a.key] = clip.values[a.key]
+    for (const a of player.attributes) {
+      const v = clip.values[a.key]
+      if (v !== undefined) next[a.key] = v
+    }
     setDraft(next)
     setNotice(`Atributos de ${clip.name} colados: Actualizar Jogador grava-os.`)
   }
@@ -291,15 +306,17 @@ export default function EditorPage() {
               >
                 <input
                   className="cm-field h-7 text-[14px]"
-                  placeholder={kind === 'players' ? 'Nome do jogador' : 'Nome do clube'}
+                  placeholder={
+                    kind === 'players' ? 'Nome do jogador' : kind === 'staff' ? 'Nome do treinador, olheiro...' : 'Nome do clube'
+                  }
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
                 <div className="flex flex-col gap-0.5 text-[14px] text-white">
-                  {(['players', 'clubs'] as Kind[]).map((k) => (
+                  {(['players', 'staff', 'clubs'] as Kind[]).map((k) => (
                     <label key={k} className="flex items-center gap-2">
                       <input type="radio" checked={kind === k} onChange={() => (setKind(k), reset())} />
-                      {k === 'players' ? 'Jogadores' : 'Clubes'}
+                      {k === 'players' ? 'Jogadores' : k === 'staff' ? 'Staff' : 'Clubes'}
                     </label>
                   ))}
                 </div>
@@ -321,7 +338,15 @@ export default function EditorPage() {
               </button>
             </div>
             <div className="min-w-0 flex-1">
-              {kind === 'clubs' ? (
+              {kind === 'staff' ? (
+                selected !== null ? (
+                  <StaffPanel file={file} id={selected} run={run} />
+                ) : (
+                  <div className="p-8 text-center text-cm-lilac">
+                    Procure um treinador, olheiro ou fisioterapeuta pelo nome (ou deixe vazio para os melhores) e escolha-o na lista.
+                  </div>
+                )
+              ) : kind === 'clubs' ? (
                 <div className="p-8 text-center text-cm-lilac">
                   Procure um clube pelo nome e escolha-o na lista: abre o diálogo Editar Clube.
                 </div>
@@ -388,8 +413,8 @@ export default function EditorPage() {
                             {POS_LEFT.map((k) => (
                               <NumField
                                 key={k}
-                                label={POSITION_LABELS[k]}
-                                value={pd.positions[profile.positionKeys.indexOf(k)]}
+                                label={POSITION_LABELS[k] ?? k}
+                                value={pd.positions[profile.positionKeys.indexOf(k)] ?? 1}
                                 min={1}
                                 max={20}
                                 width="w-16"
@@ -407,8 +432,8 @@ export default function EditorPage() {
                             {POS_RIGHT.map((k) => (
                               <NumField
                                 key={k}
-                                label={POSITION_LABELS[k]}
-                                value={pd.positions[profile.positionKeys.indexOf(k)]}
+                                label={POSITION_LABELS[k] ?? k}
+                                value={pd.positions[profile.positionKeys.indexOf(k)] ?? 1}
                                 min={1}
                                 max={20}
                                 width="w-16"

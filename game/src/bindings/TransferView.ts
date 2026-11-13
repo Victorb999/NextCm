@@ -53,4 +53,9 @@ future: Array<string>,
 /**
  * Possíveis Despesas: os prémios do contrato que o clube pode ter de pagar.
  */
-expenses: Array<string>, };
+expenses: Array<string>, 
+/**
+ * Os Comentários do agente na proposta de transferência (FM08): o que o clube procura, a
+ * cláusula, o prazo e os extras. Vazio para os do treinador e os livres.
+ */
+comments: Array<string>, };

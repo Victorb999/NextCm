@@ -83,14 +83,17 @@ export const DEFAULT_SETTINGS: Settings = {
 }
 
 /** Volume dos sons da partida. */
-export const VOLUMES: { key: string; label: string }[] = [
+/** Uma lista com pelo menos um item: o `[0]` das listas de opções existe sempre. */
+export type NonEmpty<T> = [T, ...T[]]
+
+export const VOLUMES: NonEmpty<{ key: string; label: string }> = [
   { key: '0.25', label: '25%' },
   { key: '0.5', label: '50%' },
   { key: '0.75', label: '75%' },
   { key: '1', label: '100%' },
 ]
 
-export const AUTOSAVES: { key: AutoSave; label: string }[] = [
+export const AUTOSAVES: NonEmpty<{ key: AutoSave; label: string }> = [
   { key: 'off', label: 'Desligada' },
   { key: 'weekly', label: 'Semanal' },
   { key: 'monthly', label: 'Mensal' },
@@ -106,7 +109,7 @@ export function autosaveDue(mode: AutoSave, before: string, after: string) {
 }
 
 /** "Velocidade Comentário" do CM: quanto fica cada frase do relato no ecrã. */
-export const MATCH_SPEEDS: { key: MatchSpeed; label: string; ms: number }[] = [
+export const MATCH_SPEEDS: NonEmpty<{ key: MatchSpeed; label: string; ms: number }> = [
   { key: 'veryFast', label: 'Muito Rápida', ms: 60 },
   { key: 'fast', label: 'Rápida', ms: 200 },
   { key: 'normal', label: 'Média', ms: 550 },
@@ -115,7 +118,7 @@ export const MATCH_SPEEDS: { key: MatchSpeed; label: string; ms: number }[] = [
 ]
 
 /** Tamanhos da janela, todos em 16:9 (a proporção do layout). */
-export const RESOLUTIONS: { key: Resolution; label: string; width: number; height: number }[] = [
+export const RESOLUTIONS: NonEmpty<{ key: Resolution; label: string; width: number; height: number }> = [
   { key: '1280x720', label: '1280 x 720', width: 1280, height: 720 },
   { key: '1366x768', label: '1366 x 768', width: 1366, height: 768 },
   { key: '1600x900', label: '1600 x 900', width: 1600, height: 900 },
@@ -123,20 +126,20 @@ export const RESOLUTIONS: { key: Resolution; label: string; width: number; heigh
 ]
 
 /** Moedas como no CM; o banco está em euros. Câmbio aproximado do início da época 25/26. */
-export const CURRENCIES: { key: Currency; label: string; symbol: string; rate: number }[] = [
+export const CURRENCIES: NonEmpty<{ key: Currency; label: string; symbol: string; rate: number }> = [
   { key: 'EUR', label: '€uro', symbol: '€', rate: 1 },
   { key: 'GBP', label: 'Libra', symbol: '£', rate: 0.86 },
   { key: 'USD', label: 'Dólar', symbol: '$', rate: 1.17 },
   { key: 'BRL', label: 'Real', symbol: 'R$', rate: 6.3 },
 ]
 
-export const WAGES: { key: WagePeriod; label: string; suffix: string; long: string; factor: number }[] = [
+export const WAGES: NonEmpty<{ key: WagePeriod; label: string; suffix: string; long: string; factor: number }> = [
   { key: 'week', label: 'Semanais', suffix: 'p/s', long: 'por semana', factor: 1 },
   { key: 'month', label: 'Mensais', suffix: 'p/m', long: 'por mês', factor: 52 / 12 },
   { key: 'year', label: 'Anuais', suffix: 'p/a', long: 'por ano', factor: 52 },
 ]
 
-export const FONTS: { key: TitleFont; label: string; family: string }[] = [
+export const FONTS: NonEmpty<{ key: TitleFont; label: string; family: string }> = [
   { key: 'inter', label: 'Inter', family: 'Inter, "Segoe UI", sans-serif' },
   { key: 'futurista', label: 'Futurista', family: '"Trebuchet MS", Tahoma, sans-serif' },
   { key: 'classica', label: 'Clássica', family: 'Tahoma, Verdana, sans-serif' },
@@ -153,7 +156,7 @@ export const FONTS: { key: TitleFont; label: string; family: string }[] = [
 ]
 
 /** Letra do texto (listas, tabelas, botões): só as que se leem bem em 13 px. */
-export const TEXT_FONTS: { key: TextFont; label: string; family: string }[] = [
+export const TEXT_FONTS: NonEmpty<{ key: TextFont; label: string; family: string }> = [
   { key: 'inter', label: 'Inter', family: 'Inter, Tahoma, sans-serif' },
   { key: 'tahoma', label: 'Tahoma (CM)', family: 'Tahoma, Verdana, sans-serif' },
   { key: 'googleSans', label: 'Google Sans', family: '"Google Sans", Tahoma, sans-serif' },
@@ -165,7 +168,7 @@ export const TEXT_FONTS: { key: TextFont; label: string; family: string }[] = [
 ]
 
 /** Os temas (item 22 do 3.19.1): a paleta vem de index.css, a coluna esquerda daqui. */
-export const THEMES: { key: Theme; label: string; side: string }[] = [
+export const THEMES: NonEmpty<{ key: Theme; label: string; side: string }> = [
   { key: 'coalizao', label: 'Coalizão', side: '#45526a' },
   { key: 'dracula', label: 'Dracula', side: '#3b3e54' },
   { key: 'monokai', label: 'Monokai', side: '#3e3d32' },
@@ -173,7 +176,7 @@ export const THEMES: { key: Theme; label: string; side: string }[] = [
 ]
 
 /** As outras cores da coluna esquerda (por defeito, a do tema). */
-export const SIDE_PRESETS: { label: string; colour: string }[] = [
+export const SIDE_PRESETS: NonEmpty<{ label: string; colour: string }> = [
   { label: 'Azul CM', colour: '#24448a' },
   { label: 'Grafite', colour: '#434343' },
   { label: 'Verde', colour: '#2e5c3a' },

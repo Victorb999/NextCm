@@ -8,6 +8,7 @@ mod club;
 mod competition;
 pub mod date;
 mod editor;
+mod editor_staff;
 mod engine;
 pub mod finance;
 mod game;
@@ -35,6 +36,8 @@ pub use editor::{
     set_profile as editor_set_profile, squad as editor_squad,
 };
 pub use editor::{player as editor_player, search as editor_search, set_attributes as editor_set_attributes};
+pub use editor_staff::{EditorJob, EditorStaff, EditorStaffData};
+pub use editor_staff::{search as editor_search_staff, set_staff as editor_set_staff, staff as editor_staff};
 pub use engine::{TeamStrength, expected_goals};
 pub use finance::{ClubFinances, FinanceRow};
 pub use game::ContractExtras;

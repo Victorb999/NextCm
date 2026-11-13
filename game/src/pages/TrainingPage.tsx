@@ -197,11 +197,11 @@ export default function TrainingPage() {
           label={filter.line || filter.side || filter.avail ? 'Filtrar ✓' : 'Filtrar'}
           options={FILTER_OPTIONS}
           checked={(key) => {
-            const [group, value] = key.split(':')
+            const [group, value = ''] = key.split(':')
             return group === 'line' ? filter.line === value : group === 'side' ? filter.side === value : filter.avail === value
           }}
           onChange={(key) => {
-            const [group, value] = key.split(':')
+            const [group, value = ''] = key.split(':')
             setFilter((f) =>
               group === 'line'
                 ? { ...f, line: value }

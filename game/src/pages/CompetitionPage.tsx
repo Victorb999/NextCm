@@ -262,7 +262,7 @@ function startRound(rounds: [string, Fixture[]][]) {
 
 /** ◀ jornada ▶, para o Calendário e o painel ao lado da classificação. */
 function RoundPicker({ rounds, index, onChange }: { rounds: [string, Fixture[]][]; index: number; onChange: (i: number) => void }) {
-  const [name, games] = rounds[index]
+  const [name, games] = rounds[index] ?? ['', []]
   return (
     <span className="flex items-center gap-1.5">
       <button className="cm-purple h-6 w-8 px-0" disabled={index <= 0} onClick={() => onChange(index - 1)} aria-label="Jornada anterior">
@@ -302,7 +302,7 @@ function RoundPanel({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
   return (
     <Panel title="Jornada" right={<RoundPicker rounds={rounds} index={i} onChange={setIndex} />} className="min-h-0 flex-1">
       <div className="cm-zebra min-h-0 flex-1 overflow-auto">
-        {rounds[i][1].map((f) => (
+        {(rounds[i]?.[1] ?? []).map((f) => (
           <div key={f.id} className="flex h-[30px] items-center gap-2 px-3 text-[14px]">
             <div className="min-w-0 flex-1">{name(f.home, 'text-right')}</div>
             <span className="w-12 shrink-0 text-center font-bold tabular-nums text-cm-magenta">
@@ -320,6 +320,7 @@ function RoundPanel({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
 function Stages({ c, stages, fixtures, own }: { c: CompetitionProfile; stages: StageView[]; fixtures: Fixture[]; own?: number }) {
   const [index, setIndex] = useState(stages.length - 1)
   const stage = stages[Math.min(index, stages.length - 1)]
+  if (!stage) return null
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       {stages.length > 1 && (
@@ -382,7 +383,7 @@ function Calendar({ fixtures, table, own }: { fixtures: Fixture[]; table: Standi
   return (
     <Panel title="Calendário" right={<RoundPicker rounds={rounds} index={i} onChange={setIndex} />} className="flex-1">
       <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
-        <RoundGames fixtures={rounds[i][1]} table={table} own={own} />
+        <RoundGames fixtures={rounds[i]?.[1] ?? []} table={table} own={own} />
       </div>
     </Panel>
   )

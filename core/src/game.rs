@@ -42,6 +42,7 @@ mod negotiation;
 mod new_game;
 mod news_links;
 mod numbers;
+mod offer_comments;
 mod personal_info;
 mod player_record;
 mod player_setup;
