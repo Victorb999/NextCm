@@ -1,0 +1,32 @@
+{
+  "brand": "NextCM",
+  "tagline": "01/02 · 25/26",
+  "brief": "Remake do Championship Manager 01/02 com os plantéis de 2025/26. O logo parte do N com relevo desenhado pelo utilizador: simples, nostálgico, funciona como ícone e dentro do jogo, com uma versão maior para a tela inicial.",
+  "adjectives": ["nostálgico", "simples", "direto", "competitivo"],
+  "criteria": "Lê-se aos 16 px, funciona numa cor, roxo e verde, geometria limpa e coerente.",
+  "mockups": ["app-icon", "favicon-tab", "website", "tshirt", "sticker", "social"],
+  "nav": ["Jogar", "Novidades", "Download"],
+  "brand_color": "#4F0BB4",
+  "greyscale": false,
+  "final": true,
+  "round": 4,
+  "designer": "NextCM",
+  "concepts": [
+    {
+      "name": "Fita",
+      "symbol": "simbolo-claro.svg",
+      "lockup": "horizontal-claro.svg",
+      "avatar": "icone.svg",
+      "symbol_on_tile": "simbolo-escuro.svg",
+      "symbol_on_dark": "simbolo-escuro.svg",
+      "lockup_on_dark": "horizontal-escuro.svg",
+      "idea": "O N com relevo a 45°, paralelo à diagonal: o verde só aparece nas hastes, como uma fita dobrada.",
+      "rationale": [
+        "Nasce do desenho do utilizador, com a geometria acertada",
+        "Um vetor de relevo só: a luz vem sempre do mesmo lado",
+        "O N é a primeira letra do nome, por isso ícone e lockup são a mesma peça"
+      ]
+    }
+  ],
+  "recommendation": "Fita: o ícone na app e no jogo, o horizontal no site e a versão com a data na tela inicial."
+}

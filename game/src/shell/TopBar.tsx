@@ -1,12 +1,12 @@
 import { Play } from 'lucide-react'
-import { partLabel } from '../format'
+import { partLabel, ymd } from '../format'
 import { useGame } from '../game'
 import { START_DATE, WEEKDAYS } from './types'
 
 /** "2032-02-23" -> "Segunda-Feira 23.2.32", como a data do CM. */
 function barDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  const weekday = WEEKDAYS[new Date(y, m - 1, d).getDay()]
+  const [y, m, d] = ymd(iso)
+  const weekday = WEEKDAYS[new Date(y, m - 1, d).getDay()] ?? ''
   const day = weekday.endsWith('o') ? weekday : `${weekday}-Feira`
   return `${day} ${d}.${m}.${String(y).slice(2)}`
 }
@@ -19,11 +19,8 @@ export default function TopBar({ onContinue, busy, label = 'Continuar Jogo' }: {
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-cm-line bg-cm-panel pr-2">
       {/* Por cima da coluna, com a mesma largura */}
-      <div className="flex h-full w-[150px] shrink-0 items-center gap-2 border-r border-cm-line pl-3">
-        <img src="/favicon.svg" alt="" className="size-7" />
-        <span className="font-title text-[17px] font-bold tracking-tight">
-          Next<span className="text-cm-mint">CM</span>
-        </span>
+      <div className="flex h-full w-[150px] shrink-0 items-center justify-center border-r border-cm-line">
+        <img src="/favicon.svg" alt="NextCM" className="size-8" />
       </div>
       <span className="font-bold text-cm-yellow">
         {barDate(info?.date ?? START_DATE)} {partLabel(info?.part ?? 0)}
