@@ -252,6 +252,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let g = Game::create(&path, &dir, &new, 31).unwrap();
         let today = g.date.clone();

@@ -529,6 +529,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 29).unwrap();
         // Um save que ficou sem a linha da direção (aconteceu num jogo do Botafogo)
@@ -559,6 +561,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 5).unwrap();
         let b = g.board_view().unwrap();

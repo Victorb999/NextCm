@@ -854,6 +854,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 7).unwrap();
         let squad = g.squad_unhappy().unwrap();
@@ -923,6 +925,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: false,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 11).unwrap();
         let squad = g.squad_unhappy().unwrap();
@@ -1025,6 +1029,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 7).unwrap();
         let squad = g.squad_unhappy().unwrap();

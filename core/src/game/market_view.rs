@@ -205,6 +205,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 19).unwrap();
         for _ in 0..20 {
@@ -265,6 +267,8 @@ mod tests {
                 license: 0,
                 real_players: true,
                 masking: true,
+                experience: 0,
+                favourite_club: None,
             };
             let g = Game::create(&path, &dir, &new, 31).unwrap();
             let sql = g.unwilling_sql().unwrap().unwrap();

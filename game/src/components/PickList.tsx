@@ -13,18 +13,34 @@ export default function PickList({
   groups,
   onOpen,
   onSelect,
+  selectedId,
   empty = 'Nada para mostrar.',
 }: {
   groups: PickGroup[]
   onOpen: (item: PickItem) => void
   /** Avisado quando a seleção muda (clique ou setas). */
   onSelect?: (item: PickItem) => void
+  /** O item escolhido de fora (ex.: o Aleatório do Novo Jogo); a lista segue-o. */
+  selectedId?: number
   empty?: string
 }) {
-  const [selected, setSelected] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
   const flat = groups.flatMap((g) => g.items)
+  const [selected, setSelected] = useState(() =>
+    Math.max(
+      0,
+      flat.findIndex((i) => i.id === selectedId),
+    ),
+  )
   const current = flat[selected]
+
+  useEffect(() => {
+    const i = flat.findIndex((item) => item.id === selectedId)
+    if (selectedId === undefined || i < 0) return
+    if (i !== selected) setSelected(i)
+    ref.current?.querySelector(`[data-row="${i}"]`)?.scrollIntoView({ block: 'nearest' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId])
 
   useEffect(() => {
     if (current) onSelect?.(current)

@@ -261,6 +261,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: false,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 5).unwrap();
         let events: Vec<Event> = serde_json::from_str(EVENTS).unwrap();

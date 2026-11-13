@@ -30,4 +30,12 @@ realPlayers: boolean,
 /**
  * "Definição Atributos": com `false`, vêem-se os atributos de todos os jogadores.
  */
-masking: boolean, };
+masking: boolean, 
+/**
+ * A experiência passada (0 Nenhuma a 4 Jogador internacional), como no FM08.
+ */
+experience: number, 
+/**
+ * O clube do coração do treinador.
+ */
+favouriteClub: number | null, };

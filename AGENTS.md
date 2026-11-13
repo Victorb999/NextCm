@@ -22,6 +22,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/engine.rs` | Força das equipas, golos esperados (base do v2) e penáltis |
 | `core/src/regulation.rs`, `core/regulations/*.json` | Regulamentos das competições vivas: fases, participantes, datas por semana ISO (`w14` = fim de semana, `m15` = quarta), subidas e descidas |
 | `core/src/game/competitions.rs` | Sorteios, calendários por fase, eliminatórias, passagem de fase, campeões, vistas da Classificação |
+| `core/src/game/new_game.rs`, `game/src/pages/NewGamePage.tsx`, `pages/newgame/` | Novo Jogo em 2 passos (FM08): ficha do clube (`club_preview`), previsão dos media, experiência passada, clube do coração, primeiras mensagens e o assistente ao começar |
 | `core/src/game/season.rs` | Fim de época (20/12) e nova época (1/1), contratos, reformas, evolução do CA, juniores |
 | `core/src/game/regen.rs` | Jogadores criados pelo jogo (juniores e plantéis dos clubes pequenos) |
 | `core/src/finance.rs`, `core/src/game/finances.rs`, `core/economy.json` | Valor de mercado, salário pedido, receitas de referência (reais ou pela curva), receitas e despesas de cada clube (livro de contas) |

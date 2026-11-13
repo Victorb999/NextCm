@@ -11,6 +11,7 @@ use crate::{
 };
 
 use crate::CareerClub;
+use crate::ClubPreview;
 use crate::ContractExtras;
 use crate::FindResult;
 use crate::LeagueNation;
@@ -309,6 +310,11 @@ impl Session {
 
     pub fn release_player(&mut self, id: i32) -> Result<String> {
         self.game_mut()?.release_player(id)
+    }
+
+    /// A ficha de um clube no Novo Jogo (antes de criar o jogo).
+    pub fn club_preview(&self, id: i32) -> Result<ClubPreview> {
+        crate::club_preview(&self.world, id)
     }
 
     /// As nações do ecrã "Escolher Campeonato(s)" (antes de criar o jogo).
@@ -802,6 +808,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         s.new_game(&new).unwrap();
         s.save_as("Cópia".into(), false).unwrap();

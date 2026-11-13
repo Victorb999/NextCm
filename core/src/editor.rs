@@ -264,7 +264,7 @@ fn apply_values(world: &World, id: i32, values: &[EditorValue]) -> Result<()> {
 
 /// Os comandos do "Custom Command" do editor do CM que o NextCM tem (os da inscrição nas
 /// competições europeias ficam de fora: o jogo não as tem).
-pub const COMMANDS: [(&str, &str); 19] = [
+pub const COMMANDS: [(&str, &str); 20] = [
     ("train_willing", "Todos com vontade de treinar"),
     ("equalise", "Igualar capacidade ao potencial"),
     ("consistency", "Consistência a 20"),
@@ -284,6 +284,7 @@ pub const COMMANDS: [(&str, &str); 19] = [
     ("dislike_club", "Detestam o clube actual"),
     ("extend_contracts", "Prolongar os contratos 1 ano"),
     ("two_footed", "Todos com os dois pés"),
+    ("call_up", "Convocar para a selecção"),
 ];
 
 /// A reputação máxima de um jogador no banco.
@@ -401,6 +402,17 @@ pub fn command(saves: &Path, file: &str, ids: &[i32], commands: &[String], first
                     rusqlite::params![id, kind, t, liked],
                 )?;
             }
+        }
+        // "Call Up To National Squad": entra no plantel da selecção da sua nação (`national_team_id`,
+        // o plantel dela fora das janelas); a próxima convocatória do seleccionador decide de novo
+        if has("call_up") {
+            tx.execute(
+                "UPDATE people SET national_team_id = (SELECT c.id FROM clubs c WHERE c.is_national_team = 1
+                    AND c.nation_id = people.nation_id ORDER BY c.reputation DESC, c.id LIMIT 1)
+                 WHERE id = ? AND nation_id IS NOT NULL
+                   AND EXISTS (SELECT 1 FROM clubs c WHERE c.is_national_team = 1 AND c.nation_id = people.nation_id)",
+                [id],
+            )?;
         }
         tx.commit()?;
         if !values.is_empty() {
@@ -843,6 +855,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let g = Game::create(&path, &dir, &new, 7).unwrap();
         let file = g.path().file_name().unwrap().to_string_lossy().to_string();
@@ -966,6 +980,20 @@ mod tests {
         assert_eq!(command(&dir, &file, &ids[1..2], &["abilities_200".into()], false).unwrap(), 1);
         assert_eq!(profile(&dir, &file, ids[1]).unwrap().profile.ability, 200);
         assert!(profile(&dir, &file, ids[2]).unwrap().profile.ability < 200);
+        // Convocar para a selecção: fica no plantel da selecção da sua nação
+        assert_eq!(command(&dir, &file, &ids[2..3], &["call_up".into()], false).unwrap(), 1);
+        let w = World::open_save(&dir.join(&file)).unwrap();
+        let (team, same): (Option<i32>, bool) = w
+            .conn
+            .query_row(
+                "SELECT p.national_team_id, (SELECT c.nation_id FROM clubs c WHERE c.id = p.national_team_id) = p.nation_id
+                 FROM people p WHERE p.id = ?",
+                [ids[2]],
+                |r| Ok((r.get(0)?, r.get::<_, Option<bool>>(1)?.unwrap_or(false))),
+            )
+            .unwrap();
+        assert!(team.is_some() && same, "{team:?}");
+        drop(w);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

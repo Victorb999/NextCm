@@ -367,6 +367,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 17).unwrap();
         g.world.conn.execute("UPDATE clubs SET cash = 500000000 WHERE id = ?", [PALMEIRAS]).unwrap();
@@ -436,6 +438,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 17).unwrap();
         // Um clube da Série A com estádio próprio (não o do Palmeiras), pequeno para a reputação

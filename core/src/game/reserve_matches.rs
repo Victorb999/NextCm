@@ -512,6 +512,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: false,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 31).unwrap();
         // Clubes com equipa B numa liga não têm reservas (Barcelona B, Bayern II); a Juventus tem

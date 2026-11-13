@@ -22,6 +22,7 @@ import type { ManagerStats } from './bindings/ManagerStats'
 import type { SquadAttributes } from './bindings/SquadAttributes'
 import type { SquadMore } from './bindings/SquadMore'
 import type { LeagueNation } from './bindings/LeagueNation'
+import type { ClubPreview } from './bindings/ClubPreview'
 import type { TalkLine } from './bindings/TalkLine'
 import type { TalkReaction } from './bindings/TalkReaction'
 import type { TalkView } from './bindings/TalkView'
@@ -143,6 +144,7 @@ export const api = {
   resign: () => call<string>('resign'),
   /** As nações do ecrã "Escolher Campeonato(s)". */
   leagueNations: () => call<LeagueNation[]>('league_nations'),
+  clubPreview: (id: number) => call<ClubPreview>('club_preview', { id }),
   /** O painel "Palestra" do jogo do treinador agora. */
   talkView: () => call<TalkView>('talk_view'),
   /** `person` = null fala à equipa toda. */

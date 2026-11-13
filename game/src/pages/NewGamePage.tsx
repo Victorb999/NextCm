@@ -1,19 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { GameInfo } from '../bindings/GameInfo'
 import type { LeagueChoice } from '../bindings/LeagueChoice'
 import type { LeagueNation } from '../bindings/LeagueNation'
-import type { StartSeason } from '../bindings/StartSeason'
-import LeaguesStep from './LeaguesStep'
-import StartStep from './StartStep'
-import { api } from '../api'
 import type { NationOption } from '../bindings/NationOption'
 import type { NationProfile } from '../bindings/NationProfile'
-import { DialogFrame, DialogRow, Overlay } from '../components/Dialog'
-import { LICENSES } from '../format'
+import type { StartSeason } from '../bindings/StartSeason'
+import { api } from '../api'
+import { DialogFrame, Overlay } from '../components/Dialog'
 import Loading from '../components/Loading'
-import PickList, { type PickGroup, type PickItem } from '../components/PickList'
-import { useGame } from '../game'
-import { useNav } from '../nav'
 import { ErrorBox } from '../components/Screen'
+import { useGame } from '../game'
+import { useNav, type Screen } from '../nav'
+import { selectionOf } from '../selection'
+import LeaguesStep, { type GameOptions } from './LeaguesStep'
+import ManagerStep, { type ManagerForm } from './newgame/ManagerStep'
 
 /** "13.7.1990" -> "1990-07-13"; `null` se vazio, `undefined` se inválido. */
 function parseBirth(text: string): string | null | undefined {
@@ -27,44 +27,42 @@ function parseBirth(text: string): string | null | undefined {
   return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
-const FIELD = 'cm-field h-7 w-72 text-[15px]'
+const STEPS = ['Campeonatos', 'Treinador e Clube'] as const
 
-/** Máscara dd.mm.aaaa: só dígitos, com os pontos postos sozinhos. */
-function maskDate(text: string): string {
-  const d = text.replace(/\D/g, '').slice(0, 8)
-  return [d.slice(0, 2), d.slice(2, 4), d.slice(4)].filter(Boolean).join('.')
-}
-
-/** "Novo Jogo": as ligas, a época, os dados do treinador e o clube. */
+/**
+ * "Novo Jogo" em tela cheia e em 2 passos, como o do FM08: (1) os campeonatos e as opções do
+ * jogo; (2) os dados do treinador e o clube, com a ficha de cada um. No fim, o adjunto pergunta
+ * o que o treinador quer fazer primeiro.
+ */
 export default function NewGamePage() {
   const game = useGame()
   const nav = useNav()
-  const [step, setStep] = useState<'leagues' | 'start' | 'manager' | 'club'>('leagues')
+  const [step, setStep] = useState(0)
   const [season, setSeason] = useState<StartSeason>('europe')
+  const [saveName, setSaveName] = useState('Jogo 1')
   // "Escolher Campeonato(s)": por omissão o Brasil e a Inglaterra escolhidos, o resto de fundo
   const [leagueNations, setLeagueNations] = useState<LeagueNation[]>([])
   const [choices, setChoices] = useState<LeagueChoice[]>([])
+  const [options, setOptions] = useState<GameOptions>({ realPlayers: true, masking: true })
   const [nations, setNations] = useState<NationOption[]>([])
-  const [form, setForm] = useState({
-    saveName: 'Jogo 1',
+  const [form, setForm] = useState<ManagerForm>({
     firstName: '',
     lastName: '',
     birth: '',
-    nationId: null as number | null,
+    nationId: null,
     license: 0,
+    experience: 0,
+    favouriteClub: null,
   })
-  // "Jogadores Reais" e "Definição Atributos" do Escolher Campeonato(s)
-  const [options, setOptions] = useState({ realPlayers: true, masking: true })
+  const [profiles, setProfiles] = useState<Map<number, NationProfile>>(new Map())
   const [clubNation, setClubNation] = useState<number | null>(null)
-  const [nation, setNation] = useState<NationProfile | null>(null)
-  const [club, setClub] = useState<PickItem | null>(null)
+  const [club, setClub] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // O jogo criado, à espera da escolha no diálogo do adjunto
+  const [created, setCreated] = useState<GameInfo | null>(null)
   // O passo da criação (o core di-lo enquanto o newGame corre)
-  const [creation, setCreation] = useState<{
-    label: string
-    done: number
-  } | null>(null)
+  const [creation, setCreation] = useState<{ label: string; done: number } | null>(null)
   useEffect(() => {
     if (!busy) return
     const t = setInterval(() => {
@@ -77,215 +75,135 @@ export default function NewGamePage() {
   }, [busy])
 
   useEffect(() => {
+    // O nome por omissão: o primeiro "Jogo N" que ainda não existe
+    api.listSaves().then(
+      (saves) => {
+        const taken = new Set(saves.map((s) => s.name.toLowerCase()))
+        let n = 1
+        while (taken.has(`jogo ${n}`)) n++
+        setSaveName((s) => (s === 'Jogo 1' ? `Jogo ${n}` : s))
+      },
+      () => {},
+    )
     api.listNations().then(
       (list) => {
         setNations(list)
         const brazil = list.find((n) => n.name === 'Brazil')?.id ?? null
         setForm((f) => ({ ...f, nationId: f.nationId ?? brazil }))
-        setClubNation((c) => c ?? brazil)
       },
       (e) => setError(String(e)),
     )
-  }, [])
-
-  useEffect(() => {
-    if (clubNation !== null) api.getNation(clubNation).then(setNation, (e) => setError(String(e)))
-  }, [clubNation])
-
-  useEffect(() => {
     api.leagueNations().then(
       (list) => {
         setLeagueNations(list)
-        setChoices(
-          list.map((n) => ({
-            nationId: n.nationId,
-            mode: ['Brazil', 'England'].includes(n.name) ? 'play' : 'background',
-          })),
-        )
+        setChoices(list.map((n) => ({ nationId: n.nationId, mode: ['Brazil', 'England'].includes(n.name) ? 'play' : 'background' })))
       },
       (e) => setError(String(e)),
     )
   }, [])
+
   const playable = choices.filter((c) => c.mode === 'play').map((c) => c.nationId)
-  const calendarPlay = leagueNations.some((n) => n.calendar && playable.includes(n.nationId))
+
+  // Os clubes das nações escolhidas (a lista do passo 2 e o Clube do Coração)
+  useEffect(() => {
+    if (step !== 1) return
+    for (const id of playable) {
+      if (profiles.has(id)) continue
+      api.getNation(id).then(
+        (p) => setProfiles((m) => new Map(m).set(id, p)),
+        (e) => setError(String(e)),
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, playable.join(',')])
 
   const changeClubNation = (id: number) => {
-    setNation(null)
     setClub(null)
     setClubNation(id)
   }
 
-  // Clubes por divisão, como na tela da nação
-  const groups: PickGroup[] = useMemo(() => {
-    const map = new Map<string, PickGroup>()
-    for (const c of nation?.clubs ?? []) {
-      const key = c.division ?? 'Sem divisão'
-      if (!map.has(key)) map.set(key, { title: key, items: [] })
-      map.get(key)!.items.push({
-        id: c.club.id,
-        label: c.club.shortName,
-        detail: c.reputation ?? '',
-      })
-    }
-    return [...map.values()]
-  }, [nation])
-
-  const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }))
-
-  const next = () => {
-    if (!form.firstName.trim() || !form.lastName.trim()) return setError('Indique o nome e o apelido do treinador.')
-    if (!form.saveName.trim()) return setError('Escolha um nome para o jogo.')
-    if (parseBirth(form.birth) === undefined) return setError('Data de nascimento inválida (use dd.mm.aaaa).')
+  const toManager = () => {
+    if (playable.length === 0) return setError('Escolha pelo menos um campeonato para jogar.')
+    if (!saveName.trim()) return setError('Escolha um nome para o jogo.')
+    const calendar = leagueNations.some((n) => n.calendar && playable.includes(n.nationId))
+    if (!calendar) setSeason('europe')
+    // O clube escolhe-se numa nação escolhida
+    if (clubNation === null || !playable.includes(clubNation)) changeClubNation(playable[0])
     setError(null)
-    setStep('club')
+    setStep(1)
   }
 
-  const start = async (chosen: PickItem | null) => {
-    if (!chosen || busy) return
+  const start = async (clubId: number | null) => {
+    if (busy) return
+    if (!form.firstName.trim() || !form.lastName.trim()) return setError('Indique o nome e o sobrenome do treinador.')
+    if (parseBirth(form.birth) === undefined) return setError('Data de nascimento inválida (use dd.mm.aaaa).')
+    if (clubId === null) return setError('Escolha um clube.')
     setCreation(null)
     setBusy(true)
     setError(null)
     try {
       const info = await api.newGame({
-        saveName: form.saveName.trim(),
+        saveName: saveName.trim(),
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         birthDate: parseBirth(form.birth) ?? null,
         nationId: form.nationId,
-        clubId: chosen.id,
+        clubId,
         leagues: choices,
         start: season,
         license: form.license,
         realPlayers: options.realPlayers,
         masking: options.masking,
+        experience: form.experience,
+        favouriteClub: form.favouriteClub,
       })
-      game.update(info)
-      nav.go({ kind: 'news' })
+      setCreated(info)
     } catch (e) {
       setError(String(e))
-      setBusy(false)
     }
+    setBusy(false)
   }
 
-  const nationSelect = (value: number | null, onChange: (id: number) => void, only?: number[]) => (
-    <select className={FIELD} value={value ?? ''} onChange={(e) => onChange(Number(e.target.value))}>
-      {nations
-        .filter((n) => !only || only.includes(n.id))
-        .map((n) => (
-          <option key={n.id} value={n.id}>
-            {n.name}
-          </option>
-        ))}
-    </select>
-  )
+  // O assistente ao começar (FM08): o que o treinador quer fazer primeiro
+  const begin = async (choice: 'news' | 'auto' | 'squad' | 'search') => {
+    if (!created) return
+    try {
+      if (choice === 'auto') {
+        const t = await api.getClubTactics(created.club.id)
+        await api.setTactics({ ...selectionOf(t), auto: true })
+      }
+    } catch (e) {
+      setError(String(e))
+    }
+    const info = (await api.gameInfo().catch(() => null)) ?? created
+    game.update(info)
+    const route: Screen =
+      choice === 'squad' ? { kind: 'club', id: created.club.id } : choice === 'search' ? { kind: 'search' } : { kind: 'news' }
+    nav.go(route)
+  }
 
-  if (step === 'leagues') {
-    return (
-      <LeaguesStep
-        nations={leagueNations}
-        choices={choices}
-        onChange={setChoices}
-        options={options}
-        onOptions={setOptions}
-        onCancel={() => game.setMode('start')}
-        error={error}
-        onNext={() => {
-          if (playable.length === 0) return setError('Escolha pelo menos uma liga para jogar.')
-          setError(null)
-          // O clube escolhe-se numa nação escolhida
-          if (clubNation === null || !playable.includes(clubNation)) changeClubNation(playable[0])
-          if (!calendarPlay) setSeason('europe')
-          setStep('start')
-        }}
-      />
+  if (created) {
+    const option = (key: 'news' | 'auto' | 'squad' | 'search', label: string, hint: string) => (
+      <button
+        key={key}
+        onClick={() => void begin(key)}
+        className="flex h-14 w-full flex-col items-center justify-center rounded bg-[#01010199] font-title text-[21px] leading-tight hover:bg-[#010101cc]"
+      >
+        {label}
+        <span className="font-sans text-[12px] text-cm-dlgtext">{hint}</span>
+      </button>
     )
-  }
-
-  if (step === 'start') {
-    return (
-      <StartStep
-        value={season}
-        onChange={setSeason}
-        brazil={calendarPlay}
-        onCancel={() => setStep('leagues')}
-        onNext={() => setStep('manager')}
-      />
-    )
-  }
-
-  if (step === 'manager') {
     return (
       <Overlay>
-        <DialogFrame
-          title="Novo Jogo — Treinador"
-          width={860}
-          onCancel={() => setStep('start')}
-          cancelLabel="Atrás"
-          onOk={next}
-          okLabel="Seguinte"
-        >
-          <div className="flex gap-4">
-            <form
-              className="flex-1 space-y-2 py-1"
-              onSubmit={(e) => {
-                e.preventDefault()
-                next()
-              }}
-            >
-              <DialogRow label="Nome do Jogo">
-                <input className={FIELD} value={form.saveName} onChange={(e) => set({ saveName: e.target.value })} />
-              </DialogRow>
-              <DialogRow label="Nome">
-                <input autoFocus className={FIELD} value={form.firstName} onChange={(e) => set({ firstName: e.target.value })} />
-              </DialogRow>
-              <DialogRow label="Sobrenome">
-                <input className={FIELD} value={form.lastName} onChange={(e) => set({ lastName: e.target.value })} />
-              </DialogRow>
-              <DialogRow label="Data de Nascimento">
-                <input
-                  className={FIELD}
-                  placeholder="dd.mm.aaaa"
-                  inputMode="numeric"
-                  maxLength={10}
-                  value={form.birth}
-                  onChange={(e) => set({ birth: maskDate(e.target.value) })}
-                />
-              </DialogRow>
-              <DialogRow label="Nacionalidade">{nationSelect(form.nationId, (id) => set({ nationId: id }))}</DialogRow>
-              <DialogRow label="Qualificações">
-                <select className={FIELD} value={form.license} onChange={(e) => set({ license: Number(e.target.value) })}>
-                  {LICENSES.map((l, i) => (
-                    <option key={l} value={i}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </DialogRow>
-              <ErrorBox>{error}</ErrorBox>
-              <button type="submit" className="hidden" />
-            </form>
-            {/* Resumo do que já foi escolhido, como na maqueta do Novo Treinador */}
-            <div className="w-60 shrink-0 self-start rounded bg-black/40 px-3 py-2 text-[13px]">
-              <div className="pb-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-cm-orange">Resumo</div>
-              <div className="flex justify-between gap-2 py-0.5">
-                <span className="text-cm-dlgtext">Treinador</span>
-                <span className="truncate text-cm-yellow">{`${form.firstName} ${form.lastName}`.trim() || '-'}</span>
-              </div>
-              <div className="flex justify-between gap-2 py-0.5">
-                <span className="text-cm-dlgtext">Nacionalidade</span>
-                <span className="truncate text-cm-yellow">{nations.find((n) => n.id === form.nationId)?.name ?? '-'}</span>
-              </div>
-              <div className="flex justify-between gap-2 py-0.5">
-                <span className="text-cm-dlgtext">Época</span>
-                <span className="text-cm-yellow">{season === 'brazil' ? 'Brasil 2026' : 'Europa 26/27'}</span>
-              </div>
-              <div className="flex justify-between gap-2 py-0.5">
-                <span className="text-cm-dlgtext">Ligas escolhidas</span>
-                <span className="text-cm-yellow">{playable.length}</span>
-              </div>
-              <div className="pt-2 text-[12px] leading-snug text-cm-dlgtext">A seguir escolhe o clube, numa das ligas escolhidas.</div>
-            </div>
+        <DialogFrame title={`Bem-vindo ao ${created.club.shortName}`} width={520}>
+          <div className="pb-2 text-center text-[15px] text-white">O seu adjunto pergunta: o que quer fazer primeiro?</div>
+          <div className="space-y-2 pb-1">
+            {option('news', 'Ler as Mensagens', 'A Direcção, os media e o relatório do plantel')}
+            {option('auto', 'O Adjunto Escolhe a Equipa', 'Ele monta o onze e o banco na táctica do clube')}
+            {option('squad', 'Ver o Plantel', 'Os jogadores e os contratos')}
+            {option('search', 'Procurar Jogadores', 'A Pesquisa Avançada para o mercado')}
           </div>
+          <ErrorBox className="mt-2">{error}</ErrorBox>
         </DialogFrame>
       </Overlay>
     )
@@ -294,33 +212,58 @@ export default function NewGamePage() {
   return (
     <Overlay>
       <DialogFrame
-        title="Novo Jogo — Escolher Clube"
-        width={760}
+        title="Novo Jogo"
+        full
         header={
-          <div className="flex shrink-0 items-center gap-3 px-1 pt-2 text-white">
-            <span className="font-title text-[17px]">Nação</span>
-            {nationSelect(clubNation, changeClubNation, playable)}
-            <span className="flex-1 text-right font-title text-[17px] text-cm-yellow">
-              {club ? `Clube: ${club.label}` : 'Escolha um clube'}
-            </span>
+          <div className="flex shrink-0 items-center gap-1 pt-1.5">
+            {STEPS.map((label, i) => (
+              <div
+                key={label}
+                className={`flex h-8 flex-1 items-center gap-2 rounded px-3 font-title text-[18px] ${
+                  i === step ? 'bg-black/60 text-cm-yellow' : 'bg-black/25 text-cm-dlgtext'
+                }`}
+              >
+                <span className="font-mono text-[13px]">{i + 1}</span>
+                {label}
+              </div>
+            ))}
           </div>
         }
-        onCancel={() => setStep('manager')}
+        onCancel={() => (step === 0 ? game.setMode('start') : setStep(0))}
         cancelLabel="Atrás"
-        onOk={club ? () => void start(club) : undefined}
-        okLabel={busy ? 'A criar o jogo…' : 'Começar'}
+        onOk={step === 0 ? toManager : () => void start(club)}
+        okLabel={step === 0 ? 'Seguinte' : busy ? 'A criar o jogo…' : 'Começar'}
       >
-        <ErrorBox className="mb-2">{error}</ErrorBox>
-        <div className="flex h-[52vh] flex-col bg-black/40">
-          {nation && (
-            <PickList
-              key={nation.id}
-              groups={groups}
-              onSelect={setClub}
-              onOpen={(c) => void start(c)}
-              empty="Nenhum clube com liga nesta nação."
-            />
-          )}
+        <div className="flex h-full min-h-0 flex-col gap-2">
+          <ErrorBox className="shrink-0">{error}</ErrorBox>
+          <div className="min-h-0 flex-1">
+            {step === 0 ? (
+              <LeaguesStep
+                nations={leagueNations}
+                choices={choices}
+                onChange={setChoices}
+                options={options}
+                onOptions={setOptions}
+                season={season}
+                onSeason={setSeason}
+                saveName={saveName}
+                onSaveName={setSaveName}
+              />
+            ) : (
+              <ManagerStep
+                form={form}
+                onForm={(patch) => setForm((f) => ({ ...f, ...patch }))}
+                nations={nations}
+                playable={playable}
+                profiles={profiles}
+                clubNation={clubNation}
+                onClubNation={changeClubNation}
+                club={club}
+                onClub={setClub}
+                onStart={(id) => void start(id)}
+              />
+            )}
+          </div>
         </div>
       </DialogFrame>
       {busy && <Loading title="Novo Jogo" detail={creation?.label ?? 'A criar o jogo…'} progress={creation?.done ?? 0} />}

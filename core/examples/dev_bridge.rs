@@ -249,6 +249,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "day_competitions" => out(serde_json::to_value(session.day_competitions().map_err(e)?)),
         "resign" => out(serde_json::to_value(session.resign().map_err(e)?)),
         "league_nations" => out(serde_json::to_value(session.league_nations().map_err(e)?)),
+        "club_preview" => out(serde_json::to_value(session.club_preview(id()?).map_err(e)?)),
         "talk_view" => out(serde_json::to_value(session.talk_view().map_err(e)?)),
         "give_talks" => {
             let tone: String = serde_json::from_value(args["tone"].clone()).map_err(|e| e.to_string())?;

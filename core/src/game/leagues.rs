@@ -182,6 +182,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         // O clube do treinador tem de ser de uma liga escolhida
         assert!(Game::create(&path, &dir, &new, 3).is_err());

@@ -446,6 +446,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         (Game::create(world, &dir, &new, seed).unwrap(), dir)
     }
@@ -467,6 +469,8 @@ mod tests {
             license: 0,
             real_players: false,
             masking: false,
+            experience: 0,
+            favourite_club: None,
         };
         let g = Game::create(&world, &dir, &new, 5).unwrap();
         // Ninguém se chama Lucas Paquetá, e o nome inventado vem do Brasil

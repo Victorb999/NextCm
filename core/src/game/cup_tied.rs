@@ -73,6 +73,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 31).unwrap();
         g.date = "2025-10-01".into();

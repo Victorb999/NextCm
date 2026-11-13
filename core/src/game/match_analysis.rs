@@ -92,7 +92,7 @@ pub(super) fn outcome_odds(home: f64, away: f64) -> [f64; 3] {
 }
 
 /// O jornal desportivo da nação (as das ligas do jogo).
-fn paper_of(nation: &str) -> &'static str {
+pub(super) fn paper_of(nation: &str) -> &'static str {
     match nation {
         "Brazil" => "Lance!",
         "Portugal" => "A Bola",

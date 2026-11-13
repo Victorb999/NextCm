@@ -2630,6 +2630,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 3).unwrap();
         let id: i32 = g
@@ -2683,6 +2685,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 3).unwrap();
         g.world.conn.execute("UPDATE clubs SET cash = 200000000 WHERE id = ?", [PALMEIRAS]).unwrap();
@@ -2968,6 +2972,8 @@ Palmeiras fez uma nova proposta."
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 5).unwrap();
         let set = |g: &Game, id: i32, col: &str, v: i32| {
@@ -3040,6 +3046,8 @@ Palmeiras fez uma nova proposta."
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 31).unwrap();
         // Num clube, sem contrato nem salário (o Luca Crudo, "Jogador/Treinador" de um clube alemão)

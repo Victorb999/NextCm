@@ -343,6 +343,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 9).unwrap();
         let first = |sql: &str| g.world.conn.query_row(sql, [], |r| r.get::<_, i32>(0)).unwrap();

@@ -83,6 +83,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let g = Game::create(&path, &dir, &new, 3).unwrap();
         let at = |g: &Game, id: i32| -> (Option<i32>, i32, String) {

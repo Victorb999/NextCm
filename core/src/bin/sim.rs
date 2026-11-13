@@ -44,6 +44,8 @@ fn background(world: &Path, club_id: i32, seed: i64) {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
         let t = Instant::now();
@@ -87,6 +89,8 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         license: 0,
         real_players: true,
         masking: true,
+        experience: 0,
+        favourite_club: None,
     };
     let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
     let divisions = [(SERIE_A, "Série A"), (SERIE_B, "Série B"), (SERIE_C, "Série C"), (PREMIER_LEAGUE, "Premier League")];
@@ -191,6 +195,8 @@ fn training(world: &Path, club_id: i32, seed: i64, days: u32) {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
         let view = game.training_view().expect("treino");
@@ -274,6 +280,8 @@ fn economy(world: &Path, club_id: i32, seed: i64, months: i64) {
         license: 0,
         real_players: true,
         masking: true,
+        experience: 0,
+        favourite_club: None,
     };
     let mut game = Game::create(world, &dir, &new, seed).expect("não criou o jogo");
     let mut clubs = vec![1350, 4590, 10, 10929];
@@ -408,6 +416,8 @@ fn main() {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut game = Game::create(&world, &dir, &new, seed + s).expect("não criou o jogo");
         let created = t.elapsed();

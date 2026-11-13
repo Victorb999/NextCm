@@ -533,6 +533,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 37).unwrap();
         // Um clube da Série A com o treinador a zero de confiança: despedido no dia 1

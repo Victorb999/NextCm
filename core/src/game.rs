@@ -39,6 +39,7 @@ mod market;
 mod market_view;
 mod match_analysis;
 mod negotiation;
+mod new_game;
 mod news_links;
 mod numbers;
 mod personal_info;
@@ -82,6 +83,7 @@ pub use market::TransferItem;
 pub use market_view::WorldTransfers;
 pub use match_analysis::{KeyMan, MatchAnalysis, MatchReview, Milestone};
 pub use negotiation::{DealTerms, LoanTerms};
+pub use new_game::{ClubPreview, club_preview};
 pub use news_links::NewsLink;
 pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
 pub use personal_info::PersonalInfo;
@@ -142,7 +144,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// (`stadiums.undersoil_heating`), do banco.
 /// 49: as instruções individuais são da posição na táctica (`player_orders.slot`).
 /// 50: o telhado, o estádio próprio, o dia do jogo e a assistência dos clubes, do banco.
-pub const SAVE_VERSION: i32 = 57;
+pub const SAVE_VERSION: i32 = 58;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -265,6 +267,9 @@ const PROVOKE_SCHEMA: &str = "ALTER TABLE press ADD COLUMN provoked INTEGER NOT 
 
 /// Qualificações do treinador (save 35): 0 Nenhuma a 4 Licença Pro.
 const LICENSE_SCHEMA: &str = "ALTER TABLE manager_info ADD COLUMN license INTEGER NOT NULL DEFAULT 0;";
+
+/// A experiência passada do treinador (save 58): 0 Nenhuma a 4 Jogador internacional.
+const EXPERIENCE_SCHEMA: &str = "ALTER TABLE manager_info ADD COLUMN experience INTEGER NOT NULL DEFAULT 0;";
 
 /// Reservas (save 21).
 const RESERVES_SCHEMA: &str = "ALTER TABLE player_state ADD COLUMN reserve INTEGER NOT NULL DEFAULT 0;";
@@ -536,6 +541,12 @@ pub struct NewGame {
     /// "Definição Atributos": com `false`, vêem-se os atributos de todos os jogadores.
     #[serde(default = "yes")]
     pub masking: bool,
+    /// A experiência passada (0 Nenhuma a 4 Jogador internacional), como no FM08.
+    #[serde(default)]
+    pub experience: i32,
+    /// O clube do coração do treinador.
+    #[serde(default)]
+    pub favourite_club: Option<i32>,
 }
 
 fn yes() -> bool {
@@ -785,6 +796,7 @@ impl Game {
             tx.execute_batch(training::TRAINING_SCHEMA)?;
             tx.execute_batch(contract_extras::EXTRAS_SCHEMA)?;
             tx.execute_batch(LICENSE_SCHEMA)?;
+            tx.execute_batch(EXPERIENCE_SCHEMA)?;
             tx.execute_batch(DAY_PARTS_SCHEMA)?;
             tx.execute_batch(PROVOKE_SCHEMA)?;
             tx.execute_batch(MASKING_SCHEMA)?;
@@ -915,6 +927,8 @@ impl Game {
             game.board_setup()?;
             game.career_join(new.club_id)?;
             game.set_license(new.license)?;
+            game.set_experience(new.experience)?;
+            game.set_favourite_club(new.favourite_club)?;
             game.world.conn.execute("UPDATE game SET masking = ?", [new.masking])?;
             if !new.real_players {
                 crate::progress::set("A inventar os nomes dos jogadores…", 0.71);
@@ -923,6 +937,10 @@ impl Game {
             game.start_reserves()?;
             if new.start == StartSeason::Brazil {
                 game.play_to_brazil_start()?;
+            }
+            // As primeiras mensagens, como no FM08: a direcção, os media e o adjunto
+            for n in game.first_messages(new.favourite_club)? {
+                game.news.insert(0, n);
             }
             crate::progress::set("A gravar o jogo…", 0.98);
             game.save()?;
@@ -1283,6 +1301,12 @@ impl Game {
             world.conn.execute_batch(market::AGREEMENTS_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 57", [])?;
             version = 57;
+        }
+        // Save 58: a experiência passada do treinador (Novo Jogo, marco 4.0)
+        if version == 57 {
+            world.conn.execute_batch(EXPERIENCE_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 58", [])?;
+            version = 58;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -3207,6 +3231,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         }
     }
 
@@ -3227,11 +3253,15 @@ mod tests {
         assert_eq!(info.date, "2025-07-01");
         assert_eq!(info.manager_name, "Victor Araujo");
         assert_eq!(info.club.short_name, "Palmeiras");
-        // Boas-vindas, calendário da época de transição e os números do plantel
-        assert_eq!(info.unread_news, 3);
-        assert_eq!(g.news()[0].title, "Calendário 2025");
-        assert_eq!(g.news()[1].title, "Números do plantel");
-        assert!(g.news()[2].body.contains("Victor Araujo"));
+        // Boas-vindas, calendário da época de transição, os números do plantel e as primeiras
+        // mensagens (direcção, media e o relatório do adjunto)
+        assert_eq!(info.unread_news, 6);
+        assert_eq!(g.news()[0].title, "Relatório do plantel");
+        assert!(g.news()[1].title.starts_with("Previsão dos media"));
+        assert_eq!(g.news()[2].title, "Contrato e orçamentos");
+        assert_eq!(g.news()[3].title, "Calendário 2025");
+        assert_eq!(g.news()[4].title, "Números do plantel");
+        assert!(g.news()[5].body.contains("Victor Araujo"));
 
         // O treinador está no plantel técnico e o Abel Ferreira saiu
         let club = g.world().get_club(palmeiras).unwrap();

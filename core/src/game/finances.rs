@@ -397,6 +397,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 6).unwrap();
         let base = g.club_base(7568).unwrap();
@@ -447,6 +449,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 6).unwrap();
         let start = g.club_finances(7568).unwrap().cash;

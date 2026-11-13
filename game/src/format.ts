@@ -160,6 +160,9 @@ export function initials(name: string): string {
 /** As qualificações do treinador no Novo Jogo, pela ordem do core (0 a 4). */
 export const LICENSES = ['Nenhuma', 'Licença C', 'Licença B', 'Licença A', 'Licença Pro']
 
+/** A experiência passada do treinador (Novo Jogo), pela ordem do core (`EXPERIENCES`). */
+export const EXPERIENCES = ['Nenhuma', 'Jogador amador', 'Jogador semi-profissional', 'Jogador profissional', 'Jogador internacional']
+
 /**
  * Um texto do core (notícias, avisos) na moeda e no período de salários das Definições. O core
  * escreve sempre em euros ("€2,6M", "€266K", "€1.600") e os salários "por semana"; aqui cada

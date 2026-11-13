@@ -676,6 +676,8 @@ mod tests {
             license: 0,
             real_players: true,
             masking: true,
+            experience: 0,
+            favourite_club: None,
         };
         let mut g = Game::create(&path, &dir, &new, 5).unwrap();
         let (person, seller, other): (i32, i32, i32) = g

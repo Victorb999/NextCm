@@ -175,6 +175,9 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | **3.22** Economia moderna | Receitas reais por clube, folha e fundos de transferências a partir delas, fair-play financeiro, a IA a gastar como os clubes de hoje e a curva do valor suavizada, calibrado na CLI | Um clube grande compra e paga aos preços de hoje, e o City pode gastar centenas de milhões numa janela se vender, sem a economia rebentar em 10 épocas |
 | **3.23** Site do jogo | Landing page no GitHub Pages: prints reais, funcionalidades, sobre e o download do beta (sempre a última Release), no visual do CM | O site no ar, com prints reais e o botão a baixar o instalador mais recente |
 | **3.24** Mercado com vontades | As mesmas vontades do clube e do jogador para a IA e para o treinador (rivais, indispensáveis, listados, insatisfeitos), ritmo da janela e negócios grandes da IA em etapas | O Mbappé não vai do Real para o Barcelona por acaso, o dia 2 de julho muda de save para save e dá para entrar num negócio acordado |
+| **4.0** Pendências | Tudo o que ficou aberto na Fase 3 numa lista só, por dificuldade e impacto (substitui o 3.15c e o 3.19.1) | Os itens Fáceis de impacto Alto e Médio feitos |
+| **4.1** Reservas com o adjunto | O adjunto escala as reservas com coerência (posições, ritmo, sem quem jogou na véspera) e manda um relatório mensal de quem merece subir e de quem devia descer | Os onze das reservas fazem sentido jornada a jornada e o relatório mensal nomeia quem sobe e quem desce, com os números |
+| **4.2** Treinar uma selecção | Acumular uma selecção com o clube: convite pela reputação, candidatura ou Novo Jogo; convocatória, Tácticas e jogos ao vivo; a federação avalia; anfitriões em casa | O treinador aceita uma selecção sem largar o clube, convoca e joga uma janela FIFA, e as médias continuam na CLI |
 
 #### Detalhe de cada marco
 
@@ -216,6 +219,9 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 3.22 — Economia moderna (feito a 11/11, save 56)](docs/roadmap/3.22-economia-moderna.md)
 - [Marco 3.23 — Site do jogo no GitHub Pages (no ar em victorb999.github.io/NextCm)](docs/roadmap/3.23-site.md)
 - [Marco 3.24 — Mercado com vontades e em etapas (save 57)](docs/roadmap/3.24-mercado-com-vontades.md)
+- [Marco 4.0 — Pendências (a lista viva)](docs/roadmap/4.0-pendencias.md)
+- [Marco 4.1 — Reservas com o adjunto](docs/roadmap/4.1-reservas.md)
+- [Marco 4.2 — Treinar uma selecção](docs/roadmap/4.2-seleccoes.md)
 
 ---
 
