@@ -6,8 +6,9 @@ import { api } from '../api'
 import type { BoardConfidence } from '../bindings/BoardConfidence'
 import type { BoardLine } from '../bindings/BoardLine'
 import type { BoardRequest } from '../bindings/BoardRequest'
+import type { BoardView } from '../bindings/BoardView'
 import { BottomBar, ErrorBox, Link, Panel, ScreenHeader } from '../components/Screen'
-import { money, wage } from '../format'
+import { money, moneyStep, wage } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 
@@ -126,6 +127,70 @@ function LineText({ line }: { line: BoardLine }) {
   )
 }
 
+/** Equilibrar orçamentos (como no FM): uma barra entre os fundos de transferências e a folha
+ * semanal. Os limites e o custo vêm do core; ao largar a barra, o core grava. */
+function BudgetBalance({ onChange }: { onChange: () => void }) {
+  const game = useGame()
+  const [b, setB] = useState<BoardView | null>(null)
+  const [value, setValue] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  useLoad(
+    () => api.boardView(),
+    [],
+    (v) => {
+      setB(v)
+      setValue(v.wageShift)
+    },
+    setError,
+  )
+  if (!b || b.sacked) return null
+  const commit = async (shift: number) => {
+    if (shift === b.wageShift) return
+    try {
+      const v = await api.setWageShift(shift)
+      setB(v)
+      setValue(v.wageShift)
+      setError(null)
+      onChange()
+      const info = await api.gameInfo()
+      if (info) game.update(info)
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+  const moved = value - b.wageShift
+  const funds = b.transferBudget - moved * b.shiftWeeks
+  const wages = b.wageBudget + moved
+  const step = Math.max(100, moneyStep(b.wageBudget) / 5)
+  return (
+    <div className="flex shrink-0 flex-col gap-1 rounded-md bg-cm-surface px-4 py-2 font-mono text-[12px] uppercase tracking-wider text-cm-dim">
+      <div className="flex items-center justify-between">
+        <span>
+          Transferências: <b className="text-cm-mint">{money(funds) || '€0'}</b>
+        </span>
+        <span className="text-cm-orange">Equilibrar orçamentos</span>
+        <span>
+          Salários: <b className="normal-case text-white">{wage(wages)}</b>
+        </span>
+      </div>
+      <input
+        type="range"
+        className="cm-slider"
+        aria-label="Equilibrar orçamentos"
+        min={b.shiftMin}
+        max={b.shiftMax}
+        step={step}
+        value={value}
+        disabled={b.shiftMin >= b.shiftMax}
+        onChange={(e) => setValue(Number(e.target.value))}
+        onPointerUp={() => commit(value)}
+        onKeyUp={() => commit(value)}
+      />
+      {error && <span className="normal-case text-cm-red">{error}</span>}
+    </div>
+  )
+}
+
 export default function BoardPage() {
   const nav = useNav()
   useEscBack()
@@ -203,6 +268,7 @@ export default function BoardPage() {
             </span>
           </div>
         )}
+        {view && <BudgetBalance onChange={() => api.boardConfidence().then(setView, (e) => setError(String(e)))} />}
       </div>
       <BottomBar onLeft={nav.back} />
     </div>

@@ -22,10 +22,10 @@ use crate::{Result, date};
 /// Save 66: os prémios (`competition` 0 na Bola de Ouro; `rank` o lugar, 1 nos outros; `value`
 /// a nota média, os golos ou a pontuação).
 pub(super) const AWARDS_SCHEMA: &str = "
-CREATE TABLE awards (person_id INTEGER NOT NULL, date TEXT NOT NULL, competition INTEGER NOT NULL, kind TEXT NOT NULL,
+CREATE TABLE IF NOT EXISTS awards (person_id INTEGER NOT NULL, date TEXT NOT NULL, competition INTEGER NOT NULL, kind TEXT NOT NULL,
                      club INTEGER, rank INTEGER NOT NULL DEFAULT 1, value REAL);
-CREATE INDEX awards_person ON awards (person_id);
-CREATE INDEX awards_competition ON awards (competition, date);
+CREATE INDEX IF NOT EXISTS awards_person ON awards (person_id);
+CREATE INDEX IF NOT EXISTS awards_competition ON awards (competition, date);
 ";
 
 /// Jogos no mês para os prémios do mês (jogadores e treinador).

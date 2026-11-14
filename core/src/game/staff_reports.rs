@@ -99,12 +99,20 @@ impl Game {
         let pl = p.player.as_ref().ok_or_else(|| Error::Invalid("Só jogadores.".into()))?;
         let short = surname(&p.list_name).to_string();
         for &s in &chosen {
-            let (name, list_name, physio, coaching, judgement): (String, String, i32, i32, i32) = self.world.conn.query_row(
-                "SELECT p.display_name, p.list_name, COALESCE(np.physiotherapy, 10), COALESCE(np.coaching, 10), COALESCE(np.judgement, 10)
+            type Row = (String, String, Option<i32>, Option<i32>, Option<i32>, Option<i32>);
+            let (name, list_name, physio, coaching, judgement, ca): Row = self.world.conn.query_row(
+                "SELECT p.display_name, p.list_name, np.physiotherapy, np.coaching, np.judgement, np.current_ability
                  FROM people p LEFT JOIN non_players np ON np.person_id = p.id WHERE p.id = ?",
                 [s],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
             )?;
+            // Os três são relativos no banco: contam como o perfil os mostra (10 sem dados)
+            let shown = |v: Option<i32>| match (v, ca.filter(|c| (1..=200).contains(c))) {
+                (Some(v), Some(ca)) => crate::attributes::displayed(crate::attributes::initial_intrinsic(v, ca), ca, false),
+                (Some(v), None) => v,
+                (None, _) => 10,
+            };
+            let (physio, coaching, judgement) = (shown(physio), shown(coaching), shown(judgement));
             let who = surname(&list_name).to_string();
             // Um sorteio fixo por quem escreve, jogador e dia
             let day = crate::date::parse(&self.date).unwrap_or(0) as u64;

@@ -760,7 +760,7 @@ impl Game {
     /// A personalidade: o ambicioso que seria dos indispensáveis pede mais, o leal pede menos
     /// para renovar e mais para deixar o clube onde está.
     pub(super) fn demand(&self, person: i32, f: &Facts, role: usize, renewal: bool, free: bool) -> Result<Demand> {
-        let base = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.club_rep(self.club_id)?, f.age);
+        let base = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.wage_wealth(self.club_id)?, f.age);
         let year: u64 = self.date[0..4].parse().unwrap_or(0);
         let mut ask = base as f64 * (0.95 + 0.15 * uniform(&mut self.deal_rng(person, 0xDE3A ^ year)));
         let expected = self.expected_role(person, f)?;
@@ -1775,7 +1775,7 @@ Confirme até {}.",
             let until = self.execute_loan(o.person, self.club_id, o.buyer, &t)?;
             (format!("{name} emprestado"), format!("{name} vai jogar emprestado no {buyer} até {} ({}).", cm_date(&until), t.text()))
         } else {
-            let wage = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.club_rep(o.buyer)?, f.age);
+            let wage = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.wage_wealth(o.buyer)?, f.age);
             let years = contract_years(f.age, &mut self.deal_rng(o.person, 0x5A1E));
             let kind = self.kind_of(o.buyer)?;
             // Um dos valiosos: a direção e os adeptos não gostam (antes de ele sair)

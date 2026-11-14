@@ -114,8 +114,7 @@ impl Game {
         )?;
         let age = age_on(birth.as_deref(), birth_year, &self.date);
         let value = self.world.market_value_of(id, &self.date)?.unwrap_or(0);
-        let rep: i32 = self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
-        let ask = crate::finance::wage_demand(value.max(ca as i64 * 20_000), wage, rep, age);
+        let ask = crate::finance::wage_demand(value.max(ca as i64 * 20_000), wage, self.wage_wealth(club)?, age);
         self.world.conn.execute("UPDATE people SET wage = ? WHERE id = ?", params![ask.min(wage + room).max(wage), id])?;
         Ok(())
     }

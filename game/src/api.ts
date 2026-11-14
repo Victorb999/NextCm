@@ -189,6 +189,8 @@ export const api = {
   setTraining: (plan: TrainingPlan) => call<TrainingView>('set_training', { plan }),
   /** A direção do clube do treinador: expectativa, confiança e orçamentos. */
   boardView: () => call<BoardView>('board_view'),
+  /** Equilibrar orçamentos: quanto da folha semanal vem dos fundos de transferências (negativo: ao contrário). */
+  setWageShift: (shift: number) => call<BoardView>('set_wage_shift', { shift }),
   boardConfidence: () => call<BoardConfidence>('board_confidence'),
   boardRequests: () => call<BoardRequest[]>('board_requests'),
   /** Um pedido à direção; devolve a resposta. */

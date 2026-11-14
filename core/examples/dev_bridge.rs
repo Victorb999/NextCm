@@ -153,6 +153,10 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let key = args["key"].as_str().ok_or("falta key")?.to_string();
             out(serde_json::to_value(session.league_request(key).map_err(e)?))
         }
+        "set_wage_shift" => {
+            let shift = args["shift"].as_i64().ok_or("falta shift")?;
+            out(serde_json::to_value(session.set_wage_shift(shift).map_err(e)?))
+        }
         "board_request" => {
             let key = args["key"].as_str().ok_or("falta key")?.to_string();
             out(serde_json::to_value(session.board_request(key).map_err(e)?))

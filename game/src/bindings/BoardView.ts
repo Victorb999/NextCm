@@ -15,4 +15,13 @@ target: number, confidence: number, confidenceLabel: string, transferBudget: num
 /**
  * Folha salarial semanal permitida, a atual e o salário máximo de um jogador.
  */
-wageBudget: number, wageBill: number, maxWage: number, sacked: boolean, };
+wageBudget: number, wageBill: number, maxWage: number, sacked: boolean, 
+/**
+ * Equilibrar orçamentos (como no FM): o que passou dos fundos de transferências para a folha
+ * semanal (negativo: da folha para os fundos), e quanto pode ir de um lado para o outro.
+ */
+wageShift: number, shiftMin: number, shiftMax: number, 
+/**
+ * Quanto custa nos fundos €1 a mais por semana na folha (a pré-visualização da barra).
+ */
+shiftWeeks: number, };

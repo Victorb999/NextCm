@@ -118,6 +118,7 @@ session_command!(board_view() -> BoardView);
 session_command!(board_confidence() -> BoardConfidence);
 session_command!(board_requests() -> Vec<BoardRequest>);
 session_command!(board_request(key: String) -> String);
+session_command!(set_wage_shift(shift: i64) -> BoardView);
 session_command!(league_requests() -> Vec<BoardRequest>);
 session_command!(discipline_options(id: i32) -> DisciplineOptions);
 session_command!(discipline(id: i32, action: usize, reason: String) -> String);
@@ -365,6 +366,7 @@ pub fn run() {
             board_confidence,
             board_requests,
             board_request,
+            set_wage_shift,
             league_requests,
             discipline_options,
             discipline,

@@ -32,17 +32,27 @@ impl Game {
             params![since, self.date],
             |r| r.get(0),
         )?;
+        // A posição sai das notas de cada posição (`people.positions` é a máscara, um número)
         let rows: Vec<(i32, String, i32, Option<String>, Option<i32>)> = self
             .world
             .conn
             .prepare_cached(
-                "SELECT p.id, p.display_name, MAX(f.stars), p.positions, p.club_id
+                "SELECT p.id, p.display_name, MAX(f.stars), p.club_id,
+                        pl.pos_goalkeeper, pl.pos_sweeper, pl.pos_defender, pl.pos_defensive_midfielder,
+                        pl.pos_midfielder, pl.pos_attacking_midfielder, pl.pos_attacker, pl.pos_wing_back,
+                        pl.pos_right_side, pl.pos_left_side, pl.pos_central, pl.pos_free_role
                  FROM scout_finds f JOIN scout_tasks t ON t.slot = f.slot
                  JOIN people p ON p.id = f.person_id JOIN players pl ON pl.person_id = p.id
                  WHERE t.kind <> 'opponent' AND f.found >= ?1 AND f.found < ?2 AND f.stars >= ?3
                  GROUP BY p.id ORDER BY MAX(f.stars) DESC, pl.current_ability DESC, p.id",
             )?
-            .query_map(params![since, self.date, DIGEST_STARS], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+            .query_map(params![since, self.date, DIGEST_STARS], |r| {
+                let mut pos = [None; 12];
+                for (i, slot) in pos.iter_mut().enumerate() {
+                    *slot = r.get(4 + i)?;
+                }
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, Some(crate::search::position_label(&pos)), r.get(3)?))
+            })?
             .collect::<rusqlite::Result<_>>()?;
         if rows.is_empty() {
             return Ok(());
@@ -181,5 +191,54 @@ impl Game {
         fresh.push(self.news_item(*next_id, "message", format!("Relatório: {name}"), body));
         *next_id += 1;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn weekly_digest_names_the_position() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-olheiros-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Olheiros".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 7568,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        let mut g = Game::create(&path, &dir, &new, 5).unwrap();
+        // Uma segunda-feira, com um jogador de 5 estrelas encontrado na semana
+        while date::weekday(&g.date) != Some(1) {
+            g.date = date::add_days(&g.date, 1).unwrap();
+        }
+        let player: i32 =
+            g.world.conn.query_row("SELECT person_id FROM players ORDER BY current_ability DESC LIMIT 1", [], |r| r.get(0)).unwrap();
+        let found = date::add_days(&g.date, -2).unwrap();
+        g.world
+            .conn
+            .execute("INSERT OR REPLACE INTO scout_tasks (slot, scout_id, kind, started) VALUES (1, 0, 'search', ?)", [&found])
+            .unwrap();
+        g.world
+            .conn
+            .execute("INSERT INTO scout_finds (slot, person_id, found, stars) VALUES (1, ?, ?, 5)", rusqlite::params![player, found])
+            .unwrap();
+        let (mut fresh, mut id) = (Vec::new(), 9000);
+        g.scout_digest(&mut fresh, &mut id).unwrap();
+        let body = &fresh.last().expect("o relatório da semana").body;
+        assert!(body.contains("5 estrelas"), "{body}");
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

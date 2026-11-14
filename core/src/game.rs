@@ -62,6 +62,7 @@ mod scouting;
 mod season;
 mod shortlist;
 mod squad_view;
+mod staff_fill;
 mod staff_reports;
 mod start_loans;
 mod status_bar;
@@ -159,7 +160,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// 60: os amigáveis de clubes (competição 72, `friendly_apps`, `friendly_invites`), marco 4.0.
 /// 61: o CA no relatório mensal das reservas (`reserve_report_ca`), marco 4.1.
 /// 62: os golos esperados de cada jogo (`player_matches.xg`, `friendly_apps.xg`, `intl_apps.xg`), marco 4.3.
-pub const SAVE_VERSION: i32 = 66;
+pub const SAVE_VERSION: i32 = 68;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -843,6 +844,7 @@ impl Game {
             tx.execute_batch(player_record::XG_SCHEMA)?;
             tx.execute_batch(retirement::RETIREMENT_SCHEMA)?;
             tx.execute_batch(awards::AWARDS_SCHEMA)?;
+            tx.execute_batch(board::SHIFT_SCHEMA)?;
             // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
             let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
                 .prepare("SELECT id, cash, COALESCE(reputation, 0), division_id FROM clubs WHERE cash > 0")?
@@ -960,6 +962,7 @@ impl Game {
                 game.news.insert(0, n);
             }
             game.fit_start_wages()?;
+            game.fill_staff_attributes()?;
             crate::progress::set("A apresentar o treinador à Direcção…", 0.7);
             game.board_setup()?;
             game.career_join(new.club_id)?;
@@ -1393,6 +1396,23 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 66", [])?;
             version = 66;
         }
+        // Save 67: os salários de todas as idades como num jogo novo e os atributos do staff que o
+        // banco traz vazios, depois de abrir
+        let fill_v67 = version == 66;
+        if version == 66 {
+            world.conn.execute("UPDATE game SET version = 67", [])?;
+            version = 67;
+        }
+        // Save 68: equilibrar orçamentos (fundos ⇄ folha), como no FM
+        if version == 67 {
+            let has: i64 =
+                world.conn.query_row("SELECT COUNT(*) FROM pragma_table_info('board') WHERE name = 'wage_shift'", [], |r| r.get(0))?;
+            if has == 0 {
+                world.conn.execute_batch(board::SHIFT_SCHEMA)?;
+            }
+            world.conn.execute("UPDATE game SET version = 68", [])?;
+            version = 68;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1536,7 +1556,10 @@ impl Game {
             game.refresh_budgets()?;
             game.unsaved = true;
         }
-        if wages_v65 {
+        if fill_v67 {
+            game.fill_staff_attributes()?;
+        }
+        if wages_v65 || fill_v67 {
             game.fit_start_wages()?;
             if !game.sacked() {
                 game.refresh_budgets()?;

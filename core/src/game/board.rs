@@ -35,6 +35,10 @@ const MAX_WAGE_OVER_TOP: f64 = 1.25;
 const MAX_WAGE_SHARE: f64 = 0.1;
 /// Saldo negativo (sobre as receitas de uma época) a partir do qual a direção proíbe contratações.
 const NO_SIGNINGS_DEBT: f64 = 0.1;
+/// Equilibrar orçamentos: €1 a mais por semana na folha custa isto nos fundos (um ano de salário).
+pub(super) const SHIFT_WEEKS: i64 = 52;
+/// Save 68: o que o treinador passou dos fundos para a folha (por semana; negativo ao contrário).
+pub(super) const SHIFT_SCHEMA: &str = "ALTER TABLE board ADD COLUMN wage_shift INTEGER NOT NULL DEFAULT 0;";
 /// Vender um dos jogadores que a direção considera valiosos: confiança e adeptos que se perdem.
 const IDOL_CONFIDENCE: i32 = 5;
 const IDOL_FANS: i32 = 8;
@@ -97,6 +101,17 @@ pub struct BoardView {
     #[ts(type = "number")]
     pub max_wage: i64,
     pub sacked: bool,
+    /// Equilibrar orçamentos (como no FM): o que passou dos fundos de transferências para a folha
+    /// semanal (negativo: da folha para os fundos), e quanto pode ir de um lado para o outro.
+    #[ts(type = "number")]
+    pub wage_shift: i64,
+    #[ts(type = "number")]
+    pub shift_min: i64,
+    #[ts(type = "number")]
+    pub shift_max: i64,
+    /// Quanto custa nos fundos €1 a mais por semana na folha (a pré-visualização da barra).
+    #[ts(type = "number")]
+    pub shift_weeks: i64,
 }
 
 /// O que a direção espera de um clube na divisão dele, pela reputação: a posição alvo e o
@@ -190,7 +205,72 @@ impl Game {
             return Ok(0);
         }
         let funds = (cash - reserve + (SEASON_FUNDS * base) as i64).min(self.fair_play_spend(self.club_id)? as i64);
-        Ok(round_funds(funds))
+        Ok(round_funds((funds - self.wage_shift()? * SHIFT_WEEKS).max(0)))
+    }
+
+    /// O que o treinador passou dos fundos para a folha semanal (negativo: ao contrário).
+    fn wage_shift(&self) -> Result<i64> {
+        Ok(self.world.conn.query_row("SELECT wage_shift FROM board WHERE id = 1", [], |r| r.get(0)).optional()?.unwrap_or(0))
+    }
+
+    /// A folha permitida pela direção, sem a troca do treinador.
+    fn wage_allowed(&self, bill: i64) -> Result<i64> {
+        let base = self.club_base(self.club_id)?;
+        let grow = (bill as f64 * WAGE_GROWTH).max(base * WAGE_TARGET / 52.0);
+        Ok((grow.min(base * crate::finance::WAGE_SHARE / 52.0) as i64).max(bill))
+    }
+
+    fn wage_bill(&self) -> Result<i64> {
+        Ok(self.world.conn.query_row(
+            "SELECT COALESCE(SUM(wage), 0) FROM people WHERE club_id = ? AND is_player = 1",
+            [self.club_id],
+            |r| r.get(0),
+        )?)
+    }
+
+    /// Os limites da troca (por semana): para a folha, até aos fundos de hoje; para os fundos,
+    /// só a folga da folha (a folha permitida nunca fica abaixo da de hoje).
+    fn shift_limits(&self) -> Result<(i64, i64)> {
+        let shift = self.wage_shift()?;
+        let bill = self.wage_bill()?;
+        let funds = self.transfer_budget()?;
+        let max = shift + funds / SHIFT_WEEKS;
+        let min = (bill - self.wage_allowed(bill)?).min(shift);
+        Ok((min, max))
+    }
+
+    /// Equilibrar orçamentos (como no FM): o treinador escolhe quanto da folha semanal vem dos
+    /// fundos de transferências (€1 por semana custa €52 nos fundos), a qualquer momento, sem a
+    /// folha permitida ficar abaixo da de hoje nem os fundos abaixo de zero. Dura até à nova época.
+    pub fn set_wage_shift(&mut self, shift: i64) -> Result<BoardView> {
+        if self.sacked() {
+            return Err(crate::Error::Invalid("Sem clube, não há orçamentos.".into()));
+        }
+        let (min, max) = self.shift_limits()?;
+        let shift = shift.clamp(min, max);
+        let spent = (shift - self.wage_shift()?) * SHIFT_WEEKS;
+        self.world.conn.execute("UPDATE board SET wage_shift = ? WHERE id = 1", [shift])?;
+        // Os fundos mudam já (o que se gastou este mês continua gasto)
+        self.spend_budget(spent)?;
+        self.refresh_wage_budget()?;
+        self.unsaved = true;
+        self.board_view()
+    }
+
+    /// A folha permitida e o salário máximo, com a troca do treinador.
+    fn refresh_wage_budget(&mut self) -> Result<()> {
+        let bill = self.wage_bill()?;
+        let top: i64 = self.world.conn.query_row(
+            "SELECT COALESCE(MAX(wage), 0) FROM people WHERE club_id = ? AND is_player = 1",
+            [self.club_id],
+            |r| r.get(0),
+        )?;
+        let round = |v: i64| if v < 10_000 { v / 100 * 100 } else { v / 1000 * 1000 };
+        // Arredondada para baixo, mas nunca abaixo da folha de hoje
+        let wage_budget = round(self.wage_allowed(bill)? + self.wage_shift()?).max(bill);
+        let max_wage = ((top as f64 * MAX_WAGE_OVER_TOP).max(wage_budget as f64 * MAX_WAGE_SHARE)) as i64;
+        self.world.conn.execute("UPDATE board SET wage_budget = ?, max_wage = ? WHERE id = 1", params![wage_budget, round(max_wage)])?;
+        Ok(())
     }
 
     /// Dia 1 de cada mês: os fundos voltam a ser o saldo menos a reserva.
@@ -210,22 +290,9 @@ impl Game {
     /// Orçamentos de uma janela, pela situação financeira: os fundos, a folha permitida e um
     /// salário máximo por jogador.
     pub(super) fn refresh_budgets(&mut self) -> Result<()> {
-        let base = self.club_base(self.club_id)?;
-        let (bill, top): (i64, i64) = self.world.conn.query_row(
-            "SELECT COALESCE(SUM(wage), 0), COALESCE(MAX(wage), 0) FROM people WHERE club_id = ?1 AND is_player = 1",
-            [self.club_id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )?;
         let transfer = self.funds_now()?;
-        let grow = (bill as f64 * WAGE_GROWTH).max(base * WAGE_TARGET / 52.0);
-        let wage_budget = (grow.min(base * crate::finance::WAGE_SHARE / 52.0) as i64).max(bill);
-        let max_wage = ((top as f64 * MAX_WAGE_OVER_TOP).max(wage_budget as f64 * MAX_WAGE_SHARE)) as i64;
-        let round = |v: i64| if v < 10_000 { v / 100 * 100 } else { v / 1000 * 1000 };
-        self.world.conn.execute(
-            "UPDATE board SET transfer_budget = ?, wage_budget = ?, max_wage = ? WHERE id = 1",
-            params![transfer, round(wage_budget), round(max_wage)],
-        )?;
-        Ok(())
+        self.world.conn.execute("UPDATE board SET transfer_budget = ? WHERE id = 1", [transfer])?;
+        self.refresh_wage_budget()
     }
 
     pub fn board_view(&self) -> Result<BoardView> {
@@ -235,11 +302,8 @@ impl Game {
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get::<_, i32>(6)? != 0)),
             )?;
-        let wage_bill: i64 = self.world.conn.query_row(
-            "SELECT COALESCE(SUM(wage), 0) FROM people WHERE club_id = ? AND is_player = 1",
-            [self.club_id],
-            |r| r.get(0),
-        )?;
+        let wage_bill = self.wage_bill()?;
+        let (shift_min, shift_max) = if sacked { (0, 0) } else { self.shift_limits()? };
         Ok(BoardView {
             goal,
             target,
@@ -250,6 +314,10 @@ impl Game {
             wage_bill,
             max_wage,
             sacked,
+            wage_shift: self.wage_shift()?,
+            shift_min,
+            shift_max,
+            shift_weeks: SHIFT_WEEKS,
         })
     }
 
@@ -516,10 +584,12 @@ impl Game {
         }
         let (target, goal, division) = expectation(&self.world, self.club_id)?;
         let reserve = self.season_reserve()?;
-        self.world
-            .conn
-            .execute("UPDATE board SET goal = ?, target = ?, budget_reserve = ? WHERE id = 1", params![goal, target, reserve])?;
+        self.world.conn.execute(
+            "UPDATE board SET goal = ?, target = ?, budget_reserve = ?, wage_shift = 0 WHERE id = 1",
+            params![goal, target, reserve],
+        )?;
         self.sync_funds()?;
+        self.refresh_wage_budget()?;
         let league = division.map(|d| format!(" no {d}")).unwrap_or_default();
         let body = format!("Para a nova época, a Direcção espera que a equipa consiga {goal}{league}.");
         fresh.push(self.news_item(*next_id, "message", "Objectivos da época".into(), body));
@@ -593,6 +663,17 @@ mod tests {
         assert!(b.wage_budget as f64 >= b.wage_bill as f64 * 1.09, "{b:?}");
         assert!(b.wage_budget as f64 <= (base * crate::finance::WAGE_SHARE / 52.0).max(b.wage_bill as f64), "{b:?}");
         assert!(g.news().iter().any(|n| n.body.contains(&b.goal)), "a expectativa é a das boas-vindas");
+        // Equilibrar orçamentos: €1 por semana a mais na folha custa €52 nos fundos; a folha
+        // permitida nunca fica abaixo da de hoje
+        let shift = (b.shift_max / 2).max(1000);
+        let moved = g.set_wage_shift(shift).unwrap();
+        assert_eq!(moved.wage_shift, shift);
+        assert!((moved.transfer_budget - (b.transfer_budget - shift * SHIFT_WEEKS)).abs() <= 1000, "{moved:?}");
+        assert!(moved.wage_budget >= b.wage_budget + shift - 1000, "{moved:?}");
+        let back = g.set_wage_shift(i64::MIN / 2).unwrap();
+        assert!(back.wage_budget >= back.wage_bill && back.wage_shift == back.shift_min, "{back:?}");
+        assert!(back.shift_min == 0 || back.transfer_budget > b.transfer_budget, "{back:?} {b:?}");
+        g.set_wage_shift(0).unwrap();
 
         // Os fundos são metade do saldo acima de 10% das receitas mais 17% delas; as vendas voltam
         // inteiras e os gastos descontam

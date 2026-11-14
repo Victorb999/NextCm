@@ -586,6 +586,10 @@ impl Session {
         self.game()?.board_requests()
     }
 
+    pub fn set_wage_shift(&mut self, shift: i64) -> Result<BoardView> {
+        self.game_mut()?.set_wage_shift(shift)
+    }
+
     pub fn board_request(&mut self, key: String) -> Result<String> {
         self.game_mut()?.board_request(&key)
     }

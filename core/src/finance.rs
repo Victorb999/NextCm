@@ -56,12 +56,14 @@ pub const MIN_REVENUE: f64 = 900_000.0;
 /// O saldo de um clube no 1.º dia de um jogo novo, sobre o do banco: a mesma escala dos salários
 /// (o CM começa com ~3×).
 pub const START_CASH: f64 = WAGE_SCALE;
-/// No jogo novo, nenhum jovem (até `START_WAGE_AGE`) ganha mais do que este múltiplo do que
-/// pediria (`Game::fit_start_wages`); os mais velhos ficam com o salário do banco.
-pub const START_WAGE_SLACK: f64 = 2.0;
+/// No jogo novo, ninguém ganha mais do que este múltiplo do que pediria (`Game::fit_start_wages`):
+/// 1,5× até `START_WAGE_AGE` e 1,2× depois. O ×7 do banco acerta nas estrelas, mas exagera nos
+/// médios (o Alan Varela, 32.000 no banco, ficava com €11,6M por ano; ganha uns €2M).
+pub const START_WAGE_SLACK: f64 = 1.5;
+pub const START_WAGE_SLACK_SENIOR: f64 = 1.2;
 pub const START_WAGE_AGE: i32 = 23;
 /// O salário anual pedido sobre o valor de mercado, num clube médio e aos 24 anos ou mais.
-pub const VALUE_WAGE: f64 = 0.1;
+pub const VALUE_WAGE: f64 = 0.13;
 /// O saldo do 1.º dia fica até esta parte das receitas (o City do banco começaria com €805M).
 pub const START_CASH_CAP: f64 = 0.15;
 
@@ -88,10 +90,11 @@ pub const CONTINENTAL_PRIZES: f64 = 0.2;
 pub const CONTINENTAL_MATCH: f64 = 0.06;
 /// Despesas fixas: staff sobre a folha dos jogadores (entra no Salário), estádio sobre as receitas
 /// e o resto da operação (viagens, comercial, administração: ~25% das receitas no Real e no United
-/// de 2025) em Outros.
+/// de 2025) em Outros. Subiu de 15% para 25% quando os salários do banco desceram (14/11): a folha
+/// mediana caiu de ~55% para ~42% das receitas e os clubes enriqueciam.
 pub const STAFF_SHARE: f64 = 0.12;
 pub const STADIUM_SHARE: f64 = 0.04;
-pub const RUNNING_SHARE: f64 = 0.15;
+pub const RUNNING_SHARE: f64 = 0.25;
 /// Juros mensais de um saldo negativo e de um positivo (o Bayern do CM: ~€0,6M por mês com
 /// ~€220M no banco).
 pub const MONTHLY_INTEREST: f64 = 0.01;
@@ -124,6 +127,11 @@ pub fn revenue_curve(reputation: i32) -> f64 {
 struct Economy {
     leagues: HashMap<String, f64>,
     clubs: Vec<RealRevenue>,
+    /// Salário pedido × isto por liga e por clube (a cultura salarial, 4.0).
+    #[serde(default)]
+    wages: HashMap<String, f64>,
+    #[serde(default)]
+    wage_clubs: HashMap<String, f64>,
 }
 
 #[derive(Deserialize)]
@@ -144,13 +152,19 @@ pub fn league_weight(division: Option<i32>) -> f64 {
     division.and_then(|d| economy().leagues.get(&d.to_string()).copied()).unwrap_or(1.0)
 }
 
+/// Receitas de quem não está na tabela: no máximo as do 30.º da Money League (o Brentford, €206M).
+/// Quem fatura mais está na tabela; sem o limite, o Porto e o Sporting (reputação 7500) faturavam
+/// ~€340M, mais do que o Benfica (€283M).
+const OUTSIDE_TABLE_MAX: f64 = 206_000_000.0;
+
 /// Receitas de uma época normal de um clube: as reais (fora da divisão delas, vezes a razão dos
-/// pesos, para quem desce ou sobe) ou a curva por reputação vezes o peso da liga.
+/// pesos, para quem desce ou sobe) ou a curva por reputação vezes o peso da liga, até
+/// `OUTSIDE_TABLE_MAX`.
 pub fn club_revenue(club: i32, reputation: i32, division: Option<i32>) -> f64 {
     let weight = league_weight(division);
     match economy().clubs.iter().find(|c| c.id == club) {
         Some(c) => (c.revenue * 1e6 * weight / league_weight(Some(c.division))).max(MIN_REVENUE),
-        None => revenue_curve(reputation) * weight,
+        None => (revenue_curve(reputation) * weight).min(OUTSIDE_TABLE_MAX),
     }
 }
 
@@ -194,13 +208,31 @@ pub fn market_value(ca: i32, pa: i32, age: i32, player_rep: i32, league_rep: i32
     round_money(base * league * age_factor * rep * contract)
 }
 
+/// A riqueza do clube no salário pedido: as receitas de uma época do clube que paga (as reais da
+/// tabela, ou a curva pela reputação e pela liga) sobre `WAGE_REF_REVENUE`, elevadas a
+/// `WAGE_WEALTH`, entre `WAGE_WEALTH_RANGE`. É íngreme como na vida real: o Real (€1.161M) paga
+/// ~2,3× o pedido base, o United (€793M) 1,8×, a Roma (€216M) 0,71×, o Palmeiras (€177M) 0,62×.
+const WAGE_REF_REVENUE: f64 = 350_000_000.0;
+const WAGE_WEALTH: f64 = 0.7;
+const WAGE_WEALTH_RANGE: (f64, f64) = (0.4, 3.0);
+
 /// Salário semanal que um jogador pede: ~10% do valor por ano (os valores já são os de hoje, 3.22),
-/// ajustado à riqueza do clube que paga (um clube rico paga mais, até 2,5×) e à idade (o valor
+/// ajustado à riqueza do clube que paga (as receitas: o Real paga ~2,3×, a Roma 0,71×) e à idade (o valor
 /// de um jovem é sobretudo potencial: aos 19 pede 40%; o de um veterano cai mais depressa do que
 /// o salário: aos 31 pede 1,7×), e nunca menos de 10% acima do que ganha
-/// hoje. Um titular da Roma de €35M pede ~€6,7M por ano, o Bellingham do Real ~€25M, o Mora aos
+/// hoje. Um titular da Roma de €35M pede ~€3,2M por ano, o Bellingham do Real ~€30M, o Mora aos
 /// 19 anos com €48M ~€3,6M (os reais: Soulé ~€4,5M, Bellingham ~€20M, Mora ~€1,5M brutos).
-pub fn wage_demand(value: i64, current_wage: i64, club_rep: i32, age: i32) -> i64 {
+/// A riqueza de um clube no salário pedido: as receitas (ver `WAGE_REF_REVENUE`) vezes a cultura
+/// salarial da liga e as excepções por clube (`wages` e `wage_clubs` do economy.json: a Premier
+/// paga 1,15×, o Championship 1,4×, a La Liga 0,85×; os 4 do fundo saudita 3×).
+pub fn club_wealth(club: i32, revenue: f64, division: Option<i32>) -> f64 {
+    let e = economy();
+    let base = (revenue / WAGE_REF_REVENUE).powf(WAGE_WEALTH).clamp(WAGE_WEALTH_RANGE.0, WAGE_WEALTH_RANGE.1);
+    let league = division.and_then(|d| e.wages.get(&d.to_string()).copied()).unwrap_or(1.0);
+    base * league * e.wage_clubs.get(&club.to_string()).copied().unwrap_or(1.0)
+}
+
+pub fn wage_demand(value: i64, current_wage: i64, wealth: f64, age: i32) -> i64 {
     let youth = match age {
         ..=18 => 0.25,
         19 => 0.4,
@@ -217,7 +249,6 @@ pub fn wage_demand(value: i64, current_wage: i64, club_rep: i32, age: i32) -> i6
         _ => 2.3,
     };
     let by_value = value as f64 * VALUE_WAGE / 52.0 * youth;
-    let wealth = (typical_wage_bill(club_rep) / typical_wage_bill(6000)).powf(0.35).clamp(0.3, 2.5);
     let ask = (by_value * wealth).max(current_wage as f64 * 1.1).max(100.0 * WAGE_SCALE);
     round_wage(ask)
 }
@@ -345,14 +376,21 @@ mod tests {
     #[test]
     fn wage_demand_depends_on_value_and_club() {
         let v = 20_000_000;
-        assert!(wage_demand(v, 5_000, 9000, 26) > wage_demand(v, 5_000, 5000, 26));
-        assert!(wage_demand(v, 50_000, 5000, 26) >= 55_000, "nunca menos do que ganha + 10%");
-        assert!(wage_demand(0, 0, 3000, 26) >= 300);
+        let (rich, small, roma) = (club_wealth(-1, 800e6, None), club_wealth(-1, 20e6, None), club_wealth(8609, 216e6, Some(24)));
+        assert!(wage_demand(v, 5_000, rich, 26) > wage_demand(v, 5_000, small, 26));
+        assert!(wage_demand(v, 50_000, small, 26) >= 55_000, "nunca menos do que ganha + 10%");
+        assert!(wage_demand(0, 0, small, 26) >= 300);
         // Um jovem pede bem menos pelo mesmo valor
-        assert!(wage_demand(v, 5_000, 8000, 19) * 2 < wage_demand(v, 5_000, 8000, 26));
-        // O titular de €35M num clube como a Roma: €3–7M por ano
-        let year = wage_demand(35_000_000, 0, 8000, 25) * 52;
-        assert!((4_000_000..9_000_000).contains(&year), "{year}");
+        assert!(wage_demand(v, 5_000, rich, 19) * 2 < wage_demand(v, 5_000, rich, 26));
+        // O titular de €35M num clube como a Roma: €2–4M por ano; no Real, muito mais
+        let year = wage_demand(35_000_000, 0, roma, 25) * 52;
+        assert!((2_000_000..4_000_000).contains(&year), "{year}");
+        assert!(wage_demand(35_000_000, 0, club_wealth(8383, 1_161e6, Some(52)), 25) > 2 * wage_demand(35_000_000, 0, roma, 25));
+        // A Premier paga mais do que a La Liga com as mesmas receitas; o Al-Hilal muito mais
+        assert!(club_wealth(-1, 300e6, Some(7)) > club_wealth(-1, 300e6, Some(52)));
+        assert!(club_wealth(379, 100e6, Some(196)) > 2.0 * club_wealth(-1, 100e6, Some(196)));
+        // Fora da tabela, ninguém fatura mais do que o 30.º da Money League
+        assert!(club_revenue(-1, 9000, Some(46)) <= OUTSIDE_TABLE_MAX);
     }
 
     #[test]
