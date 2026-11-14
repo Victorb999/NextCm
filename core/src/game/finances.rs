@@ -24,6 +24,35 @@ use crate::{Result, date};
 pub(super) const CONTINENTAL: [i32; 4] = [LIBERTADORES, SUL_AMERICANA, CHAMPIONS_LEAGUE, EUROPA_LEAGUE];
 
 impl Game {
+    /// Jogo novo: nos salários do patch × `WAGE_SCALE` os jovens das grandes equipas ganham como
+    /// estrelas (o Mora com 19 anos €13,8M por ano, o Lennart Karl com 17 €22M). Nenhum jogador
+    /// até `START_WAGE_AGE` anos começa acima de `START_WAGE_SLACK` vezes o que pediria pelo valor
+    /// e pela idade ao clube onde está; os mais velhos e quem ganha menos ficam como estão.
+    pub(super) fn fit_start_wages(&mut self) -> Result<()> {
+        let rows: Vec<(i32, i64, i32, Option<String>, Option<i32>, i32)> = self
+            .world
+            .conn
+            .prepare(
+                "SELECT p.id, p.wage, COALESCE(pl.current_ability, 1), p.birth_date, p.birth_year, COALESCE(c.reputation, 0)
+                 FROM people p JOIN players pl ON pl.person_id = p.id JOIN clubs c ON c.id = p.club_id
+                 WHERE p.is_player = 1 AND p.wage >= ?",
+            )?
+            .query_map([(1000.0 * finance::WAGE_SCALE) as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        for (id, wage, ca, birth, birth_year, rep) in rows {
+            let age = super::season::age_on(birth.as_deref(), birth_year, &self.date);
+            if age > finance::START_WAGE_AGE {
+                continue;
+            }
+            let value = self.world.market_value_of(id, &self.date)?.unwrap_or(0);
+            let fair = finance::wage_demand(value.max(ca as i64 * 20_000), 0, rep, age) as f64 * finance::START_WAGE_SLACK;
+            if (wage as f64) > fair {
+                self.world.conn.execute("UPDATE people SET wage = ? WHERE id = ?", params![finance::round_wage(fair), id])?;
+            }
+        }
+        Ok(())
+    }
+
     /// Divisão de um clube (a liga das contas dele).
     pub(super) fn division_of(&self, club: i32) -> Result<Option<i32>> {
         Ok(self
@@ -380,6 +409,58 @@ mod tests {
     use std::path::Path;
 
     use crate::{Game, NewGame, World};
+
+    #[test]
+    fn start_wages_follow_value_and_age() {
+        let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-salarios-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = NewGame {
+            save_name: "Salários".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 7568,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        let g = Game::create(&path, &dir, &new, 6).unwrap();
+        let year = |name: &str| -> f64 {
+            g.world
+                .conn
+                .query_row("SELECT wage FROM people WHERE display_name = ? AND is_player = 1", [name], |r| r.get::<_, i64>(0))
+                .unwrap() as f64
+                * 52.0
+                / 1e6
+        };
+        let bill = |club: i32| -> f64 {
+            g.world
+                .conn
+                .query_row("SELECT COALESCE(SUM(wage), 0) FROM people WHERE club_id = ? AND is_player = 1", [club], |r| r.get::<_, i64>(0))
+                .unwrap() as f64
+                * 52.0
+                / 1e6
+        };
+        for name in ["Rodrigo Mora", "Arda Güler", "Lennart Karl", "Lamine Yamal", "Kylian Mbappé", "Manu Koné", "Bruno Fernandes"] {
+            println!("{name}: €{:.1}M por ano", year(name));
+        }
+        for (club, name) in [(8383, "Real"), (6271, "United"), (8609, "Roma"), (7568, "Palmeiras")] {
+            println!("{name}: folha €{:.0}M por ano", bill(club));
+        }
+        // Os jovens deixam de ganhar como estrelas; as estrelas continuam
+        assert!(year("Rodrigo Mora") < 6.0 && year("Lennart Karl") < 6.0, "{} {}", year("Rodrigo Mora"), year("Lennart Karl"));
+        assert!(year("Kylian Mbappé") > 30.0 && year("Bruno Fernandes") > 20.0);
+        // As folhas ficam na casa das reais (Real ~€450M, United ~€370M, Palmeiras ~€80M)
+        assert!((300.0..500.0).contains(&bill(8383)) && (250.0..400.0).contains(&bill(6271)), "{} {}", bill(8383), bill(6271));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn dividends_on_the_first_of_july() {

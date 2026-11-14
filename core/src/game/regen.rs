@@ -43,6 +43,9 @@ pub(super) struct NewPlayer {
     pub pa: i32,
     pub position: Position,
     pub contract_until: String,
+    /// O jogador de quem copia os atributos e a personalidade (o reformado, no regen dele); sem
+    /// ele, um jogador real da nação e da posição.
+    pub template: Option<i32>,
 }
 
 /// O que se lê uma vez para criar muitos jogadores: os modelos por nação e posição e os
@@ -118,11 +121,11 @@ impl Game {
             e.insert(ids);
         }
         let templates = &f.templates[&(nation, column)];
-        if templates.is_empty() {
+        if templates.is_empty() && p.template.is_none() {
             return Ok(None);
         }
         // Modelo: um jogador real da nação na mesma posição
-        let template = templates[(rng.next_u64() % templates.len() as u64) as usize];
+        let template = p.template.unwrap_or_else(|| templates[(rng.next_u64() % templates.len() as u64) as usize]);
         // Nome e apelido de duas pessoas da nação (um nome inventado)
         if let Entry::Vacant(e) = f.names.entry(nation) {
             let names: Vec<(String, String)> = self
@@ -268,6 +271,7 @@ impl Game {
                     pa: ca + (rng.next_u32() % 15) as i32,
                     position,
                     contract_until: format!("{}-12-31", year + 1),
+                    template: None,
                 };
                 if let Some((id, _)) = self.create_player(&mut factory, &p, &mut rng)? {
                     self.world.conn.execute("INSERT OR IGNORE INTO ghosts (person_id) VALUES (?)", [id])?;

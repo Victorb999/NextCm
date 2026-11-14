@@ -265,6 +265,13 @@ impl Game {
                 );
                 continue;
             };
+            // Anunciou a reforma: a renovação faz-o mudar de ideias ou não (4.5)
+            if matches!(party, Party::Renewal) && self.retiring(o.person)?.is_some() && !self.stays_on(o.person)? {
+                self.set_status(o.id, "collapsed", None)?;
+                let body = format!("{name} agradece a proposta, mas está decidido: termina mesmo a carreira no fim da época.");
+                self.offer_news(fresh, next_id, format!("{name} mantém a reforma"), body, o.id);
+                continue;
+            }
             let role_i = Self::role_index(&t.role)?;
             let free = matches!(party, Party::Free(_) | Party::Precontract);
             let d = self.demand(o.person, &f, role_i, matches!(party, Party::Renewal), free)?;
@@ -432,9 +439,16 @@ impl Game {
                 self.world
                     .conn
                     .execute("UPDATE people SET contract_expires = ?, wage = ? WHERE id = ?", params![until, t.wage, o.person])?;
+                let postponed = self.retiring(o.person)?.is_some();
+                self.cancel_retirement(o.person)?;
                 self.post_news(
                     format!("{name} renovou"),
-                    format!("{name} renovou até {} por {} por semana.", cm_date(&until), money_text(t.wage)),
+                    format!(
+                        "{name} renovou até {} por {} por semana.{}",
+                        cm_date(&until),
+                        money_text(t.wage),
+                        if postponed { " Adiou a reforma: continua a jogar." } else { "" }
+                    ),
                     None,
                 );
                 self.set_status(o.id, "done", None)?;

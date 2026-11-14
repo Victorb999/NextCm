@@ -68,6 +68,11 @@ pub struct DivisionStats {
 }
 
 /// Idade numa data ("AAAA-MM-DD").
+/// Potencial dos juniores por ponto das instalações de juniores do clube acima da média (4).
+const YOUTH_FACILITIES: f64 = 0.8;
+/// Potencial dos juniores numa safra boa (+) ou fraca (−).
+const VINTAGE_PA: f64 = 12.0;
+
 pub(crate) fn age_on(birth_date: Option<&str>, birth_year: Option<i32>, on: &str) -> i32 {
     let year: i32 = on.get(0..4).and_then(|y| y.parse().ok()).unwrap_or(0);
     match birth_date.filter(|b| b.len() >= 10) {
@@ -101,14 +106,16 @@ impl Game {
         if room <= 0 {
             return Ok(());
         }
-        let (wage, ca): (i64, i32) = self.world.conn.query_row(
-            "SELECT COALESCE(p.wage, 0), COALESCE(pl.current_ability, 1) FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
+        let (wage, ca, birth, birth_year): (i64, i32, Option<String>, Option<i32>) = self.world.conn.query_row(
+            "SELECT COALESCE(p.wage, 0), COALESCE(pl.current_ability, 1), p.birth_date, p.birth_year
+             FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
             [id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )?;
+        let age = age_on(birth.as_deref(), birth_year, &self.date);
         let value = self.world.market_value_of(id, &self.date)?.unwrap_or(0);
         let rep: i32 = self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
-        let ask = crate::finance::wage_demand(value.max(ca as i64 * 20_000), wage, rep);
+        let ask = crate::finance::wage_demand(value.max(ca as i64 * 20_000), wage, rep, age);
         self.world.conn.execute("UPDATE people SET wage = ? WHERE id = ?", params![ask.min(wage + room).max(wage), id])?;
         Ok(())
     }
@@ -127,6 +134,10 @@ impl Game {
             self.train_attributes()?;
         }
         match &self.date[5..] {
+            "02-01" => {
+                self.announce_retirements(SeasonKind::European, fresh, next_id)?;
+                self.vintage_news(fresh, next_id)?;
+            }
             "03-01" => self.youth_intake(fresh, next_id)?,
             // Contratos que acabam a meio do ano (o fim de época trata os de dezembro)
             "06-30" => {
@@ -136,7 +147,10 @@ impl Game {
             }
             "06-10" => self.season_end_with_clauses(SeasonKind::European, fresh, next_id)?,
             "07-01" => self.new_season(SeasonKind::European, fresh, next_id)?,
-            "08-01" => self.new_international_season(fresh, next_id)?,
+            "08-01" => {
+                self.new_international_season(fresh, next_id)?;
+                self.announce_retirements(SeasonKind::Calendar, fresh, next_id)?;
+            }
             "12-20" => self.season_end_with_clauses(SeasonKind::Calendar, fresh, next_id)?,
             "01-01" => self.new_season(SeasonKind::Calendar, fresh, next_id)?,
             _ => {}
@@ -226,7 +240,7 @@ impl Game {
     /// reformados e jogadores livres.
     pub fn career_counts(&self) -> Result<(i32, i64, i64)> {
         Ok(self.world.conn.query_row(
-            "SELECT (SELECT MAX(id) FROM people), (SELECT COUNT(*) FROM retired),
+            "SELECT (SELECT MAX(id) FROM people), (SELECT COUNT(*) FROM retirements),
                     (SELECT COUNT(*) FROM people WHERE is_player = 1 AND club_id IS NULL)",
             [],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
@@ -637,54 +651,6 @@ impl Game {
         Ok(())
     }
 
-    /// Reformas a partir dos 34 anos (guarda-redes dois anos depois), nos plantéis das
-    /// divisões geridas e entre os livres dessas nações.
-    fn retirements(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
-        let managed = self.managed_sql(Some(kind));
-        let today = self.date.clone();
-        let mut rng = self.season_rng(0x0E7E);
-        let sql = format!(
-            "SELECT p.id, p.display_name, p.club_id, p.birth_date, p.birth_year, pl.pos_goalkeeper
-             FROM people p JOIN players pl ON pl.person_id = p.id
-             WHERE p.is_player = 1 AND p.id NOT IN (SELECT person_id FROM retired)
-               AND (p.club_id IN (SELECT id FROM clubs WHERE division_id IN ({managed}))
-                    OR (p.club_id IS NULL AND p.nation_id IN (SELECT DISTINCT nation_id FROM clubs WHERE division_id IN ({managed}))))
-             ORDER BY p.id"
-        );
-        let rows: Vec<(i32, String, Option<i32>, Option<String>, Option<i32>, Option<i32>)> = self
-            .world
-            .conn
-            .prepare(&sql)?
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?
-            .collect::<rusqlite::Result<_>>()?;
-        let mut ours = Vec::new();
-        for (id, name, club, birth, birth_year, gk) in rows {
-            let age = age_on(birth.as_deref(), birth_year, &today) - if gk.unwrap_or(0) >= 15 { 2 } else { 0 };
-            let chance = match age {
-                ..=33 => continue,
-                34 => 0.10,
-                35 => 0.20,
-                36 => 0.40,
-                37 => 0.60,
-                38 => 0.80,
-                _ => 1.0,
-            };
-            if uniform(&mut rng) >= chance {
-                continue;
-            }
-            self.world.conn.execute("INSERT OR IGNORE INTO retired (person_id, date) VALUES (?, ?)", params![id, today])?;
-            self.world.conn.execute("UPDATE people SET club_id = NULL, club_job = NULL, contract_expires = NULL WHERE id = ?", [id])?;
-            if club == Some(self.club_id) {
-                ours.push(name);
-            }
-        }
-        if !ours.is_empty() {
-            let verb = if ours.len() == 1 { "terminou a carreira" } else { "terminaram a carreira" };
-            self.push_news(fresh, next_id, "message", "Reformas".into(), format!("{} {verb} no fim desta época.", join_names(&ours)));
-        }
-        Ok(())
-    }
-
     /// Plantéis com menos de [`MIN_SQUAD`] jogadores contratam livres (primeiro do país, com
     /// CA à medida do plantel, um guarda-redes se faltar). Provisório até ao mercado do 3.7.
     fn fill_squads(&mut self, kind: SeasonKind, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
@@ -918,15 +884,23 @@ impl Game {
     fn youth_intake(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let year: i32 = self.date[0..4].parse().unwrap_or(0);
         let mut rng = self.season_rng(0x1A7E);
-        let sql = format!("SELECT id, nation_id, reputation FROM clubs WHERE division_id IN ({}) ORDER BY id", self.managed_sql(None));
-        let clubs: Vec<(i32, Option<i32>, Option<i32>)> =
-            self.world.conn.prepare(&sql)?.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
+        let sql = format!(
+            "SELECT id, nation_id, reputation, COALESCE(training, 4) FROM clubs WHERE division_id IN ({}) ORDER BY id",
+            self.managed_sql(None)
+        );
+        let clubs: Vec<(i32, Option<i32>, Option<i32>, i32)> = self
+            .world
+            .conn
+            .prepare(&sql)?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let talent = self.nation_talent()?;
         let mut factory = self.player_factory()?;
         let mut ours = Vec::new();
         // O investimento da direção nas camadas jovens (Reunião com a Direcção)
         let invested: i32 =
             self.world.conn.query_row("SELECT youth_level FROM board WHERE id = 1", [], |r| r.get(0)).optional()?.unwrap_or(0);
-        for (club, nation, reputation) in clubs {
+        for (club, nation, reputation, training) in clubs {
             // O potencial dos juniores vem da reputação do clube, que não muda no save. Medido no
             // patch: PA médio dos 11 melhores ≈ 84 + 0,0114 × reputação (Série A ≈ 147, B ≈ 129,
             // C ≈ 115). Tirado do próprio plantel haveria uma espiral (cada geração puxava a seguinte)
@@ -934,8 +908,14 @@ impl Game {
             if club == self.club_id {
                 level += super::board_meeting::YOUTH_PA * invested.min(super::board_meeting::YOUTH_MAX) as f64;
             }
-            // Um júnior por ano e, a um em cada três clubes, um segundo
-            for _ in 0..1 + rng.next_u32().is_multiple_of(3) as u32 {
+            // 4.5: a formação da nação, as instalações de juniores (0–20, a média é 4) e a safra
+            level += nation.and_then(|n| talent.get(&n)).copied().unwrap_or(0.0);
+            level += YOUTH_FACILITIES * (training - 4) as f64;
+            let vintage = self.vintage(club, year);
+            level += VINTAGE_PA * vintage as f64;
+            // Um júnior por ano e, a um em cada três clubes, um segundo; numa geração de ouro, mais dois
+            let extra = if vintage > 0 { 2 } else { 0 };
+            for _ in 0..1 + rng.next_u32().is_multiple_of(3) as u32 + extra {
                 let position = regen::random_position(&mut rng);
                 let ca = 25 + (rng.next_u32() % 31) as i32;
                 let pa = ((level * (0.75 + 0.5 * uniform(&mut rng))).round() as i32).clamp(ca + 10, 195);
@@ -947,6 +927,7 @@ impl Game {
                     pa,
                     position,
                     contract_until: format!("{}-12-31", year + 2),
+                    template: None,
                 };
                 if let Some((id, name)) = self.create_player(&mut factory, &p, &mut rng)?
                     && club == self.club_id

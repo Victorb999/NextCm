@@ -878,7 +878,7 @@ impl Game {
             if buyer.budget < fee as f64 || buyer.squad >= MAX_SQUAD {
                 continue;
             }
-            let wage = wage_demand(value.max(pick.ca as i64 * 20_000), pick.wage, b_rep);
+            let wage = wage_demand(value.max(pick.ca as i64 * 20_000), pick.wage, b_rep, pick.age);
             let years = contract_years(pick.age, rng);
             let id = pick.id;
             self.execute_move(id, Some(club), Some(b), fee, wage, years, "transfer", kind)?;
@@ -1069,7 +1069,7 @@ impl Game {
             // Na bombástica o prémio já paga a resistência do clube: conta o maior dos dois (o
             // produto dava negócios de €480M)
             let fee = (value as f64 * if splurge { price.max(premium) } else { price }) as i64;
-            let wage = wage_demand(value.max(l.ca as i64 * 20_000), l.wage, b.rep);
+            let wage = wage_demand(value.max(l.ca as i64 * 20_000), l.wage, b.rep, l.age);
             let wage = if splurge { (wage as f64 * 1.2) as i64 } else { wage };
             // Para o rival do seu clube vai pouco (o leal quase nunca) e pede mais salário
             let to_rival = l.club.is_some_and(|c| market.is_rival(club, c));

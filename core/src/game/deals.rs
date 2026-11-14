@@ -186,7 +186,16 @@ pub struct SquadRoleView {
     /// A função gravada (`None`: pelo lugar no plantel).
     pub current: Option<String>,
     pub roles: Vec<RoleOption>,
+    /// A função no clube ("11" Jogador, "12" Jogador/Treinador, "13" Jogador/Preparador), só
+    /// para os veteranos (30 anos ou mais) e quem já tem ficha de staff (4.5); vazia nos outros.
+    pub jobs: Vec<RoleOption>,
+    pub job: Option<String>,
 }
+
+/// As funções no clube que um jogador pode ter (a tabela `jobs`).
+const CLUB_JOBS: [(i32, &str); 3] = [(11, "Jogador"), (12, "Jogador/Treinador"), (13, "Jogador/Preparador")];
+/// A idade a partir da qual um jogador pode acumular uma função de staff.
+const PLAYER_STAFF_AGE: i32 = 30;
 
 /// O adjectivo da nação para "o estilo de vida Italiano" (as nações das ligas do jogo).
 fn lifestyle(nation: &str) -> Option<&'static str> {
@@ -718,7 +727,7 @@ impl Game {
     /// A personalidade: o ambicioso que seria dos indispensáveis pede mais, o leal pede menos
     /// para renovar e mais para deixar o clube onde está.
     pub(super) fn demand(&self, person: i32, f: &Facts, role: usize, renewal: bool, free: bool) -> Result<Demand> {
-        let base = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.club_rep(self.club_id)?);
+        let base = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.club_rep(self.club_id)?, f.age);
         let year: u64 = self.date[0..4].parse().unwrap_or(0);
         let mut ask = base as f64 * (0.95 + 0.15 * uniform(&mut self.deal_rng(person, 0xDE3A ^ year)));
         let expected = self.expected_role(person, f)?;
@@ -1729,7 +1738,7 @@ Confirme até {}.",
             let until = self.execute_loan(o.person, self.club_id, o.buyer, &t)?;
             (format!("{name} emprestado"), format!("{name} vai jogar emprestado no {buyer} até {} ({}).", cm_date(&until), t.text()))
         } else {
-            let wage = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.club_rep(o.buyer)?);
+            let wage = wage_demand(f.value.max(f.ca as i64 * 20_000), f.wage, self.club_rep(o.buyer)?, f.age);
             let years = contract_years(f.age, &mut self.deal_rng(o.person, 0x5A1E));
             let kind = self.kind_of(o.buyer)?;
             // Um dos valiosos: a direção e os adeptos não gostam (antes de ele sair)
@@ -1914,12 +1923,54 @@ Confirme até {}.",
             })
             .collect();
         roles.push(RoleOption { key: NOT_NEEDED.0.into(), label: NOT_NEEDED.1.into(), youth: false, allowed: true, veto: None });
-        Ok(SquadRoleView { person_id: person, name: self.person_name(person)?, current: self.stored_role(person)?, roles })
+        let jobs = if self.can_join_staff(person, f.age)? {
+            CLUB_JOBS
+                .iter()
+                .map(|&(id, label)| RoleOption { key: id.to_string(), label: label.into(), youth: false, allowed: true, veto: None })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let job: Option<i32> = self.world.conn.query_row("SELECT club_job FROM people WHERE id = ?", [person], |r| r.get(0))?;
+        Ok(SquadRoleView {
+            person_id: person,
+            name: self.person_name(person)?,
+            current: self.stored_role(person)?,
+            roles,
+            jobs,
+            job: job.map(|j| j.to_string()),
+        })
+    }
+
+    /// Um jogador pode ser também staff: 30 anos ou mais, ou já com ficha de staff.
+    fn can_join_staff(&self, person: i32, age: i32) -> Result<bool> {
+        let staff: bool = self.world.conn.query_row("SELECT COUNT(*) > 0 FROM non_players WHERE person_id = ?", [person], |r| r.get(0))?;
+        Ok(age >= PLAYER_STAFF_AGE || staff)
+    }
+
+    /// "Definir Função No Clube": Jogador, Jogador/Treinador (treina como um adjunto) ou
+    /// Jogador/Preparador. A parte de staff conta nos treinos e nos relatórios.
+    fn set_club_job(&mut self, person: i32, job: &str) -> Result<String> {
+        let f = self.own_squad_player(person)?;
+        let &(id, label) =
+            CLUB_JOBS.iter().find(|(id, _)| id.to_string() == job).ok_or_else(|| Error::Invalid("Função desconhecida.".into()))?;
+        if id != super::regen::PLAYER_JOB && !self.can_join_staff(person, f.age)? {
+            return Err(Error::Invalid(format!("Só os jogadores com {PLAYER_STAFF_AGE} anos ou mais podem acumular uma função de staff.")));
+        }
+        if id != super::regen::PLAYER_JOB {
+            self.make_staff(person)?;
+        }
+        self.world.conn.execute("UPDATE people SET club_job = ? WHERE id = ?", params![id, person])?;
+        self.unsaved = true;
+        Ok(format!("{label}: {}.", self.person_name(person)?))
     }
 
     /// Muda a função no plantel sem mexer no contrato: subir agrada-lhe (+1 de moral), descer
     /// custa 2 por degrau. Devolve a frase para o perfil.
     pub fn set_squad_role(&mut self, person: i32, role: &str) -> Result<String> {
+        if let Some(job) = role.strip_prefix("job:") {
+            return self.set_club_job(person, job);
+        }
         let f = self.own_squad_player(person)?;
         let label = if role == NOT_NEEDED.0 {
             NOT_NEEDED.1

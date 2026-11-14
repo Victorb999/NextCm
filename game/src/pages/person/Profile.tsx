@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { PLAYER_ATTRIBUTES, valueColor } from '../../attributes'
 import type { PersonProfile } from '../../bindings/PersonProfile'
 import type { PositionTag } from '../../bindings/PositionTag'
 import { SeasonTable } from '../../components/PlayerHistory'
-import { Empty, Panel } from '../../components/Screen'
+import { Empty, Panel, PurpleMenu } from '../../components/Screen'
 import { cmDate } from '../../format'
 import InfoRows from './InfoRows'
 
@@ -119,8 +119,17 @@ function Pitch({ tags }: { tags: PositionTag[] }) {
   )
 }
 
+type Sheet = 'player' | 'staff'
+const SHEETS: { key: Sheet; label: string }[] = [
+  { key: 'player', label: 'Jogador' },
+  { key: 'staff', label: 'Staff' },
+]
+
 export default function Profile({ p }: { p: PersonProfile }) {
-  const pl = p.player
+  // Jogador e staff ao mesmo tempo (o Jogador/Treinador do CM): o menu Staff / Jogador troca a ficha
+  const [sheet, setSheet] = useState<Sheet>('player')
+  const both = !!p.player && !!p.staff
+  const pl = both && sheet === 'staff' ? null : p.player
   const attrs = pl?.attributes ?? p.staff?.attributes ?? {}
   const list = pl ? PLAYER_ATTRIBUTES : STAFF_ATTRIBUTES
   const items: { label: string; value: ReactNode; color?: string; sep?: boolean }[] = list.map(([key, label]) => {
@@ -145,7 +154,12 @@ export default function Profile({ p }: { p: PersonProfile }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto pb-1">
       <div className="flex shrink-0 gap-2">
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          {both && (
+            <div>
+              <PurpleMenu label="Staff / Jogador" options={SHEETS} value={sheet} onChange={setSheet} />
+            </div>
+          )}
           <AttributeGrid items={items} />
         </div>
         <div className="flex w-[250px] shrink-0 flex-col gap-2">
@@ -169,6 +183,16 @@ export default function Profile({ p }: { p: PersonProfile }) {
                 ['Rep. Mundial', ability?.worldReputation ?? '-'],
                 ['No clube desde', cmDate(p.clubJoined)],
                 ['Contrato até', cmDate(p.contractExpires)],
+                ...(p.status?.retiring
+                  ? ([
+                      [
+                        'Futuro',
+                        <span key="r" className="text-cm-yellow">
+                          Termina a carreira no fim da época
+                        </span>,
+                      ],
+                    ] as [string, ReactNode][])
+                  : []),
               ]}
             />
             {p.note && (

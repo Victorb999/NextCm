@@ -230,6 +230,7 @@ impl Game {
                 pa: ca + 5 + (rng.next_u32() % 25) as i32,
                 position,
                 contract_until: format!("{}-06-30", year + 2),
+                template: None,
             };
             if let Some((id, _)) = self.create_player(&mut factory, &p, &mut rng)? {
                 self.world.conn.execute("INSERT OR IGNORE INTO ghosts (person_id) VALUES (?)", [id])?;

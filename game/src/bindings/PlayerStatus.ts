@@ -31,4 +31,8 @@ absence: string | null, absenceUntil: string | null,
 /**
  * Pode ter folga (tem saudades de casa): o "Dar Folga" do menu Acção.
  */
-canLeave: boolean, };
+canLeave: boolean, 
+/**
+ * Anunciou que termina a carreira no fim da época (4.5).
+ */
+retiring: boolean, };

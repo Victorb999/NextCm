@@ -13,7 +13,7 @@ use crate::{Error, Result};
 
 /// Jobs em `jobs`: adjunto, preparador, fisioterapeuta e os jogadores que também o são.
 const ASSISTANT: i32 = 6;
-const COACH: [i32; 2] = [8, 13];
+const COACH: [i32; 3] = [8, 12, 13];
 const PHYSIO: [i32; 2] = [10, 14];
 
 /// Os atributos de que um preparador fala, com o nome do CM.

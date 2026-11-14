@@ -131,6 +131,8 @@ pub struct PlayerStatus {
     pub absence_until: Option<String>,
     /// Pode ter folga (tem saudades de casa): o "Dar Folga" do menu Acção.
     pub can_leave: bool,
+    /// Anunciou que termina a carreira no fim da época (4.5).
+    pub retiring: bool,
 }
 
 pub fn morale_label(m: i32) -> &'static str {
@@ -254,6 +256,7 @@ impl Squads {
                 absence_until: None,
                 can_leave: false,
                 reserve: s.reserve,
+                retiring: false,
             }
         })
     }

@@ -25,6 +25,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/new_game.rs`, `game/src/pages/NewGamePage.tsx`, `pages/newgame/` | Novo Jogo em 2 passos (FM08): ficha do clube (`club_preview`), previsão dos media, experiência passada, clube do coração, primeiras mensagens e o assistente ao começar |
 | `core/src/game/season.rs` | Fim de época (20/12) e nova época (1/1), contratos, reformas, evolução do CA, juniores |
 | `core/src/game/regen.rs` | Jogadores criados pelo jogo (juniores e plantéis dos clubes pequenos) |
+| `core/src/game/retirement.rs` | Reformas (motivos, anúncio a meio da época, staff ou fora do futebol), o regen de cada reformado, safras e a formação das nações |
 | `core/src/finance.rs`, `core/src/game/finances.rs`, `core/economy.json` | Valor de mercado, salário pedido, receitas de referência (reais ou pela curva), receitas e despesas de cada clube (livro de contas) |
 | `core/src/game/fair_play.rs` | Fair-play financeiro (avisos e proibição de contratar) e o relatório da economia para a CLI |
 | `core/src/game/market.rs` | Mercado da IA nas janelas: compras, livres, empréstimos, dispensas, histórico `transfers` |

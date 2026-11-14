@@ -8,4 +8,9 @@ export type SquadRoleView = { personId: number, name: string,
 /**
  * A função gravada (`None`: pelo lugar no plantel).
  */
-current: string | null, roles: Array<RoleOption>, };
+current: string | null, roles: Array<RoleOption>, 
+/**
+ * A função no clube ("11" Jogador, "12" Jogador/Treinador, "13" Jogador/Preparador), só
+ * para os veteranos (30 anos ou mais) e quem já tem ficha de staff (4.5); vazia nos outros.
+ */
+jobs: Array<RoleOption>, job: string | null, };

@@ -53,6 +53,7 @@ mod regen;
 mod reserve_matches;
 mod reserve_report;
 mod reserves;
+mod retirement;
 mod scout_reports;
 mod scout_tasks;
 mod scouting;
@@ -156,7 +157,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// 60: os amigáveis de clubes (competição 72, `friendly_apps`, `friendly_invites`), marco 4.0.
 /// 61: o CA no relatório mensal das reservas (`reserve_report_ca`), marco 4.1.
 /// 62: os golos esperados de cada jogo (`player_matches.xg`, `friendly_apps.xg`, `intl_apps.xg`), marco 4.3.
-pub const SAVE_VERSION: i32 = 62;
+pub const SAVE_VERSION: i32 = 63;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -838,6 +839,7 @@ impl Game {
             tx.execute_batch(friendlies::FRIENDLIES_SCHEMA)?;
             tx.execute_batch(reserve_report::REPORT_SCHEMA)?;
             tx.execute_batch(player_record::XG_SCHEMA)?;
+            tx.execute_batch(retirement::RETIREMENT_SCHEMA)?;
             // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
             let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
                 .prepare("SELECT id, cash, COALESCE(reputation, 0), division_id FROM clubs WHERE cash > 0")?
@@ -954,6 +956,7 @@ impl Game {
             for n in fresh {
                 game.news.insert(0, n);
             }
+            game.fit_start_wages()?;
             crate::progress::set("A apresentar o treinador à Direcção…", 0.7);
             game.board_setup()?;
             game.career_join(new.club_id)?;
@@ -1362,6 +1365,12 @@ impl Game {
             world.conn.execute_batch(player_record::XG_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 62", [])?;
             version = 62;
+        }
+        // Save 63: as reformas com motivo e os anúncios (marco 4.5)
+        if version == 62 {
+            world.conn.execute_batch(retirement::RETIREMENT_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 63", [])?;
+            version = 63;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -2246,6 +2255,7 @@ impl Game {
             s.absence_until = Some(until);
         }
         s.can_leave = self.can_give_leave(id).unwrap_or(false);
+        s.retiring = self.retiring(id).ok().flatten().is_some();
         Some(s)
     }
 

@@ -56,6 +56,12 @@ pub const MIN_REVENUE: f64 = 900_000.0;
 /// O saldo de um clube no 1.º dia de um jogo novo, sobre o do banco: a mesma escala dos salários
 /// (o CM começa com ~3×).
 pub const START_CASH: f64 = WAGE_SCALE;
+/// No jogo novo, nenhum jovem (até `START_WAGE_AGE`) ganha mais do que este múltiplo do que
+/// pediria (`Game::fit_start_wages`); os mais velhos ficam com o salário do banco.
+pub const START_WAGE_SLACK: f64 = 2.0;
+pub const START_WAGE_AGE: i32 = 23;
+/// O salário anual pedido sobre o valor de mercado, num clube médio e aos 24 anos ou mais.
+pub const VALUE_WAGE: f64 = 0.1;
 /// O saldo do 1.º dia fica até esta parte das receitas (o City do banco começaria com €805M).
 pub const START_CASH_CAP: f64 = 0.15;
 
@@ -188,16 +194,38 @@ pub fn market_value(ca: i32, pa: i32, age: i32, player_rep: i32, league_rep: i32
     round_money(base * league * age_factor * rep * contract)
 }
 
-/// Salário semanal que um jogador pede: ~2,3% do valor por ano (a mediana do patch, × `WAGE_SCALE`),
-/// ajustado à riqueza do clube que paga (um clube rico paga mais), e nunca menos de 10%
-/// acima do que ganha hoje.
-pub fn wage_demand(value: i64, current_wage: i64, club_rep: i32) -> i64 {
-    let by_value = value as f64 * 0.023 * WAGE_SCALE / 52.0;
+/// Salário semanal que um jogador pede: ~10% do valor por ano (os valores já são os de hoje, 3.22),
+/// ajustado à riqueza do clube que paga (um clube rico paga mais, até 2,5×) e à idade (o valor
+/// de um jovem é sobretudo potencial: aos 19 pede 40%; o de um veterano cai mais depressa do que
+/// o salário: aos 31 pede 1,7×), e nunca menos de 10% acima do que ganha
+/// hoje. Um titular da Roma de €35M pede ~€6,7M por ano, o Bellingham do Real ~€25M, o Mora aos
+/// 19 anos com €48M ~€3,6M (os reais: Soulé ~€4,5M, Bellingham ~€20M, Mora ~€1,5M brutos).
+pub fn wage_demand(value: i64, current_wage: i64, club_rep: i32, age: i32) -> i64 {
+    let youth = match age {
+        ..=18 => 0.25,
+        19 => 0.4,
+        20 => 0.5,
+        21 => 0.6,
+        22 => 0.75,
+        23 => 0.9,
+        24..=27 => 1.0,
+        28 => 1.15,
+        29 => 1.3,
+        30 => 1.5,
+        31 => 1.7,
+        32 => 2.0,
+        _ => 2.3,
+    };
+    let by_value = value as f64 * VALUE_WAGE / 52.0 * youth;
     let wealth = (typical_wage_bill(club_rep) / typical_wage_bill(6000)).powf(0.35).clamp(0.3, 2.5);
     let ask = (by_value * wealth).max(current_wage as f64 * 1.1).max(100.0 * WAGE_SCALE);
-    // Arredondado a €100 (abaixo de €10K por semana) ou a €1K
-    let step = if ask < 10_000.0 { 100.0 } else { 1_000.0 };
-    ((ask / step).round() * step) as i64
+    round_wage(ask)
+}
+
+/// Um salário semanal arredondado a €100 (abaixo de €10K) ou a €1K.
+pub fn round_wage(wage: f64) -> i64 {
+    let step = if wage < 10_000.0 { 100.0 } else { 1_000.0 };
+    ((wage / step).round() * step) as i64
 }
 
 /// Uma rubrica da tela de Finanças: Este Mês, Último Mês, Este Ano (a época) e Último Ano.
@@ -317,9 +345,14 @@ mod tests {
     #[test]
     fn wage_demand_depends_on_value_and_club() {
         let v = 20_000_000;
-        assert!(wage_demand(v, 5_000, 9000) > wage_demand(v, 5_000, 5000));
-        assert!(wage_demand(v, 50_000, 5000) >= 55_000, "nunca menos do que ganha + 10%");
-        assert!(wage_demand(0, 0, 3000) >= 300);
+        assert!(wage_demand(v, 5_000, 9000, 26) > wage_demand(v, 5_000, 5000, 26));
+        assert!(wage_demand(v, 50_000, 5000, 26) >= 55_000, "nunca menos do que ganha + 10%");
+        assert!(wage_demand(0, 0, 3000, 26) >= 300);
+        // Um jovem pede bem menos pelo mesmo valor
+        assert!(wage_demand(v, 5_000, 8000, 19) * 2 < wage_demand(v, 5_000, 8000, 26));
+        // O titular de €35M num clube como a Roma: €3–7M por ano
+        let year = wage_demand(35_000_000, 0, 8000, 25) * 52;
+        assert!((4_000_000..9_000_000).contains(&year), "{year}");
     }
 
     #[test]
