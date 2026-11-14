@@ -126,8 +126,8 @@ pub fn club_preview(world: &World, id: i32) -> Result<ClubPreview> {
             .query_row("SELECT away_fg, away_bg, division_id FROM clubs WHERE id = ?", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
     let rep = profile.reputation.unwrap_or(0);
     // O saldo do 1.º dia, como no Game::create
-    let cash = (profile.cash.unwrap_or(0) as f64 * if profile.cash.unwrap_or(0) > 0 { finance::START_CASH } else { 1.0 }) as i64;
     let revenue = finance::club_revenue(id, rep, division_id);
+    let cash = finance::start_cash(profile.cash.unwrap_or(0).into(), revenue);
     let stadium = profile.stadium.as_ref().map(|s| match &profile.stadium_city {
         Some(city) => format!("{s}, {city}"),
         None => s.clone(),

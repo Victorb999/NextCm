@@ -15,6 +15,8 @@ use crate::regulation::{self, SeasonKind};
 pub(super) const FFP_LOSS: f64 = 0.15;
 /// Épocas que contam.
 const FFP_SEASONS: i32 = 3;
+/// Anos pelos quais uma compra se amortiza (o máximo da UEFA desde 2023).
+const AMORTIZATION_YEARS: f64 = 5.0;
 
 /// Avisos e proibições (save 56).
 pub(super) const FAIR_PLAY_SCHEMA: &str = "
@@ -122,19 +124,21 @@ impl Game {
         Ok(out)
     }
 
-    /// O resultado do clube nas últimas 3 épocas, a contar com a corrente (sem dividendos).
+    /// O resultado do clube nas últimas 3 épocas, a contar com a corrente (sem dividendos). As
+    /// compras não entram pelo que se pagou mas amortizadas, como na UEFA e na Premier.
     pub(super) fn fair_play_result(&self, club: i32) -> Result<i64> {
-        let season = regulation::season_of(self.division_of(club)?.unwrap_or(0), &self.date);
+        let division = self.division_of(club)?.unwrap_or(0);
+        let season = regulation::season_of(division, &self.date);
         let rows: Vec<(String, i64)> = self
             .world
             .conn
             .prepare_cached("SELECT category, amount FROM finances WHERE club_id = ? AND season > ? AND season <= ?")?
             .query_map(params![club, season - FFP_SEASONS, season], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<rusqlite::Result<_>>()?;
-        Ok(rows
+        let ledger: i64 = rows
             .iter()
             .map(|(k, v)| {
-                if k == "dividends" {
+                if k == "dividends" || k == "purchases" {
                     0
                 } else if finance::EXPENSES.iter().any(|(e, _)| e == k) {
                     -v
@@ -142,7 +146,53 @@ impl Game {
                     *v
                 }
             })
-            .sum())
+            .sum();
+        let first = season - FFP_SEASONS + 1;
+        let from = match regulation::season_kind(division) {
+            SeasonKind::Calendar => format!("{first}-01-01"),
+            _ => format!("{first}-07-01"),
+        };
+        Ok(ledger - self.amortization(club, &from)?)
+    }
+
+    /// As compras do clube que pesam desde `from` até hoje: cada transferência dividida por
+    /// `AMORTIZATION_YEARS`, dia a dia, e o que faltava amortizar quando o jogador sai antes; os
+    /// empréstimos contam inteiros no dia.
+    fn amortization(&self, club: i32, from: &str) -> Result<i64> {
+        let (Some(start), Some(today)) = (crate::date::parse(from), crate::date::parse(&self.date)) else { return Ok(0) };
+        let span = AMORTIZATION_YEARS * 365.0;
+        let bought: Vec<(String, i32, i64, String, Option<String>)> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT t.date, t.person_id, t.fee, t.kind,
+                        (SELECT MIN(s.date) FROM transfers s WHERE s.person_id = t.person_id AND s.from_club = t.to_club AND s.id > t.id)
+                 FROM transfers t WHERE t.to_club = ? AND t.fee > 0 AND t.date >= ?",
+            )?
+            .query_map(params![club, crate::date::format(start - span as i32)], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut total = 0.0;
+        for (date, _, fee, kind, sold) in bought {
+            let Some(day) = crate::date::parse(&date) else { continue };
+            let fee = fee as f64;
+            if kind.starts_with("loan") {
+                if day >= start {
+                    total += fee;
+                }
+                continue;
+            }
+            let end = day + span as i32;
+            let left = sold.as_deref().and_then(crate::date::parse).filter(|&s| s <= today && s < end);
+            let stop = left.unwrap_or(end).min(today);
+            let days = (stop - day.max(start)).max(0) as f64;
+            total += fee * days / span;
+            if let Some(s) = left.filter(|&s| s >= start) {
+                total += fee * (1.0 - (s - day) as f64 / span);
+            }
+        }
+        Ok(total.round() as i64)
     }
 
     /// O limite do clube (negativo): as perdas permitidas.
@@ -153,6 +203,12 @@ impl Game {
     /// Quanto o clube ainda pode perder sem passar do limite (0 se já passou).
     pub(super) fn fair_play_room(&self, club: i32) -> Result<f64> {
         Ok((self.fair_play_result(club)? - self.fair_play_limit(club)?).max(0) as f64)
+    }
+
+    /// Quanto o clube pode gastar em compras sem passar do limite: cada compra pesa no máximo
+    /// `FFP_SEASONS / AMORTIZATION_YEARS` dela nas 3 épocas que contam.
+    pub(super) fn fair_play_spend(&self, club: i32) -> Result<f64> {
+        Ok(self.fair_play_room(club)? * AMORTIZATION_YEARS / FFP_SEASONS as f64)
     }
 
     /// O clube está proibido de contratar pelo fair-play?
@@ -219,5 +275,79 @@ impl Game {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Game, World};
+    use rusqlite::params;
+
+    fn new_game(club_id: i32, tag: &str) -> (Game, std::path::PathBuf) {
+        let path = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let dir = std::env::temp_dir().join(format!("nextcm-ffp-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: format!("FFP {tag}"),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        (Game::create(&path, &dir, &new, 41).unwrap(), dir)
+    }
+
+    #[test]
+    fn purchases_are_amortized_over_five_years() {
+        if World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).is_none() {
+            return;
+        }
+        let (g, dir) = new_game(6271, "amortizacao");
+        let today = crate::date::parse(&g.date).unwrap();
+        let log = |days: i32, person: i32, from: Option<i32>, to: Option<i32>, fee: i64, kind: &str| {
+            g.world
+                .conn
+                .execute(
+                    "INSERT INTO transfers (date, person_id, from_club, to_club, fee, kind) VALUES (?, ?, ?, ?, ?, ?)",
+                    params![crate::date::format(today - days), person, from, to, fee, kind],
+                )
+                .unwrap();
+        };
+        let from = crate::date::format(today - 2000);
+        // €100M há um ano: pesa €20M
+        log(365, 1, Some(1350), Some(6271), 100_000_000, "transfer");
+        assert!((g.amortization(6271, &from).unwrap() - 20_000_000).abs() < 100_000);
+        // Um empréstimo conta inteiro
+        log(10, 2, Some(1350), Some(6271), 5_000_000, "loan");
+        assert!((g.amortization(6271, &from).unwrap() - 25_000_000).abs() < 100_000);
+        // Vendido hoje: o que faltava amortizar entra todo (os €100M ficam pagos)
+        log(0, 1, Some(6271), Some(1350), 60_000_000, "transfer");
+        assert!((g.amortization(6271, &from).unwrap() - 105_000_000).abs() < 100_000);
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn budgets_of_the_big_clubs_look_like_today() {
+        if World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).is_none() {
+            return;
+        }
+        for (club, low, high) in [(8383, 180, 260), (6271, 130, 190), (2587, 5, 60)] {
+            let (g, dir) = new_game(club, &format!("orcamento-{club}"));
+            let b = g.board_view().unwrap();
+            let funds = b.transfer_budget / 1_000_000;
+            println!("{club}: fundos €{funds}M, folha {} limite {} por semana", b.wage_bill, b.wage_budget);
+            assert!((low..=high).contains(&funds), "{club}: €{funds}M");
+            drop(g);
+            let _ = std::fs::remove_dir_all(&dir);
+        }
     }
 }

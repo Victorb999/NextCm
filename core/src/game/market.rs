@@ -813,7 +813,7 @@ impl Game {
         }
         let base = self.club_base(club)?;
         let budget = ((cash as f64 + base * BUDGET_REVENUE) * BUDGET_SHARE).max(0.0);
-        Ok(budget.min(self.fair_play_room(club)?))
+        Ok(budget.min(self.fair_play_spend(club)?))
     }
 
     /// Continente e nação de um clube (−1 se não houver).

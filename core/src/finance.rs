@@ -56,6 +56,14 @@ pub const MIN_REVENUE: f64 = 900_000.0;
 /// O saldo de um clube no 1.º dia de um jogo novo, sobre o do banco: a mesma escala dos salários
 /// (o CM começa com ~3×).
 pub const START_CASH: f64 = WAGE_SCALE;
+/// O saldo do 1.º dia fica até esta parte das receitas (o City do banco começaria com €805M).
+pub const START_CASH_CAP: f64 = 0.15;
+
+/// O saldo do 1.º dia de um clube: o do banco × `START_CASH`, até `START_CASH_CAP` das receitas
+/// (as dívidas ficam como estão).
+pub fn start_cash(bank: i64, revenue: f64) -> i64 {
+    if bank <= 0 { bank } else { (bank as f64 * START_CASH).min(START_CASH_CAP * revenue) as i64 }
+}
 /// A folha salarial que a direção aceita, sobre as receitas de uma época (os clubes europeus
 /// andam pelos 55–70%).
 pub const WAGE_SHARE: f64 = 0.7;
@@ -72,16 +80,19 @@ pub const LEAGUE_PRIZES: f64 = 0.17;
 pub const CUP_PRIZES: f64 = 0.04;
 pub const CONTINENTAL_PRIZES: f64 = 0.2;
 pub const CONTINENTAL_MATCH: f64 = 0.06;
-/// Despesas fixas: staff sobre a folha dos jogadores (entra no Salário), estádio sobre as receitas.
+/// Despesas fixas: staff sobre a folha dos jogadores (entra no Salário), estádio sobre as receitas
+/// e o resto da operação (viagens, comercial, administração: ~25% das receitas no Real e no United
+/// de 2025) em Outros.
 pub const STAFF_SHARE: f64 = 0.12;
 pub const STADIUM_SHARE: f64 = 0.04;
+pub const RUNNING_SHARE: f64 = 0.15;
 /// Juros mensais de um saldo negativo e de um positivo (o Bayern do CM: ~€0,6M por mês com
 /// ~€220M no banco).
 pub const MONTHLY_INTEREST: f64 = 0.01;
 pub const SAVINGS_INTEREST: f64 = 0.0025;
 /// Dividendos aos accionistas, a 1/7: esta parte do saldo acima da reserva (épocas de receitas).
 pub const DIVIDEND_SHARE: f64 = 0.25;
-pub const DIVIDEND_RESERVE: f64 = 1.0;
+pub const DIVIDEND_RESERVE: f64 = 0.5;
 
 /// Preço médio de um bilhete pela reputação do clube da casa: €4 nos clubes sem nome, ~€25
 /// com 7000 e €54 com 10 000 (o Bayern do CM fez €80,9M de bilheteira numa época).
