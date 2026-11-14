@@ -54,10 +54,10 @@ export default function CareerPage() {
             <table className="w-full border-collapse text-[14px]">
               <thead className="sticky top-0">
                 <tr className="h-7">
-                  {['Clube', 'Período', 'Compras', 'Vendas', 'Dispensas', 'Títulos'].map((h, i) => (
+                  {['Clube', 'Período', 'Compras', 'Vendas', 'Dispensas', 'Títulos', 'Prémios'].map((h, i) => (
                     <th
                       key={h}
-                      className={`bg-cm-headdeep px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 || i === 5 ? 'text-left' : 'text-center'}`}
+                      className={`bg-cm-headdeep px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 || i >= 5 ? 'text-left' : 'text-center'}`}
                     >
                       {h}
                     </th>
@@ -83,6 +83,7 @@ export default function CareerPage() {
                     </td>
                     <td className="px-3 text-center tabular-nums text-cm-orange">{c.releases}</td>
                     <td className="px-3 text-cm-yellow">{c.titles.length ? c.titles.join(', ') : '-'}</td>
+                    <td className="px-3 text-white">{c.awards.length ? c.awards.join(', ') : '-'}</td>
                   </tr>
                 ))}
               </tbody>

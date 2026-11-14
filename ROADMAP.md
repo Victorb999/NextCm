@@ -226,7 +226,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 4.1 — Reservas com o adjunto (feito a 13/11, save 61)](docs/roadmap/4.1-reservas.md)
 - [Marco 4.2 — Treinar uma selecção](docs/roadmap/4.2-seleccoes.md)
 - [Marco 4.3 — Golos esperados (feito a 13/11, save 62)](docs/roadmap/4.3-golos-esperados.md)
-- [Marco 4.4 — Prémios individuais](docs/roadmap/4.4-premios.md)
+- [Marco 4.4 — Prémios individuais (feito a 14/11, save 66)](docs/roadmap/4.4-premios.md)
 - [Marco 4.5 — Aposentadoria e regens (feito a 14/11, save 63)](docs/roadmap/4.5-aposentadoria-e-regens.md)
 
 ---

@@ -173,6 +173,7 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         );
         (last_id, last_retired) = (id, retired);
         println!("  {}", game.retirement_report(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("reformas"));
+        println!("{}", game.awards_report(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("prémios"));
     }
     println!("\n{seasons} épocas em {:?}", start.elapsed());
     drop(game);

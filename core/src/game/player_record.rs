@@ -665,6 +665,11 @@ impl Game {
                 HonourLine { date, club: Some(self.club(club)), text: format!("{what} {}", self.competition_name(comp)) }
             })
             .collect();
+        // Os prémios individuais (4.4) ao lado dos títulos, do mais recente
+        for (date, club, text) in self.award_lines(p.id)? {
+            p.honours.push(HonourLine { date, club: club.filter(|&c| c > 0).map(|c| self.club(c)), text });
+        }
+        p.honours.sort_by(|a, b| b.date.cmp(&a.date));
         Ok(())
     }
 

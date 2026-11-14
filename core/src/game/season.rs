@@ -132,6 +132,10 @@ impl Game {
             self.develop()?;
             self.learn_positions()?;
             self.train_attributes()?;
+            self.monthly_awards(fresh, next_id)?;
+        }
+        if self.date[5..] == *super::awards::BALLON_DAY {
+            self.ballon_dor(fresh, next_id)?;
         }
         match &self.date[5..] {
             "02-01" => {

@@ -16,6 +16,7 @@ use ts_rs::TS;
 
 use crate::engine;
 
+mod awards;
 mod board;
 mod board_meeting;
 mod career_marks;
@@ -158,7 +159,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// 60: os amigáveis de clubes (competição 72, `friendly_apps`, `friendly_invites`), marco 4.0.
 /// 61: o CA no relatório mensal das reservas (`reserve_report_ca`), marco 4.1.
 /// 62: os golos esperados de cada jogo (`player_matches.xg`, `friendly_apps.xg`, `intl_apps.xg`), marco 4.3.
-pub const SAVE_VERSION: i32 = 65;
+pub const SAVE_VERSION: i32 = 66;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -841,6 +842,7 @@ impl Game {
             tx.execute_batch(reserve_report::REPORT_SCHEMA)?;
             tx.execute_batch(player_record::XG_SCHEMA)?;
             tx.execute_batch(retirement::RETIREMENT_SCHEMA)?;
+            tx.execute_batch(awards::AWARDS_SCHEMA)?;
             // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
             let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
                 .prepare("SELECT id, cash, COALESCE(reputation, 0), division_id FROM clubs WHERE cash > 0")?
@@ -1384,6 +1386,12 @@ impl Game {
         if version == 64 {
             world.conn.execute("UPDATE game SET version = 65", [])?;
             version = 65;
+        }
+        // Save 66: os prémios individuais (marco 4.4)
+        if version == 65 {
+            world.conn.execute_batch(awards::AWARDS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 66", [])?;
+            version = 66;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -2053,6 +2061,7 @@ impl Game {
             } else {
                 self.prizes(comp, self.current_season(comp))?;
                 self.record_honours(comp)?;
+                self.season_awards(comp, &mut fresh, &mut next_id)?;
             }
             if let Some(n) = self.champion_news(next_id, comp)? {
                 fresh.push(n);

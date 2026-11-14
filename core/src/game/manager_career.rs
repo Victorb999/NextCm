@@ -31,6 +31,8 @@ pub struct CareerClub {
     pub releases: i32,
     /// Os títulos ganhos ("Série A 2026").
     pub titles: Vec<String>,
+    /// Os prémios do treinador ("Treinador do Mês Série A (agosto 2025)").
+    pub awards: Vec<String>,
 }
 
 /// A reputação do treinador num país onde treinou.
@@ -218,7 +220,8 @@ impl Game {
                 .into_iter()
                 .map(|(c, y)| format!("{} {y}", self.competition_name(c)))
                 .collect();
-            out.push(CareerClub { club: self.club(club), joined, left, purchases, spent, sales, received, releases, titles });
+            let awards = self.career_awards(club, &joined, &until)?;
+            out.push(CareerClub { club: self.club(club), joined, left, purchases, spent, sales, received, releases, titles, awards });
         }
         Ok(out)
     }

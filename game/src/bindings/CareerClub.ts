@@ -12,4 +12,8 @@ left: string | null, purchases: number, spent: number, sales: number, received: 
 /**
  * Os títulos ganhos ("Série A 2026").
  */
-titles: Array<string>, };
+titles: Array<string>, 
+/**
+ * Os prémios do treinador ("Treinador do Mês Série A (agosto 2025)").
+ */
+awards: Array<string>, };
