@@ -201,10 +201,10 @@ mod tests {
     #[test]
     fn weekly_digest_names_the_position() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-olheiros-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("nextcm-digest-olheiros-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
-            save_name: "Olheiros".into(),
+            save_name: "Relatório dos olheiros".into(),
             first_name: "Victor".into(),
             last_name: "Araujo".into(),
             birth_date: None,

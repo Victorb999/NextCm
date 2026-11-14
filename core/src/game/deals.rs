@@ -199,7 +199,7 @@ const PLAYER_STAFF_AGE: i32 = 30;
 
 /// O adjectivo da nação para "o estilo de vida Italiano" (as nações das ligas do jogo).
 fn lifestyle(nation: &str) -> Option<&'static str> {
-    Some(match nation {
+    Some(match crate::nation_names::nation_en(nation) {
         "England" => "Inglês",
         "France" => "Francês",
         "Germany" => "Alemão",
@@ -224,6 +224,8 @@ const YOUNGSTER_AGE: i32 = 23;
 /// Prémio de assinatura pedido, em semanas de salário (um livre pede muito mais).
 const BONUS_WEEKS: f64 = 10.0;
 const FREE_BONUS_WEEKS: f64 = 30.0;
+/// Dias antes do fim da janela em que chega o aviso.
+const WINDOW_WARNING_DAYS: i32 = 7;
 
 /// Uma função da lista "Definir Função No Clube".
 #[derive(Debug, Clone, Serialize, TS)]
@@ -238,6 +240,9 @@ pub struct RoleOption {
     pub allowed: bool,
     /// O texto do veto ("Vetado pela direcção devido à idade do jogador"...).
     pub veto: Option<String>,
+    /// O salário semanal máximo que a direção autoriza nesta função (só nas propostas de contrato).
+    #[ts(type = "number | null")]
+    pub max_wage: Option<i64>,
 }
 
 /// A tela "Propôr Contrato": o que o jogador quer pela função escolhida.
@@ -683,16 +688,16 @@ impl Game {
         let name = self.person_name(person)?;
         match self.world.club_preference(person, to)? {
             Some(true) => return Ok(None),
-            Some(false) => return Ok(Some(format!("{name} não quer jogar no {}.", self.club(to).short_name))),
+            Some(false) => return Ok(Some(format!("{name} recusa-se a jogar no {}.", self.club(to).short_name))),
             None => {}
         }
         let m = self.player_move(person, f.ca, f.age, f.ambition, parent, to)?;
         Ok(personality::loan_refusal(&m).map(|r| match r {
             personality::LoanRefusal::StepsDown => {
-                format!("{name} não quer ir emprestado para um clube tão abaixo do {}.", self.club(parent).short_name)
+                format!("{name} não aceita ir emprestado para um clube tão inferior ao {}.", self.club(parent).short_name)
             }
             personality::LoanRefusal::Bench => {
-                format!("{name} não quer ir emprestado para ficar no banco do {}.", self.club(to).short_name)
+                format!("{name} não quer ir emprestado para o {} para ficar no banco.", self.club(to).short_name)
             }
         }))
     }
@@ -1177,7 +1182,7 @@ impl Game {
         if !Self::role_allowed(role, f.age) {
             return Ok(Some("Vetado pela direcção devido à idade do jogador".into()));
         }
-        if self.demand(person, f, role, renewal, free)?.wage > self.board_view()?.max_wage {
+        if self.demand(person, f, role, renewal, free)?.wage > self.role_max_wage(role)? {
             return Ok(Some("Vetado pela direcção devido aos valores envolvidos".into()));
         }
         Ok(None)
@@ -1664,11 +1669,24 @@ impl Game {
         s.morale = (s.morale - personality::LETDOWN_MORALE).max(1);
         self.add_unhappy(o.person, "bigger")?;
         let name = self.person_name(o.person)?;
-        Ok(Some(format!("{name} queria jogar no {} e ficou desiludido.", self.club(o.buyer).short_name)))
+        Ok(Some(format!("{name} queria muito jogar no {} e ficou desiludido com a recusa.", self.club(o.buyer).short_name)))
     }
 
-    /// Venda (ou empréstimo) de um jogador do treinador ao clube que propôs; devolve o
-    /// título e o texto da mensagem.
+    /// Uma semana antes do fim da janela do país do treinador: o aviso, com a data do último dia.
+    fn window_closing_news(&mut self, last: &str, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        let nation: String = self.world.conn.query_row(
+            "SELECT COALESCE(n.name, '') FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id WHERE c.id = ?",
+            [self.club_id],
+            |r| r.get(0),
+        )?;
+        let body = format!(
+            "A janela de transferências para os clubes de {nation} fecha dentro de uma semana: o último dia para fechar negócios é {}.",
+            cm_date(last)
+        );
+        self.offer_news_plain(fresh, next_id, "Uma semana para o fecho do mercado".into(), body);
+        Ok(())
+    }
+
     /// "Prazo limite para transferências" e a "Actualização da confiança da Direcção".
     pub(super) fn window_closed_news(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let nation: String = self.world.conn.query_row(
@@ -1734,8 +1752,10 @@ impl Game {
             let refuses = smaller && ambition >= personality::AMBITIOUS && self.deal_rng(o.person, 0x5E11).next_u32() % 10 < 7;
             if refuses {
                 self.set_status(o.id, "collapsed", None)?;
-                let body = format!("{name} não chegou a acordo com o {buyer}: não quer ir para um clube mais pequeno.");
-                self.offer_news(fresh, next_id, format!("{name} recusa o {buyer}"), body, o.id);
+                let body = format!(
+                    "{name} recusou a proposta do {buyer}: não quer trocar de clube para um de menor dimensão, que vê como um passo atrás na carreira. O negócio caiu."
+                );
+                self.offer_news(fresh, next_id, format!("{name} rejeita o {buyer}"), body, o.id);
                 continue;
             }
             if self.clause_paid(&o)? {
@@ -1760,12 +1780,14 @@ Confirme até {}.",
             self.set_status(o.id, "collapsed", None)?;
             let name = self.person_name(o.person)?;
             let buyer = self.club(o.buyer).short_name;
-            let body = format!("O {buyer} desistiu de {name}: a transferência ficou por confirmar.");
+            let body = format!("Sem a confirmação do negócio a tempo, o {buyer} desistiu de {name}.");
             self.offer_news(fresh, next_id, format!("Negócio por {name} caiu"), body, o.id);
         }
         Ok(())
     }
 
+    /// Venda (ou empréstimo) de um jogador do treinador ao clube que propôs; devolve o
+    /// título e o texto da mensagem.
     fn complete_sale(&mut self, o: &Offer, fee: i64) -> Result<(String, String)> {
         let f = self.facts(o.person)?.ok_or_else(|| Error::Invalid("Jogador não encontrado.".into()))?;
         let name = self.person_name(o.person)?;
@@ -1883,7 +1905,8 @@ Confirme até {}.",
                 .enumerate()
                 .map(|(i, r)| {
                     let veto = self.role_veto(person, &f, i, renewal, free)?;
-                    Ok(RoleOption { key: r.0.into(), label: r.1.into(), youth: i >= 4, allowed: veto.is_none(), veto })
+                    let max_wage = Some(self.role_max_wage(i)?);
+                    Ok(RoleOption { key: r.0.into(), label: r.1.into(), youth: i >= 4, allowed: veto.is_none(), veto, max_wage })
                 })
                 .collect::<Result<_>>()?,
             role: SQUAD_ROLES[chosen].0.into(),
@@ -1895,7 +1918,7 @@ Confirme até {}.",
             fee,
             cash: self.cash_of(self.club_id)?,
             budget: self.transfer_budget()?,
-            max_wage: self.board_view()?.max_wage,
+            max_wage: self.role_max_wage(chosen)?,
             wage_bill: self.board_view()?.wage_bill,
             wage_budget: self.board_view()?.wage_budget,
             asks,
@@ -1956,14 +1979,29 @@ Confirme até {}.",
                     youth: i >= 4,
                     allowed,
                     veto: (!allowed).then(|| "Não é possível pela idade do jogador".into()),
+                    max_wage: None,
                 }
             })
             .collect();
-        roles.push(RoleOption { key: NOT_NEEDED.0.into(), label: NOT_NEEDED.1.into(), youth: false, allowed: true, veto: None });
+        roles.push(RoleOption {
+            key: NOT_NEEDED.0.into(),
+            label: NOT_NEEDED.1.into(),
+            youth: false,
+            allowed: true,
+            veto: None,
+            max_wage: None,
+        });
         let jobs = if self.can_join_staff(person, f.age)? {
             CLUB_JOBS
                 .iter()
-                .map(|&(id, label)| RoleOption { key: id.to_string(), label: label.into(), youth: false, allowed: true, veto: None })
+                .map(|&(id, label)| RoleOption {
+                    key: id.to_string(),
+                    label: label.into(),
+                    youth: false,
+                    allowed: true,
+                    veto: None,
+                    max_wage: None,
+                })
                 .collect()
         } else {
             Vec::new()
@@ -2104,7 +2142,7 @@ Confirme até {}.",
         )? {
             self.set_status(o.id, "withdrawn", None)?;
             let name = self.person_name(o.person)?;
-            let mut body = format!("O {} desistiu de {name}: a proposta ficou sem resposta.", self.club(o.buyer).short_name);
+            let mut body = format!("Sem resposta à proposta, o {} desistiu de {name}.", self.club(o.buyer).short_name);
             if let Some(text) = self.letdown(&o)? {
                 body = format!("{body} {text}");
             }
@@ -2147,6 +2185,12 @@ Confirme até {}.",
             let yesterday = date::add_days(&today, -1).unwrap_or_default();
             if window_open(kind, &yesterday[5..]) && !window_open(kind, &today[5..]) {
                 self.window_closed_news(fresh, next_id)?;
+            }
+            // Uma semana antes de fechar, o aviso (o último dia aberto é daqui a 7 dias)
+            let in_week = date::add_days(&today, WINDOW_WARNING_DAYS).unwrap_or_default();
+            let after = date::add_days(&in_week, 1).unwrap_or_default();
+            if window_open(kind, &in_week[5..]) && !window_open(kind, &after[5..]) {
+                self.window_closing_news(&in_week, fresh, next_id)?;
             }
         }
         // Aviso dos contratos a acabar, dois meses antes de cada fim de contratos
@@ -2194,7 +2238,7 @@ Confirme até {}.",
                 && let Some(why) = self.loan_refused(o.person, &f, seller, self.club_id)?
             {
                 self.set_status(o.id, "rejected", None)?;
-                let body = format!("O {seller_name} aceitava emprestar {name}, mas o jogador recusa. {why}");
+                let body = format!("O {seller_name} estava disposto a emprestar {name}, mas o jogador recusou. {why}");
                 self.offer_news(fresh, next_id, format!("{name} recusa o empréstimo"), body, o.id);
                 return Ok(());
             }
@@ -2291,7 +2335,8 @@ Confirme até {}.",
             }
             SellerReply::Reject => {
                 self.set_status(o.id, "rejected", None)?;
-                let body = format!("O {seller_name} recusou a sua proposta por {name} ({}): está longe do que o clube pretende.", t.text());
+                let body =
+                    format!("O {seller_name} recusou a sua proposta por {name} ({}): fica muito aquém do que o clube pretende.", t.text());
                 self.offer_news(fresh, next_id, format!("Proposta por {name} recusada"), body, o.id);
             }
             SellerReply::Bored => {
@@ -2344,7 +2389,7 @@ Confirme até {}.",
             }
             BuyerReply::Withdraw => {
                 self.set_status(o.id, "withdrawn", None)?;
-                let body = format!("O {buyer} não aceita {} por {name} e desistiu do negócio.", asked.text());
+                let body = format!("O {buyer} achou {} demasiado por {name} e desistiu do negócio.", asked.text());
                 self.offer_news(fresh, next_id, format!("{buyer} desiste de {name}"), body, o.id);
             }
         }
@@ -2898,7 +2943,9 @@ Palmeiras fez uma nova proposta."
         // Renovação com 5% a menos de salário, compensados no prémio: ele aceita e falta confirmar
         let before = g.facts(other).unwrap().unwrap().expires;
         let t = g.contract_terms(other, None).unwrap();
-        assert!(t.renewal && t.roles.iter().filter(|r| !r.allowed).all(|r| r.youth));
+        // Os limites são por função: a que ele espera passa; uma função menor (mais cara) pode não passar
+        assert!(t.renewal && t.roles.iter().any(|r| r.key == t.expected_role && r.allowed));
+        assert!(t.roles.iter().all(|r| r.max_wage.is_some()));
         let wage = t.wage * 95 / 100;
         let bonus = t.bonus + (t.wage - wage) * 52 * t.years as i64 + 10_000;
         assert!(g.negotiate(other, &t.role, wage, bonus, t.years, &t.asks).unwrap().pending);
@@ -3273,7 +3320,7 @@ Palmeiras fez uma nova proposta."
             .conn
             .execute("INSERT INTO preferences (person_id, kind, target_id, liked) VALUES (?, 'club', ?, 0)", [bench, PALMEIRAS])
             .unwrap();
-        assert!(g.loan_refused(bench, &f, FLAMENGO, PALMEIRAS).unwrap().is_some_and(|w| w.contains("não quer jogar")));
+        assert!(g.loan_refused(bench, &f, FLAMENGO, PALMEIRAS).unwrap().is_some_and(|w| w.contains("recusa-se a jogar")));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

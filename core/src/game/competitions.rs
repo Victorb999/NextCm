@@ -318,6 +318,8 @@ impl Game {
         let mut per_nation: HashMap<i32, usize> = HashMap::new();
         let mut pool: Vec<(i32, i32, f64)> = Vec::new();
         for (id, rep, nation, name) in rows {
+            // Os regulamentos usam os nomes do banco (em inglês); o save tem-nos em português
+            let name = crate::nation_names::nation_en(&name).to_string();
             if c.exclude_nations.contains(&name) || taken.contains(&id) || excluded.contains(&id) {
                 continue;
             }

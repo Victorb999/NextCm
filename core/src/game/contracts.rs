@@ -109,10 +109,11 @@ impl Game {
     }
 
     /// Os limites da direção para um contrato (salário máximo, folha e orçamento).
-    fn check_contract(&self, party: &Party, old_wage: i64, wage: i64, bonus: i64) -> Result<()> {
+    fn check_contract(&self, party: &Party, role: usize, old_wage: i64, wage: i64, bonus: i64) -> Result<()> {
         let board = self.board_view()?;
-        if wage > board.max_wage {
-            return Err(Error::Invalid(format!("A sua direcção autoriza salários até {} por semana.", money_text(board.max_wage))));
+        let max = self.role_max_wage(role)?;
+        if wage > max {
+            return Err(Error::Invalid(format!("A sua direcção autoriza salários até {} por semana nesta função.", money_text(max))));
         }
         let old = if matches!(party, Party::Renewal) { old_wage } else { 0 };
         if board.wage_bill - old + wage > board.wage_budget {
@@ -156,7 +157,7 @@ impl Game {
             return Err(Error::Invalid(format!("Já fez uma proposta a {name}: a resposta chega amanhã.")));
         }
         let (wage, bonus) = (wage.max(0), bonus.max(0));
-        self.check_contract(&party, f.wage, wage, bonus)?;
+        self.check_contract(&party, role_i, f.wage, wage, bonus)?;
         let deal = if let Party::Transfer(o) | Party::Free(Some(o)) = &party { Some(o) } else { None };
         // Não desce para um clube muito menor (quanto mais ambicioso, menos aceita descer)
         let refuse = |text: String| ContractReply { accepted: false, over: true, pending: false, wage: 0, bonus: 0, years, text };
@@ -171,7 +172,7 @@ impl Game {
             && !favourite
             && personality::move_steps_down(&self.player_move(person, f.ca, f.age, f.ambition, club, self.club_id)?)
         {
-            Some(format!("{name} não está interessado em mudar para um clube menor."))
+            Some(format!("{name} não está interessado em mudar-se para um clube de menor dimensão."))
         } else if let (Party::Transfer(_), Some(club)) = (&party, f.club)
             && !favourite
             && self.stays_in_europe(person, &f, club)?
@@ -192,7 +193,7 @@ impl Game {
             if let Some(id) = deal {
                 self.set_status(id, "collapsed", None)?;
             }
-            self.post_news(format!("{name} recusa o contrato"), format!("{text} O negócio foi desfeito."), deal);
+            self.post_news(format!("{name} recusa o contrato"), format!("{text} O negócio caiu."), deal);
             self.unsaved = true;
             return Ok(refuse(text));
         }
@@ -476,7 +477,7 @@ impl Game {
     fn finalize_contract(&mut self, o: &Offer) -> Result<()> {
         let t = self.talk(o.person)?.ok_or_else(|| Error::Invalid("Não há contrato para fechar.".into()))?;
         let (f, name, party) = self.contract_party(o.person)?;
-        self.check_contract(&party, f.wage, t.wage, t.bonus)?;
+        self.check_contract(&party, Self::role_index(&t.role)?, f.wage, t.wage, t.bonus)?;
         let fee = if let Party::Transfer(d) = &party { d.deal_terms().budget_cost() } else { 0 };
         let kind = self.kind_of(self.club_id)?;
         let from_expiry = matches!(party, Party::Renewal | Party::Precontract);

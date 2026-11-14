@@ -120,6 +120,7 @@ const LANGUAGES: [(&str, &[&str]); 7] = [
 
 /// Falam uma língua em comum?
 fn same_language(a: &str, b: &str) -> bool {
+    let (a, b) = (crate::nation_names::nation_en(a), crate::nation_names::nation_en(b));
     LANGUAGES.iter().any(|(_, nations)| nations.contains(&a) && nations.contains(&b))
 }
 

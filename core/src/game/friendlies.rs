@@ -561,7 +561,7 @@ mod tests {
         assert!(g.arrange_friendlies("away", &[]).is_err());
 
         // Uma excursão à Austrália: dois jogos fora, um clube por data
-        let australia = g.tour_nations().unwrap().into_iter().find(|n| n.name == "Australia").unwrap();
+        let australia = g.tour_nations().unwrap().into_iter().find(|n| n.name == "Austrália").unwrap();
         assert_eq!(australia.continent, "ASI", "a Austrália joga na Ásia, como no CM");
         let free: Vec<String> = g.friendly_dates(&[]).unwrap().into_iter().filter(|d| d.status == "free").map(|d| d.date).collect();
         let a = free[0].clone();
@@ -575,7 +575,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(tour.len(), 2);
-        assert!(tour.iter().all(|f| f.competition == "Excursão Australia" && f.away.id == PALMEIRAS));
+        assert!(tour.iter().all(|f| f.competition == "Excursão Austrália" && f.away.id == PALMEIRAS));
         let fixtures = g.club_fixtures(PALMEIRAS);
         assert_eq!(fixtures.iter().filter(|f| f.competition_id == CLUB_FRIENDLY).count(), 3);
 

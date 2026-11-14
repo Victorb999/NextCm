@@ -257,7 +257,7 @@ mod tests {
         // Estatísticas: sem licença e com o Brasil como único país
         let stats = g.manager_stats().unwrap();
         assert_eq!(stats.license, "Nenhuma");
-        assert_eq!(stats.nations.iter().map(|n| n.nation.as_str()).collect::<Vec<_>>(), ["Brazil"]);
+        assert_eq!(stats.nations.iter().map(|n| n.nation.as_str()).collect::<Vec<_>>(), ["Brasil"]);
         g.set_license(4).unwrap();
         assert_eq!(g.manager_stats().unwrap().license, "Licença Pro");
         g.set_license(0).unwrap();

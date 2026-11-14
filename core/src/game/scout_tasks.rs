@@ -346,7 +346,7 @@ mod tests {
         let list = g.assign_scout(1, "club", Some(FLAMENGO)).unwrap();
         assert!(list.task.unwrap().contains("Flamengo"));
         g.assign_scout(2, "youth", None).unwrap();
-        let brazil: i32 = g.world.conn.query_row("SELECT id FROM nations WHERE name = 'Brazil'", [], |r| r.get(0)).unwrap();
+        let brazil: i32 = g.world.conn.query_row("SELECT id FROM nations WHERE name IN ('Brasil', 'Brazil')", [], |r| r.get(0)).unwrap();
         g.assign_scout(3, "nation", Some(brazil)).unwrap();
         for _ in 0..10 {
             g.scout_tasks_day().unwrap();

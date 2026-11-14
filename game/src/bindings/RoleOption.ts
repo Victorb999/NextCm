@@ -15,4 +15,8 @@ allowed: boolean,
 /**
  * O texto do veto ("Vetado pela direcção devido à idade do jogador"...).
  */
-veto: string | null, };
+veto: string | null, 
+/**
+ * O salário semanal máximo que a direção autoriza nesta função (só nas propostas de contrato).
+ */
+maxWage: number | null, };

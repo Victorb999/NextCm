@@ -160,7 +160,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// 60: os amigáveis de clubes (competição 72, `friendly_apps`, `friendly_invites`), marco 4.0.
 /// 61: o CA no relatório mensal das reservas (`reserve_report_ca`), marco 4.1.
 /// 62: os golos esperados de cada jogo (`player_matches.xg`, `friendly_apps.xg`, `intl_apps.xg`), marco 4.3.
-pub const SAVE_VERSION: i32 = 68;
+pub const SAVE_VERSION: i32 = 69;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -779,6 +779,8 @@ impl Game {
         std::fs::copy(world_path, &path)?;
         // Um world.sqlite de antes do esquema 8 não tem as instalações nem o aquecimento
         add_world_columns(&rusqlite::Connection::open(&path)?, world_path)?;
+        // Os nomes das nações em português
+        crate::nation_names::translate_nations(&rusqlite::Connection::open(&path)?)?;
 
         let result = (|| {
             crate::progress::set("A preparar o jogo…", 0.08);
@@ -1412,6 +1414,12 @@ impl Game {
             }
             world.conn.execute("UPDATE game SET version = 68", [])?;
             version = 68;
+        }
+        // Save 69: os nomes das nações em português
+        if version == 68 {
+            crate::nation_names::translate_nations(&world.conn)?;
+            world.conn.execute("UPDATE game SET version = 69", [])?;
+            version = 69;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -2289,6 +2297,14 @@ impl Game {
 
     /// Grava a escolha do treinador (Ok na tela de Tácticas).
     pub fn set_selection(&mut self, sel: Selection) -> Result<ClubTactics> {
+        // Um jogador das reservas escolhido para a equipa sobe à equipa principal, como no CM
+        for id in sel.starters.iter().flatten().chain(&sel.bench) {
+            if let Some(st) = self.squads.states.get_mut(id)
+                && st.reserve
+            {
+                st.reserve = false;
+            }
+        }
         let t = self.preview_selection(&sel)?;
         self.selection = Some(sel);
         self.unsaved = true;
@@ -4177,6 +4193,14 @@ mod tests {
         let outsider = back.reserves.iter().find(|p| !full.bench.contains(&p.id)).unwrap().id;
         let benched = g.toggle_player(&full, outsider).unwrap();
         assert!(benched.bench.iter().any(|p| p.id == outsider));
+        // Um jogador das reservas escolhido para a equipa sobe à equipa principal ao gravar
+        let mut g = g;
+        let reserve = outsider;
+        g.squads.states.entry(reserve).or_default().reserve = true;
+        let picked = g.toggle_player(&full, reserve).unwrap();
+        assert!(picked.bench.iter().any(|p| p.id == reserve), "o reserva entra no banco");
+        g.set_selection(picked.selection()).unwrap();
+        assert!(!g.squads.state(reserve).reserve);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -95,7 +95,7 @@ pub(super) fn outcome_odds(home: f64, away: f64) -> [f64; 3] {
 
 /// O jornal desportivo da nação (as das ligas do jogo).
 pub(super) fn paper_of(nation: &str) -> &'static str {
-    match nation {
+    match crate::nation_names::nation_en(nation) {
         "Brazil" => "Lance!",
         "Portugal" => "A Bola",
         "Spain" => "Marca",

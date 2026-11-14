@@ -129,9 +129,10 @@ impl Game {
             .conn
             .prepare_cached(
                 "SELECT c.id FROM clubs c JOIN nations n ON n.id = c.nation_id
-                 WHERE c.is_national_team = 1 AND n.name = ? ORDER BY c.reputation DESC, c.id LIMIT 1",
+                 WHERE c.is_national_team = 1 AND (n.name = ?1 OR n.name = ?2) ORDER BY c.reputation DESC, c.id LIMIT 1",
             )?
-            .query_row([nation], |r| r.get(0))
+            // Pelo nome do banco (os regulamentos) ou pelo do jogo (o save tem-nos em português)
+            .query_row([nation, crate::nation_names::nation_pt(nation)], |r| r.get(0))
             .optional()?)
     }
 

@@ -15,6 +15,7 @@ mod game;
 mod league;
 mod live;
 mod nation;
+pub mod nation_names;
 mod person;
 mod personality;
 pub mod progress;

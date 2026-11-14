@@ -630,13 +630,7 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
                   header={view === 'staff' ? undefined : { text: headerText, onClick: clickHeader }}
                   numbers={criterion === 'number' || criterion === 'age' || headerSort?.label === 'Nº'}
                   bind={mine && tactics && !reserves ? drag.bind : undefined}
-                  onToggle={
-                    reserveView
-                      ? toggleReserve
-                      : mine && tactics && teamView
-                        ? (e) => void (e.player?.reserve ? undefined : toggle(e))
-                        : undefined
-                  }
+                  onToggle={reserveView ? toggleReserve : mine && tactics && teamView ? (e) => void toggle(e) : undefined}
                 />
               ) : (
                 <Empty>{filtered ? 'Nenhum jogador com este filtro.' : 'Ninguém registado.'}</Empty>

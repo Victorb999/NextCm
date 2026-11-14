@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ClubProfile } from '../../bindings/ClubProfile'
 import FinancesPanel, { type FinanceView } from '../../components/FinancesPanel'
+import NationFlag from '../../components/NationFlag'
 import { Link, PanelTitle, PurpleMenu } from '../../components/Screen'
 import { money } from '../../format'
 import { useNav } from '../../nav'
@@ -42,7 +43,14 @@ function GeneralInfo({ c, menu }: { c: ClubProfile; menu: ReactNode }) {
       <div className="cm-zebra">
         {row(
           'País',
-          c.nationId !== null && c.nation ? <Link onClick={() => nav.go({ kind: 'nation', id: c.nationId! })}>{c.nation}</Link> : '-',
+          c.nationId !== null && c.nation ? (
+            <span className="inline-flex items-center gap-1.5">
+              <NationFlag name={c.nation} round />
+              <Link onClick={() => nav.go({ kind: 'nation', id: c.nationId! })}>{c.nation}</Link>
+            </span>
+          ) : (
+            '-'
+          ),
         )}
         {row('Estatuto', `${c.status ?? '-'}${competition ? ` (${competition})` : ''}`)}
         {row('Finanças', `${financesLabel(c.cash)} · saldo ${money(c.cash)}`)}

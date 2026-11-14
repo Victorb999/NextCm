@@ -33,6 +33,10 @@ const WAGE_GROWTH: f64 = 1.1;
 const WAGE_TARGET: f64 = 0.5;
 const MAX_WAGE_OVER_TOP: f64 = 1.25;
 const MAX_WAGE_SHARE: f64 = 0.1;
+/// O salário máximo por função (como no CM, a direção limita cada papel), sobre a folha
+/// permitida, na ordem de `SQUAD_ROLES`: indispensável (o `max_wage`, que é este ou o maior
+/// salário do plantel +25%), importante, rotação, apoio, perspectiva futura, jovem com valor.
+const ROLE_WAGE_SHARE: [f64; 6] = [MAX_WAGE_SHARE, 0.07, 0.045, 0.03, 0.025, 0.015];
 /// Saldo negativo (sobre as receitas de uma época) a partir do qual a direção proíbe contratações.
 const NO_SIGNINGS_DEBT: f64 = 0.1;
 /// Equilibrar orçamentos: €1 a mais por semana na folha custa isto nos fundos (um ano de salário).
@@ -271,6 +275,19 @@ impl Game {
         let max_wage = ((top as f64 * MAX_WAGE_OVER_TOP).max(wage_budget as f64 * MAX_WAGE_SHARE)) as i64;
         self.world.conn.execute("UPDATE board SET wage_budget = ?, max_wage = ? WHERE id = 1", params![wage_budget, round(max_wage)])?;
         Ok(())
+    }
+
+    /// O salário semanal máximo que a direção autoriza numa função (`role`, de `SQUAD_ROLES`):
+    /// o do indispensável é o `max_wage`; os outros, uma parte da folha permitida, nunca acima dele.
+    pub(super) fn role_max_wage(&self, role: usize) -> Result<i64> {
+        let b = self.board_view()?;
+        if role == 0 {
+            return Ok(b.max_wage);
+        }
+        let share = ROLE_WAGE_SHARE.get(role).copied().unwrap_or(MAX_WAGE_SHARE);
+        let v = (b.wage_budget as f64 * share) as i64;
+        let v = if v < 10_000 { v / 100 * 100 } else { v / 1000 * 1000 };
+        Ok(v.min(b.max_wage))
     }
 
     /// Dia 1 de cada mês: os fundos voltam a ser o saldo menos a reserva.

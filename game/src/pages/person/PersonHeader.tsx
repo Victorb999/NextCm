@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { api } from '../../api'
 import type { PersonProfile } from '../../bindings/PersonProfile'
 import CascadeMenu, { type MenuNode } from '../../components/CascadeMenu'
+import NationFlag from '../../components/NationFlag'
 import { Link } from '../../components/Screen'
 import { cmDate, money, shortListName, wage } from '../../format'
 import { useNav } from '../../nav'
@@ -92,6 +93,7 @@ export default function PersonHeader({ p, action, tabs }: { p: PersonProfile | n
             <div className="truncate font-mono text-[13px] text-cm-muted">
               {born} ({p.age ?? '?'} anos)
               {dot}
+              <NationFlag name={p.nation} round className="mr-1.5" />
               {p.nationId !== null && p.nation ? (
                 <Link onClick={() => nav.go({ kind: 'nation', id: p.nationId! })}>{p.nation}</Link>
               ) : (

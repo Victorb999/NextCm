@@ -33,8 +33,8 @@ const SALARY_LABEL: Record<string, string> = {
   year: 'Salário Anual',
 }
 
-/** "Este jogador é ..." — a lista de funções, com as vetadas a roxo (pela idade ou pelos valores)
- * e o "*" na que ele espera. */
+/** "Este jogador é ..." — a lista de funções, com as vetadas a roxo (pela idade ou pelos valores),
+ * o "*" na que ele espera e o salário máximo que a direção autoriza em cada uma. */
 function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: string) => void }) {
   const nav = useNav()
   const [selected, setSelected] = useState<string | null>(null)
@@ -56,6 +56,7 @@ function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: st
           >
             {r.veto ? '+ ' : r.key === terms.expectedRole ? '* ' : ''}
             {r.label}
+            {r.maxWage !== null && <span className="ml-3 font-mono text-[13px] text-cm-dim">até {wageText(r.maxWage)}</span>}
           </button>
         ))}
         <div className="mt-8 space-y-1 font-title text-[19px] text-white">
@@ -63,6 +64,13 @@ function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: st
             <div key={v}>+ {v}</div>
           ))}
           <div>* Esperado pelo jogador</div>
+          {terms.wage > terms.maxWage && (
+            <div className="pt-3 text-[16px] text-cm-dim">
+              Na função que espera, {terms.name} pede {wageText(terms.wage, true)} e a direcção autoriza até {wageText(terms.maxWage, true)}
+              . Os limites de cada função sobem com a folha: passe fundos de transferências para os salários em Equilibrar orçamentos
+              (Confiança da Direcção).
+            </div>
+          )}
         </div>
       </div>
       <BottomBar right="Escolher" onLeft={nav.back} onRight={selected ? () => onPick(selected) : undefined} />

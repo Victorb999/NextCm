@@ -460,7 +460,7 @@ mod tests {
         let mut closed = Vec::new();
         g.window_closed_news(&mut closed, &mut next).unwrap();
         assert_eq!(closed[0].title, "Prazo limite para transferências");
-        assert!(closed[0].body.contains("Brazil"));
+        assert!(closed[0].body.contains("Brasil"));
         assert!(closed[1].title.starts_with("Actualização") && closed[1].body.contains("direcção"));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
