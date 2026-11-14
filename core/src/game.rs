@@ -2297,14 +2297,6 @@ impl Game {
 
     /// Grava a escolha do treinador (Ok na tela de Tácticas).
     pub fn set_selection(&mut self, sel: Selection) -> Result<ClubTactics> {
-        // Um jogador das reservas escolhido para a equipa sobe à equipa principal, como no CM
-        for id in sel.starters.iter().flatten().chain(&sel.bench) {
-            if let Some(st) = self.squads.states.get_mut(id)
-                && st.reserve
-            {
-                st.reserve = false;
-            }
-        }
         let t = self.preview_selection(&sel)?;
         self.selection = Some(sel);
         self.unsaved = true;
@@ -4193,14 +4185,14 @@ mod tests {
         let outsider = back.reserves.iter().find(|p| !full.bench.contains(&p.id)).unwrap().id;
         let benched = g.toggle_player(&full, outsider).unwrap();
         assert!(benched.bench.iter().any(|p| p.id == outsider));
-        // Um jogador das reservas escolhido para a equipa sobe à equipa principal ao gravar
+        // Um jogador das reservas pode ser relacionado (como no CM): entra e continua nas reservas
         let mut g = g;
         let reserve = outsider;
         g.squads.states.entry(reserve).or_default().reserve = true;
         let picked = g.toggle_player(&full, reserve).unwrap();
         assert!(picked.bench.iter().any(|p| p.id == reserve), "o reserva entra no banco");
         g.set_selection(picked.selection()).unwrap();
-        assert!(!g.squads.state(reserve).reserve);
+        assert!(g.squads.state(reserve).reserve);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -4320,6 +4312,34 @@ mod tests {
         let g = Game::load(&path).unwrap();
         let wage: i64 = g.world.conn.query_row("SELECT wage FROM people WHERE id = ?", [kid], |r| r.get(0)).unwrap();
         assert!(wage < 2_000_000, "{wage}");
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ratings_spread_like_the_rating_sites() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("notas");
+        let mut g = Game::create(&world, &dir, &new_game(7568), 12).unwrap();
+        while g.date.as_str() < "2025-09-01" {
+            g.advance_day().unwrap();
+        }
+        let q = |sql: &str| -> f64 { g.world.conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        let n = q("SELECT CAST(COUNT(*) AS REAL) FROM player_matches");
+        let mean = q("SELECT AVG(rating) FROM player_matches");
+        let share = |min: f64| q(&format!("SELECT CAST(COUNT(*) AS REAL) FROM player_matches WHERE rating >= {min}")) / n;
+        let scorer = q("SELECT AVG(rating) FROM player_matches WHERE goals = 1 AND assists = 0");
+        let brace = q("SELECT COALESCE(AVG(rating), 0) FROM player_matches WHERE goals = 2");
+        println!(
+            "{n} notas: média {mean:.2}, 8+ {:.1}%, 9+ {:.2}%, 10 {:.2}%; com 1 golo {scorer:.2}, com 2 {brace:.2}",
+            100.0 * share(8.0),
+            100.0 * share(9.0),
+            100.0 * share(10.0)
+        );
+        // A média perto de 6,8 (os sites andam por 6,7–6,9); o 8 é bom jogo, o 9 raro
+        assert!((6.6..7.1).contains(&mean), "{mean}");
+        assert!(share(8.0) > 0.03 && share(8.0) < 0.25 && share(9.0) < 0.05);
+        assert!(scorer > 7.3, "quem marca um golo fica acima de 7,3: {scorer}");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

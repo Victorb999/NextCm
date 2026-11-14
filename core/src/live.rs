@@ -182,6 +182,34 @@ pub struct PlayerStats {
     pub xg: f64,
 }
 
+/// A nota (como o Sofascore e o FotMob): uma base, o resultado a pesar pouco, e o que cada
+/// jogador fez, lance a lance. Golos, assistências, remates à baliza, defesas e cartões contam
+/// durante o jogo; o resto (passes, desarmes, dribles, cabeceamentos, remates para fora e o xG)
+/// conta no fim, por [`stats_rating`].
+const RATING_BASE: f64 = 6.45;
+const RATING_RESULT: f64 = 0.2;
+/// Quanto as estatísticas podem tirar ou dar à nota.
+const STATS_RANGE: (f64, f64) = (-1.0, 1.5);
+
+/// O que as estatísticas de um jogador somam à nota, pelo sector onde jogou (0 GR, 1 defesa, 2
+/// meio, 3 ataque): passe certo +0,01 (meio +0,015), errado −0,03; desarme ganho +0,1 (defesa e
+/// meio +0,15), perdido −0,02; cabeceamento ganho +0,05 (defesa +0,08); drible +0,08; remate
+/// para fora −0,05; remate à baliza +0,05 (além do +0,1 do lance); +0,3 por cada golo esperado.
+fn stats_rating(st: &PlayerStats, sector: Option<usize>) -> f64 {
+    let s = sector.unwrap_or(2);
+    let pass_ok = if s == 2 { 0.015 } else { 0.01 };
+    let tackle = if s == 1 || s == 2 { 0.15 } else { 0.1 };
+    let header = if s == 1 { 0.08 } else { 0.05 };
+    let v = pass_ok * st.passes_ok as f64 - 0.03 * (st.passes - st.passes_ok).max(0) as f64 + tackle * st.tackles_won as f64
+        - 0.02 * (st.tackles - st.tackles_won).max(0) as f64
+        + header * st.headers_won as f64
+        + 0.08 * st.dribbles as f64
+        - 0.05 * (st.shots - st.on_target).max(0) as f64
+        + 0.05 * st.on_target as f64
+        + 0.3 * st.xg;
+    v.clamp(STATS_RANGE.0, STATS_RANGE.1)
+}
+
 impl MatchPlayer {
     fn value(&self) -> f64 {
         value(&self.info, &self.prof, self.fit, self.condition, self.morale) * self.form
@@ -681,7 +709,7 @@ impl LiveMatch {
     }
 
     fn base_rating(&mut self) -> f64 {
-        6.0 + (uniform(&mut self.rng) - 0.5) * 0.8
+        RATING_BASE + (uniform(&mut self.rng) - 0.5) * 0.4
     }
 
     pub fn minute(&self) -> u8 {
@@ -935,7 +963,8 @@ impl LiveMatch {
             let t = &mut self.teams[side];
             t.stats.on_target += 1;
             t.players[shooter].goals += 1;
-            t.players[shooter].rating += 1.0;
+            // Cada golo vale mais do que o anterior (o bis perto de 9, o hat-trick a 10)
+            t.players[shooter].rating += 1.0 + 0.2 * (t.players[shooter].goals - 1).min(2) as f64;
             // 70% dos golos têm assistência
             let assist = if uniform(&mut self.rng) < 0.7 {
                 self.teams[side].pick(&mut self.rng, Some(shooter), |role, p| {
@@ -965,7 +994,7 @@ impl LiveMatch {
             };
             if let Some(a) = assist {
                 self.teams[side].players[a].assists += 1;
-                self.teams[side].players[a].rating += 0.6;
+                self.teams[side].players[a].rating += 0.8;
             }
             for i in self.teams[other].on_pitch() {
                 let t = &mut self.teams[other];
@@ -1266,7 +1295,9 @@ impl LiveMatch {
     fn final_rating(&self, side: usize, i: usize) -> f64 {
         let p = &self.teams[side].players[i];
         let (gf, ga) = (self.score[side], self.score[1 - side]);
-        let mut r = p.rating + 0.3 * (gf.cmp(&ga) as i32) as f64;
+        let mut r = p.rating + RATING_RESULT * (gf.cmp(&ga) as i32) as f64;
+        let place = p.slot.map(|s| sector(self.teams[side].role(s)));
+        r += stats_rating(&p.stats, place);
         let back = p.slot.is_some_and(|s| sector(self.teams[side].role(s)) <= 1);
         if ga == 0 && back && self.minute >= 60 {
             r += 0.4;
