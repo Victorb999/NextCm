@@ -1,9 +1,12 @@
+import { useState } from 'react'
+import AboutDialog from '../components/AboutDialog'
 import { DialogFrame } from '../components/Dialog'
 import { useGame } from '../game'
 
 /** Menu inicial, quando não há jogo aberto: a faixa com o logo e, por baixo, o diálogo verde. */
 export default function StartScreen({ onOptions }: { onOptions: () => void }) {
   const game = useGame()
+  const [about, setAbout] = useState(false)
   const item = (label: string, onClick: () => void, hint: string) => (
     <button
       onClick={onClick}
@@ -27,10 +30,12 @@ export default function StartScreen({ onOptions }: { onOptions: () => void }) {
             {item('Explorar Base de Dados', () => game.setMode('explore'), 'Navegue por jogadores, clubes e competições')}
             {item('Editor de Jogos Salvos', () => game.setMode('editor'), 'Mude os atributos de um jogador de um jogo gravado')}
             {item('Opções', onOptions, 'Moeda, salários, cores e fundo')}
+            {item('Sobre o NextCM', () => setAbout(true), 'Versão, novidades e créditos')}
           </div>
           <div className="text-right text-[11px] text-[#666]">versão {__APP_VERSION__}</div>
         </DialogFrame>
       </div>
+      {about && <AboutDialog onClose={() => setAbout(false)} />}
     </div>
   )
 }
