@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { SquadAttributes } from './bindings/SquadAttributes'
 import type { SquadMore } from './bindings/SquadMore'
 import type { SquadPlayer } from './bindings/SquadPlayer'
-import { cmDate, money, wage } from './format'
+import { cmDate, money, wage, xgText } from './format'
 import { ATTRIBUTE_GROUPS, FIXED_SORTS, formAverage, moraleRank, type AttributeGroup, type Sortable, type SquadView } from './squad'
 
 // As colunas das vistas em tabela do Vêr do plantel (contrato, selecção, estatísticas...),
@@ -67,6 +67,29 @@ export function columnsFor(view: TableView, extra: TableExtra): Column[] {
       stat('D', (s) => s.losses),
       stat('GlsE', (s) => s.teamFor),
       stat('SofE', (s) => s.teamAgainst),
+      // Os golos esperados (marco 4.3): remates, xG e os golos acima do esperado
+      stat('Rem', (s) => s.shots),
+      {
+        label: 'xG',
+        width: 'w-14',
+        align: 'right',
+        cell: (p) => (m(p) ? xgText(m(p)!.xg) : '-'),
+        sort: (p) => m(p)?.xg,
+        desc: true,
+      },
+      {
+        label: 'G-xG',
+        width: 'w-14',
+        align: 'right',
+        cell: (p) => {
+          const s = m(p)
+          if (!s) return '-'
+          const d = s.goals - s.xg
+          return `${d > 0 ? '+' : ''}${xgText(d)}`
+        },
+        sort: (p) => (m(p) ? m(p)!.goals - m(p)!.xg : null),
+        desc: true,
+      },
       { ...RATING, cell: (p) => rating(m(p)?.rating ?? null), sort: (p) => m(p)?.rating },
       VALUE,
     ]

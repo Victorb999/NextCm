@@ -51,7 +51,7 @@ sides: Array<string>, wage: number | null, contractExpires: string | null,
  */
 key: boolean, 
 /**
- * A sigla da coluna Inf: "Les", "Sus", "Emp", "Ctr" (contrato acabado, ainda no clube), "Lst",
+ * A sigla da coluna Inf: "Les", "Sus", "Emp", "Ctr" (sem contrato: acabado, ainda no clube, ou nenhum), "Lst",
  * "Des" (desejado por outro clube) ou "Ins" (insatisfeito) ("Int", fora na selecção,
  * quando houver convocatórias).
  */

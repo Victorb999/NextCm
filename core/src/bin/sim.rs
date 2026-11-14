@@ -400,6 +400,7 @@ fn main() {
     let (mut goals, mut games, mut home_wins, mut draws) = (0, 0, 0, 0);
     // remates, à baliza, cantos, faltas, amarelos, vermelhos, substituições, lesões (somas por equipa)
     let mut lances = [0i64; 8];
+    let mut xg_total = 0.0f64;
     let mut teams = 0i64;
 
     for s in 0..seasons {
@@ -453,6 +454,7 @@ fn main() {
                     lances[k] += v as i64;
                 }
                 teams += 1;
+                xg_total += st.xg;
             }
             lances[7] += r.injuries as i64;
         }
@@ -502,6 +504,8 @@ fn main() {
             per(6),
             per(7)
         );
+        // Os golos esperados (marco 4.3): por equipa e jogo, a bater com os golos
+        println!("golos esperados por equipa e jogo: {:.2}", xg_total / t);
     }
     if seasons > 1 {
         let mut rows: Vec<_> = totals.into_values().collect();

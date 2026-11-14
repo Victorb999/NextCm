@@ -6,7 +6,7 @@ import type { LiveTeam } from '../bindings/LiveTeam'
 import type { LiveView } from '../bindings/LiveView'
 import type { MatchAnalysis } from '../bindings/MatchAnalysis'
 import type { MatchReview } from '../bindings/MatchReview'
-import { shortListName } from '../format'
+import { shortListName, xgText } from '../format'
 import PitchField from './PitchField'
 import { BottomBar, Panel, ScreenHeader, Tabs } from './Screen'
 import TalkPanel from './TalkPanel'
@@ -108,6 +108,16 @@ function Analysis({ view, a }: { view: LiveView; a: MatchAnalysis }) {
             {a.keyMen[1] ? `${a.keyMen[1].name}${a.keyMen[1].role ? ` (${a.keyMen[1].role})` : ''}` : '-'}
           </Row>
           <Row label={`Previsão do ${a.paper}`}>{a.prediction}</Row>
+          {[0, 1].map((side) => {
+            const r = a.recentXg[side]
+            return (
+              <Row key={side} label={`Últimos jogos (${side === 0 ? home : away})`}>
+                {r
+                  ? `${r.games} jogos: ${r.goalsFor}-${r.goalsAgainst} em golos, ${xgText(r.xgFor)}-${xgText(r.xgAgainst)} em golos esperados`
+                  : 'Sem jogos com golos esperados'}
+              </Row>
+            )
+          })}
         </div>
       </Panel>
       <Panel title="Antevisão">

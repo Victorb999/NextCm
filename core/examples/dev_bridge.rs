@@ -232,6 +232,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let club: nextcm_core::EditorClub = serde_json::from_value(args["club"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.editor_set_club(file, club).map_err(e)?))
         }
+        "competition_stats" => out(serde_json::to_value(session.competition_stats(id()?).map_err(e)?)),
         "friendly_dates" => {
             let chosen: Vec<String> = serde_json::from_value(args["chosen"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.friendly_dates(chosen).map_err(e)?))

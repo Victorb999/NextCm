@@ -130,6 +130,15 @@ export default function SquadNumbersPage() {
     if (n !== current && after) setSelected(after.id)
   }
   const assigns = (): NumberAssign[] => [...numbers.entries()].map(([id, number]) => ({ id, number }))
+  // Limpar Tudo: tira os números que se podem mudar (todos na pré-época); depois o treinador
+  // numera quem quiser e o Auto completa o resto
+  const clearable = [...numbers.entries()].filter(([id, n]) => n !== null && !locked(id)).map(([id]) => id)
+  const clearAll = () => {
+    const next = new Map(numbers)
+    for (const id of clearable) next.set(id, null)
+    setNumbers(next)
+    setSelected(saved?.players.find((p) => next.get(p.id) === null)?.id ?? null)
+  }
   const auto = async () => {
     try {
       const got = await api.autoSquadNumbers(assigns())
@@ -194,6 +203,14 @@ export default function SquadNumbersPage() {
         <PurpleMenu label="Vêr" options={VIEWS} value={view} onChange={setView} />
         <PurpleMenu label="Critério" options={CRITERIA} value={criterion} onChange={setCriterion} />
         <div className="flex-1" />
+        <button
+          className="cm-purple h-7 w-32"
+          disabled={clearable.length === 0}
+          onClick={clearAll}
+          title={saved?.preSeason ? 'Tira os números a todos' : 'Tira os números que ainda se podem mudar'}
+        >
+          Limpar Tudo
+        </button>
         <button className="cm-purple h-7 w-32" onClick={() => void auto()} title="Números para quem não tem, pelas preferências">
           Auto
         </button>

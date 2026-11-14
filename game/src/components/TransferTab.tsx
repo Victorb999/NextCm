@@ -157,6 +157,7 @@ export function OfferButtons({
           name={offer.name}
           club={offer.seller?.shortName ?? ''}
           wage={wage(again.wage, true)}
+          weeklyWage={again.wage}
           initial={offer.loan}
           error={error}
           onCancel={() => setAgain(null)}

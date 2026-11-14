@@ -2,6 +2,7 @@
 import type { KeyMan } from "./KeyMan";
 import type { MatchPreview } from "./MatchPreview";
 import type { Milestone } from "./Milestone";
+import type { RecentXg } from "./RecentXg";
 
 /**
  * A Análise do Pré-Jogo.
@@ -19,6 +20,10 @@ favourite: number | null, keyMen: [KeyMan | null, KeyMan | null],
  * O jornal e a frase dele.
  */
 paper: string, prediction: string, milestones: [Array<Milestone>, Array<Milestone>], 
+/**
+ * Golos e golos esperados de cada lado nos últimos 5 jogos (marco 4.3).
+ */
+recentXg: [RecentXg | null, RecentXg | null], 
 /**
  * O que o Próximo Jogo já mostrava: último confronto, tempo, relvado e ausências.
  */

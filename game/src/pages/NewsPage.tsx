@@ -108,13 +108,14 @@ function InviteReply({ id }: { id: number }) {
 }
 
 /** "Notícias para <treinador>": lista em cima, texto da notícia em baixo. */
-export default function NewsPage({ latest }: { latest?: boolean }) {
+export default function NewsPage({ latest, id }: { latest?: boolean; id?: number }) {
   const game = useGame()
   const nav = useNav()
   useEscBack()
   const [news, setNews] = useState<NewsItem[]>([])
   const [tab, setTab] = useState('all')
-  const [selected, setSelected] = useState<number | null>(null)
+  // Ao voltar (de um nome clicado numa notícia), abre na que estava aberta
+  const [selected, setSelected] = useState<number | null>(id ?? null)
   // Onde os botões da proposta da mensagem aparecem (na barra da lista)
 
   // Recarrega quando o dia avança ou uma notícia é lida; ao abrir, fixa a primeira por ler
@@ -146,6 +147,13 @@ export default function NewsPage({ latest }: { latest?: boolean }) {
   useEffect(() => {
     if (current && !current.read) api.readNews(current.id).then(game.update, () => {})
   }, [current, game.update])
+
+  // A notícia aberta fica no histórico: o Atrás volta a ela, e não à próxima por ler
+  const { replace } = nav
+  const openId = current?.id
+  useEffect(() => {
+    if (openId !== undefined) replace({ kind: 'news', latest, id: openId })
+  }, [openId, latest, replace])
 
   // A proposta da mensagem (botões para responder) e o diálogo do contrato
   const [loaded, setOffer] = useState<OfferView | null>(null)

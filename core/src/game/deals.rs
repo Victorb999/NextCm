@@ -90,6 +90,19 @@ pub struct OfferView {
     pub rounds: i32,
 }
 
+/// Um jogador do treinador que o clube vendedor aceita na troca: o valor de mercado e o que
+/// lhe vale na proposta (o que desconta no valor da transferência).
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct ExchangeCandidate {
+    pub id: i32,
+    #[ts(type = "number")]
+    pub value: i64,
+    #[ts(type = "number")]
+    pub worth: i64,
+}
+
 /// Aba Transferência do perfil de um jogador.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
@@ -1278,7 +1291,7 @@ impl Game {
 
     /// "Adicionar Jogador à Proposta": os jogadores do treinador que o clube do `person`
     /// aceitaria numa troca (vazio = "não tem interesse num negócio que envolva troca").
-    pub fn exchange_candidates(&self, person: i32) -> Result<Vec<i32>> {
+    pub fn exchange_candidates(&self, person: i32) -> Result<Vec<ExchangeCandidate>> {
         let Some(f) = self.facts(person)? else { return Ok(Vec::new()) };
         let Some(seller) = self.loaned_in_from(person, &f)?.or(f.club.filter(|&c| c != self.club_id)) else {
             return Ok(Vec::new());
@@ -1302,7 +1315,9 @@ impl Game {
             if let Some(f) = self.facts(id)?
                 && self.wants_exchange(seller, &f)?
             {
-                out.push(id);
+                // O que o clube lhe dá na troca (como em `exchange_worth`)
+                let worth = (f.value as f64 * EXCHANGE_WORTH).round() as i64;
+                out.push(ExchangeCandidate { id, value: f.value, worth });
             }
         }
         Ok(out)

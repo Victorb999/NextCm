@@ -328,6 +328,8 @@ export default function LiveTactics({
       {ordersFor && t && (
         <PlayerOrdersDialog
           title={`${ordersFor.squadNumber ?? ''} ${fullName(ordersFor.listName)}`}
+          clubId={t.clubId}
+          personId={ordersFor.id}
           initial={ordersOf(t, ordersFor.id)}
           onCancel={() => setOrdersFor(null)}
           onOk={(o) => {

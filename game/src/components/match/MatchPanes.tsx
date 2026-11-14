@@ -4,7 +4,7 @@ import type { ClubRef } from '../../bindings/ClubRef'
 import type { LivePlayer } from '../../bindings/LivePlayer'
 import type { LiveTeam } from '../../bindings/LiveTeam'
 import type { LiveView } from '../../bindings/LiveView'
-import { shortListName } from '../../format'
+import { shortListName, xgText } from '../../format'
 import { liveLineup } from '../../matchLineup'
 import { conditionColour, MENTALITY, PASSING, TACKLING } from '../../tactics'
 import PitchField from '../PitchField'
@@ -19,6 +19,7 @@ export function Stats({ view }: { view: LiveView }) {
     ['Remates à Baliza', h.shots, a.shots],
     ['No Alvo', h.onTarget, a.onTarget],
     ['Ao Lado', h.shots - h.onTarget, a.shots - a.onTarget],
+    ['Golos Esperados', xgText(h.xg), xgText(a.xg)],
     ['Cantos', h.corners, a.corners],
     ['Livres', a.fouls, h.fouls],
     ['Lançamentos', h.throwIns, a.throwIns],
@@ -303,6 +304,7 @@ export function TeamData({ team }: { team: LiveTeam }) {
           rows={[
             ['Posse de Bola', `${s.possession}%`],
             ['Remates (à baliza)', `${s.shots} (${s.onTarget})`],
+            ['Golos Esperados', xgText(s.xg)],
             ['Passes Acertados', pct(s.passesOk, s.passes)],
             ['Cortes Ganhos', pct(s.tacklesWon, s.tackles)],
             ['Cabeceamentos Ganhos', pct(s.headersWon, s.headers)],
@@ -323,6 +325,13 @@ export function TeamData({ team }: { team: LiveTeam }) {
             ],
             ['Assistências', best((p) => p.assists)],
             ['Mais Remates', best((p) => p.stats.shots)],
+            [
+              'Mais Golos Esperados',
+              best(
+                (p) => p.stats.xg,
+                (p) => xgText(p.stats.xg),
+              ),
+            ],
             ['Mais Passes', best((p) => p.stats.passes)],
             [
               'Melhor Passe',

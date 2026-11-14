@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import type { DealTerms } from '../bindings/DealTerms'
+import type { ExchangeCandidate } from '../bindings/ExchangeCandidate'
 import type { LoanTerms } from '../bindings/LoanTerms'
 import { currency, money, moneyNext, wage } from '../format'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
@@ -232,6 +233,8 @@ const LOAN_LENGTH: [number, string][] = [
   [12, '1 ano'],
 ]
 const WAGE_SHARE: [number, string][] = [0, 25, 50, 75, 100].map((v) => [v, `${v}%`])
+/** A taxa mensal do empréstimo, em % do salário do mês. */
+const FEE_PCT = [0, 10, 25, 50, 75, 100, 150, 200]
 
 /** Um jogador do treinador que pode ir na troca. */
 export type ExchangeOption = { id: number; name: string; position: string; age: number | null; wage: number | null }
@@ -248,19 +251,20 @@ function ExchangePicker({
 }: {
   club: string
   squad: ExchangeOption[]
-  exchangeable: number[] | null
+  exchangeable: ExchangeCandidate[] | null
   current: number | null
   onCancel: () => void
   onPick: (id: number) => void
 }) {
   const [chosen, setChosen] = useState<number | null>(current)
-  const rows = exchangeable ? squad.filter((p) => exchangeable.includes(p.id)) : []
+  const candidate = (id: number) => exchangeable?.find((c) => c.id === id)
+  const rows = exchangeable ? squad.filter((p) => candidate(p.id)) : []
   useDialogKeys(onCancel, () => chosen !== null && onPick(chosen))
   return (
     <Overlay>
       <DialogFrame
         title="Adicionar Jogador à Proposta"
-        width={640}
+        width={760}
         onCancel={onCancel}
         onOk={chosen !== null && rows.some((p) => p.id === chosen) ? () => onPick(chosen) : undefined}
         cancelLabel="Atrás"
@@ -274,29 +278,35 @@ function ExchangePicker({
           </div>
         ) : (
           <>
-            <div className="pb-1.5 text-[15px] text-white">Os jogadores do seu plantel que o {club} aceita na troca:</div>
+            <div className="pb-1.5 text-[15px] text-white">
+              Os jogadores do seu plantel que o {club} aceita na troca (o que valem na troca sai do valor da proposta):
+            </div>
             <div className="max-h-[330px] overflow-auto rounded bg-black/30">
               <table className="w-full border-collapse text-[15px]">
                 <thead className="sticky top-0 bg-cm-head text-[13px] uppercase tracking-wide text-white">
                   <tr>
                     <th className="h-7 px-3 text-left">Nome</th>
                     <th className="w-28 px-2 text-left">Posição</th>
-                    <th className="w-16 px-2 text-center">Idade</th>
-                    <th className="w-36 px-3 text-right">Salário</th>
+                    <th className="w-14 px-2 text-center">Idade</th>
+                    <th className="w-28 px-2 text-right">Salário</th>
+                    <th className="w-24 px-2 text-right">Valor</th>
+                    <th className="w-24 px-3 text-right">Na Troca</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((p) => (
                     <tr
                       key={p.id}
-                      className={`h-8 cursor-pointer ${p.id === chosen ? 'bg-cm-sel text-white' : 'text-cm-text hover:bg-cm-dlghover'}`}
+                      className={`h-8 cursor-pointer ${p.id === chosen ? '!bg-cm-sel text-white' : 'text-cm-text hover:!bg-cm-dlghover'}`}
                       onClick={() => setChosen(p.id)}
                       onDoubleClick={() => onPick(p.id)}
                     >
                       <td className="px-3 font-semibold">{p.name}</td>
                       <td className="px-2">{p.position}</td>
                       <td className="px-2 text-center tabular-nums">{p.age ?? '-'}</td>
-                      <td className="px-3 text-right tabular-nums">{wage(p.wage)}</td>
+                      <td className="px-2 text-right tabular-nums">{wage(p.wage)}</td>
+                      <td className="px-2 text-right tabular-nums">{money(candidate(p.id)?.value ?? 0) || '-'}</td>
+                      <td className="px-3 text-right tabular-nums text-cm-yellow">{money(candidate(p.id)?.worth ?? 0) || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -334,8 +344,8 @@ export function TransferOfferDialog({
   initial: DealTerms
   /** Jogadores do plantel para a troca; sem lista, não há troca nem proposta pública ("Pedir Mais"). */
   squad?: ExchangeOption[]
-  /** Quais deles o clube aceita (null enquanto carrega). */
-  exchangeable?: number[] | null
+  /** Quais deles o clube aceita e o que valem na troca (null enquanto carrega). */
+  exchangeable?: ExchangeCandidate[] | null
   /** Os Comentários do agente (o que o clube procura, a cláusula, o prazo e os extras). */
   comments?: string[]
   okLabel?: string
@@ -348,6 +358,9 @@ export function TransferOfferDialog({
   const [picking, setPicking] = useState(false)
   useDialogKeys(onCancel, () => onOk(t), picking)
   const exchange = squad?.find((p) => p.id === t.exchange)
+  // O que o jogador da troca vale ao clube: sai do valor da transferência (e volta ao tirá-lo)
+  const worth = (id: number | null) => (id === null ? 0 : (exchangeable?.find((c) => c.id === id)?.worth ?? 0))
+  const swap = (id: number | null) => set({ exchange: id, fee: Math.max(0, t.fee + worth(t.exchange) - worth(id)) })
   return (
     <Overlay>
       <DialogFrame
@@ -429,12 +442,12 @@ export function TransferOfferDialog({
             <button className="cm-purple h-7 w-32" onClick={() => setPicking(true)}>
               Troca
             </button>
-            <button className="cm-purple h-7 w-32" disabled={!exchange} onClick={() => set({ exchange: null })}>
+            <button className="cm-purple h-7 w-32" disabled={!exchange} onClick={() => swap(null)}>
               Remover
             </button>
             <span className="ml-3 truncate text-[17px] text-cm-yellow">
               {exchange ? (
-                `${exchange.name} (${exchange.position}) vai na troca`
+                `${exchange.name} (${exchange.position}) vai na troca: −${money(worth(exchange.id)) || '€0'}`
               ) : (
                 <span className="text-[15px] text-cm-purplelight">Nenhum jogador na troca</span>
               )}
@@ -467,7 +480,7 @@ export function TransferOfferDialog({
           current={t.exchange}
           onCancel={() => setPicking(false)}
           onPick={(id) => {
-            set({ exchange: id })
+            swap(id)
             setPicking(false)
           }}
         />
@@ -554,6 +567,7 @@ export function LoanDialog({
   name,
   club,
   wage,
+  weeklyWage,
   initial,
   error,
   onCancel,
@@ -562,6 +576,8 @@ export function LoanDialog({
   name: string
   club: string
   wage: string
+  /** O salário semanal em euros (o do banco), para a taxa mensal em %. */
+  weeklyWage: number
   initial: LoanTerms
   error?: string | null
   onCancel: () => void
@@ -570,24 +586,46 @@ export function LoanDialog({
   const [t, setT] = useState(initial)
   const set = (p: Partial<LoanTerms>) => setT((old) => ({ ...old, ...p }))
   useDialogKeys(onCancel, () => onOk(t))
+  // A taxa mensal em % do salário do mês (o core recebe o valor em euros)
+  const monthly = (weeklyWage * 52) / 12
+  const feeOf = (pct: number) => Math.round((monthly * pct) / 100)
+  // As percentagens e, se a taxa pedida (uma contraproposta) não for nenhuma delas, ela também
+  const feeOptions: [number, string][] = FEE_PCT.map((p): [number, string] => [feeOf(p), p === 0 ? '0%' : `${p}% (${money(feeOf(p))})`])
+  if (!feeOptions.some((o) => o[0] === t.monthlyFee)) {
+    const p = monthly > 0 ? Math.round((t.monthlyFee / monthly) * 100) : 0
+    feeOptions.push([t.monthlyFee, `${p}% (${money(t.monthlyFee)})`])
+    feeOptions.sort((a, b) => a[0] - b[0])
+  }
+  // "=": a taxa que cobre o resto do salário (o que o clube dono continua a pagar)
+  const cover = Math.max(0, 100 - t.wageShare)
   return (
     <Overlay>
       <DialogFrame title={`Empréstimo de ${name}`} width={680} onCancel={onCancel} onOk={() => onOk(t)} cancelLabel="Atrás" okLabel="Pedir">
         <div className="pb-2 text-[17px] leading-tight text-white">
           {name}, {club}, ganha {wage}.
         </div>
-        <DialogRow wide label="Duração">
-          <Choice value={t.months} options={LOAN_LENGTH} onChange={(months) => set({ months })} />
-        </DialogRow>
-        <DialogRow wide label="Salário Pago">
-          <Choice value={t.wageShare} options={WAGE_SHARE} onChange={(wageShare) => set({ wageShare })} />
-        </DialogRow>
-        <DialogRow wide label="Taxa Mensal">
-          <MoneySelect value={t.monthlyFee} onChange={(monthlyFee) => set({ monthlyFee })} />
-        </DialogRow>
-        <DialogRow wide label="Opção de Compra">
-          <MoneySelect value={t.optionFee} onChange={(optionFee) => set({ optionFee })} />
-        </DialogRow>
+        <div className="cm-zebra rounded [&>*]:px-2">
+          <DialogRow wide label="Duração">
+            <Choice value={t.months} options={LOAN_LENGTH} onChange={(months) => set({ months })} />
+          </DialogRow>
+          <DialogRow wide label="Salário Pago">
+            <Choice value={t.wageShare} options={WAGE_SHARE} onChange={(wageShare) => set({ wageShare })} />
+          </DialogRow>
+          <DialogRow wide label="Taxa Mensal">
+            <Choice value={t.monthlyFee} options={feeOptions} onChange={(monthlyFee) => set({ monthlyFee })} />
+            <button
+              className="cm-purple h-7 w-8"
+              title={`Taxa que cobre o resto do salário (${cover}%)`}
+              disabled={monthly <= 0}
+              onClick={() => set({ monthlyFee: feeOf(cover) })}
+            >
+              =
+            </button>
+          </DialogRow>
+          <DialogRow wide label="Opção de Compra">
+            <MoneySelect value={t.optionFee} onChange={(optionFee) => set({ optionFee })} />
+          </DialogRow>
+        </div>
         <div className="pt-2 text-[15px] text-white">
           Sem opção de compra, deixe o valor a zero. O {club} responde dentro de alguns dias.
         </div>

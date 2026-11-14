@@ -316,6 +316,7 @@ impl Game {
                 off: None,
                 yellow: false,
                 red: false,
+                xg: 0.0,
             };
             if club == away { away_lines.push(line) } else { home_lines.push(line) }
         }

@@ -178,6 +178,8 @@ pub struct PlayerStats {
     pub headers_won: i32,
     pub shots: i32,
     pub on_target: i32,
+    /// Golos esperados: a soma da probabilidade de golo de cada remate (marco 4.3).
+    pub xg: f64,
 }
 
 impl MatchPlayer {
@@ -269,6 +271,8 @@ pub struct TeamStats {
     pub tackles_won: i32,
     pub headers: i32,
     pub headers_won: i32,
+    /// Golos esperados da equipa (marco 4.3): em todos os jogos jogados pelo motor por lances.
+    pub xg: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -883,6 +887,9 @@ impl LiveMatch {
         };
         self.teams[side].stats.shots += 1;
         self.teams[side].players[shooter].stats.shots += 1;
+        // Os golos esperados: a probabilidade de golo deste remate (sem gastar o sorteio)
+        self.teams[side].stats.xg += p_goal;
+        self.teams[side].players[shooter].stats.xg += p_goal;
         let roll = uniform(&mut self.rng);
         let name = self.name(side, shooter);
         let id = self.teams[side].players[shooter].info.id;
@@ -916,6 +923,8 @@ impl LiveMatch {
                     let players = &mut self.teams[side].players;
                     players[shooter].stats.shots -= 1;
                     players[t].stats.shots += 1;
+                    players[shooter].stats.xg -= p_goal;
+                    players[t].stats.xg += p_goal;
                     let action = if penalty { format!("{t_name} bate o penálti") } else { format!("{t_name} bate o livre directo") };
                     (t, t_name, players[t].info.id, action)
                 }

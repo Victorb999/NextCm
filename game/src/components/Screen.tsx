@@ -169,10 +169,11 @@ export function BottomBar({
 }) {
   return (
     <div className="flex h-[50px] shrink-0 gap-1.5 px-2.5 pb-2.5 pt-1.5">
-      <button className="cm-purple flex-[2] font-title text-lg" disabled={!onLeft} onClick={onLeft}>
+      {/* O caminho e os resultados à esquerda; o Atrás e o Seguinte juntos à direita, como no CM */}
+      <StatusStrip />
+      <button className="cm-purple flex-1 font-title text-lg" disabled={!onLeft} onClick={onLeft}>
         {left}
       </button>
-      <StatusStrip />
       {/* O de avançar distingue-se do Atrás pelo texto amarelo (desligado, fica como o outro) */}
       <button className="cm-purple flex-1 font-title text-lg enabled:text-cm-yellow" disabled={!onRight} onClick={onRight}>
         {right}

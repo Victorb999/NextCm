@@ -6,6 +6,10 @@ export type TacticPlayer = { id: number, listName: string, squadNumber: number |
  */
 position: string, 
 /**
+ * Ordem da posição na lista (GR, L, D, AL, MD, M, MA, A; 8 sem posição natural).
+ */
+positionOrder: number, 
+/**
  * Nota (1–20) do jogador na função onde está; `None` fora do onze.
  */
 fit: number | null, 
@@ -17,6 +21,10 @@ condition: number | null, morale: number | null, injured: boolean, suspended: bo
  * Na equipa de reservas do treinador: só entra pelo filtro "Equipa de Reservas".
  */
 reserve: boolean, 
+/**
+ * De enchimento (criado pelo jogo para completar o plantel): a tela mostra-o apagado.
+ */
+ghost: boolean, 
 /**
  * Jogador-chave do plantel (o `*` depois do nome); só num jogo em curso.
  */

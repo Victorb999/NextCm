@@ -11,4 +11,8 @@ conceded: number, yellows: number, reds: number, wins: number, losses: number,
 /**
  * Golos marcados e sofridos pela equipa nos jogos em que entrou.
  */
-teamFor: number, teamAgainst: number, rating: number | null, };
+teamFor: number, teamAgainst: number, rating: number | null, 
+/**
+ * Golos, remates e golos esperados do jogador (marco 4.3).
+ */
+goals: number, shots: number, xg: number, };

@@ -177,6 +177,8 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | **3.24** Mercado com vontades | As mesmas vontades do clube e do jogador para a IA e para o treinador (rivais, indispensáveis, listados, insatisfeitos), ritmo da janela e negócios grandes da IA em etapas | O Mbappé não vai do Real para o Barcelona por acaso, o dia 2 de julho muda de save para save e dá para entrar num negócio acordado |
 | **4.0** Pendências | Tudo o que ficou aberto na Fase 3 numa lista só, por dificuldade e impacto (substitui o 3.15c e o 3.19.1) | Os itens Fáceis de impacto Alto e Médio feitos |
 | **4.1** Reservas com o adjunto | O adjunto escala as reservas com coerência (posições, ritmo, sem quem jogou na véspera) e manda um relatório mensal de quem merece subir e de quem devia descer | Os onze das reservas fazem sentido jornada a jornada e o relatório mensal nomeia quem sobe e quem desce, com os números |
+| **4.3** Golos esperados | Os golos esperados (xG) de cada remate somados por equipa e por jogador: na partida, na ficha, no Mais Dados, na aba Estatísticas da competição e na Análise do Pré-Jogo | Os golos esperados aparecem nas telas e, na CLI, a média deles bate com a dos golos sem mudar nenhum resultado |
+| **4.4** Prémios individuais | Jogador, Jovem e Treinador do Mês; os prémios da época de cada liga (todas, também as de fundo) e a Equipa da Época; a Bola de Ouro em dezembro; no Historial e no Currículo, com peso na reputação e no valor | Numa época saem os prémios de todas as ligas e os vencedores sobem de reputação e de valor |
 | **4.2** Treinar uma selecção | Acumular uma selecção com o clube: convite pela reputação, candidatura ou Novo Jogo; convocatória, Tácticas e jogos ao vivo; a federação avalia; anfitriões em casa | O treinador aceita uma selecção sem largar o clube, convoca e joga uma janela FIFA, e as médias continuam na CLI |
 
 #### Detalhe de cada marco
@@ -222,6 +224,8 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 4.0 — Pendências (a lista viva)](docs/roadmap/4.0-pendencias.md)
 - [Marco 4.1 — Reservas com o adjunto (feito a 13/11, save 61)](docs/roadmap/4.1-reservas.md)
 - [Marco 4.2 — Treinar uma selecção](docs/roadmap/4.2-seleccoes.md)
+- [Marco 4.3 — Golos esperados (feito a 13/11, save 62)](docs/roadmap/4.3-golos-esperados.md)
+- [Marco 4.4 — Prémios individuais](docs/roadmap/4.4-premios.md)
 
 ---
 

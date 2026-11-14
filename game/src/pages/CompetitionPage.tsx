@@ -15,12 +15,13 @@ import { continentPt } from '../continents'
 import { matchDate } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
+import StatsPanel from './competition/StatsPanel'
 
 const TABS = [
   { key: 'table', label: 'Classificação' },
   { key: 'fixtures', label: 'Calendário' },
   { key: 'results', label: 'Resultados' },
-  { key: 'stats', label: 'Estatísticas', disabled: true },
+  { key: 'stats', label: 'Estatísticas' },
   { key: 'history', label: 'Historial' },
 ]
 
@@ -472,7 +473,7 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
         tabs={TABS.map((t) => {
           if (t.key === 'table') return { ...t, disabled: !comp || (comp.clubs.length === 0 && stages.length === 0) }
           if (t.key === 'fixtures') return { ...t, disabled: fixtures.length === 0 }
-          if (t.key === 'results') return { ...t, disabled: !fixtures.some((f) => f.homeGoals !== null) }
+          if (t.key === 'results' || t.key === 'stats') return { ...t, disabled: !fixtures.some((f) => f.homeGoals !== null) }
           return t
         })}
         active={tab}
@@ -485,6 +486,7 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
           (stages.length > 0 ? <Stages c={comp} stages={stages} fixtures={fixtures} own={own} /> : <Table c={comp} rows={[]} own={own} />)}
         {tab === 'fixtures' && fixtures.length > 0 && <Calendar fixtures={fixtures} table={table} own={own} />}
         {tab === 'results' && <Results fixtures={fixtures} own={own} />}
+        {tab === 'stats' && <StatsPanel id={id} date={date} own={own} />}
         {comp && tab === 'history' && <History c={comp} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

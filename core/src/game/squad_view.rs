@@ -12,6 +12,11 @@ use crate::{Result, live};
 
 /// Jogadores-chave por plantel (o `*` do CM).
 const KEY_PLAYERS: usize = 3;
+/// O peso da forma nos jogadores-chave: CA + `KEY_RATING` × (nota média − `KEY_PAR`), inteiro a
+/// partir de `KEY_APPS` jogos na época (um 7,5 em 10 jogos vale +10,5 de CA; um 6,5, −4,5).
+const KEY_RATING: f64 = 15.0;
+const KEY_PAR: f64 = 6.8;
+const KEY_APPS: f64 = 10.0;
 
 /// A Situação do contrato ("Informação sobre o Contrato" do CM), pela função gravada.
 fn role_label(role: &str) -> &'static str {
@@ -25,8 +30,37 @@ fn role_label(role: &str) -> &'static str {
 }
 
 impl Game {
-    /// Os jogadores-chave de um clube: os de maior valor (sem os emprestados por outros).
+    /// Os jogadores-chave de um clube (o `*` do CM): os que mais pesam na equipa, pelo CA e pelas
+    /// notas da época (sem os emprestados por outros). A nota conta inteira a partir de
+    /// [`KEY_APPS`] jogos; sem jogos na época, só o CA.
     pub(super) fn key_players(&self, club: i32) -> Result<Vec<i32>> {
+        let start = self.season_start(Some(club))?;
+        let rows: Vec<(i32, i32, i64, Option<f64>)> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT p.id, COALESCE(pl.current_ability, 1),
+                        (SELECT COUNT(*) FROM player_matches m WHERE m.person_id = p.id AND m.date >= ?3),
+                        (SELECT AVG(rating) FROM player_matches m WHERE m.person_id = p.id AND m.date >= ?3)
+                 FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ?1 AND p.is_player = 1
+                 AND p.id NOT IN (SELECT person_id FROM loans WHERE parent_id <> ?2) ORDER BY p.id",
+            )?
+            .query_map(params![club, club, start], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut scored: Vec<(f64, i32)> = rows
+            .into_iter()
+            .map(|(id, ca, apps, rating)| {
+                let weight = (apps as f64 / KEY_APPS).min(1.0);
+                let form = rating.map_or(0.0, |r| KEY_RATING * (r - KEY_PAR) * weight);
+                (ca as f64 + form, id)
+            })
+            .collect();
+        scored.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+        Ok(scored.into_iter().take(KEY_PLAYERS).map(|v| v.1).collect())
+    }
+
+    /// Os de maior valor de mercado de um clube (sem os emprestados por outros).
+    pub(super) fn most_valuable(&self, club: i32) -> Result<Vec<i32>> {
         let ids: Vec<i32> = self
             .world
             .conn
@@ -45,13 +79,14 @@ impl Game {
     }
 
     /// O `*` dos jogadores-chave também nas Tácticas.
-    /// Os jogadores-chave e, para o Vêr das Tácticas, os golos, a forma e a nota média da época.
+    /// Os jogadores-chave, os de enchimento e, para o Vêr das Tácticas, os golos, a forma e a nota média da época.
     pub(super) fn mark_key_players(&self, t: &mut ClubTactics) -> Result<()> {
         let keys = self.key_players(t.club_id)?;
         let start = self.season_start(Some(t.club_id))?;
         let players = t.starters.iter_mut().filter_map(|s| s.player.as_mut()).chain(&mut t.bench).chain(&mut t.reserves);
         for p in players {
             p.key = keys.contains(&p.id);
+            p.ghost = self.is_ghost(p.id);
             p.form = self.form_of(p.id)?;
             let (goals, rating): (i32, Option<f64>) = self
                 .world
@@ -154,8 +189,9 @@ impl Game {
             {
                 // Transferência acertada, à espera da janela para sair
                 Some("Trn")
-            } else if p.contract_expires.as_deref().is_some_and(|e| e < self.date.as_str()) {
-                // Contrato acabado, mas ainda no clube (até se tratar no fim da época)
+            } else if p.free {
+                // Sem contrato (acabado, mas ainda no clube até se tratar no fim da época, ou
+                // nenhum no banco)
                 Some("Ctr")
             } else if listed {
                 Some("Lst")
@@ -251,6 +287,10 @@ pub struct SquadMore {
     pub team_for: i32,
     pub team_against: i32,
     pub rating: Option<f64>,
+    /// Golos, remates e golos esperados do jogador (marco 4.3).
+    pub goals: i32,
+    pub shots: i32,
+    pub xg: f64,
 }
 
 /// Os atributos de um jogador do plantel como o perfil os mostra (`None` = o clube não sabe).
@@ -267,15 +307,18 @@ impl Game {
     /// numa "Liga", "Taça" ou "Continentais".
     pub fn squad_more(&self, club: i32, kind: &str) -> Result<Vec<SquadMore>> {
         let start = self.season_start(Some(club))?;
-        let rows: Vec<(i32, i32, i32, i32, Option<i32>, f64)> = self
+        type Row = (i32, i32, i32, i32, Option<i32>, f64, (i32, i32, f64));
+        let rows: Vec<Row> = self
             .world
             .conn
             .prepare_cached(
-                "SELECT pm.person_id, pm.fixture, pm.competition, pm.club, pm.cards, pm.rating
+                "SELECT pm.person_id, pm.fixture, pm.competition, pm.club, pm.cards, pm.rating, pm.goals, pm.shots, pm.xg
                  FROM player_matches pm JOIN people p ON p.id = pm.person_id
                  WHERE pm.date >= ? AND (p.club_id = ? OR p.id IN (SELECT person_id FROM loans WHERE parent_id = ?))",
             )?
-            .query_map(params![start, club, club], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?
+            .query_map(params![start, club, club], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, (r.get(6)?, r.get(7)?, r.get(8)?)))
+            })?
             .collect::<rusqlite::Result<_>>()?;
         let keepers: std::collections::HashSet<i32> = self
             .world
@@ -285,7 +328,7 @@ impl Game {
             .collect::<rusqlite::Result<_>>()?;
         let mut out: Vec<SquadMore> = Vec::new();
         let mut ratings: std::collections::HashMap<i32, (f64, i32)> = std::collections::HashMap::new();
-        for (person, fixture, comp, side_club, cards, rating) in rows {
+        for (person, fixture, comp, side_club, cards, rating, (goals, shots, xg)) in rows {
             if !kind.is_empty() && self.comp_kind(comp) != kind {
                 continue;
             }
@@ -300,6 +343,9 @@ impl Game {
                 }
             };
             row.apps += 1;
+            row.goals += goals;
+            row.shots += shots;
+            row.xg = super::player_record::xg2(row.xg + xg);
             match cards.unwrap_or(0) {
                 2 => row.reds += 1,
                 1 => row.yellows += 1,

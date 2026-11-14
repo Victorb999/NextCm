@@ -5,7 +5,7 @@ import { api } from '../api'
 import type { MatchSheet } from '../bindings/MatchSheet'
 import MatchLineups from '../components/MatchLineups'
 import { BottomBar, Empty, Link, Panel, ScreenHeader } from '../components/Screen'
-import { longDate, pensText } from '../format'
+import { longDate, pensText, xgText } from '../format'
 import { sheetLineup } from '../matchLineup'
 import { useEscBack, useNav } from '../nav'
 
@@ -35,6 +35,9 @@ export default function MatchSheetPage({ id }: { id: number }) {
   )
   // A melhor nota do jogo: o homem do jogo
   const motm = sheet ? ([...sheet.home, ...sheet.away].find((l) => l.mom)?.id ?? null) : null
+  // Os golos esperados de cada lado: a soma dos de quem jogou (0 nos jogos antigos e nas reservas)
+  const sum = (side: MatchSheet['home']) => side.reduce((n, l) => n + l.xg, 0)
+  const xg: [number, number] = sheet ? [sum(sheet.home), sum(sheet.away)] : [0, 0]
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader
@@ -50,6 +53,13 @@ export default function MatchSheetPage({ id }: { id: number }) {
             {band(f.away, f.awayGoals, true)}
           </div>
           {pensText(f) && <div className="shrink-0 text-center text-[14px] text-cm-yellow">{pensText(f)}</div>}
+          {xg[0] + xg[1] > 0 && (
+            <div className="flex shrink-0 items-center justify-center gap-3 text-[14px]">
+              <span className="w-14 rounded bg-black/60 text-center font-bold text-cm-magenta">{xgText(xg[0])}</span>
+              <span className="text-cm-text">Golos Esperados</span>
+              <span className="w-14 rounded bg-black/60 text-center font-bold text-cm-magenta">{xgText(xg[1])}</span>
+            </div>
+          )}
           <Panel title="Classificações Jogadores" className="min-h-0 flex-1">
             <div className="min-h-0 flex-1 overflow-auto">
               <MatchLineups

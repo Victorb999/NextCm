@@ -12,6 +12,7 @@ use crate::{
 
 use crate::CareerClub;
 use crate::ClubPreview;
+use crate::CompetitionStats;
 use crate::ContractExtras;
 use crate::FindResult;
 use crate::LeagueNation;
@@ -651,7 +652,7 @@ impl Session {
     }
 
     /// Os jogadores do treinador que o clube do jogador aceita numa troca.
-    pub fn exchange_candidates(&self, id: i32) -> Result<Vec<i32>> {
+    pub fn exchange_candidates(&self, id: i32) -> Result<Vec<crate::ExchangeCandidate>> {
         self.game()?.exchange_candidates(id)
     }
 
@@ -777,6 +778,11 @@ impl Session {
 
     pub fn set_reserve_picks(&mut self, ids: Vec<i32>) -> Result<ReserveLineup> {
         self.game_mut()?.set_reserve_picks(&ids)
+    }
+
+    /// A aba Estatísticas de uma competição (golos esperados, marco 4.3).
+    pub fn competition_stats(&self, id: i32) -> Result<CompetitionStats> {
+        self.game()?.competition_stats(id)
     }
 
     /// Amigáveis: os dias para escolher (com os já escolhidos).

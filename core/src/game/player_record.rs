@@ -35,6 +35,8 @@ pub struct SheetLine {
     pub off: Option<i32>,
     pub yellow: bool,
     pub red: bool,
+    /// Golos esperados (0 nos jogos de antes do save 62 e nas reservas).
+    pub xg: f64,
 }
 
 /// A ficha de uma partida jogada: os dois lados, titulares primeiro e depois quem entrou.
@@ -209,6 +211,18 @@ impl Totals {
     }
 }
 
+/// Os golos esperados de cada jogador em cada jogo (save 62, marco 4.3).
+pub(super) const XG_SCHEMA: &str = "
+ALTER TABLE player_matches ADD COLUMN xg REAL NOT NULL DEFAULT 0;
+ALTER TABLE friendly_apps ADD COLUMN xg REAL NOT NULL DEFAULT 0;
+ALTER TABLE intl_apps ADD COLUMN xg REAL NOT NULL DEFAULT 0;
+";
+
+/// Golos esperados com 2 casas, como ficam gravados.
+pub(super) fn xg2(v: f64) -> f64 {
+    (v.max(0.0) * 100.0).round() / 100.0
+}
+
 impl Game {
     /// No fim do dia: a linha de cada jogador que jogou (nota, golos, assistências, passes,
     /// cortes, dribles, remates); o homem do jogo é a melhor nota dos dois lados.
@@ -226,8 +240,8 @@ impl Game {
         let table = if friendly { "friendly_apps" } else { "player_matches" };
         let mut insert = self.world.conn.prepare_cached(&format!(
             "INSERT INTO {table} (person_id, fixture, date, competition, club, rating, goals, assists, sub, mom,
-                                  passes, passes_ok, tackles, dribbles, shots, on_target, minute_on, minute_off, cards)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                                  passes, passes_ok, tackles, dribbles, shots, on_target, minute_on, minute_off, cards, xg)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ))?;
         for (side, players) in lines.iter().enumerate() {
             for l in players {
@@ -250,7 +264,8 @@ impl Game {
                     l.stats.on_target,
                     l.on,
                     l.off,
-                    if l.red { 2 } else { l.yellow as i32 }
+                    if l.red { 2 } else { l.yellow as i32 },
+                    xg2(l.stats.xg)
                 ])?;
             }
         }
@@ -267,7 +282,7 @@ impl Game {
         if m.result.is_none() {
             return Err(Error::Invalid("Este jogo ainda não se jogou.".into()));
         }
-        type Row = (i32, i32, String, Option<i32>, f64, i32, i32, bool, Option<i32>, Option<i32>, i32, bool);
+        type Row = (i32, i32, String, Option<i32>, f64, i32, i32, bool, Option<i32>, Option<i32>, i32, bool, f64);
         // Os jogos de selecções ficam em `intl_apps`, com a selecção no lugar do clube
         let national = super::internationals::is_national_comp(m.competition_id);
         let (table, side) = if national {
@@ -279,7 +294,7 @@ impl Game {
         };
         let sql = format!(
             "SELECT m.person_id, m.{side}, COALESCE((SELECT nickname FROM nicknames n WHERE n.person_id = p.id), p.list_name),
-                    pl.squad_number, ROUND(m.rating, 1), m.goals, m.assists, m.mom, m.minute_on, m.minute_off, m.cards, m.sub
+                    pl.squad_number, ROUND(m.rating, 1), m.goals, m.assists, m.mom, m.minute_on, m.minute_off, m.cards, m.sub, m.xg
              FROM {table} m JOIN people p ON p.id = m.person_id LEFT JOIN players pl ON pl.person_id = p.id
              WHERE m.fixture = ? ORDER BY m.sub, m.rowid"
         );
@@ -301,11 +316,12 @@ impl Game {
                     r.get(9)?,
                     r.get(10)?,
                     r.get(11)?,
+                    r.get(12)?,
                 ))
             })?
             .collect::<rusqlite::Result<_>>()?;
         let (mut home, mut away) = (Vec::new(), Vec::new());
-        for (id, club, name, number, rating, goals, assists, mom, on, off, cards, sub) in rows {
+        for (id, club, name, number, rating, goals, assists, mom, on, off, cards, sub, xg) in rows {
             let line = SheetLine {
                 id,
                 name,
@@ -319,6 +335,7 @@ impl Game {
                 off,
                 yellow: cards == 1,
                 red: cards == 2,
+                xg,
             };
             if club == m.home_id { home.push(line) } else { away.push(line) }
         }

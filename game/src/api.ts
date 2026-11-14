@@ -35,6 +35,8 @@ import type { ClubProfile } from './bindings/ClubProfile'
 import type { ClubTactics } from './bindings/ClubTactics'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import type { CompetitionProfile } from './bindings/CompetitionProfile'
+import type { CompetitionStats } from './bindings/CompetitionStats'
+import type { ExchangeCandidate } from './bindings/ExchangeCandidate'
 import type { Fixture } from './bindings/Fixture'
 import type { FriendlyClub } from './bindings/FriendlyClub'
 import type { FriendlyDay } from './bindings/FriendlyDay'
@@ -239,6 +241,7 @@ export const api = {
   editorSetClub: (file: string, club: EditorClub) => call<EditorClub>('editor_set_club', { file, club }),
   squadRoleView: (id: number) => call<SquadRoleView>('squad_role_view', { id }),
   statusBar: (kind: string, id: number | null) => call<StatusBar>('status_bar', { kind, id }),
+  competitionStats: (id: number) => call<CompetitionStats>('competition_stats', { id }),
   friendlyDates: (chosen: string[]) => call<FriendlyDay[]>('friendly_dates', { chosen }),
   tourNations: () => call<TourNation[]>('tour_nations'),
   friendlyClubs: (nation: number, dates: string[]) => call<FriendlyClub[]>('friendly_clubs', { nation, dates }),
@@ -249,7 +252,7 @@ export const api = {
   setSquadRole: (id: number, role: string) => call<string>('set_squad_role', { id, role }),
   offerToClubs: (id: number, loan: boolean, fee: number, excludeRivals: boolean) =>
     call<string>('offer_to_clubs', { id, loan, fee, excludeRivals }),
-  exchangeCandidates: (id: number) => call<number[]>('exchange_candidates', { id }),
+  exchangeCandidates: (id: number) => call<ExchangeCandidate[]>('exchange_candidates', { id }),
   askLoan: (id: number, terms: LoanTerms) => call<TransferView>('ask_loan', { id, terms }),
   /** Exercer a opção de compra de um emprestado. */
   exerciseOption: (id: number) => call<TransferView>('exercise_option', { id }),

@@ -366,6 +366,7 @@ export default function TacticsPage({ id }: { id: number }) {
                 <div className="cm-zebra">
                   {t.reserves
                     .filter((p) => withReserves || !p.reserve)
+                    .toSorted((a, b) => a.positionOrder - b.positionOrder || a.listName.localeCompare(b.listName))
                     .map((p) => {
                       const spot: Spot = { kind: 'reserve', id: p.id }
                       return (
@@ -462,6 +463,8 @@ export default function TacticsPage({ id }: { id: number }) {
       {ordersFor && t && (
         <PlayerOrdersDialog
           title={`${ordersFor.squadNumber ?? ''} ${fullName(ordersFor.listName)}`}
+          clubId={t.clubId}
+          personId={ordersFor.id}
           initial={ordersOf(t, ordersFor.id)}
           onCancel={() => setOrdersFor(null)}
           onOk={(o) => {

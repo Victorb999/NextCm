@@ -5,8 +5,9 @@ import type { ReactNode } from 'react'
 
 export type Screen =
   | { kind: 'search' }
-  /** `latest`: abre na mensagem mais recente (a que uma acção acabou de deixar). */
-  | { kind: 'news'; latest?: boolean }
+  /** `latest`: abre na mensagem mais recente (a que uma acção acabou de deixar); `id`: a que
+   * estava aberta (ao voltar de um nome clicado nela). */
+  | { kind: 'news'; latest?: boolean; id?: number }
   | { kind: 'person'; id: number; tab?: string }
   | { kind: 'contract'; id: number }
   | { kind: 'squadNumbers' }
@@ -31,6 +32,8 @@ export type Screen =
 type Nav = {
   current: Screen
   go: (s: Screen) => void
+  /** Troca a tela actual no histórico sem andar (guarda o que ela tem aberto, para o voltar). */
+  replace: (s: Screen) => void
   back: () => void
   forward: () => void
   canBack: boolean
@@ -56,6 +59,14 @@ export function NavProvider({ children }: { children: ReactNode }) {
       return { stack: [...stack.slice(0, index + 1), s], index: index + 1, seq: seq + 1 }
     })
   }, [])
+  const replace = useCallback((s: Screen) => {
+    setState((st) => {
+      if (JSON.stringify(st.stack[st.index]) === JSON.stringify(s)) return st
+      const stack = [...st.stack]
+      stack[st.index] = s
+      return { ...st, stack }
+    })
+  }, [])
   const back = useCallback(() => setState((st) => ({ ...st, index: Math.max(0, st.index - 1), seq: st.seq + 1 })), [])
   const forward = useCallback(() => setState((st) => ({ ...st, index: Math.min(st.stack.length - 1, st.index + 1), seq: st.seq + 1 })), [])
 
@@ -63,13 +74,14 @@ export function NavProvider({ children }: { children: ReactNode }) {
     () => ({
       current: state.stack[state.index] ?? { kind: 'search' },
       go,
+      replace,
       back,
       forward,
       canBack: state.index > 0,
       canForward: state.index < state.stack.length - 1,
       seq: state.seq,
     }),
-    [state, go, back, forward],
+    [state, go, replace, back, forward],
   )
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>
 }

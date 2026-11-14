@@ -475,6 +475,8 @@ pub struct TacticPlayer {
     #[serde(skip)]
     #[ts(skip)]
     pub current_ability: Option<i32>,
+    /// Ordem da posição na lista (GR, L, D, AL, MD, M, MA, A; 8 sem posição natural).
+    pub position_order: i32,
     /// Nota (1–20) do jogador na função onde está; `None` fora do onze.
     pub fit: Option<i32>,
     /// Condição (0–100) e moral (1–20) num jogo em curso.
@@ -484,6 +486,8 @@ pub struct TacticPlayer {
     pub suspended: bool,
     /// Na equipa de reservas do treinador: só entra pelo filtro "Equipa de Reservas".
     pub reserve: bool,
+    /// De enchimento (criado pelo jogo para completar o plantel): a tela mostra-o apagado.
+    pub ghost: bool,
     /// Jogador-chave do plantel (o `*` depois do nome); só num jogo em curso.
     pub key: bool,
     /// Golos, as últimas notas e a nota média nesta época (o Vêr das Tácticas); só num jogo em curso.
@@ -600,6 +604,7 @@ impl Candidate {
             list_name: self.list_name.clone(),
             squad_number: self.squad_number,
             position: position_label(&self.pos),
+            position_order: position_order(&self.pos),
             current_ability: Some(self.ca),
             fit,
             condition: self.in_game.then_some(self.state.condition),
@@ -607,12 +612,18 @@ impl Candidate {
             injured: self.state.injured,
             suspended: self.state.suspended,
             reserve: self.state.reserve,
+            ghost: false,
             key: false,
             goals: 0,
             form: Vec::new(),
             rating: None,
         }
     }
+}
+
+/// A posição natural mais defensiva, na ordem das listas do CM (8 sem nenhuma).
+fn position_order(pos: &[Option<i32>; 12]) -> i32 {
+    [GR, L, D, AL, MD, M, MA, A].iter().position(|&i| pos[i].unwrap_or(0) >= 15).unwrap_or(8) as i32
 }
 
 /// Plantel e treinador de um clube.

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import type { ExchangeCandidate } from '../bindings/ExchangeCandidate'
 import type { TransferView } from '../bindings/TransferView'
 import { wage } from '../format'
 import { useGame } from '../game'
@@ -30,7 +31,7 @@ export default function TransferActions({
   const [error, setError] = useState<string | null>(null)
   // A troca: o plantel do treinador e quem dele o clube vendedor aceita (decide o core)
   const [squad, setSquad] = useState<ExchangeOption[]>([])
-  const [exchangeable, setExchangeable] = useState<number[] | null>(null)
+  const [exchangeable, setExchangeable] = useState<ExchangeCandidate[] | null>(null)
   const club = game.info?.club.id
   const person = view.personId
   useEffect(() => {
@@ -93,6 +94,7 @@ export default function TransferActions({
         name={name}
         club={seller}
         wage={wage(view.wage, true)}
+        weeklyWage={view.wage}
         initial={LOAN_TERMS}
         error={error}
         onCancel={onClose}

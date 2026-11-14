@@ -569,8 +569,8 @@ impl Game {
                 // Para o Historial e a ficha da partida: o jogo pela selecção, com o clube de agora
                 self.world.conn.execute(
                     "INSERT INTO intl_apps (person_id, date, club, team, competition, goals, assists, rating,
-                                            fixture, sub, mom, minute_on, minute_off, cards)
-                     VALUES (?, ?, (SELECT club_id FROM people WHERE id = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                            fixture, sub, mom, minute_on, minute_off, cards, xg)
+                     VALUES (?, ?, (SELECT club_id FROM people WHERE id = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     params![
                         line.id,
                         self.date,
@@ -585,7 +585,8 @@ impl Game {
                         mom == Some(line.id),
                         line.on,
                         line.off,
-                        if line.red { 2 } else { line.yellow as i32 }
+                        if line.red { 2 } else { line.yellow as i32 },
+                        super::player_record::xg2(line.stats.xg)
                     ],
                 )?;
                 if ours {

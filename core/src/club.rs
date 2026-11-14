@@ -63,7 +63,7 @@ pub struct SquadPlayer {
     pub contract_expires: Option<String>,
     /// Um dos três jogadores-chave do plantel (o `*` depois do nome, como no CM).
     pub key: bool,
-    /// A sigla da coluna Inf: "Les", "Sus", "Emp", "Ctr" (contrato acabado, ainda no clube), "Lst",
+    /// A sigla da coluna Inf: "Les", "Sus", "Emp", "Ctr" (sem contrato: acabado, ainda no clube, ou nenhum), "Lst",
     /// "Des" (desejado por outro clube) ou "Ins" (insatisfeito) ("Int", fora na selecção,
     /// quando houver convocatórias).
     pub info: Option<String>,

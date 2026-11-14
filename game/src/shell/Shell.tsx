@@ -70,7 +70,8 @@ export default function Shell() {
             </div>
           )}
           {hasBackend && browsing && <Screens />}
-          {game.mode === 'start' && <StartScreen onOptions={() => setOptions(true)} />}
+          {/* Com as Opções abertas, o menu inicial sai (ficava por cima do diálogo) */}
+          {game.mode === 'start' && !options && <StartScreen onOptions={() => setOptions(true)} />}
           {game.mode === 'newGame' && <NewGamePage />}
           {game.mode === 'loadGame' && <LoadGamePage />}
           {game.mode === 'editor' && <EditorPage />}

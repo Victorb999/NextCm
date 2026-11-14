@@ -11,4 +11,8 @@ mom: boolean,
 /**
  * Minuto em que entrou (0 = titular) e em que saiu; `None` em jogos de antes do save 34.
  */
-on: number | null, off: number | null, yellow: boolean, red: boolean, };
+on: number | null, off: number | null, yellow: boolean, red: boolean, 
+/**
+ * Golos esperados (0 nos jogos de antes do save 62 e nas reservas).
+ */
+xg: number, };

@@ -109,10 +109,11 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
   const first = compareFirst()
   // As mensagens novas contam no "por ler"
   const refreshInfo = () => void api.gameInfo().then((info) => info && game.update(info))
-  // Uma acção que deixa uma mensagem volta às Notícias, como no CM (a mensagem nova abre lá)
+  // Uma acção que deixa uma mensagem volta à tela de onde se veio (a pesquisa, o plantel...); a
+  // mensagem fica nas Notícias e conta no "Tem Notícias"
   const toNews = () => {
     refreshInfo()
-    nav.go({ kind: 'news', latest: true })
+    if (nav.canBack) nav.back()
   }
   const comment = async (kind: 'praise' | 'criticise') => {
     try {
@@ -326,15 +327,15 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
           onDone={(v, message) => {
             setDeal(null)
             setMarket(v)
-            // Uma proposta enviada volta às Notícias, como no CM (a resposta chega lá); o preço pedido
-            // e o Oferecer a Clubes (as respostas chegam dias depois) ficam aqui
+            // Uma proposta enviada volta à tela de onde se veio (a resposta chega às Notícias); o
+            // preço pedido e o Oferecer a Clubes (as respostas chegam dias depois) ficam aqui
             if (deal === 'shop') {
               setNotice(message ?? null)
               setError(null)
             } else if (deal === 'price') {
               setTab('contract')
               void reload()
-            } else nav.go({ kind: 'news', latest: true })
+            } else toNews()
           }}
         />
       )}
@@ -402,7 +403,9 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
           onClose={() => setReport(null)}
           onDone={() => {
             setReport(null)
-            toNews()
+            // O relatório pedido é para ler já: abre nas Notícias
+            refreshInfo()
+            nav.go({ kind: 'news', latest: true })
           }}
         />
       )}

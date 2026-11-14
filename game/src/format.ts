@@ -102,6 +102,11 @@ export function partLabel(part: number): string {
   return ['MNH', 'TAR', 'NTE'][part] ?? ''
 }
 
+/** Golos esperados com duas casas e vírgula: 1.234 -> "1,23". */
+export function xgText(v: number): string {
+  return v.toFixed(2).replace('.', ',')
+}
+
 /** Penáltis de uma eliminatória empatada: " (4-3 g.p.)". */
 export function pensText(f: { homePens: number | null; awayPens: number | null }): string {
   return f.homePens !== null && f.awayPens !== null ? ` (${f.homePens}-${f.awayPens} g.p.)` : ''

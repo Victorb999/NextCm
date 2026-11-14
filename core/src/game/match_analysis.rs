@@ -43,6 +43,8 @@ pub struct MatchAnalysis {
     pub paper: String,
     pub prediction: String,
     pub milestones: [Vec<Milestone>; 2],
+    /// Golos e golos esperados de cada lado nos últimos 5 jogos (marco 4.3).
+    pub recent_xg: [Option<super::RecentXg>; 2],
     /// O que o Próximo Jogo já mostrava: último confronto, tempo, relvado e ausências.
     pub preview: MatchPreview,
 }
@@ -187,6 +189,7 @@ impl Game {
             paper: self.paper(fixture.home.id)?,
             prediction: prediction_text(p, &fixture.home.short_name, &fixture.away.short_name),
             milestones,
+            recent_xg: [self.recent_xg(fixture.home.id)?, self.recent_xg(fixture.away.id)?],
             preview: self.match_preview(fixture.id)?,
         })
     }

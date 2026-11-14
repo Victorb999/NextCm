@@ -41,6 +41,7 @@ pub use editor_staff::{search as editor_search_staff, set_staff as editor_set_st
 pub use engine::{TeamStrength, expected_goals};
 pub use finance::{ClubFinances, FinanceRow};
 pub use game::ContractExtras;
+pub use game::ExchangeCandidate;
 pub use game::LineupCheck;
 pub use game::MatchSheet;
 pub use game::NewsLink;
@@ -56,6 +57,7 @@ pub use game::{
 pub use game::{CareerClub, LastLineup, ManagerStats, SquadAttributes, SquadMore};
 pub use game::{ClubMoves, MoveRow};
 pub use game::{ClubPreview, club_preview};
+pub use game::{CompetitionStats, PlayerStatRow, RecentXg, TeamStatRow};
 pub use game::{DealTerms, LoanTerms};
 pub use game::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
 pub use game::{KeyMan, MatchAnalysis, MatchReview, Milestone};

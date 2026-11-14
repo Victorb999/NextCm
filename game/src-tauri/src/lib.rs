@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use nextcm_core::ClubPreview;
+use nextcm_core::CompetitionStats;
 use nextcm_core::ContractExtras;
 use nextcm_core::FindResult;
 use nextcm_core::LeagueNation;
@@ -124,6 +125,7 @@ session_command!(press_comment(id: i32, kind: String) -> String);
 session_command!(set_reserve(id: i32, reserve: bool) -> String);
 session_command!(reserve_lineup() -> ReserveLineup);
 session_command!(set_reserve_picks(ids: Vec<i32>) -> ReserveLineup);
+session_command!(competition_stats(id: i32) -> CompetitionStats);
 session_command!(friendly_dates(chosen: Vec<String>) -> Vec<FriendlyDay>);
 session_command!(tour_nations() -> Vec<TourNation>);
 session_command!(friendly_clubs(nation: i32, dates: Vec<String>) -> Vec<FriendlyClub>);
@@ -145,7 +147,7 @@ session_command!(match_sheet(id: i32) -> MatchSheet);
 session_command!(set_training(plan: TrainingPlan) -> TrainingView);
 session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
-session_command!(exchange_candidates(id: i32) -> Vec<i32>);
+session_command!(exchange_candidates(id: i32) -> Vec<nextcm_core::ExchangeCandidate>);
 session_command!(squad_role_view(id: i32) -> SquadRoleView);
 session_command!(status_bar(kind: String, id: Option<i32>) -> StatusBar);
 session_command!(editor_search(file: String, query: String) -> Vec<EditorHit>);
@@ -370,6 +372,7 @@ pub fn run() {
             set_reserve,
             reserve_lineup,
             set_reserve_picks,
+            competition_stats,
             friendly_dates,
             tour_nations,
             friendly_clubs,

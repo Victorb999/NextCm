@@ -3,4 +3,8 @@
 /**
  * Números de um jogador no jogo (a tela "Dados" do CM).
  */
-export type PlayerStats = { dribbles: number, passes: number, passesOk: number, tackles: number, tacklesWon: number, headers: number, headersWon: number, shots: number, onTarget: number, };
+export type PlayerStats = { dribbles: number, passes: number, passesOk: number, tackles: number, tacklesWon: number, headers: number, headersWon: number, shots: number, onTarget: number, 
+/**
+ * Golos esperados: a soma da probabilidade de golo de cada remate (marco 4.3).
+ */
+xg: number, };

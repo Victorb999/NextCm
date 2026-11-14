@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { PLAYER_ATTRIBUTES } from '../../attributes'
+import { PLAYER_ATTRIBUTES, valueColor } from '../../attributes'
 import type { PersonProfile } from '../../bindings/PersonProfile'
 import type { PositionTag } from '../../bindings/PositionTag'
 import { SeasonTable } from '../../components/PlayerHistory'
@@ -37,13 +37,6 @@ const STAFF_ATTRIBUTES: [string, string][] = [
 ]
 
 /** A cor de um atributo pela faixa, como no CM: fraco, razoável, bom, excelente. */
-function valueColor(v: number) {
-  if (v >= 16) return 'text-[#ff3b3b]'
-  if (v >= 11) return 'text-cm-orange'
-  if (v >= 6) return 'text-[#f5e663]'
-  return 'text-[#8f8fa0]'
-}
-
 /** Grade de 3 colunas "Nome .... valor", como no perfil do CM. */
 /** `sep`: a linha abre um bloco à parte (a Forma, a Moral e a Condição depois dos atributos). */
 function AttributeGrid({ items }: { items: { label: string; value: ReactNode; color?: string; sep?: boolean }[] }) {

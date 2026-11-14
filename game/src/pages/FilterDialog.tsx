@@ -37,6 +37,7 @@ function Stepper({
   onChange,
   min,
   max,
+  jump,
 }: {
   label: string
   value: number
@@ -46,6 +47,8 @@ function Stepper({
   onChange: (v: number) => void
   min: number
   max: number
+  /** O número é um botão que sobe de 5 em 5 (os atributos). */
+  jump?: boolean
 }) {
   const step =
     'flex h-6 w-7 items-center justify-center rounded-[3px] bg-cm-dlg font-bold text-white ring-1 ring-cm-dlgline hover:bg-cm-dlghover disabled:text-white/25'
@@ -55,7 +58,18 @@ function Stepper({
       <button className={step} disabled={value <= min} onClick={() => onChange(value - 1)} aria-label={`Baixar ${label}`}>
         -
       </button>
-      <span className={`w-9 text-center font-bold ${colour}`}>{text ?? value}</span>
+      {jump ? (
+        // Clicar no número sobe de 5 em 5 (1, 5, 10, 15, 20 e volta ao mínimo), como no CM
+        <button
+          className={`w-9 rounded-[3px] text-center font-bold hover:bg-cm-dlghover ${colour}`}
+          title="Subir de 5 em 5"
+          onClick={() => onChange(value >= max ? min : Math.min(max, Math.floor(value / 5) * 5 + 5))}
+        >
+          {text ?? value}
+        </button>
+      ) : (
+        <span className={`w-9 text-center font-bold ${colour}`}>{text ?? value}</span>
+      )}
       <button className={step} disabled={value >= max} onClick={() => onChange(value + 1)} aria-label={`Subir ${label}`}>
         +
       </button>
@@ -79,6 +93,7 @@ function AttributesTab({ f, players, set }: { f: Filters; players: boolean; set:
         colour={v > 1 ? 'text-cm-yellow' : 'text-cm-green'}
         min={1}
         max={20}
+        jump
         onChange={(n) => set({ attributes: { ...f.attributes, [key]: n }, needed: null })}
       />
     )

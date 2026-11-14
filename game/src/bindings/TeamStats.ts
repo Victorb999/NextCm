@@ -7,4 +7,8 @@ export type TeamStats = {
 /**
  * Posse de bola em % (as duas somam 100).
  */
-possession: number, shots: number, onTarget: number, corners: number, fouls: number, yellows: number, reds: number, throwIns: number, offsides: number, passes: number, passesOk: number, tackles: number, tacklesWon: number, headers: number, headersWon: number, };
+possession: number, shots: number, onTarget: number, corners: number, fouls: number, yellows: number, reds: number, throwIns: number, offsides: number, passes: number, passesOk: number, tackles: number, tacklesWon: number, headers: number, headersWon: number, 
+/**
+ * Golos esperados da equipa (marco 4.3): em todos os jogos jogados pelo motor por lances.
+ */
+xg: number, };

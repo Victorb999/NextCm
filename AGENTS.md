@@ -36,6 +36,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/jobs.rs` | Empregos: treinadores da IA e despedimentos, lugares vagos, candidaturas, mudar de clube, desemprego |
 | `core/src/game/reserves.rs` | Equipa de reservas: despromover e promover |
 | `core/src/game/reserve_matches.rs`, `reserve_report.rs` | Jogos das reservas e o onze do adjunto (ritmo, banco); o relatório mensal de quem sobe e quem desce |
+| `core/src/game/competition_stats.rs` | Golos esperados: a aba Estatísticas da competição e os últimos jogos na Análise |
 | `core/src/game/friendlies.rs` | Amigáveis de clubes (competição 72): marcar (casa, fora, excursão), cancelar, convites; jogos em `friendly_apps` |
 | `core/src/game/internationals.rs` | Selecções: época internacional (1/8, ciclo de 4 anos), sorteios das fases finais, convocatórias (`call_ups`), "Int", internacionalizações |
 | `core/src/game/staff_reports.rs` | Relatórios do médico e do preparador físico sobre um jogador do plantel |

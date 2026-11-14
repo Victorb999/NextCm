@@ -116,7 +116,7 @@ export function Row({
           onOrders()
         })
       }
-      className={`flex h-[30px] cursor-grab items-center gap-2 px-3 text-[14.5px] ${
+      className={`flex h-[30px] cursor-grab items-center gap-2 px-3 text-[14.5px] ${p.ghost ? 'opacity-50' : ''} ${
         highlight === 'wait' ? '!bg-cm-purple/50' : highlight === 'pick' ? 'cursor-pointer hover:!bg-cm-yellow/15' : ''
       }`}
     >

@@ -20,6 +20,7 @@ mod board;
 mod board_meeting;
 mod career_marks;
 mod club_moves;
+mod competition_stats;
 mod competitions;
 mod contract_extras;
 mod contracts;
@@ -75,9 +76,10 @@ use crate::{Error, Result, World, date};
 pub use board::{BoardConfidence, BoardView};
 pub use board_meeting::BoardRequest;
 pub use club_moves::{ClubMoves, MoveRow};
+pub use competition_stats::{CompetitionStats, PlayerStatRow, RecentXg, TeamStatRow};
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use contract_extras::ContractExtras;
-pub use deals::{ContractReply, ContractTerms, OfferAction, OfferView, RoleOption, SquadRoleView, TransferView};
+pub use deals::{ContractReply, ContractTerms, ExchangeCandidate, OfferAction, OfferView, RoleOption, SquadRoleView, TransferView};
 pub use discipline::DisciplineOptions;
 pub use friendlies::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
 pub use jobs::{JobNation, JobRow, JobsView};
@@ -153,7 +155,8 @@ pub use training::{TrainingPlan, TrainingView};
 /// 59: o valor depois de N internacionalizações (`offers.caps_bonus`, `caps_bonus`), marco 4.0.
 /// 60: os amigáveis de clubes (competição 72, `friendly_apps`, `friendly_invites`), marco 4.0.
 /// 61: o CA no relatório mensal das reservas (`reserve_report_ca`), marco 4.1.
-pub const SAVE_VERSION: i32 = 61;
+/// 62: os golos esperados de cada jogo (`player_matches.xg`, `friendly_apps.xg`, `intl_apps.xg`), marco 4.3.
+pub const SAVE_VERSION: i32 = 62;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -834,8 +837,16 @@ impl Game {
             tx.execute_batch(ORDERS_BY_SLOT)?;
             tx.execute_batch(friendlies::FRIENDLIES_SCHEMA)?;
             tx.execute_batch(reserve_report::REPORT_SCHEMA)?;
-            // O saldo do 1.º dia, como no CM (as dívidas ficam como estão)
-            tx.execute("UPDATE clubs SET cash = CAST(cash * ? AS INTEGER) WHERE cash > 0", [crate::finance::START_CASH])?;
+            tx.execute_batch(player_record::XG_SCHEMA)?;
+            // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
+            let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
+                .prepare("SELECT id, cash, COALESCE(reputation, 0), division_id FROM clubs WHERE cash > 0")?
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+                .collect::<rusqlite::Result<_>>()?;
+            for (id, bank, rep, division) in banks {
+                let cash = crate::finance::start_cash(bank, crate::finance::club_revenue(id, rep, division));
+                tx.execute("UPDATE clubs SET cash = ? WHERE id = ?", params![cash, id])?;
+            }
             // Os salários do CM: os do banco × WAGE_SCALE
             tx.execute("UPDATE people SET wage = CAST(wage * ? AS INTEGER) WHERE wage > 0", [crate::finance::WAGE_SCALE])?;
             let manager_id: i32 = tx.query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM people", [], |r| r.get(0))?;
@@ -1345,6 +1356,12 @@ impl Game {
             world.conn.execute_batch(reserve_report::REPORT_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 61", [])?;
             version = 61;
+        }
+        // Save 62: os golos esperados de cada jogo (marco 4.3)
+        if version == 61 {
+            world.conn.execute_batch(player_record::XG_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 62", [])?;
+            version = 62;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -3927,10 +3944,13 @@ mod tests {
         }
         let mut c = g.world().get_club(7568).unwrap();
         g.fill_squad(&mut c).unwrap();
-        // Três jogadores-chave; os dois valiosos da direção estão entre eles
+        // Três jogadores-chave (pelo CA e pelas notas); os dois valiosos da direção são os de
+        // maior valor de mercado
         let keys: Vec<i32> = c.players.iter().filter(|p| p.key).map(|p| p.id).collect();
         assert_eq!(keys.len(), 3);
-        assert!(g.valuable_players().unwrap().iter().all(|v| keys.contains(v)));
+        assert_eq!(g.key_players(7568).unwrap().len(), 3);
+        let valuable = g.most_valuable(7568).unwrap();
+        assert!(g.valuable_players().unwrap().iter().all(|v| valuable.contains(v)));
         // Quem jogou tem forma, jogos e nota; todos têm situação e moral
         let played: Vec<_> = c.players.iter().filter(|p| p.apps > 0).collect();
         assert!(played.len() >= 11, "{}", played.len());
