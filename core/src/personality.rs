@@ -93,6 +93,99 @@ pub fn steps_down(from: i32, to: i32, ambition: f64) -> bool {
     from > to + step_down(ambition)
 }
 
+/// Folga no [`step_down`] de quem vai ser titular no clube novo sem o ser no dele (4.0, item 20):
+/// o jovem no banco de um grande aceita um clube menor onde joga; até aos 23 anos, mais ainda.
+pub const PLAY_SLACK: i32 = 1500;
+pub const YOUNG_SLACK: i32 = 1000;
+pub const YOUNG_AGE: i32 = 23;
+
+/// Uma mudança de clube vista pelo jogador: os pesos dos clubes (`Game::club_pull`, com a
+/// cidade já somada ao de destino) e se joga num e no outro.
+#[derive(Debug, Clone, Copy)]
+pub struct Move {
+    pub from: i32,
+    pub to: i32,
+    pub ambition: f64,
+    pub age: i32,
+    /// É dos 11 melhores do plantel onde está.
+    pub plays_now: bool,
+    /// Seria dos 11 melhores do plantel novo.
+    pub plays_there: bool,
+}
+
+/// [`steps_down`] com a folga de quem passa a jogar.
+pub fn move_steps_down(m: &Move) -> bool {
+    let slack = if m.plays_there && !m.plays_now { PLAY_SLACK + if m.age <= YOUNG_AGE { YOUNG_SLACK } else { 0 } } else { 0 };
+    steps_down(m.from, m.to + slack, m.ambition)
+}
+
+/// Porque um jogador recusa ir emprestado.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoanRefusal {
+    /// Desce demais (pela Ambição, com a folga de quem passa a jogar).
+    StepsDown,
+    /// Vai para um clube menor e nem lá joga.
+    Bench,
+}
+
+/// A resposta do jogador a um empréstimo (os clubes já acordaram): aceita descer para jogar,
+/// não aceita descer para o banco, e um clube do mesmo tamanho ou maior serve sempre.
+pub fn loan_refusal(m: &Move) -> Option<LoanRefusal> {
+    if move_steps_down(m) {
+        Some(LoanRefusal::StepsDown)
+    } else if !m.plays_there && m.to < m.from {
+        Some(LoanRefusal::Bench)
+    } else {
+        None
+    }
+}
+
+/// Atracção da cidade (`cities.attraction`, 0–20 no CM; 0 = sem dados) a partir da qual não
+/// pesa, e o peso para quem é de fora: o do país conta 30%, o que fala a mesma língua 60%.
+pub const CITY_MID: i32 = 10;
+pub const CITY_HOME: f64 = 0.3;
+pub const CITY_LANGUAGE: f64 = 0.6;
+/// Peso no clube (como a reputação) por ponto de atracção acima ou abaixo do meio.
+const CITY_PULL: f64 = 80.0;
+/// Salário pedido a mais por ponto de atracção abaixo do meio (só abaixo: uma cidade grande
+/// atrai, mas ninguém aceita ganhar menos por ela).
+const CITY_WAGE: f64 = 0.025;
+
+/// A atracção de uma cidade, com 0 (sem dados) no meio.
+fn attraction(a: i32) -> f64 {
+    if a <= 0 { CITY_MID as f64 } else { a.clamp(1, 20) as f64 }
+}
+
+/// O que a cidade soma ao peso do clube para um jogador (`weight`: 1 estrangeiro,
+/// [`CITY_LANGUAGE`] com a mesma língua, [`CITY_HOME`] do país): Londres +800, Sunderland −80.
+pub fn city_pull(a: i32, weight: f64) -> i32 {
+    ((attraction(a) - CITY_MID as f64) * CITY_PULL * weight).round() as i32
+}
+
+/// Salário pedido × isto numa cidade pouco atraente: até +22,5% (atracção 1) para quem é de fora.
+pub fn city_wage(a: i32, weight: f64) -> f64 {
+    1.0 + CITY_WAGE * (CITY_MID as f64 - attraction(a)).max(0.0) * weight
+}
+
+/// Degraus de função (o 3.º campo de `SQUAD_ROLES`: 0 indispensável a 3 apoio) abaixo do que
+/// espera a partir dos quais recusa o contrato (4.0, item 21): o titular não aceita "apoio".
+pub const ROLE_REFUSE_STEPS: i32 = 2;
+/// Compensa o papel menor: um clube com mais isto de peso (menos 100 por ponto de Ambição
+/// acima de 10) ou um salário 50% acima do que ganha hoje.
+pub const ROLE_BIG_CLUB: i32 = 2500;
+pub const ROLE_WAGE_LURE: f64 = 1.5;
+
+/// Aceita uma função `steps` degraus abaixo da que espera? `gain`: o peso do clube novo menos
+/// o do dele (0 numa renovação); `wage_gain`: salário oferecido sobre o que ganha (None se não
+/// ganha nada: o livre aceita).
+pub fn accepts_role(steps: i32, ambition: f64, gain: i32, wage_gain: Option<f64>) -> bool {
+    if steps < ROLE_REFUSE_STEPS {
+        return true;
+    }
+    let big = ROLE_BIG_CLUB - ((ambition.clamp(1.0, 20.0) - 10.0) * 100.0) as i32;
+    gain >= big || wage_gain.is_none_or(|w| w >= ROLE_WAGE_LURE)
+}
+
 /// O bónus de peso de quem joga as continentais nesta época (somado à reputação do clube).
 pub fn continental_pull(competition: i32) -> i32 {
     use crate::league::{CHAMPIONS_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, SUL_AMERICANA};
@@ -171,6 +264,50 @@ pub fn renewal_stay_chance(m: &RenewalMood) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn bench_kid() -> Move {
+        Move { from: 9000, to: 5500, ambition: 12.0, age: 20, plays_now: false, plays_there: true }
+    }
+
+    #[test]
+    fn playing_time_eases_stepping_down() {
+        // Do banco de um grande para titular num clube 3500 abaixo: o jovem aceita, o de 28 não
+        assert!(!move_steps_down(&bench_kid()));
+        assert!(move_steps_down(&Move { age: 28, ..bench_kid() }));
+        // O titular não ganha folga
+        assert!(move_steps_down(&Move { plays_now: true, ..bench_kid() }));
+        // Muito abaixo, nem o jovem
+        assert!(move_steps_down(&Move { to: 4000, ..bench_kid() }));
+    }
+
+    #[test]
+    fn loans_need_minutes_or_a_bigger_club() {
+        assert_eq!(loan_refusal(&bench_kid()), None);
+        assert_eq!(loan_refusal(&Move { from: 6500, plays_there: false, ..bench_kid() }), Some(LoanRefusal::Bench));
+        assert_eq!(loan_refusal(&Move { to: 9500, plays_there: false, ..bench_kid() }), None);
+        assert_eq!(loan_refusal(&Move { to: 3000, ..bench_kid() }), Some(LoanRefusal::StepsDown));
+    }
+
+    #[test]
+    fn the_city_weighs_more_on_foreigners() {
+        assert_eq!(city_pull(20, 1.0), 800);
+        assert_eq!(city_pull(0, 1.0), 0);
+        assert!(city_pull(5, CITY_HOME) > city_pull(5, 1.0));
+        assert_eq!(city_wage(20, 1.0), 1.0);
+        assert!((city_wage(1, 1.0) - 1.225).abs() < 1e-9);
+        assert!(city_wage(4, CITY_HOME) < city_wage(4, CITY_LANGUAGE));
+    }
+
+    #[test]
+    fn a_lesser_role_needs_a_bigger_club_or_money() {
+        assert!(accepts_role(1, 10.0, 0, Some(1.0)));
+        assert!(!accepts_role(2, 10.0, 0, Some(1.2)));
+        assert!(accepts_role(2, 10.0, 0, Some(1.6)));
+        assert!(accepts_role(2, 10.0, 2600, Some(1.0)));
+        // O ambicioso aceita o banco de um clube grande mais cedo
+        assert!(accepts_role(2, 18.0, 1800, Some(1.0)) && !accepts_role(2, 5.0, 1800, Some(1.0)));
+        assert!(accepts_role(3, 10.0, 0, None));
+    }
 
     #[test]
     fn versatility_softens_playing_out_of_position() {

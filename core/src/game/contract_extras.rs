@@ -33,6 +33,8 @@ const CLEAN_SHEET_BONUS: f64 = 0.03;
 /// Cláusula de venda: a que ele pede e a que o jogo sugere (vezes o valor de mercado).
 const MIN_FEE_ASKED: f64 = 2.0;
 const MIN_FEE_SUGGESTED: f64 = 3.0;
+/// Uma cláusula a favor do jogador que ele não pediu vale isto do salário de um ano.
+const CLAUSE_WORTH: f64 = 0.03;
 /// Atributos a partir dos quais pede o prémio por golo (Finalização) e por assistência (Passe).
 const SCORER: i32 = 13;
 const PROVIDER: i32 = 14;
@@ -89,6 +91,28 @@ impl ContractExtras {
             out.push("cláusula de dispensa por oferta de lugar de treinador");
         }
         out
+    }
+
+    /// O que esta proposta dá por época além do que ele exige (4.0, item 22), para compensar
+    /// parte do salário: os prémios acima dos pedidos, pelo que ele marca, assiste e defende numa
+    /// época normal do papel dele (0 GR, 1 defesa, 2 meio, 3 ataque), e cada cláusula a favor
+    /// dele que não pediu ([`CLAUSE_WORTH`] do salário de um ano).
+    pub(super) fn worth_above(&self, asks: &ContractExtras, role: usize, wage: f64) -> f64 {
+        const GOALS: [f64; 4] = [0.0, 1.0, 4.0, 10.0];
+        const ASSISTS: [f64; 4] = [0.0, 2.0, 5.0, 5.0];
+        const CLEAN_SHEETS: [f64; 4] = [12.0, 0.0, 0.0, 0.0];
+        let r = role.min(3);
+        let above = |offered: i64, asked: i64| (offered - asked).max(0) as f64;
+        let mut worth = above(self.goal_bonus, asks.goal_bonus) * GOALS[r]
+            + above(self.assist_bonus, asks.assist_bonus) * ASSISTS[r]
+            + above(self.clean_sheet_bonus, asks.clean_sheet_bonus) * CLEAN_SHEETS[r];
+        let clauses = [
+            self.relegation && !asks.relegation,
+            self.non_promotion && !asks.non_promotion,
+            self.min_fee.is_some() && asks.min_fee.is_none(),
+        ];
+        worth += clauses.iter().filter(|&&c| c).count() as f64 * CLAUSE_WORTH * wage * 52.0;
+        worth
     }
 
     /// Esta proposta com o que ele exige (a contraproposta).

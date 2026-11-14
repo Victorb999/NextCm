@@ -198,12 +198,12 @@ CREATE TABLE nations (
     continent_id INTEGER, capital_city_id INTEGER, stadium_id INTEGER
 );
 
-CREATE TABLE cities (id INTEGER PRIMARY KEY, name TEXT);
+CREATE TABLE cities (id INTEGER PRIMARY KEY, name TEXT, nation_id INTEGER, latitude REAL, longitude REAL, attraction INTEGER);
 
 CREATE TABLE stadiums (
     id INTEGER PRIMARY KEY, name TEXT, city_id INTEGER,
     capacity INTEGER, seating_capacity INTEGER, expansion_capacity INTEGER,
-    undersoil_heating INTEGER NOT NULL DEFAULT 0
+    undersoil_heating INTEGER NOT NULL DEFAULT 0, retractable_roof INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE competitions (
@@ -228,7 +228,9 @@ CREATE TABLE clubs (
     training INTEGER,               -- instalações de treino, 1 a 20 (0 = sem dados)
     rival1_id INTEGER, rival2_id INTEGER, rival3_id INTEGER,
     -- Cores do uniforme principal e reserva, em hex ('#rrggbb')
-    home_fg TEXT, home_bg TEXT, away_fg TEXT, away_bg TEXT
+    home_fg TEXT, home_bg TEXT, away_fg TEXT, away_bg TEXT,
+    owns_stadium INTEGER NOT NULL DEFAULT 0, match_day INTEGER,
+    avg_attendance INTEGER, min_attendance INTEGER, max_attendance INTEGER
 );
 
 CREATE TABLE jobs (id INTEGER PRIMARY KEY, name TEXT);
@@ -333,8 +335,12 @@ def nations(r):
 
 
 def cities(r):
+    # 56 bytes: id (0), nome (4, 26), 0xFF (30), nação (31), latitude e longitude (35 e 43,
+    # doubles), atracção 0–20 (51) e um código de 4 bytes (52, parece o clima)
     for _, b in r.table(T_CITY, 56):
-        yield {"id": i32(b, 0), "name": text(b, 4, 51)}
+        yield {"id": i32(b, 0), "name": text(b, 4, 26), "nation_id": ref(i32(b, 31)),
+               "latitude": round(struct.unpack_from("<d", b, 35)[0], 4),
+               "longitude": round(struct.unpack_from("<d", b, 43)[0], 4), "attraction": u8(b, 51)}
 
 
 def stadiums(r):
@@ -539,7 +545,7 @@ def main():
         "source": os.path.basename(os.path.normpath(args.src)),
         "year_offset": args.year_offset,
         "extracted_at": dt.datetime.now().isoformat(timespec="seconds"),
-        "schema_version": 8,
+        "schema_version": 10,
     }.items()))
     db.commit()
     db.close()

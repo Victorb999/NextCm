@@ -172,6 +172,8 @@ struct Market {
     requested: HashSet<i32>,
     /// Os rivais de cada clube (`clubs.rival1..3`), nos dois sentidos.
     rivals: HashMap<i32, Vec<i32>>,
+    /// Os nomes das nações (a língua pesa na atracção da cidade).
+    nations: HashMap<i32, String>,
 }
 
 impl Market {
@@ -193,6 +195,7 @@ impl Market {
             listed: HashSet::new(),
             requested: HashSet::new(),
             rivals: HashMap::new(),
+            nations: HashMap::new(),
         };
         for i in 0..m.listings.len() {
             if let Some(c) = m.listings[i].club {
@@ -517,6 +520,7 @@ impl Game {
             .query_map([], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
         market.rivals = self.rival_map()?;
+        market.nations = self.nation_names()?;
         let mut deals: Vec<TransferItem> = signed;
         let mut rng = self.season_rng(0x3A_4B37);
         // Os clubes geridos, pela ordem do id (determinismo), menos o do treinador
@@ -977,6 +981,7 @@ impl Game {
         let bonus = self.continental_bonuses();
         let pull = |c: Option<i32>| c.and_then(|c| bonus.get(&c).copied()).unwrap_or(0);
         let buyer_pull = b.rep + pull(Some(club));
+        let attraction = self.city_attraction(club)?;
         // A contratação bombástica: um clube muito rico, de vez em quando
         let splurge = b.cash as f64 >= SPLURGE_CASH * b.base && uniform(rng) < SPLURGE_CHANCE;
         let (premium, budget, wage_room) = if splurge {
@@ -1026,9 +1031,21 @@ impl Game {
             if fan == Some(false) {
                 continue;
             }
-            // Vem de um clube muito maior? Não quer descer (o ambicioso ainda menos)
-            if l.club.is_some() && fan.is_none() && personality::steps_down(l.club_rep + pull(l.club), buyer_pull, l.ambition) {
-                continue;
+            // Vem de um clube muito maior? Não quer descer (o ambicioso ainda menos), a não ser
+            // para ser titular (o jovem no banco de um grande); a cidade pesa em quem vem de fora
+            if l.club.is_some() && fan.is_none() {
+                let weight = super::city::nation_weight(&market.nations, l.nation, b.nation);
+                let m = personality::Move {
+                    from: l.club_rep + pull(l.club),
+                    to: buyer_pull + personality::city_pull(attraction, weight),
+                    ambition: l.ambition,
+                    age: l.age,
+                    plays_now: market.key.contains(&l.id),
+                    plays_there: market.squad(club).filter(|x| x.ca > l.ca).take(11).count() < 11,
+                };
+                if personality::move_steps_down(&m) {
+                    continue;
+                }
             }
             // Da Europa para fora dela, quase só veteranos
             if l.club.is_some()
@@ -1201,7 +1218,19 @@ impl Game {
             }
             let (squad, count, _, level) = market.shape(b);
             if squad < 28 && player.ca + 10 >= level && count[player.role] < MIN_ROLE[player.role] + 3 {
-                fits.push((tier, b, kind));
+                // O jogador aceita? Sai do banco para jogar, mas não desce demais (4.0, item 20)
+                let weight = super::city::nation_weight(&market.nations, player.nation, b_nation.unwrap_or(0));
+                let m = personality::Move {
+                    from: self.club_pull(club)?,
+                    to: self.club_pull(b)? + personality::city_pull(self.city_attraction(b)?, weight),
+                    ambition: player.ambition,
+                    age: player.age,
+                    plays_now: market.key.contains(&player.id),
+                    plays_there: market.squad(b).filter(|x| x.ca > player.ca).take(11).count() < 11,
+                };
+                if personality::loan_refusal(&m).is_none() {
+                    fits.push((tier, b, kind));
+                }
             }
         }
         let Some(best) = fits.iter().map(|f| f.0).min() else { return Ok(None) };

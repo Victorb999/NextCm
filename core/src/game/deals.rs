@@ -646,10 +646,22 @@ impl Game {
 
     /// Os clubes da IA que podem fazer proposta por um jogador do treinador: um rival do clube só
     /// se o jogador aceitar ir para o rival (`joins_rival`, como nas compras do treinador).
-    fn willing_buyers(&self, person: i32, f: &Facts, fits: Vec<i32>) -> Result<Vec<i32>> {
+    fn willing_buyers(&self, person: i32, f: &Facts, fits: Vec<i32>, as_loan: bool) -> Result<Vec<i32>> {
         let mut rival_ok: Option<bool> = None;
         let mut out = Vec::with_capacity(fits.len());
         for c in fits {
+            // O jogador aceita? Não desce demais (a não ser para jogar) nem vai emprestado para o
+            // banco de um clube menor (4.0, item 20); a cidade pesa
+            let refused = if as_loan {
+                self.loan_refused(person, f, self.club_id, c)?.is_some()
+            } else {
+                self.world.club_preference(person, c)? == Some(false)
+                    || (self.world.club_preference(person, c)? != Some(true)
+                        && personality::move_steps_down(&self.player_move(person, f.ca, f.age, f.ambition, self.club_id, c)?))
+            };
+            if refused {
+                continue;
+            }
             if self.are_rivals(c, self.club_id)? {
                 let ok = match rival_ok {
                     Some(ok) => ok,
@@ -662,6 +674,27 @@ impl Game {
             out.push(c);
         }
         Ok(out)
+    }
+
+    /// O jogador recusa ir emprestado do `parent` para o `to`? O motivo, para a mensagem: as
+    /// Preferências do CM primeiro (o favorito aceita sempre, o detestado nunca), depois a
+    /// descida e os minutos (`personality::loan_refusal`).
+    pub(super) fn loan_refused(&self, person: i32, f: &Facts, parent: i32, to: i32) -> Result<Option<String>> {
+        let name = self.person_name(person)?;
+        match self.world.club_preference(person, to)? {
+            Some(true) => return Ok(None),
+            Some(false) => return Ok(Some(format!("{name} não quer jogar no {}.", self.club(to).short_name))),
+            None => {}
+        }
+        let m = self.player_move(person, f.ca, f.age, f.ambition, parent, to)?;
+        Ok(personality::loan_refusal(&m).map(|r| match r {
+            personality::LoanRefusal::StepsDown => {
+                format!("{name} não quer ir emprestado para um clube tão abaixo do {}.", self.club(parent).short_name)
+            }
+            personality::LoanRefusal::Bench => {
+                format!("{name} não quer ir emprestado para ficar no banco do {}.", self.club(to).short_name)
+            }
+        }))
     }
 
     /// `a` e `b` são rivais (`clubs.rival1..3`, num sentido ou no outro).
@@ -736,7 +769,11 @@ impl Game {
         ask *= personality::ambition_wage(f.ambition, expected == 0);
         if renewal {
             ask *= personality::loyalty_renewal(f.loyalty);
-        } else if !free {
+        } else {
+            // Uma cidade pouco atraente pede mais, sobretudo a quem vem de fora (4.0, item 23)
+            ask *= self.city_wage(person, self.club_id)?;
+        }
+        if !renewal && !free {
             ask *= personality::loyalty_move_wage(f.loyalty);
             if let Some(club) = f.club
                 && self.are_rivals(club, self.club_id)?
@@ -2152,6 +2189,15 @@ Confirme até {}.",
                 // Fora dos planos, o lugar no plantel já não o segura
                 loan_reply(&t, rank.max(super::negotiation::LOAN_KEEP), f.age, f.value, asking, o.rounds)
             };
+            // O clube deixa: falta o jogador querer (4.0, item 20)
+            if !matches!(reply, LoanReply::Reject)
+                && let Some(why) = self.loan_refused(o.person, &f, seller, self.club_id)?
+            {
+                self.set_status(o.id, "rejected", None)?;
+                let body = format!("O {seller_name} aceitava emprestar {name}, mas o jogador recusa. {why}");
+                self.offer_news(fresh, next_id, format!("{name} recusa o empréstimo"), body, o.id);
+                return Ok(());
+            }
             match reply {
                 LoanReply::Accept => {
                     let until = self.execute_loan(o.person, seller, self.club_id, &t)?;
@@ -2380,7 +2426,7 @@ Confirme até {}.",
             } else {
                 finance::round_money(f.value as f64 * (1.0 + 0.3 * uniform(&mut rng))).max(10_000)
             };
-            let fits = self.willing_buyers(id, &f, fitting_buyers(&buyers, &f, ca, as_loan, fee, my_rep))?;
+            let fits = self.willing_buyers(id, &f, fitting_buyers(&buyers, ca, as_loan, fee, my_rep), as_loan)?;
             if fits.is_empty() {
                 continue;
             }
@@ -2498,7 +2544,7 @@ Confirme até {}.",
             self.world.conn.query_row("SELECT COALESCE(current_ability, 1) FROM players WHERE person_id = ?", [person], |r| r.get(0))?;
         let my_rep = self.club_pull(self.club_id)?;
         let buyers = self.bid_clubs()?;
-        let mut fits = self.willing_buyers(person, &f, fitting_buyers(&buyers, &f, ca, loan, fee, my_rep))?;
+        let mut fits = self.willing_buyers(person, &f, fitting_buyers(&buyers, ca, loan, fee, my_rep), loan)?;
         if exclude_rivals {
             fits.retain(|c| !rivals.contains(&Some(*c)));
         }
@@ -2614,18 +2660,16 @@ Confirme até {}.",
 /// Um clube que pode fazer propostas: id, reputação, quanto pode gastar e nível.
 type Buyer = (i32, i32, f64, i32);
 
-/// Os clubes que querem um jogador: quem compra, um clube onde ele jogue e que ele aceite (e
-/// que pague `fee`); quem pede emprestado, um mais pequeno.
-fn fitting_buyers(buyers: &[Buyer], f: &Facts, ca: i32, as_loan: bool, fee: i64, my_rep: i32) -> Vec<i32> {
+/// Os clubes que querem um jogador: quem compra, um clube onde ele jogue (e que pague `fee`);
+/// quem pede emprestado, um mais pequeno. Se ele aceita, vê-se depois (`willing_buyers`).
+fn fitting_buyers(buyers: &[Buyer], ca: i32, as_loan: bool, fee: i64, my_rep: i32) -> Vec<i32> {
     buyers
         .iter()
-        .filter(|&&(_, rep, budget, level)| {
-            if as_loan {
-                rep < my_rep && ca + 10 >= level
-            } else {
-                !personality::steps_down(my_rep, rep, f.ambition) && ca >= level - 5 && ca <= level + 25 && fee as f64 <= budget
-            }
-        })
+        .filter(
+            |&&(_, rep, budget, level)| {
+                if as_loan { rep < my_rep && ca + 10 >= level } else { ca >= level - 5 && ca <= level + 25 && fee as f64 <= budget }
+            },
+        )
         .map(|b| b.0)
         .collect()
 }
@@ -3145,6 +3189,91 @@ Palmeiras fez uma nova proposta."
         let reply = g.negotiate(id, &terms.role, terms.wage, terms.bonus, 2, &Default::default()).unwrap();
         assert!(!reply.text.is_empty());
         let _ = club;
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn players_weigh_role_money_minutes_and_the_city() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-vontades-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Vontades".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: PALMEIRAS,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        let mut g = Game::create(&path, &dir, &new, 3).unwrap();
+        let squad: Vec<i32> = g
+            .world
+            .conn
+            .prepare(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ? AND p.is_player = 1
+                   AND p.id NOT IN (SELECT person_id FROM loans) AND p.contract_expires IS NOT NULL
+                 ORDER BY pl.current_ability DESC, p.id",
+            )
+            .unwrap()
+            .query_map([PALMEIRAS], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+
+        // A cidade (item 23): São Paulo é das mais atraentes; quem vem de fora sente-a mais
+        if g.city_attraction(PALMEIRAS).unwrap() > 0 {
+            assert!(g.city_attraction(PALMEIRAS).unwrap() >= 15);
+            assert!(g.city_weight(squad[0], PALMEIRAS).unwrap() <= 1.0);
+            // A cidade não baixa o salário de ninguém
+            assert_eq!(g.city_wage(squad[0], PALMEIRAS).unwrap(), 1.0);
+        }
+
+        // O papel (item 21): ao titular, "apoio" pelo mesmo salário não serve; com 60% a mais, sim
+        let star = squad[0];
+        let f = g.facts(star).unwrap().unwrap();
+        let backup = SQUAD_ROLES.iter().position(|r| r.0 == "backup").unwrap();
+        let err = g.role_refusal(star, &f, backup, &Party::Renewal, f.wage, "X").unwrap();
+        assert!(err.is_some_and(|e| e.contains("não aceita a função")));
+        assert!(g.role_refusal(star, &f, backup, &Party::Renewal, f.wage * 16 / 10, "X").unwrap().is_none());
+        let key = SQUAD_ROLES.iter().position(|r| r.0 == "key").unwrap();
+        assert!(g.role_refusal(star, &f, key, &Party::Renewal, f.wage, "X").unwrap().is_none());
+
+        // O contrato flexível (item 22): 20% a menos de salário, compensados no prémio, passa;
+        // 30% a menos não passa, por maior que seja o prémio
+        let (a, b) = (squad[3], squad[4]);
+        let t = g.contract_terms(a, None).unwrap();
+        let wage = t.wage * 80 / 100;
+        let bonus = t.bonus + (t.wage - wage) * 52 * t.years as i64 + 10_000;
+        assert!(g.negotiate(a, &t.role, wage, bonus, t.years, &t.asks).unwrap().pending);
+        let t2 = g.contract_terms(b, None).unwrap();
+        let wage2 = t2.wage * 70 / 100;
+        let bonus2 = t2.bonus + (t2.wage - wage2) * 52 * t2.years as i64 * 3;
+        assert!(g.negotiate(b, &t2.role, wage2, bonus2, t2.years, &t2.asks).unwrap().pending);
+        g.date = date::add_days(&g.date, 1).unwrap();
+        let (mut fresh, mut id) = (Vec::new(), 9000);
+        g.contract_replies(&mut fresh, &mut id).unwrap();
+        assert_eq!(g.open_contract(a).unwrap().unwrap().status, "agreed");
+        assert_eq!(g.open_contract(b).unwrap().unwrap().status, "countered");
+
+        // O empréstimo (item 20): o jogador do banco do Flamengo segue as contas da personalidade,
+        // e para um clube que detesta não vai
+        let bench = *for_sale(&g).last().map(|(id, _)| id).unwrap();
+        let f = g.facts(bench).unwrap().unwrap();
+        let m = g.player_move(bench, f.ca, f.age, f.ambition, FLAMENGO, PALMEIRAS).unwrap();
+        assert_eq!(g.loan_refused(bench, &f, FLAMENGO, PALMEIRAS).unwrap().is_some(), personality::loan_refusal(&m).is_some());
+        g.world
+            .conn
+            .execute("INSERT INTO preferences (person_id, kind, target_id, liked) VALUES (?, 'club', ?, 0)", [bench, PALMEIRAS])
+            .unwrap();
+        assert!(g.loan_refused(bench, &f, FLAMENGO, PALMEIRAS).unwrap().is_some_and(|w| w.contains("não quer jogar")));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

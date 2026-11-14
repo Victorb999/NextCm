@@ -11,7 +11,7 @@ use rusqlite::{OptionalExtension, params};
 
 use super::contract_extras::ContractExtras;
 use super::deals::Facts;
-use super::deals::{COOLDOWN_DAYS, ContractReply, Offer, Party, TRIES, round_wage};
+use super::deals::{COOLDOWN_DAYS, ContractReply, Offer, Party, SQUAD_ROLES, TRIES, round_wage};
 use super::market::money_text;
 use super::{Game, NewsItem, cm_date};
 use crate::engine::uniform;
@@ -32,6 +32,35 @@ const RIVAL_CA: (f64, f64) = (90.0, 80.0);
 const RIVAL_MAX: f64 = 0.6;
 const RIVAL_REP: i32 = 2000;
 const REP_WEIGHT: f64 = 0.08;
+
+/// O salário pode descer até isto do pedido, se o prémio e os extras compensarem.
+const WAGE_FLOOR: f64 = 0.75;
+/// Anos de contrato: cada ano longe do que pede custa 4% de salário; ao veterano (30+), cada
+/// ano a mais dá segurança e vale 5% a menos (até 15%).
+const YEAR_COST: f64 = 0.04;
+const VETERAN_YEAR: f64 = 0.05;
+const VETERAN_AGE: i32 = 30;
+
+/// O salário pedido × isto pelos anos oferecidos.
+fn years_factor(offered: i32, wanted: i32, age: i32) -> f64 {
+    if age >= VETERAN_AGE && offered > wanted {
+        1.0 - (VETERAN_YEAR * (offered - wanted) as f64).min(0.15)
+    } else {
+        1.0 + YEAR_COST * (offered - wanted).abs() as f64
+    }
+}
+
+/// A função, como o jogador a diz ("espera ser importante").
+fn role_label(role: usize) -> &'static str {
+    match SQUAD_ROLES.get(role).map(|r| r.0) {
+        Some("key") => "indispensável",
+        Some("important") => "importante para a equipa",
+        Some("rotation") => "da rotação do plantel",
+        Some("backup") => "um apoio à primeira equipa",
+        Some("prospect") => "uma jovem promessa",
+        _ => "um jovem com valor",
+    }
+}
 
 /// Os termos de uma proposta de contrato.
 pub(super) struct Talk {
@@ -119,6 +148,10 @@ impl Game {
         if let Some(veto) = self.role_veto(person, &f, role_i, matches!(party, Party::Renewal), free)? {
             return Err(Error::Invalid(format!("{veto}.")));
         }
+        // A função que lhe oferecem, comparada com a que ele espera ter no plantel (4.0, item 21)
+        if let Some(text) = self.role_refusal(person, &f, role_i, &party, wage, &name)? {
+            return Err(Error::Invalid(text));
+        }
         if self.open_contract(person)?.is_some_and(|o| o.status == "pending") {
             return Err(Error::Invalid(format!("Já fez uma proposta a {name}: a resposta chega amanhã.")));
         }
@@ -136,7 +169,7 @@ impl Game {
             Some(format!("{name} não quer jogar no {club}."))
         } else if let (Party::Transfer(_), Some(club)) = (&party, f.club)
             && !favourite
-            && personality::steps_down(self.club_pull(club)?, self.club_pull(self.club_id)?, f.ambition)
+            && personality::move_steps_down(&self.player_move(person, f.ca, f.age, f.ambition, club, self.club_id)?)
         {
             Some(format!("{name} não está interessado em mudar para um clube menor."))
         } else if let (Party::Transfer(_), Some(club)) = (&party, f.club)
@@ -210,6 +243,22 @@ impl Game {
         Ok(ContractReply { accepted: false, over: false, pending: true, wage, bonus, years, text })
     }
 
+    /// Recusa a função oferecida? Dois degraus abaixo da que espera (o titular a quem oferecem
+    /// "apoio") só com um clube bem maior (a Ambição pesa) ou um salário 50% acima do que ganha.
+    pub(super) fn role_refusal(&self, person: i32, f: &Facts, role: usize, party: &Party, wage: i64, name: &str) -> Result<Option<String>> {
+        let expected = self.expected_role(person, f)?;
+        let steps = SQUAD_ROLES[role].2 - SQUAD_ROLES[expected].2;
+        let gain = match (party, f.club) {
+            (Party::Renewal, _) | (_, None) => 0,
+            (_, Some(club)) => self.move_pull(person, self.club_id)? - self.club_pull(club)?,
+        };
+        let wage_gain = (f.wage > 0 && !f.non_contract()).then(|| wage as f64 / f.wage as f64);
+        if personality::accepts_role(steps, f.ambition, gain, wage_gain) {
+            return Ok(None);
+        }
+        Ok(Some(format!("{name} não aceita a função proposta ({}): espera ser {} no plantel.", role_label(role), role_label(expected))))
+    }
+
     /// A proposta de outro clube a um livre ou a um jogador em fim de contrato (fixa pela seed,
     /// pelo jogador e pelo dia): um clube gerido de reputação parecida, com um salário perto do
     /// que ele pede.
@@ -275,15 +324,18 @@ impl Game {
             let role_i = Self::role_index(&t.role)?;
             let free = matches!(party, Party::Free(_) | Party::Precontract);
             let d = self.demand(o.person, &f, role_i, matches!(party, Party::Renewal), free)?;
-            let wanted = d.wage as f64 * (1.0 + 0.04 * (t.years - d.years).abs() as f64);
+            let wanted = d.wage as f64 * years_factor(t.years, d.years, f.age);
             let weeks = 52.0 * t.years as f64;
             // Os prémios e as cláusulas que ele exige têm de estar na proposta
             let offered = self.talk_extras(o.person)?;
             let (asks, _) = self.extras_demand(o.person, &f, d.wage)?;
             let missing = offered.missing(&asks);
-            let enough = t.wage as f64 >= 0.9 * wanted
-                && t.wage as f64 * weeks + t.bonus as f64 >= wanted * weeks + d.bonus as f64
-                && missing.is_empty();
+            // O salário pode ficar abaixo do pedido (até WAGE_FLOOR) se o prémio de assinatura e o
+            // que a proposta dá a mais compensarem o contrato todo (4.0, item 22)
+            let extra = offered.worth_above(&asks, f.role, wanted) * t.years as f64;
+            let package =
+                t.wage as f64 >= WAGE_FLOOR * wanted && t.wage as f64 * weeks + t.bonus as f64 + extra >= wanted * weeks + d.bonus as f64;
+            let enough = package && missing.is_empty();
             let deadline = date::add_days(&self.date, CONFIRM_DAYS).unwrap_or_default();
             // Com outra proposta na mão, escolhe a melhor (o contrato todo, pesado pela reputação)
             if let Some((rival, rival_wage)) = t.rival {
@@ -346,12 +398,7 @@ impl Game {
                 // A contraproposta: o que ele quer
                 let (w, b, y) = (round_wage(wanted), d.bonus, d.years);
                 // Quem só pede prémios ou cláusulas fica com o salário que lhe ofereceram
-                let (w, b, y) =
-                    if t.wage as f64 >= 0.9 * wanted && t.wage as f64 * weeks + t.bonus as f64 >= wanted * weeks + d.bonus as f64 {
-                        (t.wage, t.bonus, t.years)
-                    } else {
-                        (w, b, y)
-                    };
+                let (w, b, y) = if package { (t.wage, t.bonus, t.years) } else { (w, b, y) };
                 self.world
                     .conn
                     .execute("UPDATE contract_talks SET wage = ?, bonus = ?, years = ? WHERE person_id = ?", params![w, b, y, o.person])?;

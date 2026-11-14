@@ -49,6 +49,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/tactic_file.rs` | Gravar/Carregar Táctica (JSON na pasta `tactics`, ao lado dos saves) |
 | `core/src/squad.rs` | Condição, moral, lesões e castigos entre jogos |
 | `core/src/personality.rs` | Personalidade: as contas dos atributos ocultos (Versatilidade, Adaptabilidade, Desportivismo, Temperamento, Ambição, Lealdade) |
+| `core/src/game/city.rs` | A atracção da cidade do clube (por país e língua) e a mudança vista pelo jogador (`player_move`: descer, jogar, cidade) |
 | `core/src/session.rs` | O que o app tem aberto; usado igual pelo Tauri e pela ponte de dev |
 | `core/src/bin/sim.rs` | CLI que joga épocas sem UI (calibração) |
 | `core/examples/dev_bridge.rs` | Ponte HTTP `POST /invoke/<cmd>` para abrir a UI no navegador |

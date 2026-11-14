@@ -19,6 +19,7 @@ use crate::engine;
 mod board;
 mod board_meeting;
 mod career_marks;
+mod city;
 mod club_moves;
 mod competition_stats;
 mod competitions;
@@ -157,7 +158,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// 60: os amigáveis de clubes (competição 72, `friendly_apps`, `friendly_invites`), marco 4.0.
 /// 61: o CA no relatório mensal das reservas (`reserve_report_ca`), marco 4.1.
 /// 62: os golos esperados de cada jogo (`player_matches.xg`, `friendly_apps.xg`, `intl_apps.xg`), marco 4.3.
-pub const SAVE_VERSION: i32 = 63;
+pub const SAVE_VERSION: i32 = 64;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -1371,6 +1372,12 @@ impl Game {
             world.conn.execute_batch(retirement::RETIREMENT_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 63", [])?;
             version = 63;
+        }
+        // Save 64: a atracção das cidades (4.0, item 23)
+        if version == 63 {
+            add_world_columns(&world.conn, path)?;
+            world.conn.execute("UPDATE game SET version = 64", [])?;
+            version = 64;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -3132,8 +3139,9 @@ fn article(name: &str) -> &'static str {
 
 /// As colunas do banco que vieram depois: (tabela, coluna, tipo). As instalações de treino e o
 /// aquecimento (esquema 8) e, do `club.dat` e do `stadium.dat`, o telhado, o estádio próprio, o dia
-/// do jogo e a assistência (esquema 9).
-const WORLD_COLUMNS: [(&str, &str, &str); 8] = [
+/// do jogo e a assistência (esquema 9); do `city.dat`, a nação, as coordenadas e a atracção das
+/// cidades (esquema 10).
+const WORLD_COLUMNS: [(&str, &str, &str); 12] = [
     ("clubs", "training", "INTEGER"),
     ("stadiums", "undersoil_heating", "INTEGER NOT NULL DEFAULT 0"),
     ("stadiums", "retractable_roof", "INTEGER NOT NULL DEFAULT 0"),
@@ -3142,6 +3150,10 @@ const WORLD_COLUMNS: [(&str, &str, &str); 8] = [
     ("clubs", "avg_attendance", "INTEGER"),
     ("clubs", "min_attendance", "INTEGER"),
     ("clubs", "max_attendance", "INTEGER"),
+    ("cities", "nation_id", "INTEGER"),
+    ("cities", "latitude", "REAL"),
+    ("cities", "longitude", "REAL"),
+    ("cities", "attraction", "INTEGER"),
 ];
 
 /// Num save (ou banco) sem essas colunas, acrescenta-as e copia-as do `world.sqlite` que
