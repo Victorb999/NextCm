@@ -158,7 +158,7 @@ pub use training::{TrainingPlan, TrainingView};
 /// 60: os amigáveis de clubes (competição 72, `friendly_apps`, `friendly_invites`), marco 4.0.
 /// 61: o CA no relatório mensal das reservas (`reserve_report_ca`), marco 4.1.
 /// 62: os golos esperados de cada jogo (`player_matches.xg`, `friendly_apps.xg`, `intl_apps.xg`), marco 4.3.
-pub const SAVE_VERSION: i32 = 64;
+pub const SAVE_VERSION: i32 = 65;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -1379,6 +1379,12 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 64", [])?;
             version = 64;
         }
+        // Save 65: os salários dos jovens do patch como num jogo novo (3.22), depois de abrir
+        let wages_v65 = version == 64;
+        if version == 64 {
+            world.conn.execute("UPDATE game SET version = 65", [])?;
+            version = 65;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1520,6 +1526,13 @@ impl Game {
         }
         if budgets_v53 && !game.sacked() {
             game.refresh_budgets()?;
+            game.unsaved = true;
+        }
+        if wages_v65 {
+            game.fit_start_wages()?;
+            if !game.sacked() {
+                game.refresh_budgets()?;
+            }
             game.unsaved = true;
         }
         Ok(game)
@@ -4227,6 +4240,31 @@ mod tests {
         World::open_save(&path).unwrap().conn.execute("UPDATE game SET version = 55", []).unwrap();
         let err = Game::load(&path).err().map(|e| e.to_string()).unwrap_or_default();
         assert!(err.contains("comece um jogo novo"), "{err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn old_saves_fit_the_young_wages_once() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("wages65");
+        let mut g = Game::create(&world, &dir, &new_game(7568), 8).unwrap();
+        // O jovem mais novo do Palmeiras com um salário de craque, como os do patch
+        let kid: i32 = g
+            .world
+            .conn
+            .query_row("SELECT id FROM people WHERE club_id = 7568 AND is_player = 1 ORDER BY birth_year DESC, id LIMIT 1", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        g.world.conn.execute("UPDATE people SET wage = 2000000 WHERE id = ?", [kid]).unwrap();
+        g.save().unwrap();
+        let path = g.path().to_path_buf();
+        drop(g);
+        World::open_save(&path).unwrap().conn.execute("UPDATE game SET version = 64", []).unwrap();
+        let g = Game::load(&path).unwrap();
+        let wage: i64 = g.world.conn.query_row("SELECT wage FROM people WHERE id = ?", [kid], |r| r.get(0)).unwrap();
+        assert!(wage < 2_000_000, "{wage}");
+        drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
