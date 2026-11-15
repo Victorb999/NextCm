@@ -772,6 +772,7 @@ mod tests {
         g.fill_record(&mut person).unwrap();
         let line = person.seasons[0].by_kind.iter().find(|(k, _)| k == "Internacionais").map(|(_, l)| l.apps);
         assert!(line.is_some_and(|n| n >= 1), "{:?}", person.seasons[0].by_kind);
+        assert_eq!(person.seasons[0].by_kind.last().map(|k| k.0.as_str()), Some("Jogos Oficiais"), "o total fica por último");
         // A ficha da partida de um jogo das eliminatórias, com as selecções
         let fx = g.fixtures(WCQ_EUROPE).into_iter().find(|f| f.home_goals.is_some()).unwrap();
         let sheet = g.match_sheet(fx.id).unwrap();

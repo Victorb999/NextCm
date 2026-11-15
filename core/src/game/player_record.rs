@@ -606,7 +606,9 @@ impl Game {
             if let Some(s) =
                 out.iter_mut().find(|s| s.year == year && s.club.as_ref().is_some_and(|c| c.id == club) && !s.by_kind.is_empty())
             {
-                s.by_kind.push(("Internacionais".into(), t.line()));
+                // Antes dos Jogos Oficiais (a última linha, o total), como no CM; não entram nele
+                let at = s.by_kind.iter().position(|(k, _)| k == "Jogos Oficiais").unwrap_or(s.by_kind.len());
+                s.by_kind.insert(at, ("Internacionais".into(), t.line()));
             }
         }
         // Como chegou a cada clube durante o jogo: a transferência na linha da época
