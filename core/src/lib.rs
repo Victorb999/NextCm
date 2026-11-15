@@ -47,7 +47,7 @@ pub use game::NewsLink;
 pub use game::SquadRoleView;
 pub use game::StatusBar;
 pub use game::WorldTransfers;
-pub use game::{AreaStrength, CoachAreas, TrainingPlan, TrainingView};
+pub use game::{AreaStrength, AwardLine, CoachAreas, TrainingPlan, TrainingView};
 pub use game::{
     BoardConfidence, BoardRequest, BoardView, ContractReply, ContractTerms, DisciplineOptions, DivisionStats, Game, GameInfo, GroupTable,
     JobNation, JobRow, JobsView, KoRoundView, MatchPreview, MatchRecord, NewGame, NewsItem, NumberAssign, NumberEntry, OfferAction,

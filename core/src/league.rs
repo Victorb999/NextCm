@@ -87,6 +87,10 @@ pub struct StandingRow {
     pub points: i32,
     /// Últimos 5 resultados, do mais antigo para o mais recente ("V", "E", "D").
     pub form: String,
+    /// Já garantido antes do fim (a matemática): "champion", a faixa ("continental",
+    /// "promotion"...) ou "relegation".
+    #[serde(default)]
+    pub clinched: Option<String>,
 }
 
 /// Calendário pelo método do círculo, em turno único (`legs` = 1) ou turno e returno (2).
@@ -171,6 +175,7 @@ pub fn standings(matches: &[Match], clubs: &[ClubRef]) -> Vec<StandingRow> {
             goals_against: 0,
             points: 0,
             form: String::new(),
+            clinched: None,
         })
         .collect();
     let idx = |id: i32| clubs.iter().position(|c| c.id == id);

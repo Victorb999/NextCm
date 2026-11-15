@@ -26,7 +26,7 @@ use crate::StaffHireView;
 use crate::StatusBar;
 use crate::WorldTransfers;
 use crate::tactic_file::{self, SavedFile};
-use crate::{AreaStrength, CoachAreas, ReserveLineup, TrainingPlan, TrainingView};
+use crate::{AreaStrength, AwardLine, CoachAreas, ReserveLineup, TrainingPlan, TrainingView};
 use crate::{DealTerms, LoanTerms};
 use crate::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
 use crate::{TalkLine, TalkReaction, TalkView};
@@ -558,6 +558,14 @@ impl Session {
     }
 
     /// O Ok da tela de Treinos: programas e o programa de cada jogador.
+    /// Os prémios de uma competição (vazio sem jogo aberto).
+    pub fn competition_awards(&self, id: i32) -> Result<Vec<AwardLine>> {
+        match &self.game {
+            Some(g) => g.competition_awards(id),
+            None => Ok(Vec::new()),
+        }
+    }
+
     pub fn training_strength(&self, coaches: Vec<CoachAreas>) -> Result<Vec<AreaStrength>> {
         self.game()?.training_strength(&coaches)
     }

@@ -21,6 +21,7 @@ mod board;
 mod board_meeting;
 mod career_marks;
 mod city;
+mod clinch;
 mod club_moves;
 mod competition_stats;
 mod competitions;
@@ -56,6 +57,7 @@ mod regen;
 mod reserve_matches;
 mod reserve_report;
 mod reserves;
+mod result_press;
 mod retirement;
 mod scout_reports;
 mod scout_tasks;
@@ -79,6 +81,7 @@ use crate::search::fold;
 use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
 use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, PlayerOrder, PlayerOrders, Selection, SquadState, Tackling, Takers};
 use crate::{Error, Result, World, date};
+pub use awards::AwardLine;
 pub use board::{BoardConfidence, BoardView};
 pub use board_meeting::BoardRequest;
 pub use club_moves::{ClubMoves, MoveRow};
@@ -2097,6 +2100,8 @@ impl Game {
                 }
             }
         }
+        // O que ficou decidido hoje na liga do treinador (campeão, vagas, rebaixamento)
+        self.clinch_news(&mut fresh, &mut next_id);
         // Os internacionais do treinador que jogaram hoje pelas selecções
         if !internationals_played.is_empty() {
             let title = match internationals_played.as_slice() {
@@ -2129,6 +2134,11 @@ impl Game {
             if (m.home_id == self.club_id || m.away_id == self.club_id) && !self.sacked() {
                 fresh.push(self.result_news(next_id, m, live));
                 next_id += 1;
+                // Um resultado expressivo sai na imprensa
+                if let Some(n) = self.result_press(next_id, m)? {
+                    fresh.push(n);
+                    next_id += 1;
+                }
                 // Um amigável não mexe na moral do resultado individual, na direcção nem na imprensa
                 if m.competition_id == friendlies::CLUB_FRIENDLY {
                     continue;
@@ -2668,7 +2678,9 @@ impl Game {
 
     /// Classificação da 1ª fase de uma competição viva, se for de pontos corridos (vazia nas outras).
     pub fn table(&self, competition_id: i32) -> Vec<StandingRow> {
-        self.stage_table(competition_id, self.current_season(competition_id), 0, None)
+        let mut rows = self.stage_table(competition_id, self.current_season(competition_id), 0, None);
+        self.mark_clinched(competition_id, &mut rows);
+        rows
     }
 
     /// Notícia do resultado do jogo do treinador, com a posição na tabela e os marcadores.

@@ -16,6 +16,7 @@ import { matchDate } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
 import { ZONE_COLOURS, zoneAt } from '../zones'
+import AwardsPanel from './competition/AwardsPanel'
 import StatsPanel from './competition/StatsPanel'
 
 const TABS = [
@@ -23,6 +24,7 @@ const TABS = [
   { key: 'fixtures', label: 'Calendário' },
   { key: 'results', label: 'Resultados' },
   { key: 'stats', label: 'Estatísticas' },
+  { key: 'awards', label: 'Prêmios' },
   { key: 'history', label: 'Histórico' },
 ]
 
@@ -108,8 +110,8 @@ function Table({
   title?: string
 }) {
   const nav = useNav()
-  const shown: { club: ClubRef; values: number[] }[] = rows.length
-    ? rows.map((r) => ({ club: r.club, values: values(r) }))
+  const shown: { club: ClubRef; values: number[]; clinched?: string | null }[] = rows.length
+    ? rows.map((r) => ({ club: r.club, values: values(r), clinched: r.clinched }))
     : [...c.clubs]
         .sort((a, b) => a.club.shortName.localeCompare(b.club.shortName))
         .map((r) => ({ club: r.club, values: [0, 0, 0, 0, 0, 0, 0] }))
@@ -150,6 +152,7 @@ function Table({
                     >
                       {row.club.shortName}
                     </Link>
+                    {row.clinched && <ClinchTag kind={row.clinched} />}
                   </td>
                   {row.values.map((v, j) => (
                     <td key={COLS[j]} className={`text-center tabular-nums ${j === 6 ? 'font-bold text-cm-yellow' : 'text-cm-text'}`}>
@@ -163,6 +166,21 @@ function Table({
         </table>
       </div>
     </Panel>
+  )
+}
+
+/** O que o clube já garantiu antes do fim (o core faz as contas), na cor da faixa. */
+function ClinchTag({ kind }: { kind: string }) {
+  const label = kind === 'champion' ? 'Campeão' : kind === 'relegation' ? 'Rebaixado' : kind === 'promotion' ? 'Acesso' : 'Classificado'
+  const colour = kind === 'champion' ? '#d4a017' : (ZONE_COLOURS[kind] ?? '#1f9d3a')
+  return (
+    <span
+      className="ml-2 rounded px-1.5 py-px align-middle text-[10.5px] font-bold uppercase tracking-wide text-white"
+      style={{ background: colour }}
+      title="Garantido pela matemática, antes do fim"
+    >
+      {label}
+    </span>
   )
 }
 
@@ -479,6 +497,7 @@ export default function CompetitionPage({ id, initialTab }: { id: number; initia
         {tab === 'fixtures' && fixtures.length > 0 && <Calendar fixtures={fixtures} table={table} own={own} />}
         {tab === 'results' && <Results fixtures={fixtures} own={own} />}
         {tab === 'stats' && <StatsPanel id={id} date={date} own={own} />}
+        {tab === 'awards' && <AwardsPanel id={id} />}
         {comp && tab === 'history' && <History c={comp} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

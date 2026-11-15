@@ -16,7 +16,7 @@ use nextcm_core::ReserveLineup;
 use nextcm_core::SquadRoleView;
 use nextcm_core::StatusBar;
 use nextcm_core::WorldTransfers;
-use nextcm_core::{AreaStrength, CoachAreas, SavedFile, TrainingPlan, TrainingView};
+use nextcm_core::{AreaStrength, AwardLine, CoachAreas, SavedFile, TrainingPlan, TrainingView};
 use nextcm_core::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem,
     CompetitionProfile, ContinentRef, ContractReply, ContractTerms, DisciplineOptions, Fixture, GameInfo, Instructions, JobsView, LiveView,
@@ -149,6 +149,7 @@ session_command!(training_view() -> TrainingView);
 session_command!(match_sheet(id: i32) -> MatchSheet);
 session_command!(set_training(plan: TrainingPlan) -> TrainingView);
 session_command!(training_strength(coaches: Vec<CoachAreas>) -> Vec<AreaStrength>);
+session_command!(competition_awards(id: i32) -> Vec<AwardLine>);
 session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
 session_command!(exchange_candidates(id: i32) -> Vec<nextcm_core::ExchangeCandidate>);
@@ -399,6 +400,7 @@ pub fn run() {
             match_sheet,
             set_training,
             training_strength,
+            competition_awards,
             transfer_view,
             make_offer,
             exchange_candidates,

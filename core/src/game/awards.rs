@@ -10,6 +10,8 @@
 use std::collections::HashMap;
 
 use rusqlite::params;
+use serde::Serialize;
+use ts_rs::TS;
 
 use super::internationals::is_national_comp;
 use super::leagues::LeagueMode;
@@ -45,6 +47,26 @@ const TEAM: [(usize, usize); 4] = [(0, 1), (1, 4), (2, 4), (3, 2)];
 const EXPECTED_PPG: (f64, f64) = (2.0, 0.8);
 /// Nas ligas de fundo, o clube campeão vale +20% no CA dos jogadores (o último, nada).
 const TABLE_BONUS: f64 = 0.2;
+
+/// Um prémio de uma competição, para a aba Prêmios.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct AwardLine {
+    pub date: String,
+    /// "2026/27" ou "2026": a temporada da competição.
+    pub season: String,
+    /// "player_month", "top_scorer"... e o nome ("Jogador do Mês", "Artilheiro").
+    pub kind: String,
+    pub label: String,
+    /// Os do mês (o mês do prémio, no dia 1 do seguinte) e os da temporada.
+    pub monthly: bool,
+    pub person_id: i32,
+    pub name: String,
+    pub club: Option<crate::person::ClubRef>,
+    /// A nota média, os gols ou a pontuação (`None` no Time da Temporada).
+    pub value: Option<f64>,
+}
 
 /// Um prémio, como aparece no Historial ("Jogador do Mês", "Melhor Marcador"...).
 pub(super) fn award_label(kind: &str) -> &'static str {
@@ -502,6 +524,38 @@ impl Game {
 
     /// Os prémios da época entre duas datas, para a CLI `sim`: os da liga do treinador, da
     /// Premier e da La Liga, e o pódio da Bola de Ouro.
+    /// Os prémios de uma competição, dos mais recentes para os mais antigos (a aba Prêmios).
+    pub fn competition_awards(&self, comp: i32) -> Result<Vec<AwardLine>> {
+        let rows: Vec<(i32, String, String, Option<i32>, Option<f64>, String)> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT a.person_id, a.date, a.kind, a.club, a.value, p.display_name FROM awards a JOIN people p ON p.id = a.person_id
+                 WHERE a.competition = ? ORDER BY a.date DESC, a.rank, a.rowid",
+            )?
+            .query_map([comp], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(rows
+            .into_iter()
+            .map(|(person_id, date, kind, club, value, name)| {
+                let monthly = kind.ends_with("_month");
+                // O do mês é dado no dia 1 do mês seguinte: conta na temporada do mês premiado
+                let day = if monthly { date::add_days(&date, -1).unwrap_or_else(|| date.clone()) } else { date.clone() };
+                AwardLine {
+                    season: regulation::season_label(comp, regulation::season_of(comp, &day)),
+                    label: award_label(&kind).into(),
+                    monthly,
+                    club: club.map(|c| self.club(c)),
+                    value: if kind == "team_season" { None } else { value },
+                    date,
+                    kind,
+                    person_id,
+                    name,
+                }
+            })
+            .collect())
+    }
+
     pub fn awards_report(&self, from: &str, to: &str) -> Result<String> {
         let rows: Vec<(i32, i32, String, i32, Option<f64>, Option<i32>, String)> = self
             .world

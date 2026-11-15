@@ -8,4 +8,9 @@ export type StandingRow = { position: number, club: ClubRef, played: number, won
 /**
  * Últimos 5 resultados, do mais antigo para o mais recente ("V", "E", "D").
  */
-form: string, };
+form: string, 
+/**
+ * Já garantido antes do fim (a matemática): "champion", a faixa ("continental",
+ * "promotion"...) ou "relegation".
+ */
+clinched: string | null, };
