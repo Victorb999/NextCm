@@ -48,7 +48,7 @@ export function personActions({
           // Saudades de casa: duas semanas no seu país
           ...(person.status?.canLeave ? [{ key: 'leave', label: 'Dar Folga' }] : []),
           // A função sem mexer no contrato (os emprestados por outros não têm)
-          ...(loanedIn ? [] : [{ key: 'role', label: 'Definir Função no Plantel' }]),
+          ...(loanedIn ? [] : [{ key: 'role', label: 'Definir Função no Elenco' }]),
           { key: 'discipline', label: 'Disciplinar Jogador' },
           ...(loanedIn ? [] : [{ key: 'release', label: 'Dispensar' }]),
         ],
@@ -71,7 +71,7 @@ export function personActions({
         ],
         [
           ...(m?.canOffer && !m.free ? [{ key: 'offer', label: 'Abordar Para Comprar' }] : []),
-          ...(m?.canLoan ? [{ key: 'loan', label: 'Propôr Empréstimo' }] : []),
+          ...(m?.canLoan ? [{ key: 'loan', label: 'Propor Empréstimo' }] : []),
           ...(m?.canOption ? [{ key: 'option', label: 'Exercer Opção de Compra' }] : []),
           ...(person.canContract ? [{ key: 'contract', label: 'Propor Contrato' }] : []),
         ],
@@ -87,7 +87,7 @@ export function personActions({
   // Para todos: alcunha, nota e comparar (o 1º escolhido espera pelo 2º)
   const first = compareFirst()
   const common: PersonAction[] = [
-    { key: 'nickname', label: 'Definir Alcunha' },
+    { key: 'nickname', label: 'Definir Apelido' },
     { key: 'note', label: 'Criar Nota Treinador' },
     first && first.id !== person.id
       ? { key: 'compare', label: `Comparar com ${first.name}` }

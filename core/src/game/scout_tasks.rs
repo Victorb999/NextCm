@@ -195,7 +195,7 @@ impl Game {
             _ => return Err(Error::Invalid("Tarefa de olheiro desconhecida.".into())),
         };
         if kind == "club" && target == Some(self.club_id) {
-            return Err(Error::Invalid("Já conhece os jogadores do seu plantel.".into()));
+            return Err(Error::Invalid("Já conhece os jogadores do seu elenco.".into()));
         }
         self.world.conn.execute("DELETE FROM scout_finds WHERE slot = ?", [slot])?;
         self.world.conn.execute(

@@ -225,7 +225,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("nextcm-golos-esperados-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
-            save_name: "Golos esperados".into(),
+            save_name: "Gols esperados".into(),
             first_name: "A".into(),
             last_name: "B".into(),
             birth_date: None,
@@ -274,7 +274,7 @@ mod tests {
         let more = g.squad_more(PALMEIRAS, "").unwrap();
         assert!(more.iter().any(|m| m.xg > 0.0 && m.shots > 0));
         // Na Análise: os últimos jogos do Palmeiras
-        let recent = g.recent_xg(PALMEIRAS).unwrap().expect("golos esperados recentes");
+        let recent = g.recent_xg(PALMEIRAS).unwrap().expect("gols esperados recentes");
         assert!(recent.games >= 2 && recent.xg_for > 0.0);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);

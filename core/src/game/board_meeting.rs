@@ -24,10 +24,10 @@ pub struct BoardRequest {
 
 const REQUESTS: [(&str, &str, i32); 5] = [
     ("stadium", "Expandir o Estádio", 365),
-    ("youth", "Investir nas camadas jovens", 365),
+    ("youth", "Investir nas categorias de base", 365),
     ("transfers", "Disponibilizar mais fundos para transferências", 90),
-    ("wages", "Disponibilizar mais fundos para salários e prémios", 90),
-    ("time", "Mais tempo para reconstruir o plantel", 365),
+    ("wages", "Disponibilizar mais fundos para salários e prêmios", 90),
+    ("time", "Mais tempo para reconstruir o elenco", 365),
 ];
 
 /// Estádio: lugares a mais (parte da lotação, entre os limites), o custo por lugar e os dias da obra.
@@ -158,10 +158,10 @@ impl Game {
                     "stadium" if works => Some("O estádio já está em obras.".into()),
                     "stadium" if self.stadium_plan()?.is_none() => Some("O clube não tem estádio próprio.".into()),
                     "stadium" if cash <= 0 => Some("O clube não tem dinheiro para obras.".into()),
-                    "youth" if youth >= YOUTH_MAX => Some("A direcção já investiu tudo o que podia nas camadas jovens.".into()),
+                    "youth" if youth >= YOUTH_MAX => Some("A diretoria já investiu tudo o que podia nas categorias de base.".into()),
                     "youth" if (cash as f64) < YOUTH_COST * base => Some("O clube não tem dinheiro para investir.".into()),
-                    "time" if confidence >= 50 => Some("A direcção está contente consigo: não precisa de mais tempo.".into()),
-                    "time" if grace.as_deref().is_some_and(|g| g > self.date.as_str()) => Some("Já tem mais tempo da direcção.".into()),
+                    "time" if confidence >= 50 => Some("A diretoria está contente com você: não precisa de mais tempo.".into()),
+                    "time" if grace.as_deref().is_some_and(|g| g > self.date.as_str()) => Some("Já tem mais tempo da diretoria.".into()),
                     _ => None,
                 }
             };
@@ -181,12 +181,12 @@ impl Game {
             "stadium" => {
                 let (stadium, seats, cost) = self.stadium_plan()?.ok_or_else(|| Error::Invalid("Sem estádio.".into()))?;
                 if confidence < 55 {
-                    (false, "A direcção não confia o suficiente no seu trabalho para investir no estádio.".to_string())
+                    (false, "A diretoria não confia o suficiente no seu trabalho para investir no estádio.".to_string())
                 } else if (cash as f64) < cost as f64 * 1.2 {
                     (
                         false,
                         format!(
-                            "A direcção gostaria de ampliar o estádio, mas a obra custa {} e o clube não tem esse dinheiro.",
+                            "A diretoria gostaria de ampliar o estádio, mas a obra custa {} e o clube não tem esse dinheiro.",
                             money_text(cost)
                         ),
                     )
@@ -200,7 +200,7 @@ impl Game {
                     (
                         true,
                         format!(
-                            "A direcção aceitou ampliar o estádio em {seats} lugares, por {}. A obra fica pronta a {}.",
+                            "A diretoria aceitou ampliar o estádio em {seats} lugares, por {}. A obra fica pronta em {}.",
                             money_text(cost),
                             cm_date(&done)
                         ),
@@ -209,7 +209,10 @@ impl Game {
             }
             "youth" => {
                 if confidence < 50 {
-                    (false, "A direcção prefere não investir nas camadas jovens enquanto não confiar mais no seu trabalho.".to_string())
+                    (
+                        false,
+                        "A diretoria prefere não investir nas categorias de base enquanto não confiar mais no seu trabalho.".to_string(),
+                    )
                 } else {
                     let cost = finance::round_money(YOUTH_COST * base);
                     self.book(self.club_id, "other_expenses", cost)?;
@@ -217,7 +220,7 @@ impl Game {
                     (
                         true,
                         format!(
-                            "A direcção aceitou investir {} nas camadas jovens. Os próximos juniores do clube vão ser melhores.",
+                            "A diretoria aceitou investir {} nas categorias de base. Os próximos juniores do clube vão ser melhores.",
                             money_text(cost)
                         ),
                     )
@@ -238,14 +241,14 @@ impl Game {
                 let more =
                     finance::round_money((budget as f64 * extra).max(if extra > 0.0 { 250_000.0 } else { 0.0 }).min(room.max(0) as f64));
                 if more <= 0 {
-                    (false, "A direcção recusou: não há fundos para mais transferências.".to_string())
+                    (false, "A diretoria recusou: não há fundos para mais transferências.".to_string())
                 } else {
                     self.add_funds(more)?;
                     let part = if extra < 0.25 { " em parte" } else { "" };
                     (
                         true,
                         format!(
-                            "A direcção aceitou{part}: o orçamento de transferências sobe {} para {}.",
+                            "A diretoria aceitou{part}: o orçamento de transferências sobe {} para {}.",
                             money_text(more),
                             money_text(budget + more)
                         ),
@@ -265,7 +268,7 @@ impl Game {
                     0.0
                 };
                 if extra == 0.0 {
-                    (false, "A direcção recusou: o clube não pode pagar mais salários.".to_string())
+                    (false, "A diretoria recusou: o clube não pode pagar mais salários.".to_string())
                 } else {
                     let round = |v: f64| (v as i64) / 1000 * 1000;
                     let (w, m) = (round(wage_budget as f64 * (1.0 + extra)), round(max_wage as f64 * (1.0 + extra)));
@@ -274,7 +277,7 @@ impl Game {
                     (
                         true,
                         format!(
-                            "A direcção aceitou{part}: a folha salarial pode ir até {} por semana e o salário máximo até {}.",
+                            "A diretoria aceitou{part}: a folha salarial pode ir até {} por semana e o salário máximo até {}.",
                             money_text(w),
                             money_text(m)
                         ),
@@ -283,7 +286,7 @@ impl Game {
             }
             _ => {
                 if confidence < 20 {
-                    (false, "A direcção recusou: já lhe deu tempo suficiente.".to_string())
+                    (false, "A diretoria recusou: já lhe deu tempo suficiente.".to_string())
                 } else {
                     let until = date::add_days(&self.date, GRACE_DAYS).unwrap_or_default();
                     let total: i32 = self.world.conn.query_row(
@@ -298,7 +301,7 @@ impl Game {
                     (
                         true,
                         format!(
-                            "A direcção aceitou dar-lhe mais tempo para reconstruir o plantel, até {}, e baixou o objetivo da época.",
+                            "A diretoria aceitou lhe dar mais tempo para reconstruir o elenco, até {}, e baixou o objetivo da temporada.",
                             cm_date(&until)
                         ),
                     )
@@ -309,7 +312,7 @@ impl Game {
             self.world.conn.execute("UPDATE board SET confidence = MAX(1, confidence - ?) WHERE id = 1", [PUSHY_COST])?;
         }
         self.world.conn.execute("INSERT OR REPLACE INTO board_requests (kind, last) VALUES (?, ?)", params![key, self.date])?;
-        let title = if accepted { "Pedido à Direcção aceite" } else { "Pedido à Direcção recusado" };
+        let title = if accepted { "Pedido à Diretoria aceito" } else { "Pedido à Diretoria recusado" };
         self.post_news(title.into(), format!("{}\n\n{text}", req.label), None);
         self.unsaved = true;
         Ok(text)
@@ -416,7 +419,7 @@ mod tests {
         let (mut fresh, mut id) = (Vec::new(), 1000);
         g.change_confidence(-10, &mut fresh, &mut id).unwrap();
         assert_eq!(g.board_view().unwrap().confidence, 25);
-        assert!(g.news().iter().any(|n| n.title == "Pedido à Direcção aceite"));
+        assert!(g.news().iter().any(|n| n.title == "Pedido à Diretoria aceito"));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

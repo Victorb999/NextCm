@@ -347,7 +347,7 @@ export default function SearchPage({ active }: { active: boolean }) {
             </button>
             {kind === 'players' && (
               <PurpleMenu
-                label="Vêr"
+                label="Ver"
                 options={STATUSES}
                 value={status}
                 onChange={(s) => {
@@ -357,7 +357,7 @@ export default function SearchPage({ active }: { active: boolean }) {
                 buttonClass={barButton}
                 trigger={
                   <>
-                    Vêr <ChevronDown size={14} />
+                    Ver <ChevronDown size={14} />
                   </>
                 }
               />

@@ -806,7 +806,7 @@ impl World {
             .ok_or_else(|| Error::Invalid("Formação desconhecida.".into()))?;
         let layout = layout_for(sel);
         if sel.starters.len() != layout.len() {
-            return Err(Error::Invalid(format!("A equipa tem de ter {} titulares.", layout.len())));
+            return Err(Error::Invalid(format!("O time tem de ter {} titulares.", layout.len())));
         }
         if sel.bench.len() > BENCH {
             return Err(Error::Invalid(format!("No máximo {BENCH} suplentes.")));
@@ -815,7 +815,7 @@ impl World {
         let mut seen = std::collections::HashSet::new();
         for pid in sel.starters.iter().flatten().chain(&sel.bench) {
             if !pool.iter().any(|c| c.id == *pid) {
-                return Err(Error::Invalid("Esse jogador não é do plantel.".into()));
+                return Err(Error::Invalid("Esse jogador não é do elenco.".into()));
             }
             if !seen.insert(*pid) {
                 return Err(Error::Invalid("Um jogador não pode estar em dois lugares.".into()));
@@ -877,7 +877,7 @@ impl World {
             return Ok(());
         }
         let Squad { pool, .. } = self.squad(id, None)?;
-        let c = pool.iter().find(|c| c.id == player).ok_or_else(|| Error::Invalid("Esse jogador não é do plantel.".into()))?;
+        let c = pool.iter().find(|c| c.id == player).ok_or_else(|| Error::Invalid("Esse jogador não é do elenco.".into()))?;
         let layout = layout_for(sel);
         sel.starters.resize(layout.len(), None);
         let empty = (0..layout.len()).filter(|&i| sel.starters[i].is_none()).max_by_key(|&i| (c.fit(layout[i]), std::cmp::Reverse(i)));

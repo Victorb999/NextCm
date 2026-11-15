@@ -49,7 +49,7 @@ export default function PressPage({ id }: { id: number }) {
         right={
           q && (
             <button className="cm-purple h-8 px-4" onClick={() => void finish(() => api.skipPress(id))}>
-              Mandar o Adjunto
+              Mandar o Auxiliar
             </button>
           )
         }
@@ -79,7 +79,7 @@ export default function PressPage({ id }: { id: number }) {
             </Panel>
           </>
         )}
-        {view && !q && !result && view.status === 'pending' && <Empty>A falar com os jornalistas…</Empty>}
+        {view && !q && !result && view.status === 'pending' && <Empty>Falando com os jornalistas…</Empty>}
         {result && (
           <Panel title="O que saiu na imprensa" className="shrink-0">
             <div className="whitespace-pre-line px-4 py-3 text-[15px] leading-relaxed text-white">{result}</div>

@@ -45,7 +45,7 @@ export default function JobsPage() {
         title="Informação de Empregos"
         right={
           <PurpleMenu
-            label="Vêr"
+            label="Ver"
             align="right"
             options={(view?.nations ?? []).map((n) => ({ key: String(n.id), label: n.name }))}
             value={view?.nation ? String(view.nation.id) : undefined}

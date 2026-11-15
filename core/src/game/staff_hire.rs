@@ -47,12 +47,12 @@ const LOYAL_REP: i32 = 1000;
 pub(super) fn job_label(job: i32) -> &'static str {
     match job {
         1 => "Presidente",
-        2 => "Director Executivo",
-        3 => "Director de Futebol",
-        4 => "Director",
+        2 => "Diretor Executivo",
+        3 => "Diretor de Futebol",
+        4 => "Diretor",
         5 => "Treinador",
-        6 => "Adjunto",
-        7 => "Treinador da Equipa B",
+        6 => "Auxiliar",
+        7 => "Treinador do Time B",
         8 => "Preparador",
         9 => "Olheiro",
         10 => "Fisioterapeuta",
@@ -252,7 +252,7 @@ impl Game {
                 Some("Essa função não depende do treinador.".into())
             }
             (Some(c), Some(MANAGER | INTERIM)) if c != self.club_id => Some("Não pode tirar o treinador a outro clube.".into()),
-            (Some(c), Some(1..=4)) if c != self.club_id => Some("Os directores dos clubes não se contratam.".into()),
+            (Some(c), Some(1..=4)) if c != self.club_id => Some("Os diretores dos clubes não se contratam.".into()),
             _ => None,
         }
     }
@@ -321,7 +321,7 @@ impl Game {
         let max = job_max(job, self.club_rep(self.club_id)?);
         if !same && self.job_count(self.club_id, job)? >= max {
             return Err(Error::Invalid(format!(
-                "A direcção não autoriza mais de {max} na função de {} (despeça alguém primeiro).",
+                "A diretoria não autoriza mais de {max} na função de {} (demita alguém primeiro).",
                 job_label(job)
             )));
         }
@@ -330,7 +330,7 @@ impl Game {
         let bill = board.wage_bill + self.staff_bill(self.club_id)? - old + wage;
         if bill > board.wage_budget {
             return Err(Error::Invalid(format!(
-                "A folha salarial (com o staff) passaria o limite da direcção: ficaria em {} por semana, com {} autorizados.",
+                "A folha salarial (com o staff) passaria o limite da diretoria: ficaria em {} por semana, com {} autorizados.",
                 money_text(bill),
                 money_text(board.wage_budget)
             )));
@@ -533,7 +533,7 @@ impl Game {
     pub fn sack_staff(&mut self, person: i32) -> Result<String> {
         let f = self.staff_facts(person)?;
         if f.club != Some(self.club_id) || !f.job.is_some_and(|j| HIRE_JOBS.contains(&j)) {
-            return Err(Error::Invalid("Só se despede o staff técnico do seu clube.".into()));
+            return Err(Error::Invalid("Só se demite o staff técnico do seu clube.".into()));
         }
         let cost = self.sack_cost_of(&f);
         self.book(self.club_id, "other_expenses", cost)?;
@@ -546,11 +546,11 @@ impl Game {
         }
         let name = self.person_name(person)?;
         let text = if cost > 0 {
-            format!("{name} foi despedido; o clube pagou {} do resto do contrato.", money_text(cost))
+            format!("{name} foi demitido; o clube pagou {} do resto do contrato.", money_text(cost))
         } else {
-            format!("{name} foi despedido, sem custos para o clube.")
+            format!("{name} foi demitido, sem custos para o clube.")
         };
-        self.post_news_as("contract", format!("{name} despedido"), text.clone());
+        self.post_news_as("contract", format!("{name} demitido"), text.clone());
         self.unsaved = true;
         Ok(text)
     }
@@ -751,7 +751,7 @@ mod tests {
     fn limits_grow_with_reputation() {
         assert_eq!((job_max(6, 9000), job_max(7, 0)), (1, 1));
         assert!(job_max(9, 9000) > job_max(9, 2000) && job_max(9, 6500) >= 7, "o banco tem até 7 olheiros");
-        assert_eq!(job_max(1, 9000), 0, "os directores não são do treinador");
+        assert_eq!(job_max(1, 9000), 0, "os diretores não são do treinador");
         assert!(job_rank(5) > job_rank(6) && job_rank(6) > job_rank(9));
     }
 }

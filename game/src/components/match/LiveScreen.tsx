@@ -318,8 +318,8 @@ export function LiveScreen({
       : !started
         ? 'Antes do Jogo'
         : view.minute <= 45
-          ? '1ª Parte'
-          : '2ª Parte'
+          ? '1º Tempo'
+          : '2º Tempo'
 
   // Por baixo da barra do topo (h-11), que continua à vista com o Continuar Jogo. Vai para o
   // palco por portal: cobre a coluna sem sair das barras pretas (o `fixed` media-se pela
@@ -355,7 +355,7 @@ export function LiveScreen({
               style={clubBand(club)}
               className={`!justify-between text-left ${waiting?.side === side ? 'ring-2 ring-inset ring-cm-yellow' : ''}`}
             >
-              <span className="truncate">Tácticas {club.shortName}</span>
+              <span className="truncate">Táticas {club.shortName}</span>
               <SlidersHorizontal size={15} className="shrink-0" />
             </MatchSideButton>
           )
@@ -408,7 +408,7 @@ export function LiveScreen({
             </div>
             {waiting && (
               <div className="flex h-6 shrink-0 items-center justify-center rounded bg-black/70 text-[13px] font-bold text-cm-yellow">
-                Tácticas {(waiting.side === 0 ? view.home : view.away).club.shortName}: à espera que a bola saia…
+                Táticas {(waiting.side === 0 ? view.home : view.away).club.shortName}: à espera que a bola saia…
               </div>
             )}
             <div className="flex shrink-0 gap-1.5">
@@ -416,7 +416,7 @@ export function LiveScreen({
                 [
                   ['panorama', 'Panorama Jogo'],
                   ['stats', 'Estatísticas Jogo'],
-                  ['zones', 'Zonas Acção'],
+                  ['zones', 'Zonas Ação'],
                   ['report', 'Relatório Jogo'],
                   ['analysis', 'Análise'],
                   ...(view.finished ? [['post', 'Pós-Jogo']] : []),

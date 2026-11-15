@@ -32,14 +32,14 @@ export const STAFF_FILTER_ATTRIBUTES: [string, string][] = [
   ['adaptability', 'Adaptabilidade'],
   ['judgement', 'Avaliação Capacidade Jogador'],
   ['judging_potential', 'Avaliação Potencial Jogador'],
-  ['tactics', 'Conhecimento Táctico'],
+  ['tactics', 'Conhecimento Tático'],
   ['determination', 'Determinação'],
   ['physiotherapy', 'Fisioterapia'],
   ['man_handling', 'Gestão de Pessoas'],
   ['motivating', 'Motivação'],
   ['discipline', 'Nível de Disciplina'],
   ['youngsters', 'Trabalho Com Jovens'],
-  ['coaching_gks', 'Treino Guarda-Redes'],
+  ['coaching_gks', 'Treino de Goleiros'],
   ['coaching', 'Treino Jogadores Campo'],
 ]
 
@@ -121,7 +121,7 @@ export function describe(f: Filters, nationName: (id: number) => string | undefi
   if (f.expiring) parts.push('contrato a acabar')
   if (f.injured) parts.push(f.injured === 'only' ? 'lesionados' : 'sem lesionados')
   if (f.interested) parts.push('interessados')
-  if (!f.ownSquad) parts.push('sem o plantel')
+  if (!f.ownSquad) parts.push('sem o elenco')
   const set = Object.values(f.attributes).filter((v) => v > 1).length
   if (set) parts.push(`${f.needed !== null && f.needed < set ? f.needed : set}/${set} atributos`)
   return parts.length ? parts.join(' · ') : 'Todos'

@@ -189,7 +189,7 @@ pub(crate) fn open_save(saves: &Path, file: &str) -> Result<World> {
         .map_err(|_| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?;
     if version != SAVE_VERSION {
         return Err(Error::Invalid(format!(
-            "Este jogo é de uma versão anterior ({version}): abra-o e grave-o primeiro no jogo para o editar."
+            "Este jogo é de uma versão anterior ({version}): abra-o e salve-o primeiro no jogo para o editar."
         )));
     }
     Ok(world)
@@ -402,13 +402,13 @@ pub const COMMANDS: [(&str, &str); 20] = [
     ("morale_1", "Moral a 1"),
     ("psychos", "Todos uns 'Psicopatas'"),
     ("injury_20", "Propensão a lesões a 20"),
-    ("like_manager", "Gostam do treinador actual"),
-    ("dislike_manager", "Detestam o treinador actual"),
-    ("like_club", "Gostam do clube actual"),
-    ("dislike_club", "Detestam o clube actual"),
+    ("like_manager", "Gostam do treinador atual"),
+    ("dislike_manager", "Detestam o treinador atual"),
+    ("like_club", "Gostam do clube atual"),
+    ("dislike_club", "Detestam o clube atual"),
     ("extend_contracts", "Prolongar os contratos 1 ano"),
     ("two_footed", "Todos com os dois pés"),
-    ("call_up", "Convocar para a selecção"),
+    ("call_up", "Convocar para a seleção"),
 ];
 
 /// A reputação máxima de um jogador no banco.
@@ -886,18 +886,18 @@ pub fn set_profile(saves: &Path, file: &str, id: i32, p: &EditorProfile) -> Resu
 /// Valida e grava a ficha de um jogador, sem transacção própria (ver [`in_tx`]).
 fn apply_profile(world: &World, id: i32, p: &EditorProfile) -> Result<()> {
     let before = profile_view(world, id)?.profile;
-    check_range("Capacidade actual (CA)", p.ability, 0, 200)?;
+    check_range("Capacidade atual (CA)", p.ability, 0, 200)?;
     check_range("Potencial (PA)", p.potential, 0, 200)?;
     if p.potential < p.ability {
-        return Err(Error::Invalid("O potencial não pode ser menor que a capacidade actual.".into()));
+        return Err(Error::Invalid("O potencial não pode ser menor que a capacidade atual.".into()));
     }
     for (label, v) in
-        [("Reputação local", p.home_reputation), ("Reputação actual", p.current_reputation), ("Reputação mundial", p.world_reputation)]
+        [("Reputação local", p.home_reputation), ("Reputação atual", p.current_reputation), ("Reputação mundial", p.world_reputation)]
     {
         check_range(label, v, 0, 10000)?;
     }
-    check_range("Internacionalizações", p.caps, 0, 999)?;
-    check_range("Golos pela selecção", p.goals, 0, 999)?;
+    check_range("Jogos pela seleção", p.caps, 0, 999)?;
+    check_range("Gols pela seleção", p.goals, 0, 999)?;
     check_range("Salário", p.wage, 0, 100_000_000)?;
     if p.positions.len() != POSITIONS.len() {
         return Err(Error::Invalid("Faltam posições.".into()));
@@ -1276,7 +1276,7 @@ fn apply_club(world: &World, c: &EditorClub) -> Result<()> {
     }
     if let Some(v) = c.wage_budget {
         if before.wage_budget.is_none() {
-            return Err(Error::Invalid("Só o clube do treinador tem orçamento salarial da direcção.".into()));
+            return Err(Error::Invalid("Só o clube do treinador tem orçamento salarial da diretoria.".into()));
         }
         if !(0..=10_000_000_000).contains(&v) {
             return Err(Error::Invalid("Folha permitida: o valor vai de 0 a 10 mil milhões.".into()));

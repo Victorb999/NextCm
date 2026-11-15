@@ -50,7 +50,7 @@ export default function ContractTab({
       </div>
       {!view.managed && (
         <div className="px-2 pb-1 text-[13px] text-cm-orange">
-          A insatisfação só conta no plantel do treinador: noutros clubes o jogo apaga-a no dia seguinte.
+          A insatisfação só conta no elenco do treinador: em outros clubes o jogo a apaga no dia seguinte.
         </div>
       )}
       <div className="grid grid-cols-2 gap-x-6">
@@ -113,7 +113,7 @@ export default function ContractTab({
                 value={p.role ?? ''}
                 onChange={(e) => setP({ role: e.target.value || null })}
               >
-                <option value="">— Pelo lugar no plantel —</option>
+                <option value="">— Pelo lugar no elenco —</option>
                 {view.roles.map((r) => (
                   <option key={r.key} value={r.key}>
                     {r.label}

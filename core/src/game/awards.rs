@@ -54,10 +54,10 @@ pub(super) fn award_label(kind: &str) -> &'static str {
         "manager_month" => "Treinador do Mês",
         "player_season" => "Melhor Jogador",
         "young_season" => "Melhor Jovem",
-        "top_scorer" => "Melhor Marcador",
-        "best_keeper" => "Melhor Guarda-Redes",
+        "top_scorer" => "Artilheiro",
+        "best_keeper" => "Melhor Goleiro",
         "manager_season" => "Treinador do Ano",
-        "team_season" => "Equipa da Época",
+        "team_season" => "Time da Temporada",
         _ => "Bola de Ouro",
     }
 }
@@ -286,8 +286,8 @@ impl Game {
                 lines.push(self.award_line("Treinador do Mês", manager, club, None)?);
             }
             if Some(comp) == mine && !lines.is_empty() {
-                let title = format!("Prémios do mês: {}", self.competition_name(comp));
-                let body = format!("Os prémios de {} na {}:\n\n{}", month_name(pm), self.competition_name(comp), lines.join("\n"));
+                let title = format!("Prêmios do mês: {}", self.competition_name(comp));
+                let body = format!("Os prêmios de {} na {}:\n\n{}", month_name(pm), self.competition_name(comp), lines.join("\n"));
                 self.push_news(fresh, next_id, "competition", title, body);
             }
         }
@@ -336,12 +336,12 @@ impl Game {
             }
             let scorers: Vec<&Candidate> = rated.iter().filter(|c| c.goals > 0).collect();
             if let Some(c) = best_by(&scorers, |c| c.goals as f64 - c.games as f64 * 0.001, |c| c.id) {
-                let line = format!("Melhor Marcador: {} ({}), {} golos", self.person_name(c.id)?, self.club(c.club).short_name, c.goals);
+                let line = format!("Artilheiro: {} ({}), {} gols", self.person_name(c.id)?, self.club(c.club).short_name, c.goals);
                 picks.push((c.id, "top_scorer", c.club, c.goals as f64, Some(line)));
             }
             let keepers: Vec<&Candidate> = regular.iter().copied().filter(|c| c.role == 0).collect();
             if let Some(c) = best_by(&keepers, score, |c| c.id) {
-                let line = self.award_line("Melhor Guarda-Redes", c.id, c.club, Some((c.rating, c.games)))?;
+                let line = self.award_line("Melhor Goleiro", c.id, c.club, Some((c.rating, c.games)))?;
                 picks.push((c.id, "best_keeper", c.club, c.rating, Some(line)));
             }
             // A Equipa da Época: os melhores de cada papel, em 4-4-2
@@ -355,7 +355,7 @@ impl Game {
                 }
             }
             if !team.is_empty() {
-                lines.push(format!("Equipa da Época: {}", team.join(", ")));
+                lines.push(format!("Time da Temporada: {}", team.join(", ")));
             }
         } else {
             // De fundo: pelo CA e pela reputação dos jogadores, com o lugar do clube a pesar
@@ -412,8 +412,8 @@ impl Game {
         // A notícia: a liga do treinador, ou quando um prémio é do clube dele
         let mine = !self.sacked() && (self.division_of(self.club_id)? == Some(comp) || winners.contains(&self.club_id));
         if mine && !lines.is_empty() {
-            let title = format!("Prémios da época: {}", self.competition_name(comp));
-            let body = format!("Os melhores da época na {}:\n\n{}", self.competition_name(comp), lines.join("\n"));
+            let title = format!("Prêmios da temporada: {}", self.competition_name(comp));
+            let body = format!("Os melhores da temporada na {}:\n\n{}", self.competition_name(comp), lines.join("\n"));
             self.push_news(fresh, next_id, "competition", title, body);
         }
         self.unsaved = true;
@@ -537,7 +537,7 @@ impl Game {
             params![from, to],
             |r| r.get(0),
         )?;
-        out.push(format!("  prémios do mês: {months}"));
+        out.push(format!("  prêmios do mês: {months}"));
         Ok(out.join(
             "
 ",
@@ -614,7 +614,7 @@ impl Game {
             season.to_string()
         };
         match (kind, value) {
-            ("top_scorer", Some(goals)) => format!("{label} {name} {season} ({} golos)", goals as i32),
+            ("top_scorer", Some(goals)) => format!("{label} {name} {season} ({} gols)", goals as i32),
             _ => format!("{label} {name} {season}"),
         }
     }
@@ -642,7 +642,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("nextcm-premios-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
-            save_name: "Prémios".into(),
+            save_name: "Prêmios".into(),
             first_name: "Victor".into(),
             last_name: "Araujo".into(),
             birth_date: None,
@@ -666,7 +666,7 @@ mod tests {
         let month = format!("SELECT COUNT(*) FROM awards WHERE competition = {serie_a} AND date = '2025-09-01'");
         assert_eq!(count(&g, &month), 3, "jogador, jovem e treinador do mês");
         assert!(count(&g, "SELECT COUNT(DISTINCT competition) FROM awards WHERE kind = 'player_month'") > 5);
-        assert!(g.news.iter().any(|n| n.title.starts_with("Prémios do mês")));
+        assert!(g.news.iter().any(|n| n.title.starts_with("Prêmios do mês")));
         // O vencedor sobe de reputação e o prémio aparece no Historial
         let (winner, rep): (i32, i32) = g
             .world
@@ -711,7 +711,7 @@ mod tests {
 
     #[test]
     fn labels_and_bumps() {
-        assert_eq!(award_label("top_scorer"), "Melhor Marcador");
+        assert_eq!(award_label("top_scorer"), "Artilheiro");
         assert!(player_bump("ballon", 1).1 > player_bump("ballon", 5).1);
         assert!(player_bump("player_season", 1).0 > player_bump("player_month", 1).0);
         assert_eq!(decimal(7.43), "7,4");

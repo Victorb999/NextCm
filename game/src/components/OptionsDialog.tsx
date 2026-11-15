@@ -27,7 +27,7 @@ const VERSION = '0.2 (Fase 2)'
 type Section = 'general' | 'screen' | 'look'
 const SECTIONS: { key: Section; label: string }[] = [
   { key: 'general', label: 'Geral' },
-  { key: 'screen', label: 'Ecrã' },
+  { key: 'screen', label: 'Tela' },
   { key: 'look', label: 'Aparência' },
 ]
 
@@ -108,7 +108,7 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
     const screenChanged = s.screen !== old.screen
     const sizeChanged = screenChanged || s.resolution !== old.resolution
     if (!saveSettings(s)) {
-      setError('Não foi possível gravar (imagem grande demais?). Escolha outra imagem.')
+      setError('Não foi possível salvar (imagem grande demais?). Escolha outra imagem.')
       return
     }
     // Primeiro sai/entra do ecrã completo, depois o tamanho da janela
@@ -147,9 +147,9 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
       <div className="cm-dialog-in flex h-[min(620px,100%)] w-[720px] max-w-full flex-col overflow-hidden rounded-lg border-2 border-cm-dlgborder bg-cm-dlg shadow-[0_12px_32px_rgba(0,0,0,0.7)]">
         <div className="flex h-12 shrink-0 items-center gap-2 border-b border-cm-dlgline px-4">
           <span className="size-2 rounded-full bg-cm-mint" />
-          <span className="font-mono font-bold uppercase tracking-[0.12em] text-white">Definições do Jogo</span>
+          <span className="font-mono font-bold uppercase tracking-[0.12em] text-white">Configurações do Jogo</span>
           <span className="ml-auto text-[12px] text-cm-dim">Versão {VERSION}</span>
-          <button className="cm-purple h-7 w-28" onClick={() => setS(DEFAULT_SETTINGS)} title="Voltar às definições de origem">
+          <button className="cm-purple h-7 w-28" onClick={() => setS(DEFAULT_SETTINGS)} title="Voltar às configurações de origem">
             Anular
           </button>
         </div>
@@ -179,7 +179,7 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
               <Row label="Velocidade Comentário">
                 <Cycle options={MATCH_SPEEDS} value={s.matchSpeed} onChange={(matchSpeed) => set({ matchSpeed })} />
               </Row>
-              <Row label="Auto Gravação">
+              <Row label="Salvamento Automático">
                 <Cycle options={AUTOSAVES} value={s.autosave} onChange={(autosave) => set({ autosave })} />
               </Row>
               <Row label="Animações">
@@ -205,7 +205,7 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
           )}
           {section === 'screen' && (
             <>
-              <Row label="Modo Ecrã">
+              <Row label="Modo Tela">
                 <Option selected={s.screen === 'fullscreen'} onClick={() => set({ screen: 'fullscreen' })}>
                   Completo
                 </Option>

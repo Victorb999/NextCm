@@ -196,11 +196,11 @@ export default function NewGamePage() {
     return (
       <Overlay>
         <DialogFrame title={`Bem-vindo ao ${created.club.shortName}`} width={520}>
-          <div className="pb-2 text-center text-[15px] text-white">O seu adjunto pergunta: o que quer fazer primeiro?</div>
+          <div className="pb-2 text-center text-[15px] text-white">O seu auxiliar pergunta: o que quer fazer primeiro?</div>
           <div className="space-y-2 pb-1">
-            {option('news', 'Ler as Mensagens', 'A Direcção, os media e o relatório do plantel')}
-            {option('auto', 'O Adjunto Escolhe a Equipa', 'Ele monta o onze e o banco na táctica do clube')}
-            {option('squad', 'Ver o Plantel', 'Os jogadores e os contratos')}
+            {option('news', 'Ler as Mensagens', 'A Diretoria, a mídia e o relatório do elenco')}
+            {option('auto', 'O Auxiliar Escolhe o Time', 'Ele monta o onze e o banco na tática do clube')}
+            {option('squad', 'Ver o Elenco', 'Os jogadores e os contratos')}
             {option('search', 'Procurar Jogadores', 'A Pesquisa Avançada para o mercado')}
           </div>
           <ErrorBox className="mt-2">{error}</ErrorBox>
@@ -232,7 +232,7 @@ export default function NewGamePage() {
         onCancel={() => (step === 0 ? game.setMode('start') : setStep(0))}
         cancelLabel="Atrás"
         onOk={step === 0 ? toManager : () => void start(club)}
-        okLabel={step === 0 ? 'Seguinte' : busy ? 'A criar o jogo…' : 'Começar'}
+        okLabel={step === 0 ? 'Próximo' : busy ? 'Criando o jogo…' : 'Começar'}
       >
         <div className="flex h-full min-h-0 flex-col gap-2">
           <ErrorBox className="shrink-0">{error}</ErrorBox>
@@ -266,7 +266,7 @@ export default function NewGamePage() {
           </div>
         </div>
       </DialogFrame>
-      {busy && <Loading title="Novo Jogo" detail={creation?.label ?? 'A criar o jogo…'} progress={creation?.done ?? 0} />}
+      {busy && <Loading title="Novo Jogo" detail={creation?.label ?? 'Criando o jogo…'} progress={creation?.done ?? 0} />}
     </Overlay>
   )
 }

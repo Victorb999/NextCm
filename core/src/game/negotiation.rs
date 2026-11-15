@@ -122,22 +122,22 @@ impl DealTerms {
             return Err(Error::Invalid("Indique o valor da proposta.".into()));
         }
         if !INSTALMENT_MONTHS.contains(&self.months) {
-            return Err(Error::Invalid("Prestações de 6, 12, 24 ou 36 meses.".into()));
+            return Err(Error::Invalid("Parcelas de 6, 12, 24 ou 36 meses.".into()));
         }
         if self.apps_needed != 0 && !APPS_FOR_BONUS.contains(&self.apps_needed) {
             return Err(Error::Invalid("O valor por jogos é depois de 10, 20, 30, 40 ou 50 jogos.".into()));
         }
         if self.caps_needed != 0 && !CAPS_FOR_BONUS.contains(&self.caps_needed) {
-            return Err(Error::Invalid("O valor por internacionalizações é depois de 5, 10, 15, 20 ou 25.".into()));
+            return Err(Error::Invalid("O valor por jogos pela seleção é depois de 5, 10, 15, 20 ou 25.".into()));
         }
         if !(0..=MAX_SELL_ON).contains(&self.sell_on) {
-            return Err(Error::Invalid(format!("A percentagem da próxima venda vai até {MAX_SELL_ON}%.")));
+            return Err(Error::Invalid(format!("A porcentagem da próxima venda vai até {MAX_SELL_ON}%.")));
         }
         if self.apps_bonus < 0 {
             return Err(Error::Invalid("O valor por jogos não pode ser negativo.".into()));
         }
         if self.caps_bonus < 0 {
-            return Err(Error::Invalid("O valor por internacionalizações não pode ser negativo.".into()));
+            return Err(Error::Invalid("O valor por jogos pela seleção não pode ser negativo.".into()));
         }
         Ok(())
     }
@@ -188,7 +188,7 @@ impl DealTerms {
     pub fn text(&self) -> String {
         let mut parts = vec![money_text(self.fee)];
         if self.months > 0 {
-            parts[0] = format!("{} em {} prestações mensais", parts[0], self.months);
+            parts[0] = format!("{} em {} parcelas mensais", parts[0], self.months);
         }
         if self.sell_on > 0 {
             parts.push(format!("{}% da próxima venda", self.sell_on));
@@ -197,7 +197,7 @@ impl DealTerms {
             parts.push(format!("{} depois de {} jogos", money_text(self.apps_bonus), self.games()));
         }
         if self.caps_bonus > 0 {
-            parts.push(format!("{} depois de {} internacionalizações", money_text(self.caps_bonus), self.caps()));
+            parts.push(format!("{} depois de {} jogos pela seleção", money_text(self.caps_bonus), self.caps()));
         }
         join(&parts)
     }
@@ -206,7 +206,7 @@ impl DealTerms {
 impl LoanTerms {
     pub(super) fn check(&self) -> Result<()> {
         if !LOAN_MONTHS.contains(&self.months) {
-            return Err(Error::Invalid("Empréstimos até ao fim da época, de 6 ou de 12 meses.".into()));
+            return Err(Error::Invalid("Empréstimos até o fim da temporada, de 6 ou de 12 meses.".into()));
         }
         if !(0..=100).contains(&self.wage_share) {
             return Err(Error::Invalid("A parte do salário vai de 0 a 100%.".into()));
@@ -219,7 +219,7 @@ impl LoanTerms {
 
     pub fn text(&self) -> String {
         let mut parts = vec![match self.months {
-            0 => "até ao fim da época".to_string(),
+            0 => "até o fim da temporada".to_string(),
             m => format!("por {m} meses"),
         }];
         parts.push(format!("{}% do salário pago", self.wage_share));
@@ -567,9 +567,9 @@ impl Game {
                     (self.club(payer).short_name, "recebeu do")
                 };
                 news.push((
-                    format!("Valor por internacionalizações de {name}"),
+                    format!("Valor por jogos pela seleção de {name}"),
                     format!(
-                        "{name} chegou às {needed} internacionalizações combinadas: o clube {verb} {who} {}, como ficou na transferência.",
+                        "{name} chegou às {needed} jogos pela seleção combinadas: o clube {verb} {who} {}, como ficou na transferência.",
                         money_text(amount)
                     ),
                 ));
@@ -672,7 +672,7 @@ impl Game {
         self.post_news(
             format!("Opção de compra de {name}"),
             format!(
-                "O {} aceita vender {name} por {}, como combinado no empréstimo. Negoceie o contrato com o jogador até {}.",
+                "O {} aceita vender {name} por {}, como combinado no empréstimo. Negocie o contrato com o jogador até {}.",
                 self.club(parent).short_name,
                 money_text(fee),
                 cm_date(&until)
@@ -702,7 +702,7 @@ impl Game {
                 "message",
                 format!("Opção de compra de {name}"),
                 format!(
-                    "O empréstimo de {name} acaba a {}. Pode exercer a opção de compra ({} ao {}) na aba Transferência do perfil dele.",
+                    "O empréstimo de {name} acaba em {}. Pode exercer a opção de compra ({} ao {}) na aba Transferência do perfil dele.",
                     cm_date(&day),
                     money_text(fee),
                     self.club(parent).short_name
@@ -729,13 +729,13 @@ mod tests {
         assert_eq!(spread.budget_cost(), 5_000_000, "só os primeiros 12 meses contam no orçamento");
         let sell_on = DealTerms { sell_on: 20, ..cash };
         assert!(sell_on.worth(10_000_000) > cash.worth(10_000_000));
-        assert_eq!(spread.text(), "€10,0M em 24 prestações mensais");
+        assert_eq!(spread.text(), "€10,0M em 24 parcelas mensais");
         // O valor por internacionalizações vale menos do que o mesmo valor por jogos
         let apps = DealTerms { apps_bonus: 1_000_000, ..cash };
         let caps = DealTerms { caps_bonus: 1_000_000, caps_needed: 10, ..cash };
         assert!(cash.worth(10_000_000) < caps.worth(10_000_000) && caps.worth(10_000_000) < apps.worth(10_000_000));
         assert_eq!(caps.budget_cost(), 11_000_000);
-        assert_eq!(caps.text(), "€10,0M e €1,0M depois de 10 internacionalizações");
+        assert_eq!(caps.text(), "€10,0M e €1,0M depois de 10 jogos pela seleção");
         assert!(DealTerms { caps_needed: 7, ..caps }.check().is_err());
     }
 
@@ -787,19 +787,19 @@ mod tests {
         let kind = g.kind_of(7568).unwrap();
         g.execute_move(person, Some(seller), Some(7568), terms.fee, 10_000, 3, "transfer", kind).unwrap();
         g.settle_terms(person, 7568, seller, &terms).unwrap();
-        assert_eq!(g.cash_of(7568).unwrap(), mine - 1_000_000, "hoje só a primeira prestação");
+        assert_eq!(g.cash_of(7568).unwrap(), mine - 1_000_000, "hoje só a primeira parcela");
         assert_eq!(g.cash_of(seller).unwrap(), theirs + 1_000_000);
         g.date = date::add_days(&g.date, 30).unwrap();
         g.payments_day().unwrap();
-        assert_eq!(g.cash_of(7568).unwrap(), mine - 2_000_000, "a segunda prestação um mês depois");
+        assert_eq!(g.cash_of(7568).unwrap(), mine - 2_000_000, "a segunda parcela um mês depois");
         // 5 internacionalizações depois: o valor combinado
         g.world.conn.execute("UPDATE people SET international_apps = COALESCE(international_apps, 0) + 4 WHERE id = ?", [person]).unwrap();
         g.payments_day().unwrap();
         assert_eq!(g.cash_of(7568).unwrap(), mine - 2_000_000, "ainda faltava uma");
         g.world.conn.execute("UPDATE people SET international_apps = international_apps + 1 WHERE id = ?", [person]).unwrap();
         let news = g.payments_day().unwrap();
-        assert_eq!(g.cash_of(7568).unwrap(), mine - 2_500_000, "o valor por internacionalizações");
-        assert!(news.iter().any(|(t, _)| t.starts_with("Valor por internacionalizações")));
+        assert_eq!(g.cash_of(7568).unwrap(), mine - 2_500_000, "o valor por jogos pela seleção");
+        assert!(news.iter().any(|(t, _)| t.starts_with("Valor por jogos pela seleção")));
         // Vendido de novo: 20% da venda para o clube de onde veio
         g.execute_move(person, Some(7568), Some(other), 5_000_000, 10_000, 3, "transfer", kind).unwrap();
         assert_eq!(g.cash_of(seller).unwrap(), theirs + 2_000_000 + 500_000 + 1_000_000);

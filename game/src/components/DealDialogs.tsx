@@ -228,7 +228,7 @@ const nextCaps = (n: number) => (n >= 25 ? 5 : n + 5)
 
 const SELL_ON: [number, string][] = Array.from({ length: 11 }, (_, i) => [i * 5, i ? `${i * 5}%` : '-'])
 const LOAN_LENGTH: [number, string][] = [
-  [0, 'Fim da época'],
+  [0, 'Fim da temporada'],
   [6, '6 meses'],
   [12, '1 ano'],
 ]
@@ -271,7 +271,7 @@ function ExchangePicker({
         okLabel="Escolher"
       >
         {exchangeable === null ? (
-          <div className="py-10 text-center text-[17px] text-white">A ver o plantel…</div>
+          <div className="py-10 text-center text-[17px] text-white">Vendo o elenco…</div>
         ) : rows.length === 0 ? (
           <div className="px-6 py-14 text-center font-title text-[20px] text-white">
             O {club} não tem interesse num negócio que envolva troca de jogadores.
@@ -279,7 +279,7 @@ function ExchangePicker({
         ) : (
           <>
             <div className="pb-1.5 text-[15px] text-white">
-              Os jogadores do seu plantel que o {club} aceita na troca (o que valem na troca sai do valor da proposta):
+              Os jogadores do seu elenco que o {club} aceita na troca (o que valem na troca sai do valor da proposta):
             </div>
             <div className="max-h-[330px] overflow-auto rounded bg-black/30">
               <table className="w-full border-collapse text-[15px]">
@@ -383,10 +383,10 @@ export function TransferOfferDialog({
               =
             </button>
           </OfferRow>
-          <OfferRow label="Prestações Mensais" active={t.months > 0}>
+          <OfferRow label="Parcelas Mensais" active={t.months > 0}>
             <Choice value={t.months} options={INSTALMENTS} onChange={(months) => set({ months })} />
           </OfferRow>
-          <OfferRow label="Percentagem da Próxima Venda" active={t.sellOn > 0}>
+          <OfferRow label="Porcentagem da Próxima Venda" active={t.sellOn > 0}>
             <Choice value={t.sellOn} options={SELL_ON} onChange={(sellOn) => set({ sellOn })} />
           </OfferRow>
           <OfferRow
@@ -413,12 +413,12 @@ export function TransferOfferDialog({
                 Valor após{' '}
                 <button
                   className="underline decoration-dotted underline-offset-4 hover:text-cm-yellow"
-                  title="Mudar o número de internacionalizações"
+                  title="Mudar o número de jogos pela seleção"
                   onClick={() => set({ capsNeeded: nextCaps(t.capsNeeded || 5) })}
                 >
                   {t.capsNeeded || 5}
                 </button>{' '}
-                internacionalizações
+                jogos pela seleção
               </>
             }
             active={t.capsBonus > 0}
@@ -553,7 +553,7 @@ export function ShopDialog({
           )}
           <div>
             - Os serviços administrativos do clube vão enviar esta proposta a todos os clubes
-            {rivals ? ' (menos os rivais)' : ''}. Será contactado nos próximos dias se houver interesse.
+            {rivals ? ' (menos os rivais)' : ''}. Será contatado nos próximos dias se houver interesse.
           </div>
         </div>
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}

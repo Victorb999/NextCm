@@ -26,7 +26,7 @@
     },
     {
       "kind": "knockout",
-      "name": "Final a quatro",
+      "name": "Quadrangular final",
       "pairing": "cross",
       "entrants": {
         "previous": {
@@ -35,7 +35,7 @@
       },
       "rounds": [
         {
-          "name": "Meias-finais",
+          "name": "Semifinais",
           "legs": 1,
           "dates": "w12",
           "neutral": true

@@ -26,7 +26,7 @@ export function InviteButton({ clubId }: { clubId: number }) {
       const [f] = await api.arrangeFriendlies(plan.kind, [{ date: plan.date, club: clubId }])
       setFriendlyPlan(null)
       const other = f ? (f.home.id === own ? f.away : f.home).shortName : ''
-      setReply({ ok: true, text: `O ${other} aceitou o convite: o amigável fica marcado para ${f ? shortDate(f.date) : ''}.` })
+      setReply({ ok: true, text: `O ${other} aceitou o convite: o amistoso fica marcado para ${f ? shortDate(f.date) : ''}.` })
     } catch (e) {
       setReply({ ok: false, text: String(e) })
     }

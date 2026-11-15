@@ -25,7 +25,7 @@ pub(super) use crate::regulation::CLUB_FRIENDLY;
 
 /// A competição em português, os jogos de cada jogador e os convites (save 60).
 pub(super) const FRIENDLIES_SCHEMA: &str = "
-UPDATE competitions SET name = 'Amigáveis', short_name = 'Amigáveis', abbreviation = 'AMG' WHERE id = 72;
+UPDATE competitions SET name = 'Amistosos', short_name = 'Amistosos', abbreviation = 'AMG' WHERE id = 72;
 CREATE TABLE friendly_apps AS SELECT * FROM player_matches WHERE 0;
 CREATE INDEX friendly_apps_person ON friendly_apps (person_id, date);
 CREATE INDEX friendly_apps_fixture ON friendly_apps (fixture);
@@ -121,10 +121,10 @@ impl Game {
     /// Só o treinador de um clube marca amigáveis.
     fn friendly_owner(&self) -> Result<()> {
         if self.sacked() {
-            return Err(Error::Invalid("Sem clube, não há amigáveis para marcar.".into()));
+            return Err(Error::Invalid("Sem clube, não há amistosos para marcar.".into()));
         }
         if self.is_national_team(self.club_id) {
-            return Err(Error::Invalid("As selecções não marcam amigáveis de clubes.".into()));
+            return Err(Error::Invalid("As seleções não marcam amistosos de clubes.".into()));
         }
         Ok(())
     }
@@ -247,10 +247,10 @@ impl Game {
             .optional()?
             .ok_or_else(|| Error::NotFound(format!("clube {club}")))?;
         if club == self.club_id || national {
-            return Err(Error::Invalid("Esse clube não pode jogar um amigável com o seu.".into()));
+            return Err(Error::Invalid("Esse clube não pode jogar um amistoso com o seu.".into()));
         }
         if players < MIN_PLAYERS {
-            return Err(Error::Invalid(format!("O {} não tem plantel para um amigável.", self.club(club).short_name)));
+            return Err(Error::Invalid(format!("O {} não tem elenco para um amistoso.", self.club(club).short_name)));
         }
         Ok(())
     }
@@ -269,7 +269,7 @@ impl Game {
             "tour" if (1..=TOUR_MAX).contains(&games.len()) => {}
             "home" | "away" => return Err(Error::Invalid("Um amistoso é um jogo.".into())),
             "tour" => return Err(Error::Invalid(format!("Uma excursão tem de 1 a {TOUR_MAX} jogos."))),
-            _ => return Err(Error::Invalid("Tipo de amigável desconhecido.".into())),
+            _ => return Err(Error::Invalid("Tipo de amistoso desconhecido.".into())),
         }
         let days = self.match_days();
         let mine = days.get(&self.club_id).cloned().unwrap_or_default();
@@ -280,7 +280,7 @@ impl Game {
         for g in &games {
             let d = date::parse(&g.date).ok_or_else(|| Error::Invalid("Data inválida.".into()))?;
             if !self.day_free(&mine, d, &chosen) {
-                return Err(Error::Invalid(format!("O {} não pode jogar a {}.", self.club(self.club_id).short_name, cm_date(&g.date))));
+                return Err(Error::Invalid(format!("O {} não pode jogar em {}.", self.club(self.club_id).short_name, cm_date(&g.date))));
             }
             chosen.push(d);
             self.friendly_opponent(g.club)?;
@@ -346,10 +346,10 @@ impl Game {
         let i = self.matches.iter().position(|m| m.id == fixture).ok_or_else(|| Error::NotFound(format!("jogo {fixture}")))?;
         let m = &self.matches[i];
         if m.competition_id != CLUB_FRIENDLY || (m.home_id != self.club_id && m.away_id != self.club_id) {
-            return Err(Error::Invalid("Só se cancelam os amigáveis do clube.".into()));
+            return Err(Error::Invalid("Só se cancelam os amistosos do clube.".into()));
         }
         if m.result.is_some() || m.date <= self.date {
-            return Err(Error::Invalid("Esse amigável já não se pode cancelar.".into()));
+            return Err(Error::Invalid("Esse amistoso já não se pode cancelar.".into()));
         }
         self.matches.remove(i);
         self.unsaved = true;
@@ -359,7 +359,7 @@ impl Game {
     /// O nome do amigável na coluna da competição: "Excursão Australia" ou "Amigável".
     pub(super) fn friendly_name(&self, m: &Match) -> String {
         if m.round <= 0 {
-            return "Amigável".into();
+            return "Amistoso".into();
         }
         let nation: Option<String> =
             self.world.conn.query_row("SELECT name FROM nations WHERE id = ?", [m.round], |r| r.get(0)).optional().ok().flatten();
@@ -391,8 +391,8 @@ impl Game {
             let n = self.news_item(
                 *next_id,
                 "message",
-                "Amigável cancelado".into(),
-                format!("O amigável com o {other} a {} foi cancelado: há um jogo oficial nessa altura.", cm_date(&m.date)),
+                "Amistoso cancelado".into(),
+                format!("O amistoso com o {other} em {} foi cancelado: há um jogo oficial nesse momento.", cm_date(&m.date)),
             );
             fresh.push(n);
             *next_id += 1;
@@ -463,7 +463,7 @@ impl Game {
             *next_id,
             "message",
             format!("Convite do {them}"),
-            format!("O {them} convida o {us} para um jogo amigável {place}, a {}.\n\nResponda até {}.", cm_date(&day), cm_date(&until)),
+            format!("O {them} convida o {us} para um jogo amistoso {place}, em {}.\n\nResponda até {}.", cm_date(&day), cm_date(&until)),
         );
         n.link = Some(format!("friendly:{id}"));
         fresh.push(n);
@@ -495,7 +495,7 @@ impl Game {
             let mine = days.get(&self.club_id).cloned().unwrap_or_default();
             let d = date::parse(&inv.date).unwrap_or(0);
             if !self.day_free(&mine, d, &[]) || !Self::opponent_free(&days, inv.club.id, d) {
-                return Err(Error::Invalid(format!("Já não há data livre a {} para este amigável.", cm_date(&inv.date))));
+                return Err(Error::Invalid(format!("Já não há data livre em {} para este amistoso.", cm_date(&inv.date))));
             }
             let (home, away) = if inv.at_home { (self.club_id, inv.club.id) } else { (inv.club.id, self.club_id) };
             self.add_friendly(&inv.date, home, away, 0)?;
@@ -521,7 +521,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("nextcm-amigaveis-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
-            save_name: "Amigáveis".into(),
+            save_name: "Amistosos".into(),
             first_name: "A".into(),
             last_name: "B".into(),
             birth_date: None,
@@ -552,9 +552,9 @@ mod tests {
         // Um amistoso em casa com um clube brasileiro mais pequeno, livre nesse dia
         let clubs = g.friendly_clubs(brazil, std::slice::from_ref(&first)).unwrap();
         let ours = g.reputation(PALMEIRAS).unwrap();
-        let small = clubs.iter().find(|c| g.reputation(c.club.id).unwrap() < ours).expect("um clube mais pequeno").club.id;
+        let small = clubs.iter().find(|c| g.reputation(c.club.id).unwrap() < ours).expect("um clube menor").club.id;
         let made = g.arrange_friendlies("home", &[FriendlyGame { date: first.clone(), club: small }]).unwrap();
-        assert_eq!(made[0].competition, "Amigável");
+        assert_eq!(made[0].competition, "Amistoso");
         assert_eq!(made[0].home.id, PALMEIRAS);
         // A mesma data já não serve; dois jogos num amistoso também não
         assert!(g.arrange_friendlies("away", &[FriendlyGame { date: first.clone(), club: small }]).is_err());
@@ -584,7 +584,7 @@ mod tests {
         g.cancel_friendly(last).unwrap();
         assert!(!g.matches.iter().any(|m| m.id == last));
         let official = g.matches.iter().find(|m| m.competition_id != CLUB_FRIENDLY && m.home_id == PALMEIRAS).unwrap().id;
-        assert!(g.cancel_friendly(official).is_err(), "só os amigáveis");
+        assert!(g.cancel_friendly(official).is_err(), "só os amistosos");
 
         // Um convite aceite entra no calendário
         let free = g.friendly_dates(&[]).unwrap().into_iter().find(|d| d.status == "free").unwrap().date;
@@ -623,7 +623,7 @@ mod tests {
         let kinds = &p.seasons[0].by_kind;
         assert_eq!(kinds[0].0, "Não Competitivos");
         assert!(kinds[0].1.apps >= 1);
-        assert!(g.news.iter().any(|n| n.body.starts_with("Amigável.")));
+        assert!(g.news.iter().any(|n| n.body.starts_with("Amistoso.")));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

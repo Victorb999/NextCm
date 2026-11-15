@@ -166,7 +166,7 @@ impl Game {
             Knowledge::Unknown => (UNKNOWN_BUDGET, "não sabe nada"),
         };
         let limit = crate::finance::round_money(budget as f64 * share);
-        let text = format!("A sua direcção só autorizará transferências até {} porque ela {why} sobre este jogador.", money_text(limit));
+        let text = format!("A sua diretoria só autorizará transferências até {} porque ela {why} sobre este jogador.", money_text(limit));
         Ok((limit, Some(text)))
     }
 
@@ -190,7 +190,7 @@ impl Game {
     pub fn scout_player(&mut self, person: i32) -> Result<String> {
         let place = self.place(person)?.ok_or_else(|| Error::Invalid("Só se observam jogadores.".into()))?;
         if place.club == Some(self.club_id) {
-            return Err(Error::Invalid("Já conhece os jogadores do seu plantel.".into()));
+            return Err(Error::Invalid("Já conhece os jogadores do seu elenco.".into()));
         }
         if let Some(on) = self
             .world
@@ -198,7 +198,7 @@ impl Game {
             .query_row("SELECT ready_on FROM scouting WHERE person_id = ?", [person], |r| r.get::<_, String>(0))
             .optional()?
         {
-            return Err(Error::Invalid(format!("Já está a ser observado: o relatório chega a {}.", cm_date(&on))));
+            return Err(Error::Invalid(format!("Já está sendo observado: o relatório chega em {}.", cm_date(&on))));
         }
         let Some((scout, scout_name, judgement, _)) = self.best_scout()? else {
             return Err(Error::Invalid("O clube não tem olheiros.".into()));
@@ -216,7 +216,7 @@ impl Game {
         self.world.conn.execute("INSERT INTO scouting (person_id, ready_on, scout_id) VALUES (?, ?, ?)", params![person, ready, scout])?;
         self.unsaved = true;
         let name = self.person_name(person)?;
-        Ok(format!("{scout_name} vai observar {name}. O relatório chega a {}.", cm_date(&ready)))
+        Ok(format!("{scout_name} vai observar {name}. O relatório chega em {}.", cm_date(&ready)))
     }
 
     /// Os relatórios que chegam hoje: o jogador passa a conhecido e chega a mensagem.
@@ -296,9 +296,9 @@ impl Game {
         )?;
         let (stars, age, room) = self.judge(person, judgement, potential, self.squad_level()?)?;
         let verdict = match stars {
-            5 => "Seria um dos melhores do plantel.",
-            4 => "Seria titular na equipa.",
-            3 => "Seria útil no plantel.",
+            5 => "Seria um dos melhores do elenco.",
+            4 => "Seria titular no time.",
+            3 => "Seria útil no elenco.",
             2 => "Seria só um suplente.",
             _ => "Não tem nível para o clube.",
         };
@@ -393,7 +393,7 @@ mod tests {
         // Observar: o relatório chega e ele passa a conhecido
         let text = g.scout_player(far).unwrap();
         assert!(text.contains("relatório chega"), "{text}");
-        assert!(g.scout_player(far).is_err(), "já está a ser observado");
+        assert!(g.scout_player(far).is_err(), "já está sendo observado");
         assert!(g.scout_player(mine).is_err());
         let ready: String = g.world.conn.query_row("SELECT ready_on FROM scouting WHERE person_id = ?", [far], |r| r.get(0)).unwrap();
         g.date = ready;

@@ -156,7 +156,7 @@ export default function LiveTactics({
           // O nome do clube abre a ficha dele
           <Link onClick={() => nav.go({ kind: 'club', id: team.club.id })}>{t?.clubName ?? team.club.name}</Link>
         }
-        title="Tácticas"
+        title="Táticas"
         right={
           // O resultado e quem marcou (com o minuto), como no placar da partida
           <div className="flex flex-col items-end gap-0.5">
@@ -180,7 +180,7 @@ export default function LiveTactics({
       />
       <div className="flex shrink-0 items-center gap-1 px-1.5">
         <PurpleMenu
-          label="Tácticas"
+          label="Táticas"
           options={TACTICS_MENU.filter((o) => o.key !== 'load' && o.key !== 'save')}
           value={t && !t.custom ? String(t.formationIndex) : undefined}
           disabled={!editable}
@@ -189,7 +189,7 @@ export default function LiveTactics({
             else if (t) void preview({ ...selectionOf(t), formation: Number(k), positions: [] })
           }}
         />
-        <PurpleMenu label="Vêr" options={TACTICS_VIEWS} value={viewing} onChange={setViewing} />
+        <PurpleMenu label="Ver" options={TACTICS_VIEWS} value={viewing} onChange={setViewing} />
         <div className="flex-1" />
         {editable && (
           <span className="px-2 text-[12px] text-cm-yellow">
@@ -199,7 +199,7 @@ export default function LiveTactics({
         <PurpleMenu
           label="Editar"
           align="right"
-          options={[{ key: 'reset', label: 'Repor as posições da táctica' }]}
+          options={[{ key: 'reset', label: 'Repor as posições da tática' }]}
           disabled={!editable}
           onChange={() => {
             if (t) void preview({ ...selectionOf(t), positions: [] })
@@ -302,7 +302,7 @@ export default function LiveTactics({
               <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
                 {editable
                   ? 'Arraste para trocar (titular com suplente = substituição) ou para um lugar vazio · botão direito e arrastar faz a seta'
-                  : 'Só pode mexer na sua equipa.'}
+                  : 'Só pode mexer no seu time.'}
               </div>
             </div>
             {/* As Instruções à Equipa à vista, como na tela de Tácticas; Editar abre o diálogo */}

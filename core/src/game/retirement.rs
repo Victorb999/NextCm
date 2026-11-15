@@ -220,14 +220,14 @@ impl Game {
         }
         for (name, reason) in ours {
             let body = format!(
-                "{name} anunciou que vai terminar a carreira no fim desta época, {}.\n\nSe quiser que ele continue, \
-                 pode propor-lhe uma renovação: talvez mude de ideias.",
+                "{name} anunciou que vai terminar a carreira no fim desta temporada, {}.\n\nSe quiser que ele continue, \
+                 pode propor uma renovação: talvez mude de ideias.",
                 reason_text(reason)
             );
             self.push_news(fresh, next_id, "message", format!("{name} vai terminar a carreira"), body);
         }
         if !famous.is_empty() {
-            let body = format!("Anunciaram que vão terminar a carreira no fim desta época: {}.", join_names(&famous));
+            let body = format!("Anunciaram que vão terminar a carreira no fim desta temporada: {}.", join_names(&famous));
             self.push_news(fresh, next_id, "jobs", "Despedidas anunciadas".into(), body);
         }
         self.unsaved = true;
@@ -266,7 +266,7 @@ impl Game {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
         Ok(format!(
-            "reformas {count} (idade média {age:.1}, {staff} viraram staff; {}), jogadores nos clubes geridos {players}, livres {free}",
+            "aposentadorias {count} (idade média {age:.1}, {staff} viraram staff; {}), jogadores nos clubes geridos {players}, livres {free}",
             reasons.join(", ")
         ))
     }
@@ -351,7 +351,13 @@ impl Game {
         self.refresh_live()?;
         if !ours.is_empty() {
             let verb = if ours.len() == 1 { "terminou a carreira" } else { "terminaram a carreira" };
-            self.push_news(fresh, next_id, "message", "Reformas".into(), format!("{} {verb} no fim desta época.", join_names(&ours)));
+            self.push_news(
+                fresh,
+                next_id,
+                "message",
+                "Aposentadorias".into(),
+                format!("{} {verb} no fim desta temporada.", join_names(&ours)),
+            );
         }
         if !famous.is_empty() {
             let verb = if famous.len() == 1 { "terminou a carreira" } else { "terminaram a carreira" };
@@ -363,7 +369,7 @@ impl Game {
             }
             let names: Vec<String> = heirs.into_iter().map(|h| h.2).collect();
             let body = format!(
-                "Chegou ao clube um jovem talento: {}.\n\nComeça na equipa de reservas, com contrato de três anos.",
+                "Chegou ao clube um jovem talento: {}.\n\nComeça no time de reservas, com contrato de três anos.",
                 join_names(&names)
             );
             self.push_news(fresh, next_id, "message", "Novo talento".into(), body);
@@ -602,7 +608,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("nextcm-reformas-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
-            save_name: "Reformas".into(),
+            save_name: "Aposentadorias".into(),
             first_name: "Victor".into(),
             last_name: "Araujo".into(),
             birth_date: None,

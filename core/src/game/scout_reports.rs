@@ -106,12 +106,12 @@ impl Game {
         let strength = match diff {
             d if d >= STRONGER_BY * 2 => "bastante mais forte do que nós",
             d if d >= STRONGER_BY => "um pouco mais forte do que nós",
-            d if d <= -STRONGER_BY * 2 => "bastante mais fraca do que nós",
-            d if d <= -STRONGER_BY => "um pouco mais fraca do que nós",
+            d if d <= -STRONGER_BY * 2 => "bastante mais fraco do que nós",
+            d if d <= -STRONGER_BY => "um pouco mais fraco do que nós",
             _ => "do nosso nível",
         };
         let mut body = format!(
-            "{name} ({}, {}, {}).\n\nNo papel, é uma equipa {strength}.",
+            "{name} ({}, {}, {}).\n\nNo papel, é um time {strength}.",
             if home { "em casa" } else { "fora" },
             self.competition_name(m.competition_id),
             super::cm_date(&m.date)
@@ -147,7 +147,7 @@ impl Game {
         let state = self.club_state(opp, Some(m.competition_id));
         let mut t = self.world.auto_tactics(opp, Some(&state), Default::default())?;
         self.mark_key_players(&mut t)?;
-        body += &format!("\n\nJoga habitualmente em {}.", t.formation);
+        body += &format!("\n\nCostuma jogar no {}.", t.formation);
         let mut keys: Vec<&crate::tactics::TacticPlayer> = t.starters.iter().filter_map(|s| s.player.as_ref()).collect();
         keys.sort_by_key(|p| (!p.key, std::cmp::Reverse(p.current_ability.unwrap_or(0)), p.id));
         let keys: Vec<String> = keys
@@ -157,13 +157,13 @@ impl Game {
                 let name = self.person_name(p.id).unwrap_or_else(|_| p.list_name.clone());
                 match p.goals {
                     0 => format!("{name} ({})", p.position),
-                    1 => format!("{name} ({}, 1 golo)", p.position),
-                    g => format!("{name} ({}, {g} golos)", p.position),
+                    1 => format!("{name} ({}, 1 gol)", p.position),
+                    g => format!("{name} ({}, {g} gols)", p.position),
                 }
             })
             .collect();
         if !keys.is_empty() {
-            body += &format!(" Os jogadores a vigiar: {}.", join_names(&keys));
+            body += &format!(" Os jogadores para ficar de olho: {}.", join_names(&keys));
         }
         let out: Vec<String> = t
             .reserves

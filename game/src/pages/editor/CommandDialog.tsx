@@ -49,11 +49,11 @@ export default function CommandDialog({
         <div className="mt-2 border-t border-white/15 pt-2">
           <label className="flex h-6 items-center gap-2 px-1 text-[14px] text-cm-yellow">
             <input type="checkbox" checked={firstTeam} onChange={(e) => setFirstTeam(e.target.checked)} />
-            Só o plantel principal?
+            Só o elenco principal?
           </label>
           <label className={`flex h-6 items-center gap-2 px-1 text-[14px] ${person ? 'text-cm-yellow' : 'text-[#777]'}`}>
             <input type="checkbox" disabled={!person} checked={onlyPerson} onChange={(e) => setOnlyPerson(e.target.checked)} />
-            Só a pessoa actual?{person ? ` (${person})` : ''}
+            Só a pessoa atual?{person ? ` (${person})` : ''}
           </label>
           <div className="px-1 pt-1 text-[12px] text-[#9a9aa6]">
             {onlyPerson && person ? `Aplica a ${person}.` : `Aplica aos ${count} jogadores da lista.`}

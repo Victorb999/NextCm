@@ -30,8 +30,8 @@ import { money } from '../format'
 const TABS = [
   { key: 'profile', label: 'Perfil Geral' },
   { key: 'contract', label: 'Contrato & Transferência' },
-  { key: 'history', label: 'Historial / Carreira' },
-  { key: 'injuries', label: 'Lesões & Castigos' },
+  { key: 'history', label: 'Histórico / Carreira' },
+  { key: 'injuries', label: 'Lesões & Suspensões' },
   { key: 'records', label: 'Marcos & Recordes' },
 ]
 
@@ -76,7 +76,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
   const staffOptions = hire
     ? [
         ...(hire.blocked ? [] : [{ key: 'staffContract', label: hire.mine ? 'Renovar Contrato' : 'Oferecer Contrato' }]),
-        ...(hire.sackCost !== null ? [{ key: 'sack', label: 'Despedir' }] : []),
+        ...(hire.sackCost !== null ? [{ key: 'sack', label: 'Demitir' }] : []),
       ]
     : []
 
@@ -196,7 +196,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
     else if (k === 'release') void api.releaseQuestion(id).then(setRelease, (e) => setError(String(e)))
     else if (k === 'compareFirst' && person) {
       setCompareFirst({ id, name: person.name })
-      setNotice(`Escolha o segundo jogador e, no menu Acção, Comparar com ${person.name}.`)
+      setNotice(`Escolha o segundo jogador e, no menu Ação, Comparar com ${person.name}.`)
     } else if (k === 'compare' && first) {
       setCompareFirst(null)
       nav.go({ kind: 'compare', a: first.id, b: id })
@@ -252,12 +252,12 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
         action={
           staffOptions.length > 0 ? (
             <PurpleMenu
-              label="Acção"
+              label="Ação"
               align="right"
               buttonClass="flex h-9 items-center gap-1.5 rounded bg-cm-orange px-4 font-title text-[17px] font-bold text-black hover:brightness-110"
               trigger={
                 <>
-                  Acção <ChevronDown size={14} />
+                  Ação <ChevronDown size={14} />
                 </>
               }
               options={staffOptions}
@@ -269,12 +269,12 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
             // O jogador de enchimento só tem os atributos, como no CM
             !person.ghost && (
               <PurpleMenu
-                label="Acção"
+                label="Ação"
                 align="right"
                 buttonClass="flex h-9 items-center gap-1.5 rounded bg-cm-orange px-4 font-title text-[17px] font-bold text-black hover:brightness-110"
                 trigger={
                   <>
-                    Acção <ChevronDown size={14} />
+                    Ação <ChevronDown size={14} />
                   </>
                 }
                 options={groups.flatMap((g, i) => (i ? ['separator' as const, ...g] : g))}
@@ -404,7 +404,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
       )}
       {text && person && (
         <TextDialog
-          title={text === 'nickname' ? 'Definir Alcunha' : 'Criar Nota Treinador'}
+          title={text === 'nickname' ? 'Definir Apelido' : 'Criar Nota Treinador'}
           initial={(text === 'nickname' ? person.nickname : person.note) ?? ''}
           multiline={text === 'note'}
           onCancel={() => setText(null)}
@@ -451,7 +451,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
       {sackAsk && hire && (
         <Overlay>
           <DialogFrame
-            title="Despedir"
+            title="Demitir"
             width={560}
             cancelLabel="Não"
             okLabel="Sim"
@@ -470,7 +470,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
             }}
           >
             <div className="py-6 text-center font-title text-[19px] text-white">
-              Despedir {hire.name}?{' '}
+              Demitir {hire.name}?{' '}
               {hire.sackCost ? `O clube paga ${money(hire.sackCost)} do resto do contrato.` : 'Não tem custos para o clube.'}
             </div>
           </DialogFrame>

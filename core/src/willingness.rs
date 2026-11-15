@@ -31,8 +31,8 @@ pub enum Holdout {
 impl Holdout {
     pub fn text(self) -> &'static str {
         match self {
-            Holdout::Star => "O clube considera-o um elemento indispensável no elenco.",
-            Holdout::Recent => "O clube acabou de o comprar e olha-o como um importante jogador para o futuro.",
+            Holdout::Star => "O clube o considera um elemento indispensável no elenco.",
+            Holdout::Recent => "O clube acabou de o comprar e o vê como um importante jogador para o futuro.",
             Holdout::Rival => "O clube não quer reforçar um rival.",
         }
     }

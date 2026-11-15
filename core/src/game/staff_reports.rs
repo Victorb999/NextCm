@@ -37,7 +37,7 @@ const STRENGTHS: [(&str, &str); 24] = [
     ("marking", "marcação"),
     ("passing", "passe"),
     ("positioning", "posicionamento"),
-    ("long_shots", "remates de longe"),
+    ("long_shots", "chutes de longe"),
     ("stamina", "resistência"),
     ("off_the_ball", "movimentação sem bola"),
     ("technique", "técnica"),
@@ -88,7 +88,7 @@ impl Game {
     pub fn staff_report(&mut self, person: i32, kind: &str, staff: &[i32]) -> Result<usize> {
         let club: Option<i32> = self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [person], |r| r.get(0))?;
         if club != Some(self.club_id) {
-            return Err(Error::Invalid("Só se pedem relatórios sobre os jogadores do plantel.".into()));
+            return Err(Error::Invalid("Só se pedem relatórios sobre os jogadores do elenco.".into()));
         }
         let allowed: Vec<i32> = self.report_staff(kind)?.iter().map(|s| s.id).collect();
         let chosen: Vec<i32> = staff.iter().copied().filter(|s| allowed.contains(s)).collect();
@@ -137,7 +137,7 @@ impl Game {
         let st = self.squads.state(person);
         if let (Some(injury), Some(until)) = (&st.injury, &st.injury_until) {
             return Ok(format!(
-                "{physio} informa que {name} está lesionado ({}) e só deve voltar a {}.",
+                "{physio} informa que {name} está lesionado ({}) e só deve voltar em {}.",
                 injury.to_lowercase(),
                 cm_date(until)
             ));
@@ -188,13 +188,13 @@ impl Game {
         let seen = ca as f64 + ((rng.next_u64() % 2001) as f64 / 1000.0 - 1.0) * spread;
         let rank = cas.iter().filter(|c| c.0 != person && c.1 as f64 > seen).count();
         let (opening, role) = match rank {
-            0..=2 => ("é um grande admirador das qualidades de", "um elemento chave do plantel actual"),
-            3..=10 => ("aprecia as qualidades de", "um titular no plantel actual"),
-            11..=17 => ("vê com bons olhos", "uma boa opção para o plantel"),
-            _ => ("tem dúvidas sobre", "alguém com pouco lugar no plantel actual"),
+            0..=2 => ("é um grande admirador das qualidades de", "um elemento chave do elenco atual"),
+            3..=10 => ("aprecia as qualidades de", "um titular no elenco atual"),
+            11..=17 => ("vê com bons olhos", "uma boa opção para o elenco"),
+            _ => ("tem dúvidas sobre", "alguém com pouco lugar no elenco atual"),
         };
         let pos = position.split(['/', '(']).next().unwrap_or(position).trim().to_lowercase();
-        let keeper = position.starts_with("Guarda-Redes");
+        let keeper = position.starts_with("Goleiro");
         let mut ranked: Vec<(&str, i32)> = (if keeper { &KEEPER[..] } else { &STRENGTHS[..] })
             .iter()
             .filter_map(|(k, label)| attributes.get(*k).copied().flatten().map(|v| (*label, v)))
@@ -260,7 +260,7 @@ mod tests {
             .conn
             .query_row("SELECT id FROM people WHERE club_id <> ? AND is_player = 1 LIMIT 1", [PALMEIRAS], |r| r.get(0))
             .unwrap();
-        assert!(g.staff_report(other, "medical", &[physios[0].id]).is_err(), "só do plantel");
+        assert!(g.staff_report(other, "medical", &[physios[0].id]).is_err(), "só do elenco");
 
         let before = g.news().len();
         assert_eq!(g.staff_report(star, "medical", &[physios[0].id]).unwrap(), 1);

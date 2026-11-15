@@ -9,12 +9,12 @@ export type SquadView = 'traditional' | 'contract' | 'selection' | 'stats' | 'mo
 export const VIEW_TITLE: Record<SquadView, string> = {
   traditional: 'Tradicional',
   contract: 'Informação sobre o Contrato',
-  selection: 'Selecção - Informação',
+  selection: 'Seleção - Informação',
   stats: 'Estatísticas',
   more: 'Estatísticas',
   attributes: 'Características',
   others: 'Outra Informação',
-  penalties: 'Marcadores Penalties',
+  penalties: 'Cobradores de Pênaltis',
 }
 
 /** Cor do nome: emprestado (por ou a outro clube) a azul, de enchimento a cinza (contrasta com
@@ -27,7 +27,7 @@ export function nameClass(p: SquadPlayer) {
 export const MORE_COMPETITIONS: { key: string; label: string }[] = [
   { key: '', label: 'Jogos Oficiais' },
   { key: 'Liga', label: 'Liga' },
-  { key: 'Taça', label: 'Taça' },
+  { key: 'Copa', label: 'Copa' },
   { key: 'Continentais', label: 'Continentais' },
 ]
 
@@ -88,8 +88,8 @@ export const ATTRIBUTE_GROUPS: [AttributeGroupInfo, ...AttributeGroupInfo[]] = [
   },
   {
     key: 'goalkeeping',
-    label: 'Guarda-Redes',
-    title: 'Características de Guarda-Redes',
+    label: 'Goleiro',
+    title: 'Características de Goleiro',
     columns: [
       ['handling', 'JMã'],
       ['reflexes', 'Ref'],
@@ -170,9 +170,9 @@ export function saveFilter(f: Filter) {
 
 export const FILTER_OPTIONS: MenuOption<string>[] = [
   { key: 'line:', label: 'Todas Posições' },
-  { key: 'line:GR', label: 'Guarda-Redes' },
-  { key: 'line:D', label: 'Defesas' },
-  { key: 'line:M', label: 'Médios' },
+  { key: 'line:GR', label: 'Goleiros' },
+  { key: 'line:D', label: 'Defensores' },
+  { key: 'line:M', label: 'Meio-Campistas' },
   { key: 'line:A', label: 'Atacantes' },
   'separator',
   { key: 'side:', label: 'Todos Lados' },

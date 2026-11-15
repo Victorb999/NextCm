@@ -406,7 +406,7 @@ impl Session {
         let current = self.game()?.path().to_path_buf();
         if target != current {
             if target.exists() && !overwrite {
-                return Err(Error::Invalid("Ficheiro Existe".into()));
+                return Err(Error::Invalid("Arquivo Existe".into()));
             }
             std::fs::copy(&current, &target)?;
             let copy = rusqlite::Connection::open(&target)?;

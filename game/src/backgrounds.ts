@@ -11,7 +11,7 @@ const LABELS: Record<string, string> = {
   'estadios/maracana': 'Maracanã',
   'estadios/mineirao': 'Mineirão',
   'estadios/san-siro': 'San Siro',
-  'estadios/san-siro-bancadas': 'San Siro (bancadas)',
+  'estadios/san-siro-bancadas': 'San Siro (arquibancadas)',
   'estadios/signal-iduna-park': 'Signal Iduna Park',
   'estadios/signal-iduna-park-noite': 'Signal Iduna Park (noite)',
   'estadios/old-trafford': 'Old Trafford',
@@ -24,7 +24,7 @@ const LABELS: Record<string, string> = {
   'momentos/van-persie-2014': 'Van Persie, 2014',
   'momentos/brasil-a-correr': 'Brasil a correr',
   'momentos/bombonera': 'La Bombonera',
-  'momentos/relvado-visto-do-ceu': 'Relvado visto do céu',
+  'momentos/relvado-visto-do-ceu': 'Gramado visto do céu',
 }
 
 export const BACKGROUND_PHOTOS: BackgroundPhoto[] = Object.entries(urls)

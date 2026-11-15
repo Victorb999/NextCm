@@ -130,7 +130,7 @@ mod tests {
             .unwrap();
         g.set_shortlist(mine, true).unwrap();
         g.set_shortlist(other, true).unwrap();
-        assert!(!g.in_shortlist(mine).unwrap(), "os do plantel não entram");
+        assert!(!g.in_shortlist(mine).unwrap(), "os do elenco não entram");
         assert!(g.in_shortlist(other).unwrap());
         let q = SearchQuery { kind: Some(PersonKind::Players), status: Some(MarketStatus::Shortlist), ..Default::default() };
         let r = g.world.search_people_on(&q, &g.date).unwrap();

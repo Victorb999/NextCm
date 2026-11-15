@@ -19,18 +19,18 @@ import { PossessionBar } from './Panorama'
 export function Stats({ view }: { view: LiveView }) {
   const [h, a] = [view.home.stats, view.away.stats]
   const rows: [string, string | number, string | number, string?][] = [
-    ['Remates à Baliza', h.shots, a.shots],
+    ['Chutes', h.shots, a.shots],
     ['No Alvo', h.onTarget, a.onTarget],
     ['Ao Lado', h.shots - h.onTarget, a.shots - a.onTarget],
-    ['Golos Esperados', xgText(h.xg), xgText(a.xg)],
-    ['Cantos', h.corners, a.corners],
-    ['Livres', a.fouls, h.fouls],
-    ['Lançamentos', h.throwIns, a.throwIns],
+    ['Gols Esperados', xgText(h.xg), xgText(a.xg)],
+    ['Escanteios', h.corners, a.corners],
+    ['Tiros Livres', a.fouls, h.fouls],
+    ['Laterais', h.throwIns, a.throwIns],
     ['Faltas', h.fouls, a.fouls],
     ['Foras de Jogo', h.offsides, a.offsides],
     ['Passes Acertados', pct(h.passesOk, h.passes), pct(a.passesOk, a.passes)],
     ['Cortes Ganhos', pct(h.tacklesWon, h.tackles), pct(a.tacklesWon, a.tackles)],
-    ['Cabeceamentos Ganhos', pct(h.headersWon, h.headers), pct(a.headersWon, a.headers)],
+    ['Cabeceios Ganhos', pct(h.headersWon, h.headers), pct(a.headersWon, a.headers)],
     ['Cartões Amarelos', h.yellows, a.yellows, 'text-cm-yellow'],
     ['Cartões Vermelhos', h.reds, a.reds, 'text-cm-red'],
   ]
@@ -303,16 +303,16 @@ export function TeamData({ team }: { team: LiveTeam }) {
       </div>
       <div className="mt-2 flex gap-2">
         <DataBox
-          title="Equipa"
+          title="Time"
           rows={[
             ['Posse de Bola', `${s.possession}%`],
-            ['Remates (à baliza)', `${s.shots} (${s.onTarget})`],
-            ['Golos Esperados', xgText(s.xg)],
+            ['Chutes (no gol)', `${s.shots} (${s.onTarget})`],
+            ['Gols Esperados', xgText(s.xg)],
             ['Passes Acertados', pct(s.passesOk, s.passes)],
             ['Cortes Ganhos', pct(s.tacklesWon, s.tackles)],
-            ['Cabeceamentos Ganhos', pct(s.headersWon, s.headers)],
+            ['Cabeceios Ganhos', pct(s.headersWon, s.headers)],
             ['Dribles', sum((p) => p.stats.dribbles)],
-            ['Cantos', s.corners],
+            ['Escanteios', s.corners],
             ['Faltas', s.fouls],
             ['Foras de Jogo', s.offsides],
             ['Cartões', `${s.yellows} ${s.yellows === 1 ? 'amarelo' : 'amarelos'} · ${s.reds} ${s.reds === 1 ? 'vermelho' : 'vermelhos'}`],
@@ -323,13 +323,13 @@ export function TeamData({ team }: { team: LiveTeam }) {
           rows={[
             ['Melhor Nota', best((p) => p.rating ?? 0)],
             [
-              'Golos',
+              'Gols',
               scorers.length ? scorers.map((p) => `${shortListName(p.listName)}${p.goals > 1 ? ` ${p.goals}` : ''}`).join(', ') : '-',
             ],
             ['Assistências', best((p) => p.assists)],
-            ['Mais Remates', best((p) => p.stats.shots)],
+            ['Mais Chutes', best((p) => p.stats.shots)],
             [
-              'Mais Golos Esperados',
+              'Mais Gols Esperados',
               best(
                 (p) => p.stats.xg,
                 (p) => xgText(p.stats.xg),
@@ -358,7 +358,7 @@ export function TeamData({ team }: { team: LiveTeam }) {
           ]}
         />
         <DataBox
-          title="Táctica"
+          title="Tática"
           rows={[
             ['Formação', team.formation],
             ['Mentalidade', MENTALITY.find(([k]) => k === i.mentality)?.[1] ?? '-'],

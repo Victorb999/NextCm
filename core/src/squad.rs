@@ -169,8 +169,8 @@ pub struct Side {
 }
 
 const LIGHT: [&str; 5] = ["Distensão muscular", "Contusão na coxa", "Entorse no tornozelo", "Pancada no joelho", "Dores nas costas"];
-const MEDIUM: [&str; 4] = ["Rotura muscular", "Lesão nos isquiotibiais", "Entorse grave no tornozelo", "Lesão na virilha"];
-const SERIOUS: [&str; 3] = ["Rotura de ligamentos do joelho", "Fractura do perónio", "Lesão no menisco"];
+const MEDIUM: [&str; 4] = ["Ruptura muscular", "Lesão nos isquiotibiais", "Entorse grave no tornozelo", "Lesão na virilha"];
+const SERIOUS: [&str; 3] = ["Ruptura de ligamentos do joelho", "Fratura do perônio", "Lesão no menisco"];
 
 fn pick<'a>(list: &[&'a str], rng: &mut impl RngCore) -> &'a str {
     list[(uniform(rng) * list.len() as f64) as usize % list.len()]
@@ -428,7 +428,7 @@ mod tests {
         assert_eq!(sq.state(12).missed, 3);
         assert_eq!(sq.state(0).missed, 0);
         assert_eq!(sq.state(15).missed, 0, "lesionado não conta");
-        assert_eq!(sq.state(16).missed, 2, "o jogo do castigo não conta");
+        assert_eq!(sq.state(16).missed, 2, "o jogo da suspensão não conta");
         sq.after_match([side(1, &[12], 0, 0), side(2, &[], 0, 0)], "2025-08-06", 65, &mut rng);
         assert_eq!(sq.state(12).missed, 0);
     }

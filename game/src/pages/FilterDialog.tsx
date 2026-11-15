@@ -266,7 +266,7 @@ export default function FilterDialog({
                     Apenas
                   </Option>
                 </Row>
-                <Row label="Incluir Plantel">
+                <Row label="Incluir Elenco">
                   <Option selected={f.ownSquad} onClick={() => set({ ownSquad: true })}>
                     Sim
                   </Option>

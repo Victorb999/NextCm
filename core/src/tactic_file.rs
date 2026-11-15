@@ -73,10 +73,10 @@ pub fn list_files(dir: &Path) -> Vec<SavedFile> {
 /// Lê um ficheiro da pasta pelo nome (nunca um caminho qualquer).
 fn read_json<T: DeserializeOwned>(dir: &Path, file: &str, what: &str) -> Result<T> {
     if file.contains(['/', '\\']) || file.starts_with('.') {
-        return Err(Error::Invalid(format!("Ficheiro de {what} inválido.")));
+        return Err(Error::Invalid(format!("Arquivo de {what} inválido.")));
     }
     let bytes = std::fs::read(dir.join(file)).map_err(|_| Error::NotFound(format!("{what} {file}")))?;
-    serde_json::from_slice(&bytes).map_err(|e| Error::Invalid(format!("Ficheiro de {what} estragado: {e}")))
+    serde_json::from_slice(&bytes).map_err(|e| Error::Invalid(format!("Arquivo de {what} estragado: {e}")))
 }
 
 /// Grava como `<nome>.json` (substitui um com o mesmo nome).
@@ -98,7 +98,7 @@ fn clean_name(name: &str) -> Result<&str> {
 }
 
 pub fn read_tactic(dir: &Path, file: &str) -> Result<SavedTactic> {
-    check(read_json(dir, file, "táctica")?)
+    check(read_json(dir, file, "tática")?)
 }
 
 pub fn write_tactic(dir: &Path, t: &SavedTactic) -> Result<SavedFile> {
@@ -118,7 +118,7 @@ pub fn write_list(dir: &Path, l: &SavedList) -> Result<SavedFile> {
 
 fn check(t: SavedTactic) -> Result<SavedTactic> {
     if t.positions.len() != 11 || t.runs.len() != 11 {
-        return Err(Error::Invalid("A táctica tem de ter 11 posições.".into()));
+        return Err(Error::Invalid("A tática tem de ter 11 posições.".into()));
     }
     Ok(t)
 }

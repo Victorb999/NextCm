@@ -66,9 +66,9 @@ function RolePicker({ terms, onPick }: { terms: ContractTerms; onPick: (role: st
           <div>* Esperado pelo jogador</div>
           {terms.wage > terms.maxWage && (
             <div className="pt-3 text-[16px] text-cm-dim">
-              Na função que espera, {terms.name} pede {wageText(terms.wage, true)} e a direcção autoriza até {wageText(terms.maxWage, true)}
-              . Os limites de cada função sobem com a folha: passe fundos de transferências para os salários em Equilibrar orçamentos
-              (Confiança da Direcção).
+              Na função que espera, {terms.name} pede {wageText(terms.wage, true)} e a diretoria autoriza até{' '}
+              {wageText(terms.maxWage, true)}. Os limites de cada função sobem com a folha: passe fundos de transferências para os salários
+              em Equilibrar orçamentos (Confiança da Diretoria).
             </div>
           )}
         </div>
@@ -144,7 +144,7 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
 
   // Negociação parada: rompida, fechada, ou a proposta seguiu e a resposta chega amanhã
   const over = (reply?.over ?? false) || (reply?.pending ?? false)
-  const wants = `${terms.name} ${reply ? 'recusa: quer' : 'quer'} ${wageText(asks.wage, true)} até ${monthYear(end(asks.years))} mais um prémio de assinatura no valor de ${money(asks.bonus) || '€0'}.`
+  const wants = `${terms.name} ${reply ? 'recusa: quer' : 'quer'} ${wageText(asks.wage, true)} até ${monthYear(end(asks.years))} mais um prêmio de assinatura no valor de ${money(asks.bonus) || '€0'}.`
   return (
     <>
       <ScreenHeader
@@ -155,14 +155,14 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
             {terms.club ? `${terms.name} (${terms.club.shortName})` : terms.name}
           </Link>
         }
-        title="Propôr Contrato"
+        title="Propor Contrato"
       />
       <Tabs
         tabs={[
           { key: 'basic', label: 'Básico' },
           {
             key: 'bonuses',
-            label: blank(terms.asks) ? 'Prémios' : 'Prémios *',
+            label: blank(terms.asks) ? 'Prêmios' : 'Prêmios *',
           },
           { key: 'clauses', label: 'Cláusulas' },
         ]}
@@ -177,7 +177,7 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
             </div>
             <div className="mt-2 text-[14px] text-cm-muted">
               {terms.renewal
-                ? `Contrato actual: ${wageText(terms.currentWage, true)} até ${monthYear(terms.currentExpires ?? '')}.`
+                ? `Contrato atual: ${wageText(terms.currentWage, true)} até ${monthYear(terms.currentExpires ?? '')}.`
                 : terms.precontract
                   ? `Pré-contrato: o contrato dele acaba a ${monthYear(terms.currentExpires ?? '')} e chega livre nessa data.`
                   : terms.fee
@@ -185,7 +185,7 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
                     : 'Jogador livre.'}
             </div>
             <div className="mt-1 text-[14px] text-cm-muted">
-              A sua direcção autoriza salários até {wageText(terms.maxWage, true)} e transferências até {money(terms.budget) || '€0'}.
+              A sua diretoria autoriza salários até {wageText(terms.maxWage, true)} e transferências até {money(terms.budget) || '€0'}.
             </div>
             {/* A folha de hoje e o que sobra (sem o salário actual dele, numa renovação) */}
             <div className="mt-1 text-[14px] text-cm-muted">
@@ -221,7 +221,7 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
                 onEqual={() => setW(asks.wage)}
               />
               <TermRow
-                label="Prémio Assinatura"
+                label="Prêmio Assinatura"
                 value={<MoneySelect value={bonus} onChange={setBonus} />}
                 onEqual={() => setBonus(asks.bonus)}
               />

@@ -23,7 +23,7 @@ const TABS = [
   { key: 'fixtures', label: 'Calendário' },
   { key: 'results', label: 'Resultados' },
   { key: 'stats', label: 'Estatísticas' },
-  { key: 'history', label: 'Historial' },
+  { key: 'history', label: 'Histórico' },
 ]
 
 /** Cabeçalho de coluna roxo com letra amarela, como as tabelas do CM. */
@@ -40,10 +40,10 @@ function ClubLink({ club }: { club: ClubRef | null }) {
 }
 
 function History({ c }: { c: CompetitionProfile }) {
-  if (c.history.length === 0) return <Empty>Sem historial registado.</Empty>
+  if (c.history.length === 0) return <Empty>Sem histórico registrado.</Empty>
   const head = ['Ano', 'Campeão', 'Vice', '3º']
   return (
-    <Panel title="Historial" className="flex-1">
+    <Panel title="Histórico" className="flex-1">
       <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse">
           <thead className="sticky top-0 z-10">
@@ -258,7 +258,7 @@ function RoundPicker({ rounds, index, onChange }: { rounds: [string, Fixture[]][
   const [name, games] = rounds[index] ?? ['', []]
   return (
     <span className="flex items-center gap-1.5">
-      <button className="cm-purple h-6 w-8 px-0" disabled={index <= 0} onClick={() => onChange(index - 1)} aria-label="Jornada anterior">
+      <button className="cm-purple h-6 w-8 px-0" disabled={index <= 0} onClick={() => onChange(index - 1)} aria-label="Rodada anterior">
         ◀
       </button>
       <span className="min-w-[9rem] text-center font-bold text-cm-yellow">
@@ -269,7 +269,7 @@ function RoundPicker({ rounds, index, onChange }: { rounds: [string, Fixture[]][
         className="cm-purple h-6 w-8 px-0"
         disabled={index >= rounds.length - 1}
         onClick={() => onChange(index + 1)}
-        aria-label="Jornada seguinte"
+        aria-label="Rodada seguinte"
       >
         ▶
       </button>
@@ -293,7 +293,7 @@ function RoundPanel({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
     </Link>
   )
   return (
-    <Panel title="Jornada" right={<RoundPicker rounds={rounds} index={i} onChange={setIndex} />} className="min-h-0 flex-1">
+    <Panel title="Rodada" right={<RoundPicker rounds={rounds} index={i} onChange={setIndex} />} className="min-h-0 flex-1">
       <div className="cm-zebra min-h-0 flex-1 overflow-auto">
         {(rounds[i]?.[1] ?? []).map((f) => (
           <div key={f.id} className="flex h-[30px] items-center gap-2 px-3 text-[14px]">

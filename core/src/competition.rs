@@ -204,10 +204,10 @@ impl World {
             });
             let label = match (z.kind, target.flatten()) {
                 _ if z.label.is_some() => z.label.clone().unwrap_or_default(),
-                ("promotion", Some(n)) => format!("Subida: {n}"),
-                ("promotion", None) => "Subida".into(),
-                ("relegation", Some(n)) => format!("Descida: {n}"),
-                ("relegation", None) => "Descida".into(),
+                ("promotion", Some(n)) => format!("Acesso: {n}"),
+                ("promotion", None) => "Acesso".into(),
+                ("relegation", Some(n)) => format!("Rebaixamento: {n}"),
+                ("relegation", None) => "Rebaixamento".into(),
                 (_, Some(n)) => n,
                 _ => String::new(),
             };

@@ -41,13 +41,13 @@
       },
       "rounds": [
         {
-          "name": "Quartos de final",
+          "name": "Quartas de final",
           "legs": 1,
           "dates": "w26",
           "neutral": true
         },
         {
-          "name": "Meias-finais",
+          "name": "Semifinais",
           "legs": 1,
           "dates": "m27",
           "neutral": true

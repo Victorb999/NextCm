@@ -7,9 +7,9 @@ export const NO_SCOUT_FILTER: ScoutFilter = { line: '', side: '', stars: 0 }
 
 export const SCOUT_FILTER_OPTIONS: MenuOption<string>[] = [
   { key: 'line:', label: 'Todas Posições' },
-  { key: 'line:GR', label: 'Guarda-Redes' },
-  { key: 'line:D', label: 'Defesas' },
-  { key: 'line:M', label: 'Médios' },
+  { key: 'line:GR', label: 'Goleiros' },
+  { key: 'line:D', label: 'Defensores' },
+  { key: 'line:M', label: 'Meio-Campistas' },
   { key: 'line:A', label: 'Atacantes' },
   'separator',
   { key: 'side:', label: 'Todos Lados' },

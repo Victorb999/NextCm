@@ -70,7 +70,7 @@ const AREA_WEIGHT: [f64; 4] = [0.0, 0.4, 1.0, 1.6];
 /// Probabilidade por mês de +1 num atributo de uma área Média, num jovem com bons treinadores.
 const AREA_GAIN: f64 = 0.15;
 /// Os nomes das áreas no diálogo Preparadores.
-const AREA_NAMES: [&str; 5] = ["Prep. Física", "Táctica", "Finalização", "Técnica", "Goleiro"];
+const AREA_NAMES: [&str; 5] = ["Prep. Física", "Tática", "Finalização", "Técnica", "Goleiro"];
 /// Rendimento de um treinador pelo número de áreas que treina (1 a 5): quem treina tudo
 /// rende menos, como a carga dos preparadores do CM.
 const SPREAD: [f64; 5] = [1.0, 1.0, 1.0, 0.95, 0.9];
@@ -567,7 +567,7 @@ impl Game {
                 "injury",
                 format!("{name} lesionado no treino"),
                 format!(
-                    "{name} lesionou-se no treino: {}.\n\nO departamento médico prevê cerca de {days} dias de paragem.",
+                    "{name} se lesionou no treino: {}.\n\nO departamento médico prevê cerca de {days} dias de recuperação.",
                     injury.to_lowercase()
                 ),
             ));
@@ -626,7 +626,7 @@ impl Game {
                     return Err(Error::Invalid("O ala joga numa faixa: escolha o lado esquerdo ou o direito.".into()));
                 }
                 (Some("GR" | "L"), Some("E" | "D")) => {
-                    return Err(Error::Invalid("O guarda-redes e o líbero jogam ao centro.".into()));
+                    return Err(Error::Invalid("O goleiro e o líbero jogam ao centro.".into()));
                 }
                 _ => {}
             }
@@ -671,7 +671,7 @@ impl Game {
         }
         for a in &plan.players {
             if !squad.contains(&a.person) {
-                return Err(Error::Invalid("Esse jogador não é do plantel.".into()));
+                return Err(Error::Invalid("Esse jogador não é do elenco.".into()));
             }
             let Some(program) = ids.get(&a.program) else {
                 return Err(Error::Invalid("Programa de treino desconhecido.".into()));

@@ -58,7 +58,7 @@ fn background(world: &Path, club_id: i32, seed: i64) {
         let home = fx.iter().filter(|f| f.home_goals > f.away_goals).count() as f64;
         let draws = fx.iter().filter(|f| f.home_goals == f.away_goals).count() as f64;
         println!(
-            "{mode:?}: {} jogos, {:.2} golos por jogo, {:.0}% vitórias em casa, {:.0}% empates, {:.1}s até 31/5/2026",
+            "{mode:?}: {} jogos, {:.2} gols por jogo, {:.0}% vitórias em casa, {:.0}% empates, {:.1}s até 31/5/2026",
             fx.len(),
             goals as f64 / n,
             100.0 * home / n,
@@ -98,7 +98,7 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         for (div, name) in divisions {
             let s = game.division_stats(div).expect("estatísticas");
             println!(
-                "  {name}: {:>2} clubes, {:>4} jogadores, CA médio {:>5.1} (18 melhores {:>5.1}), idade {:>4.1}, plantéis {}–{}, saldo médio €{:.1}M ({} negativos)",
+                "  {name}: {:>2} clubes, {:>4} jogadores, CA médio {:>5.1} (18 melhores {:>5.1}), idade {:>4.1}, elencos {}–{}, saldo médio €{:.1}M ({} negativos)",
                 s.clubs,
                 s.players,
                 s.avg_ca,
@@ -127,7 +127,7 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
             game.advance_day().expect("falhou ao avançar o dia");
         }
         if employed && game.sacked() {
-            println!("\nO treinador foi despedido ({}); o mundo continua.", game.date());
+            println!("\nO treinador foi demitido ({}); o mundo continua.", game.date());
         }
         let mut goals_report = Vec::new();
         for r in regulation::all() {
@@ -141,10 +141,10 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         }
         let top: Vec<String> = game.table(SERIE_A).iter().take(6).map(|r| format!("{} {}", r.club.short_name, r.points)).collect();
         game.advance_day().expect("falhou ao avançar o dia");
-        println!("\nÉpoca {year} ({:?}):", t.elapsed());
-        let b = game.board_view().expect("direção");
-        println!("  direção: confiança {} ({}), objetivo {} ({}º)", b.confidence, b.confidence_label, b.goal, b.target);
-        println!("  golos por jogo: {}", goals_report.join(", "));
+        println!("\nTemporada {year} ({:?}):", t.elapsed());
+        let b = game.board_view().expect("diretoria");
+        println!("  diretoria: confiança {} ({}), objetivo {} ({}º)", b.confidence, b.confidence_label, b.goal, b.target);
+        println!("  gols por jogo: {}", goals_report.join(", "));
         let (sold, free, loans, released, fees) =
             game.market_totals(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("mercado");
         println!("  mercado: {sold} transferências (€{:.0}M), {free} livres, {loans} empréstimos, {released} dispensas", fees as f64 / 1e6);
@@ -158,7 +158,7 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
             if n.title.contains(" campeão do ") || n.title.contains(" campeão da ") {
                 println!("  {}", n.title);
             }
-            if n.title.starts_with("Fim da época") {
+            if n.title.starts_with("Fim da temporada") {
                 for line in n.body.lines().filter(|l| l.starts_with("Sobem") || l.starts_with("Descem") || l.starts_with("Falência")) {
                     println!("  {line}");
                 }
@@ -167,15 +167,15 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         print_stats(&game);
         let (id, retired, free) = game.career_counts().expect("totais");
         println!(
-            "  jogadores novos {} (juniores e plantéis completados), reformas {}, jogadores livres {free}",
+            "  jogadores novos {} (juniores e elencos completados), aposentadorias {}, jogadores livres {free}",
             id - last_id,
             retired - last_retired
         );
         (last_id, last_retired) = (id, retired);
-        println!("  {}", game.retirement_report(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("reformas"));
-        println!("{}", game.awards_report(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("prémios"));
+        println!("  {}", game.retirement_report(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("aposentadorias"));
+        println!("{}", game.awards_report(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("prêmios"));
     }
-    println!("\n{seasons} épocas em {:?}", start.elapsed());
+    println!("\n{seasons} temporadas em {:?}", start.elapsed());
     drop(game);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -301,7 +301,7 @@ fn economy(world: &Path, club_id: i32, seed: i64, months: i64) {
     let show = |game: &Game, title: &str| {
         println!(
             "
-{title} ({}): clube | saldo | fundos | mês passado rec/desp | época rec/desp (€M)",
+{title} ({}): clube | saldo | fundos | mês passado rec/desp | temporada rec/desp (€M)",
             game.date()
         );
         for &c in &clubs {
@@ -336,7 +336,7 @@ fn economy(world: &Path, club_id: i32, seed: i64, months: i64) {
     for f in books {
         println!(
             "
-{} — época {} (€M)",
+{} — temporada {} (€M)",
             name(f.club_id),
             f.season
         );
@@ -485,7 +485,7 @@ fn main() {
     if games > 0 {
         let g = games as f64;
         println!(
-            "\n{games} jogos: {:.2} golos por jogo, vitórias em casa {:.0}%, empates {:.0}%, vitórias fora {:.0}%",
+            "\n{games} jogos: {:.2} gols por jogo, vitórias em casa {:.0}%, empates {:.0}%, vitórias fora {:.0}%",
             goals as f64 / g,
             100.0 * home_wins as f64 / g,
             100.0 * draws as f64 / g,
@@ -496,7 +496,7 @@ fn main() {
         let t = teams as f64;
         let per = |k: usize| lances[k] as f64 / t;
         println!(
-            "por equipa e jogo: {:.1} remates ({:.1} à baliza), {:.1} cantos, {:.1} faltas, {:.2} amarelos, {:.3} vermelhos, {:.1} substituições, {:.2} lesões",
+            "por time e jogo: {:.1} chutes ({:.1} no gol), {:.1} escanteios, {:.1} faltas, {:.2} amarelos, {:.3} vermelhos, {:.1} substituições, {:.2} lesões",
             per(0),
             per(1),
             per(2),
@@ -507,12 +507,12 @@ fn main() {
             per(7)
         );
         // Os golos esperados (marco 4.3): por equipa e jogo, a bater com os golos
-        println!("golos esperados por equipa e jogo: {:.2}", xg_total / t);
+        println!("gols esperados por time e jogo: {:.2}", xg_total / t);
     }
     if seasons > 1 {
         let mut rows: Vec<_> = totals.into_values().collect();
         rows.sort_by_key(|r| r.2);
-        println!("\nMédia em {seasons} épocas:\n{:<24} {:>6} {:>6} {:>7}", "Clube", "Pos", "P", "Títulos");
+        println!("\nMédia em {seasons} temporadas:\n{:<24} {:>6} {:>6} {:>7}", "Clube", "Pos", "P", "Títulos");
         for (name, pts, pos, titles) in rows {
             let n = seasons as f64;
             println!("{name:<24} {:>6.1} {:>6.1} {titles:>7}", pos as f64 / n, pts as f64 / n);

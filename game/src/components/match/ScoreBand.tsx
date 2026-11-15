@@ -21,7 +21,7 @@ export function ScoreBand({
       className={`flex h-16 min-w-0 flex-1 items-center gap-3 rounded px-3 shadow-lg ${side === 'away' ? 'flex-row-reverse' : ''} ${onClick ? 'cursor-pointer' : ''}`}
       style={clubBand(club)}
       onClick={onClick}
-      title={onClick ? `Tácticas ${club.shortName}` : undefined}
+      title={onClick ? `Táticas ${club.shortName}` : undefined}
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded bg-black/25 font-title text-[17px] font-bold">
         {initials(club.shortName)}

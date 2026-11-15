@@ -99,7 +99,7 @@ export default function TalkPanel({
                 </Choice>
               ))}
               {view.team && view.done && (
-                <span className="text-[13px] text-cm-magenta">Já falou à equipa: agora só a quem ainda não ouviu.</span>
+                <span className="text-[13px] text-cm-magenta">Já falou ao time: agora só a quem ainda não ouviu.</span>
               )}
             </div>
             <Panel
@@ -107,7 +107,7 @@ export default function TalkPanel({
               right={
                 <span className="flex items-center gap-1.5">
                   <button className="cm-purple h-6 px-3" onClick={askAssistant}>
-                    Pedir ao Adjunto
+                    Pedir ao Auxiliar
                   </button>
                   {/* Instruções Gerais: a frase de quem segue a equipa */}
                   <select
@@ -163,7 +163,7 @@ export default function TalkPanel({
                               className="cm-field h-6 w-full rounded"
                               aria-label={`Instruções para ${p.name}`}
                             >
-                              <option value="team">Equipa ({phrase(general)})</option>
+                              <option value="team">Time ({phrase(general)})</option>
                               {view.options.map((o) => (
                                 <option key={o.key} value={o.key}>
                                   {o.label}
@@ -183,7 +183,7 @@ export default function TalkPanel({
         )}
         {reactions && (
           <Panel
-            title="Reacções"
+            title="Reações"
             right={
               <button className="cm-purple h-6 px-3" onClick={again}>
                 Falar a outro jogador

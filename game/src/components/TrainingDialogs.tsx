@@ -9,25 +9,25 @@ import { Link } from './Screen'
 // Os diálogos verdes da tela de Treinos: o programa (intensidades, nova posição e novo lado)
 // e os treinadores do clube.
 
-const INTENSITIES = ['Nenhum', 'Ligeiro', 'Médio', 'Intensivo']
+const INTENSITIES = ['Nenhum', 'Leve', 'Médio', 'Intensivo']
 
 const AREAS: [keyof TrainingProgram, string][] = [
   ['fitness', 'Prep. Física'],
-  ['tactics', 'Táctica'],
-  ['shooting', 'Remate'],
+  ['tactics', 'Tática'],
+  ['shooting', 'Chute'],
   ['technique', 'Técnica'],
-  ['goalkeeping', 'G-Redes'],
+  ['goalkeeping', 'Goleiros'],
 ]
 
 const POSITIONS: [string, string][] = [
-  ['GR', 'Guarda-Redes'],
+  ['GR', 'Goleiro'],
   ['L', 'Líbero'],
-  ['D', 'Defesa'],
+  ['D', 'Zagueiro'],
   ['AL', 'Ala'],
-  ['MD', 'Médio Defensivo'],
-  ['M', 'Médio'],
-  ['MA', 'Médio Atacante'],
-  ['A', 'Avançado'],
+  ['MD', 'Volante'],
+  ['M', 'Meio-Campista'],
+  ['MA', 'Meia'],
+  ['A', 'Atacante'],
 ]
 
 const SIDES: [string, string][] = [
@@ -132,7 +132,7 @@ export function ProgramDialog({
           </DialogRow>
           <div className="flex items-center gap-3 pt-1">
             <span className="flex-1 text-[12px] text-cm-dlgtext">
-              A Prep. Física intensiva cansa e aumenta o risco de lesão; uma posição nova aprende-se em meses.
+              A Prep. Física intensiva cansa e aumenta o risco de lesão; uma posição nova se aprende em meses.
             </span>
             {canDelete && (
               <button className="cm-purple h-7 px-3" onClick={onDelete}>
@@ -147,7 +147,7 @@ export function ProgramDialog({
 }
 
 /** As áreas do diálogo Preparadores, pela ordem do core. */
-const COACH_AREAS = ['Prep. Física', 'Táctica', 'Finalização', 'Técnica', 'Goleiro']
+const COACH_AREAS = ['Prep. Física', 'Tática', 'Finalização', 'Técnica', 'Goleiro']
 
 /** Preparadores, como no CM: o que cada treinador do clube treina (moldura amarela nas áreas
  * escolhidas). Grava-se no Ok da tela de Treinos. */
@@ -196,7 +196,7 @@ export function CoachesDialog({
               ))}
             </div>
             <div className="pt-1 text-[12px] text-cm-dlgtext">
-              Clique numa área para a dar ou tirar a um treinador. Quem treina muitas áreas rende menos; uma área sem ninguém treina-se mal.
+              Clique numa área para a dar ou tirar a um treinador. Quem treina muitas áreas rende menos; uma área sem ninguém treina mal.
             </div>
           </>
         ) : (

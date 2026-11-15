@@ -178,7 +178,7 @@ export default function EditorPage() {
     if (n === undefined) return false
     const reopen = kind === 'players' && selected !== null ? await loadPlayer(selected) : undefined
     setEdits(reopen && selected !== null ? { ...NO_EDITS, players: { [selected]: reopen } } : NO_EDITS)
-    setNotice(`Gravado: ${n} alteraç${n === 1 ? 'ão' : 'ões'} no jogo.`)
+    setNotice(`Salvo: ${n} alteraç${n === 1 ? 'ão' : 'ões'} no jogo.`)
     return true
   }
 
@@ -227,7 +227,7 @@ export default function EditorPage() {
         hits.map((h) => h.id),
       ),
     )
-    if (path) setNotice(`Exportado para ${path}${dirty ? ' (sem as alterações por gravar)' : ''}`)
+    if (path) setNotice(`Exportado para ${path}${dirty ? ' (sem as alterações por salvar)' : ''}`)
   }
 
   /** Corre o Comando Personalizado (gravando antes o que estiver por gravar) e reabre o jogador aberto. */
@@ -284,7 +284,7 @@ export default function EditorPage() {
       <DialogFrame title="Editor de Jogos Salvos" full>
         <ErrorBox className="mb-2">{error}</ErrorBox>
         {saves.length === 0 ? (
-          <div className="p-6 text-center text-cm-yellow">Nenhum jogo gravado para editar.</div>
+          <div className="p-6 text-center text-cm-yellow">Nenhum jogo salvo para editar.</div>
         ) : (
           <div className="flex h-full gap-3">
             <div className="flex min-h-0 w-80 shrink-0 flex-col gap-1.5 overflow-y-auto pr-1 [&>*]:shrink-0">
@@ -370,10 +370,10 @@ export default function EditorPage() {
               <button
                 className="cm-purple h-8 enabled:text-cm-yellow"
                 disabled={!dirty || busy}
-                title={pending.length ? `Por gravar: ${pending.join(', ')}` : 'Nada por gravar'}
+                title={pending.length ? `Por salvar: ${pending.join(', ')}` : 'Nada por salvar'}
                 onClick={() => void saveAll()}
               >
-                Gravar Alterações{dirty ? ` (${pending.length})` : ''}
+                Salvar Alterações{dirty ? ` (${pending.length})` : ''}
               </button>
               <button className="cm-purple h-8" disabled={!dirty || busy} onClick={() => setEdits(revertAll)}>
                 Descartar Alterações
@@ -410,7 +410,7 @@ export default function EditorPage() {
                   <div className="mb-1.5 flex items-baseline gap-3">
                     <span className="font-title text-[22px] text-white">{pe.player.name}</span>
                     <span className="text-cm-magenta">{pe.player.club ?? 'Sem clube'}</span>
-                    {playerDirty(pe) && <span className="text-[13px] text-cm-orange">Alterações por gravar</span>}
+                    {playerDirty(pe) && <span className="text-[13px] text-cm-orange">Alterações por salvar</span>}
                     {notice && <span className="text-[13px] text-cm-yellow">{notice}</span>}
                     <span className="ml-auto font-mono text-[13px] text-cm-yellow">
                       CA {p.ability} · PA {p.potential}
@@ -456,7 +456,7 @@ export default function EditorPage() {
                           <div className="flex">
                             <div className="flex-1">
                               <NumField
-                                label="Internacionalizações"
+                                label="Jogos pela seleção"
                                 value={p.caps}
                                 max={999}
                                 width="w-16"
@@ -464,7 +464,7 @@ export default function EditorPage() {
                               />
                             </div>
                             <div className="flex-1">
-                              <NumField label="Golos" value={p.goals} max={999} width="w-16" onChange={(v) => setP({ goals: v })} />
+                              <NumField label="Gols" value={p.goals} max={999} width="w-16" onChange={(v) => setP({ goals: v })} />
                             </div>
                           </div>
                         </div>
@@ -478,7 +478,7 @@ export default function EditorPage() {
                         {pe.player.clubId != null && (
                           <div className="flex gap-1">
                             <button className="cm-purple h-8 flex-1" onClick={() => void showSquad(pe.player.clubId!)}>
-                              Plantel: {pe.player.club}
+                              Elenco: {pe.player.club}
                             </button>
                             <button
                               className="cm-purple h-8 flex-1"
@@ -586,9 +586,9 @@ export default function EditorPage() {
                             max={10000}
                             onChange={(v) => setP({ homeReputation: v })}
                           />
-                          <NumField label="Capacidade actual (CA)" value={p.ability} max={200} onChange={(v) => setP({ ability: v })} />
+                          <NumField label="Capacidade atual (CA)" value={p.ability} max={200} onChange={(v) => setP({ ability: v })} />
                           <NumField
-                            label="Reputação actual"
+                            label="Reputação atual"
                             value={p.currentReputation}
                             max={10000}
                             onChange={(v) => setP({ currentReputation: v })}
@@ -603,7 +603,7 @@ export default function EditorPage() {
                         </div>
                       </div>
                       <div className="pt-1.5 text-[12px] text-[#8a8a8a]">
-                        Os valores são os que o jogo mostra (1 a 20); à direita, o valor guardado no save. Os destacados a branco o jogo
+                        Os valores são os que o jogo mostra (1 a 20); à direita, o valor salvo no save. Os destacados a branco o jogo
                         esconde.
                       </div>
                     </>
@@ -632,7 +632,7 @@ export default function EditorPage() {
           </div>
         )}
       </DialogFrame>
-      {busy && <Loading title="Editor" detail="A trabalhar no jogo gravado…" />}
+      {busy && <Loading title="Editor" detail="Trabalhando no jogo salvo…" />}
       {clubOpen !== null && (
         <ClubDialog
           file={file}
@@ -658,9 +658,9 @@ export default function EditorPage() {
       )}
       {leaving && (
         <Overlay>
-          <DialogFrame title="Alterações por Gravar" width={560}>
+          <DialogFrame title="Alterações por Salvar" width={560}>
             <div className="text-[15px] text-white">
-              Há alterações por gravar em: <span className="text-cm-yellow">{pending.join(', ')}</span>.
+              Há alterações por salvar em: <span className="text-cm-yellow">{pending.join(', ')}</span>.
             </div>
             <div className="mt-3 flex gap-1">
               <button className="cm-purple h-9 flex-1" onClick={() => setLeaving(null)}>
@@ -675,7 +675,7 @@ export default function EditorPage() {
                   then()
                 }}
               >
-                Continuar sem gravar
+                Continuar sem salvar
               </button>
               <button
                 className="cm-purple h-9 flex-1 text-cm-yellow"
@@ -685,7 +685,7 @@ export default function EditorPage() {
                   void saveAll().then((ok) => ok && then())
                 }}
               >
-                Gravar e continuar
+                Salvar e continuar
               </button>
             </div>
           </DialogFrame>

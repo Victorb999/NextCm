@@ -207,9 +207,9 @@ impl Game {
         }
         let name = self.person_name(id)?;
         self.post_news(
-            format!("Número de camisola para {name}"),
+            format!("Número de camisa para {name}"),
             format!(
-                "{name} chegou ao plantel sem número de camisola. Escolha-lhe um em Números Plantel: sem número não pode ser convocado."
+                "{name} chegou ao elenco sem número de camisa. Escolha um número em Números Elenco: sem número não pode ser convocado."
             ),
             None,
         );
@@ -231,7 +231,7 @@ impl Game {
     /// jogadores sem número).
     pub fn squad_numbers(&self) -> Result<SquadNumbers> {
         if !self.numbers_open()? {
-            return Err(Error::Invalid("Os números do plantel só se mudam na pré-época.".into()));
+            return Err(Error::Invalid("Os números do elenco só se mudam na pré-temporada.".into()));
         }
         self.numbers_screen()
     }
@@ -274,7 +274,7 @@ impl Game {
     /// número fica com ele.
     pub fn set_squad_numbers(&mut self, numbers: &[NumberAssign]) -> Result<SquadNumbers> {
         if !self.numbers_open()? {
-            return Err(Error::Invalid("Os números do plantel só se mudam na pré-época.".into()));
+            return Err(Error::Invalid("Os números do elenco só se mudam na pré-temporada.".into()));
         }
         let pre_season = self.pre_season();
         let squad: std::collections::HashMap<i32, Option<i32>> =
@@ -282,10 +282,10 @@ impl Game {
         let mut seen = HashSet::new();
         for a in numbers {
             let Some(&had) = squad.get(&a.id) else {
-                return Err(Error::Invalid("Só os jogadores do seu plantel.".into()));
+                return Err(Error::Invalid("Só os jogadores do seu elenco.".into()));
             };
             if !pre_season && had.is_some() && a.number != had {
-                return Err(Error::Invalid("Com a época a decorrer, só se numeram os jogadores sem número.".into()));
+                return Err(Error::Invalid("Com a temporada a decorrer, só se numeram os jogadores sem número.".into()));
             }
             if let Some(n) = a.number {
                 if !(1..=99).contains(&n) {
@@ -335,8 +335,8 @@ impl Game {
         let mut n = self.news_item(
             *next_id,
             "message",
-            "Números do plantel".into(),
-            format!("Antes de a época começar, defina os números de camisola do plantel.{extra}"),
+            "Números do elenco".into(),
+            format!("Antes de a temporada começar, defina os números de camisa do elenco.{extra}"),
         );
         n.link = Some("squadNumbers".into());
         fresh.push(n);

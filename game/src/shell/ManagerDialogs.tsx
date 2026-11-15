@@ -48,7 +48,7 @@ export default function ManagerDialogs({
       onClose()
     } catch (e) {
       const text = String(e)
-      if (text.includes('Ficheiro Existe')) setConfirm(true)
+      if (text.includes('Arquivo Existe')) setConfirm(true)
       else notify(text)
     } finally {
       setBusy(false)
@@ -57,7 +57,7 @@ export default function ManagerDialogs({
   const save = (overwrite: boolean) =>
     run(async () => {
       game.update(await api.saveAs(name.trim() || 'Jogo', overwrite))
-      notify('Jogo gravado.')
+      notify('Jogo salvo.')
     })
 
   if (dialog === 'save')
@@ -65,15 +65,15 @@ export default function ManagerDialogs({
       <Overlay>
         {/* A gravar: o ecrã de espera por cima e nada para carregar (nem o Cancelar) */}
         <DialogFrame
-          title="Gravar Jogo"
+          title="Salvar Jogo"
           width={620}
           onCancel={busy ? undefined : onClose}
           onOk={busy ? undefined : () => void save(false)}
-          okLabel="Gravar"
+          okLabel="Salvar"
         >
           {confirm ? (
             <div className={TEXT}>
-              Ficheiro Existe — Substituir?
+              Arquivo Existe — Substituir?
               <div className="mt-3 flex gap-1">
                 <button className="cm-purple h-8 flex-1" disabled={busy} onClick={() => setConfirm(false)}>
                   Não
@@ -85,7 +85,7 @@ export default function ManagerDialogs({
             </div>
           ) : (
             <>
-              <div className="pb-2 text-center font-title text-[18px] font-bold text-cm-yellow">Escolha Nome Ficheiro</div>
+              <div className="pb-2 text-center font-title text-[18px] font-bold text-cm-yellow">Escolha Nome Arquivo</div>
               <div className="flex items-center gap-2 pb-2">
                 <span className="w-16 text-[15px] font-semibold text-white">Nome</span>
                 <input
@@ -115,20 +115,20 @@ export default function ManagerDialogs({
                     </div>
                   ))}
                 </div>
-                {saves.length === 0 && <Empty className="p-3">Sem jogos gravados.</Empty>}
+                {saves.length === 0 && <Empty className="p-3">Sem jogos salvos.</Empty>}
               </div>
               <div className="pt-1 text-[13px] text-cm-dlgtext">Escolha um jogo da lista para o substituir, ou escreva um nome novo.</div>
             </>
           )}
         </DialogFrame>
-        {busy && <Loading title="Gravar Jogo" detail="A gravar o jogo, por favor aguarde…" delay={150} />}
+        {busy && <Loading title="Salvar Jogo" detail="Salvando o jogo, por favor aguarde…" delay={150} />}
       </Overlay>
     )
   if (dialog === 'holiday')
     return (
       <Overlay>
         <DialogFrame title="Ir de Férias" width={520} onCancel={onClose}>
-          <div className={TEXT}>Durante as férias o adjunto escolhe a equipa e os dias passam sem parar.</div>
+          <div className={TEXT}>Durante as férias o auxiliar escolhe o time e os dias passam sem parar.</div>
           <div className="grid grid-cols-2 gap-1 pb-1">
             {HOLIDAYS.map(([days, label]) => (
               <button
@@ -148,7 +148,7 @@ export default function ManagerDialogs({
   return (
     <Overlay>
       <DialogFrame
-        title={resign ? 'Rescindir com Clube' : 'Retirar-se'}
+        title={resign ? 'Rescindir com Clube' : 'Aposentar-se'}
         width={520}
         cancelLabel="Não"
         okLabel="Sim"
@@ -174,7 +174,7 @@ export default function ManagerDialogs({
         <div className={TEXT}>
           {resign
             ? `Rescindir o contrato com o ${game.info?.club.name ?? 'clube'}? Fica sem clube e terá de procurar outro.`
-            : 'Retirar-se do futebol? O jogo é gravado e termina aqui.'}
+            : 'Aposentar-se do futebol? O jogo é salvo e termina aqui.'}
         </div>
       </DialogFrame>
     </Overlay>

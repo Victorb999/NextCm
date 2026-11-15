@@ -7,7 +7,7 @@ export type PlayerDetails = { squadNumber: number | null, homeReputation: number
  */
 position: string, 
 /**
- * Por extenso, ex.: "Médio Atacante/Avançado (Direita/Esquerda/Centro)".
+ * Por extenso, ex.: "Meia/Atacante (Direita/Esquerda/Centro)".
  */
 positionLong: string, 
 /**

@@ -508,7 +508,7 @@ impl Game {
             |r| r.get(0),
         )?;
         let body = format!(
-            "A janela de transferências para os clubes de {nation} abriu hoje e vai até {}. Já pode comprar, vender e emprestar jogadores.",
+            "A janela de transferências para os clubes de {nation} abriu hoje e vai até {}. Você já pode comprar, vender e emprestar jogadores.",
             cm_date(&last)
         );
         self.push_news(fresh, next_id, "message", "Mercado aberto".into(), body);
@@ -1212,7 +1212,12 @@ impl Game {
         let youth: Vec<&Listing> = mine
             .iter()
             .filter(|l| {
-                spare.contains(&l.id) && l.age <= 21 && l.ca >= 60 && !loaned.contains(&l.id) && (l.value() as f64) < STAR_SHARE * core
+                spare.contains(&l.id)
+                    && l.age <= 21
+                    && l.ca >= 60
+                    && l.years_left >= 1.0
+                    && !loaned.contains(&l.id)
+                    && (l.value() as f64) < STAR_SHARE * core
             })
             .copied()
             .collect();
@@ -1317,6 +1322,12 @@ impl Game {
     }
 
     fn return_loans(&mut self) -> Result<bool> {
+        // Empréstimos sem sentido: o jogador ficou sem clube (dispensado, reformado) ou já está no dono
+        self.world.conn.execute(
+            "DELETE FROM loans WHERE NOT EXISTS (SELECT 1 FROM people p WHERE p.id = loans.person_id
+                                                   AND p.club_id IS NOT NULL AND p.club_id <> loans.parent_id)",
+            [],
+        )?;
         let due: Vec<(i32, i32)> = self
             .world
             .conn
@@ -1371,6 +1382,8 @@ impl Game {
             params![to, super::regen::PLAYER_JOB, self.date, until, wage, id],
         )?;
         self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [id])?;
+        // Mudou de vez: um empréstimo que tivesse acabou (senão voltava ao clube dono no fim dele)
+        self.world.conn.execute("DELETE FROM loans WHERE person_id = ?", [id])?;
         self.number_after_move(id, to)?;
         self.ask_number(id, to)?;
         if fee > 0 {
@@ -1637,6 +1650,52 @@ mod tests {
             g.advance_day().unwrap();
         }
         Some(g)
+    }
+
+    /// Um emprestado contratado de vez deixa de ser emprestado (não volta ao clube dono no fim);
+    /// os empréstimos esquecidos de saves antigos e os de quem ficou sem clube limpam-se.
+    #[test]
+    fn signing_ends_the_loan() {
+        let dir = std::env::temp_dir().join(format!("nextcm-emprestimo-{}", std::process::id()));
+        let Some(mut g) = summer_game(&dir, "2025-07-01") else { return };
+        let loaned = |g: &Game, id: i32| -> bool {
+            g.world.conn.query_row("SELECT COUNT(*) > 0 FROM loans WHERE person_id = ?", [id], |r| r.get(0)).unwrap()
+        };
+        let pick = |g: &Game, skip: &[i32]| -> (i32, i32, i32) {
+            g.world
+                .conn
+                .query_row(
+                    &format!(
+                        "SELECT l.person_id, l.parent_id, p.club_id FROM loans l JOIN people p ON p.id = l.person_id
+                         WHERE p.club_id IS NOT NULL AND p.club_id <> 7568 AND l.parent_id <> 7568 AND l.person_id NOT IN ({}) ORDER BY l.person_id LIMIT 1",
+                        skip.iter().map(|i| i.to_string()).chain(["0".into()]).collect::<Vec<_>>().join(",")
+                    ),
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .unwrap()
+        };
+        // Contratado de vez (aqui a custo zero, pelo clube do treinador)
+        let (id, _, from) = pick(&g, &[]);
+        g.execute_move(id, Some(from), Some(7568), 0, 1000, 2, "free", SeasonKind::Calendar).unwrap();
+        assert!(!loaned(&g, id));
+        // Save antigo: o empréstimo ficou depois da contratação; ao carregar, sai
+        let (old, parent, _) = pick(&g, &[id]);
+        g.execute_move(old, None, Some(7568), 0, 1000, 2, "free", SeasonKind::Calendar).unwrap();
+        g.world.conn.execute("INSERT INTO loans (person_id, parent_id, until) VALUES (?, ?, '2099-01-01')", [old, parent]).unwrap();
+        // Dispensado com o empréstimo a correr: sai na passagem do dia
+        let (gone, _, _) = pick(&g, &[id, old]);
+        g.world.conn.execute("UPDATE people SET club_id = NULL WHERE id = ?", [gone]).unwrap();
+        g.return_loans().unwrap();
+        assert!(!loaned(&g, gone));
+        assert!(loaned(&g, old));
+        g.save().unwrap();
+        let file = g.path().to_path_buf();
+        drop(g);
+        let g = Game::load(&file).unwrap();
+        assert!(!loaned(&g, old));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn all_transfers(g: &Game) -> Vec<(String, i32, Option<i32>, Option<i32>, i64, String)> {

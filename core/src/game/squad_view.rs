@@ -225,10 +225,10 @@ impl Game {
                 clauses.push(format!("{pct}% venda futura"));
             }
             if conn.query_row("SELECT 1 FROM apps_bonus WHERE person_id = ?", [p.id], |_| Ok(())).optional()?.is_some() {
-                clauses.push("Prémio por jogos".into());
+                clauses.push("Prêmio por jogos".into());
             }
             if conn.query_row("SELECT 1 FROM caps_bonus WHERE person_id = ?", [p.id], |_| Ok(())).optional()?.is_some() {
-                clauses.push("Prémio por internacionalizações".into());
+                clauses.push("Prêmio por jogos pela seleção".into());
             }
             // Os prémios e cláusulas do contrato (só nos contratos do treinador)
             if let Some(e) = self.contract_extras(p.id)? {

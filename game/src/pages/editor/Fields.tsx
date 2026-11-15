@@ -20,7 +20,7 @@ export function AttributeRow({ a, value, onChange }: { a: EditorAttribute; value
         onChange={(e) => onChange(Math.min(20, Math.max(1, Number(e.target.value) || 1)))}
         className={`cm-field h-6 w-12 text-center text-[14px] ${changed ? '!text-cm-yellow' : ''}`}
       />
-      <span className="w-6 text-right font-mono text-[12px] text-[#8a8a8a]" title="Valor guardado no save (só leitura)">
+      <span className="w-6 text-right font-mono text-[12px] text-[#8a8a8a]" title="Valor salvo no save (só leitura)">
         {a.relative ? a.stored : ''}
       </span>
     </div>

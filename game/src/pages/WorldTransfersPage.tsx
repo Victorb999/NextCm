@@ -73,7 +73,7 @@ export default function WorldTransfersPage() {
       />
       <div className="flex shrink-0 items-center justify-between gap-3 px-3 pb-1">
         <PurpleMenu
-          label="Vêr"
+          label="Ver"
           options={KINDS}
           value={kind ?? 'all'}
           onChange={(k) => {

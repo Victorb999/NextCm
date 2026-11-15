@@ -112,14 +112,14 @@ export function Panorama({ view, line, said, started }: { view: LiveView; line: 
   const anyGoal = said.some((l) => isGoalLine(l) || (l.kind === 'injury' && l.last))
   const motm = view.finished ? manOfTheMatch(view, said) : null
   const title = !started
-    ? 'Pontapé Saída'
+    ? 'Saída de Bola'
     : view.finished
       ? 'Final'
       : view.halfTime
         ? 'Intervalo'
         : view.minute < 45
-          ? 'Primeira Parte'
-          : 'Segunda Parte'
+          ? 'Primeiro Tempo'
+          : 'Segundo Tempo'
   const score = view.halfTime
     ? ` · INT ${view.homeGoals}-${view.awayGoals}`
     : view.finished
@@ -199,7 +199,7 @@ export function Panorama({ view, line, said, started }: { view: LiveView; line: 
           <>
             <span className="text-cm-faint">•</span>
             <span className="text-cm-muted">
-              Assistência: <span className="text-white">{view.attendance.toLocaleString('pt-PT')}</span>
+              Público: <span className="text-white">{view.attendance.toLocaleString('pt-PT')}</span>
             </span>
           </>
         )}

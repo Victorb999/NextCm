@@ -28,13 +28,13 @@ export default function ListFileButtons({
         Carregar
       </button>
       <button className={buttonClass} disabled={disabled} onClick={() => setDialog('save')}>
-        Gravar
+        Salvar
       </button>
       {dialog === 'load' && (
         <LoadFileDialog
           title="Carregar Lista"
           load={api.listLists}
-          empty="Ainda não há listas gravadas. Grave uma com Gravar."
+          empty="Ainda não há listas salvas. Grave uma com Salvar."
           onCancel={() => setDialog(null)}
           onOk={(file) => {
             setDialog(null)
@@ -50,14 +50,14 @@ export default function ListFileButtons({
       )}
       {dialog === 'save' && (
         <TextDialog
-          title="Gravar Lista"
+          title="Salvar Lista"
           initial=""
           hint="Os jogadores da lista e as estrelas do olheiro."
           onCancel={() => setDialog(null)}
           onOk={(name) => {
             setDialog(null)
             api.saveList(slot, name).then(
-              (f) => onMessage(`Lista "${f.name}" gravada.`),
+              (f) => onMessage(`Lista "${f.name}" salva.`),
               (e) => onMessage(String(e), true),
             )
           }}

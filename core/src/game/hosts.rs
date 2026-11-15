@@ -117,9 +117,9 @@ impl Game {
                 // "o Mundial 2038", "a Copa América 2028"
                 let label = format!("{} {}", self.the_competition(reg.competition), regulation::season_label(reg.competition, season));
                 let (verb, them) = if ids.len() > 1 {
-                    ("organizam", "As selecções anfitriãs ficam apuradas")
+                    ("organizam", "As seleções anfitriãs ficam classificadas")
                 } else {
-                    ("organiza", "A selecção anfitriã fica apurada")
+                    ("organiza", "A seleção anfitriã fica classificada")
                 };
                 self.push_news(
                     fresh,
@@ -127,7 +127,7 @@ impl Game {
                     "competition",
                     format!("{list} {verb} {label}"),
                     format!(
-                        "{} escolheu {list} para organizar {label}.\n\n{them} directamente para a fase final, sem passar pelas eliminatórias.",
+                        "{} escolheu {list} para organizar {label}.\n\n{them} diretamente para a fase final, sem passar pelas eliminatórias.",
                         rule.by
                     ),
                 );

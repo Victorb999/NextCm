@@ -1942,6 +1942,7 @@ dependencies = [
 name = "nextcm-core"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "rand_chacha",
  "rand_core",
  "rusqlite",

@@ -752,11 +752,16 @@ impl Game {
             };
             if a == self.club_id || b == self.club_id {
                 let when = if r.legs >= 2 {
-                    format!("A 1ª mão é a {} em casa do {}; a 2ª a {}.", cm_date(&dates[0]), self.club(home).short_name, cm_date(&dates[1]))
+                    format!(
+                        "A 1ª mão é em {} em casa do {}; a 2ª em {}.",
+                        cm_date(&dates[0]),
+                        self.club(home).short_name,
+                        cm_date(&dates[1])
+                    )
                 } else if r.neutral {
-                    format!("Joga-se a {} em campo neutro.", cm_date(&dates[0]))
+                    format!("Será em {} em campo neutro.", cm_date(&dates[0]))
                 } else {
-                    format!("Joga-se a {} em casa do {}.", cm_date(&dates[0]), self.club(home).short_name)
+                    format!("Será em {} em casa do {}.", cm_date(&dates[0]), self.club(home).short_name)
                 };
                 let body = format!(
                     "{} {}, {}: {} - {}.\n\n{when}",
@@ -924,10 +929,10 @@ impl Game {
     /// "12ª jornada", "1ª fase · 12ª jornada", "Grupo B · 3ª jornada", "Oitavas de final · 1ª mão".
     pub(super) fn match_label(&self, m: &Match) -> String {
         if m.competition_id == super::internationals::FRIENDLY || m.competition_id == super::friendlies::CLUB_FRIENDLY {
-            return "Amigável".into();
+            return "Amistoso".into();
         }
         let Some(st) = regulation::get(m.competition_id).and_then(|r| r.stages.get(m.stage as usize).map(|s| (r, s))) else {
-            return format!("{}ª jornada", m.round);
+            return format!("{}ª rodada", m.round);
         };
         let (reg, st) = st;
         match st.kind {
@@ -939,10 +944,10 @@ impl Game {
                     _ => name.to_string(),
                 }
             }
-            StageKind::Groups => format!("{} · {}ª jornada", group_name(m.group.unwrap_or(0)), m.round),
-            StageKind::LeaguePhase => format!("{} · {}ª jornada", st.name, m.round),
-            StageKind::League if reg.stages.len() > 1 && !st.name.is_empty() => format!("{} · {}ª jornada", st.name, m.round),
-            StageKind::League => format!("{}ª jornada", m.round),
+            StageKind::Groups => format!("{} · {}ª rodada", group_name(m.group.unwrap_or(0)), m.round),
+            StageKind::LeaguePhase => format!("{} · {}ª rodada", st.name, m.round),
+            StageKind::League if reg.stages.len() > 1 && !st.name.is_empty() => format!("{} · {}ª rodada", st.name, m.round),
+            StageKind::League => format!("{}ª rodada", m.round),
         }
     }
 

@@ -6,7 +6,7 @@ import { type Spot } from '../../selection'
 import { type SquadView } from '../../squad'
 
 export const TABS = [
-  { key: 'squad', label: 'Plantel' },
+  { key: 'squad', label: 'Elenco' },
   { key: 'transfers', label: 'Transferências' },
   { key: 'next', label: 'Próximo Jogo' },
   { key: 'fixtures', label: 'Calendário' },
@@ -38,13 +38,13 @@ export type Criterion =
 export const VIEWS: MenuOption<View>[] = [
   { key: 'traditional', label: 'Tradicional' },
   { key: 'contract', label: 'Contrato' },
-  { key: 'selection', label: 'Selecção' },
+  { key: 'selection', label: 'Seleção' },
   { key: 'stats', label: 'Estatísticas' },
   { key: 'more', label: 'Mais Dados' },
   { key: 'attributes', label: 'Atributos' },
   { key: 'others', label: 'Outros' },
   'separator',
-  { key: 'penalties', label: 'Marcadores Penalties' },
+  { key: 'penalties', label: 'Cobradores de Pênaltis' },
   'separator',
   { key: 'staff', label: 'Staff' },
 ]
@@ -60,13 +60,13 @@ export const CRITERIA: MenuOption<Criterion>[] = [
   { key: 'nation', label: 'Nacionalidade' },
   { key: 'age', label: 'Idade' },
   { key: 'caps', label: 'Internacion.' },
-  { key: 'intlGoals', label: 'Golos Intern.' },
+  { key: 'intlGoals', label: 'Gols Intern.' },
   { key: 'wage', label: 'Salário Base' },
   { key: 'contract', label: 'Termo Contrato' },
   { key: 'value', label: 'Valor' },
   'separator',
-  { key: 'goals', label: 'Golos' },
-  { key: 'conceded', label: 'Golos Sofridos' },
+  { key: 'goals', label: 'Gols' },
+  { key: 'conceded', label: 'Gols Sofridos' },
   { key: 'assists', label: 'Assistências' },
   { key: 'rating', label: 'Class. Média' },
 ]

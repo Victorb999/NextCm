@@ -157,7 +157,7 @@ export default function TacticsPage({ id }: { id: number }) {
       {/* Cabeçalho: o nome da táctica abre o menu Tácticas; à direita, o Editar */}
       <div className="mx-2 mt-2 flex shrink-0 items-center gap-3 rounded-md bg-cm-surface px-3 py-2.5">
         <PurpleMenu
-          label="Tácticas"
+          label="Táticas"
           options={TACTICS_MENU}
           value={t && !t.custom ? String(t.formationIndex) : undefined}
           disabled={!editable}
@@ -177,9 +177,9 @@ export default function TacticsPage({ id }: { id: number }) {
               </span>
               <span className="min-w-0">
                 <span className="flex items-center gap-2 text-[10px] font-bold font-mono uppercase tracking-[0.12em] text-cm-muted">
-                  Tácticas {name}
+                  Táticas {name}
                   <span className="rounded bg-cm-dlgdeep px-1.5 tracking-wider text-cm-mint">
-                    {t?.auto ? 'O adjunto escolhe' : 'Táctica activa'}
+                    {t?.auto ? 'O auxiliar escolhe' : 'Tática ativa'}
                   </span>
                 </span>
                 <span className="block font-title text-[22px] font-bold leading-tight text-cm-orange">
@@ -193,14 +193,14 @@ export default function TacticsPage({ id }: { id: number }) {
         />
         <div className="ml-auto" />
         <PurpleMenu
-          label="Vêr"
+          label="Ver"
           options={TACTICS_VIEWS}
           value={view}
           onChange={setView}
           buttonClass={headButton}
           trigger={
             <>
-              Vêr <ChevronDown size={14} />
+              Ver <ChevronDown size={14} />
             </>
           }
         />
@@ -211,8 +211,8 @@ export default function TacticsPage({ id }: { id: number }) {
           label="Editar"
           align="right"
           options={[
-            { key: 'auto', label: 'Adjunto escolhe a equipa' },
-            { key: 'reset', label: 'Repor as posições da táctica' },
+            { key: 'auto', label: 'Auxiliar escolhe o time' },
+            { key: 'reset', label: 'Repor as posições da tática' },
           ]}
           disabled={!editable}
           onChange={(k) => {
@@ -304,7 +304,7 @@ export default function TacticsPage({ id }: { id: number }) {
                 chip="SB1 – SB9"
                 right={pending && <span className="font-bold text-cm-yellow">{hint}</span>}
               />
-              <RowHeader place="Slot" action={editable ? 'Acção' : undefined} column={viewLabel(view)} />
+              <RowHeader place="Slot" action={editable ? 'Ação' : undefined} column={viewLabel(view)} />
               {/* Banco fixo de 9: as casas vazias também recebem jogadores arrastados */}
               <div className="cm-zebra">
                 {Array.from({ length: editable ? BENCH : t.bench.length }, (_, i) => {
@@ -352,12 +352,12 @@ export default function TacticsPage({ id }: { id: number }) {
             {editable && t.reserves.length > 0 && (
               <div className="shrink-0 overflow-hidden rounded-md bg-cm-surface">
                 <PanelTitle
-                  title="Resto do Plantel"
+                  title="Resto do Elenco"
                   right={
                     t.reserves.some((p) => p.reserve) && (
                       <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-cm-lilac">
                         <input type="checkbox" checked={withReserves} onChange={(e) => setWithReserves(e.target.checked)} />
-                        Equipa de Reservas
+                        Time de Reservas
                       </label>
                     )
                   }
@@ -391,7 +391,7 @@ export default function TacticsPage({ id }: { id: number }) {
           <div className="flex min-h-0 min-w-0 flex-1 gap-2">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md bg-cm-surface">
               <PanelTitle
-                title="Quadro Táctico"
+                title="Quadro Tático"
                 chip={`${t.formation}${t.custom ? '*' : ''}`}
                 right={
                   editable && (
@@ -417,9 +417,9 @@ export default function TacticsPage({ id }: { id: number }) {
       {last && <LastLineupView last={last} colours={colours} onBack={() => setLast(null)} />}
       {fileDialog === 'load' && t && (
         <LoadFileDialog
-          title="Carregar Táctica"
+          title="Carregar Tática"
           load={api.listTactics}
-          empty="Ainda não há tácticas gravadas. Grave uma com Gravar Táctica."
+          empty="Ainda não há táticas salvas. Grave uma com Salvar Tática."
           onCancel={() => setFileDialog(null)}
           onOk={(file) => {
             setFileDialog(null)
@@ -435,14 +435,14 @@ export default function TacticsPage({ id }: { id: number }) {
       )}
       {fileDialog === 'save' && t && (
         <TextDialog
-          title="Gravar Táctica"
+          title="Salvar Tática"
           initial={t.custom ? '' : t.formation}
           hint="As posições, as setas e as instruções, sem os jogadores."
           onCancel={() => setFileDialog(null)}
           onOk={(name) => {
             setFileDialog(null)
             api.saveTactic(selectionOf(t), name).then(
-              (f) => setNotice(`Táctica "${f.name}" gravada.`),
+              (f) => setNotice(`Tática "${f.name}" salva.`),
               (e) => setError(String(e)),
             )
           }}

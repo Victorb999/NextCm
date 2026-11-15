@@ -276,7 +276,7 @@ mod tests {
         assert_eq!(v.rows.len(), 2);
         assert_eq!(v.rows[1].value, "Livre");
         assert_eq!(v.total, Some(-20_000_000));
-        assert!(v.prev.is_none() && v.next.is_none(), "só a época de hoje");
+        assert!(v.prev.is_none() && v.next.is_none(), "só a temporada de hoje");
         assert_eq!(g.club_moves(6271, "out", None).unwrap().total, Some(30_000_000));
         let loans = g.club_moves(6271, "loan_out", None).unwrap();
         assert_eq!((loans.rows.len(), loans.rows[0].value.as_str()), (1, "Empréstimo"));

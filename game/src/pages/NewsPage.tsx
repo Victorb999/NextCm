@@ -68,7 +68,7 @@ function startAt(news: NewsItem[], tab: string, latest = false): number | null {
 }
 
 const INVITE_STATUS: Record<string, string> = {
-  accepted: 'Convite aceite: o amigável está no Calendário.',
+  accepted: 'Convite aceito: o amistoso está no Calendário.',
   declined: 'Convite recusado.',
   expired: 'O prazo para responder acabou.',
 }
@@ -192,7 +192,7 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
         title="Notícias"
         right={
           <span className="rounded-md bg-black/30 px-3 py-1.5 font-mono text-[12px] uppercase tracking-wider text-cm-dim">
-            Por ler: <b className={unread ? 'text-cm-yellow' : 'text-white'}>{unread}</b>
+            Não lidas: <b className={unread ? 'text-cm-yellow' : 'text-white'}>{unread}</b>
           </span>
         }
       />
@@ -261,7 +261,7 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
                     <button
                       className="cm-purple h-7 w-48"
                       disabled={!game.info?.numbersOpen}
-                      title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-época'}
+                      title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-temporada'}
                       onClick={() => nav.go({ kind: 'squadNumbers' })}
                     >
                       Definir Números
@@ -302,7 +302,7 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
             { key: 'press', label: 'Contratos e Imprensa' },
             { key: 'transfer', label: 'Transferências' },
             { key: 'jobs', label: 'Empregos' },
-            { key: 'records', label: 'Registos', disabled: true },
+            { key: 'records', label: 'Registros', disabled: true },
           ]}
           active={tab in TOPICS ? tab : ''}
           onChange={changeTab}

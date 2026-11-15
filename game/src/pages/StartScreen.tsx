@@ -26,9 +26,9 @@ export default function StartScreen({ onOptions }: { onOptions: () => void }) {
         <DialogFrame title="Preparar Jogo" width={460}>
           <div className="space-y-2 py-2">
             {item('Iniciar Novo Jogo', () => game.setMode('newGame'), 'Escolha o seu clube no mundo do patch CLZ 25/26')}
-            {item('Carregar Jogo', () => game.setMode('loadGame'), 'Continue um jogo gravado')}
+            {item('Carregar Jogo', () => game.setMode('loadGame'), 'Continue um jogo salvo')}
             {item('Explorar Base de Dados', () => game.setMode('explore'), 'Navegue por jogadores, clubes e competições')}
-            {item('Editor de Jogos Salvos', () => game.setMode('editor'), 'Mude os atributos de um jogador de um jogo gravado')}
+            {item('Editor de Jogos Salvos', () => game.setMode('editor'), 'Mude os atributos de um jogador de um jogo salvo')}
             {item('Opções', onOptions, 'Moeda, salários, cores e fundo')}
             {item('Sobre o NextCM', () => setAbout(true), 'Versão, novidades e créditos')}
           </div>

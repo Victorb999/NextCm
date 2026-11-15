@@ -30,7 +30,7 @@ pub(super) use crate::regulation::FRIENDLY;
 /// A competição dos amigáveis e os jogos de cada jogador pelas selecções, para o Historial (save 46).
 pub(super) const FRIENDLY_SCHEMA: &str = "
 INSERT OR IGNORE INTO competitions (id, kind, name, short_name, abbreviation, continent_id, nation_id, reputation)
-    VALUES (458, 'national', 'Amigáveis Internacionais', 'Amigáveis', 'AMI', NULL, NULL, 5);
+    VALUES (458, 'national', 'Amistosos Internacionais', 'Amistosos', 'AMI', NULL, NULL, 5);
 CREATE TABLE intl_apps (person_id INTEGER NOT NULL, date TEXT NOT NULL, club INTEGER, team INTEGER NOT NULL,
                         competition INTEGER NOT NULL, goals INTEGER NOT NULL, assists INTEGER NOT NULL, rating REAL NOT NULL);
 CREATE INDEX intl_apps_person ON intl_apps (person_id);
@@ -368,8 +368,8 @@ impl Game {
                                 fresh,
                                 next_id,
                                 "injury",
-                                format!("{name} dispensado da selecção"),
-                                format!("{name} foi dispensado da selecção de {team_name} devido à lesão e regressa ao clube."),
+                                format!("{name} dispensado da seleção"),
+                                format!("{name} foi dispensado da seleção de {team_name} devido à lesão e volta ao clube."),
                             );
                         }
                     }
@@ -412,18 +412,18 @@ impl Game {
                 [(id, team, first)] => {
                     let name = self.person_name(*id)?;
                     (
-                        format!("{name} convocado para a selecção"),
+                        format!("{name} convocado para a seleção"),
                         format!(
-                            "{name} foi convocado para a selecção de {}. Fica fora do clube a partir de {} e regressa depois dos jogos da selecção.",
+                            "{name} foi convocado para a seleção de {}. Fica fora do clube a partir de {} e volta depois dos jogos da seleção.",
                             self.club(*team).short_name,
                             cm_date(&date::add_days(first, -LEAVE_BEFORE).unwrap_or_else(|| first.clone()))
                         ),
                     )
                 }
                 _ => (
-                    "Convocatórias para as selecções".into(),
+                    "Convocações para as seleções".into(),
                     format!(
-                        "Foram convocados para as selecções:\n\n{}\n\nFicam fora do clube durante os jogos das selecções.",
+                        "Foram convocados para as seleções:\n\n{}\n\nFicam fora do clube durante os jogos das seleções.",
                         lines.join("\n")
                     ),
                 ),
@@ -450,7 +450,7 @@ impl Game {
         let minutes = (line.off.map_or(90, i32::from) - i32::from(line.on)).max(1);
         let mut text = format!("{name}: {score}, {minutes} min, nota {:.1}", line.rating);
         if line.goals > 0 {
-            text.push_str(&format!(", {} {}", line.goals, if line.goals == 1 { "golo" } else { "golos" }));
+            text.push_str(&format!(", {} {}", line.goals, if line.goals == 1 { "gol" } else { "gols" }));
         }
         if line.red {
             text.push_str(", expulso");
@@ -459,14 +459,14 @@ impl Game {
             text.push_str(" (estreia)");
         }
         played.push(text);
-        let first = if debut { " na estreia pela selecção" } else { "" };
+        let first = if debut { " na estreia pela seleção" } else { "" };
         if line.goals > 0 {
-            let goals = if line.goals == 1 { "um golo".to_string() } else { format!("{} golos", line.goals) };
+            let goals = if line.goals == 1 { "um gol".to_string() } else { format!("{} gols", line.goals) };
             self.push_news(
                 fresh,
                 next_id,
                 "message",
-                format!("{name} marca pela selecção"),
+                format!("{name} marca pela seleção"),
                 format!("{name} marcou {goals}{first} no {score}, {context}."),
             );
         }
@@ -475,8 +475,8 @@ impl Game {
                 fresh,
                 next_id,
                 "injury",
-                format!("{name} expulso ao serviço da selecção"),
-                format!("{name} foi expulso{first} no {score}, {context}. O castigo cumpre-se nos jogos da selecção."),
+                format!("{name} expulso a serviço da seleção"),
+                format!("{name} foi expulso{first} no {score}, {context}. A suspensão se cumpre nos jogos da seleção."),
             );
         }
         Ok(())
@@ -544,7 +544,7 @@ impl Game {
         let comp = live.fixture.competition_id;
         let fixture = live.fixture.id;
         let score = format!("{} {h}-{a} {}", self.club(live.fixture.home.id).short_name, self.club(live.fixture.away.id).short_name);
-        let context = if comp == FRIENDLY { "num amigável".to_string() } else { format!("a contar para {}", self.the_competition(comp)) };
+        let context = if comp == FRIENDLY { "num amistoso".to_string() } else { format!("em jogo {}", self.of_competition(comp)) };
         let mom = (0..2).flat_map(|s| live.player_lines(s)).max_by(|x, y| x.rating.total_cmp(&y.rating)).map(|l| l.id);
         for side in 0..2 {
             let result = if side == 0 { h.cmp(&a) as i32 } else { a.cmp(&h) as i32 };
@@ -616,9 +616,9 @@ impl Game {
                 fresh,
                 next_id,
                 "injury",
-                format!("{name} lesionou-se ao serviço da selecção"),
+                format!("{name} se lesionou a serviço da seleção"),
                 format!(
-                    "{name} lesionou-se no jogo de hoje pela selecção de {}: {}.\n\nO departamento médico prevê cerca de {days} dias de paragem (regresso a {back}). O jogador regressa ao clube.",
+                    "{name} se lesionou no jogo de hoje pela seleção de {}: {}.\n\nO departamento médico prevê cerca de {days} dias de recuperação (volta em {back}). O jogador volta ao clube.",
                     self.club(*club).short_name,
                     injury.to_lowercase()
                 ),
@@ -680,7 +680,7 @@ mod tests {
 
     fn bayern() -> NewGame {
         NewGame {
-            save_name: "Selecções".into(),
+            save_name: "Seleções".into(),
             first_name: "Victor".into(),
             last_name: "Araujo".into(),
             birth_date: None,
@@ -714,7 +714,7 @@ mod tests {
         // 1/8: as eliminatórias da época do Mundial, sem o Mundial (sorteia-se em junho)
         assert_eq!(g.fixtures(WCQ_EUROPE).len(), 12 * 12);
         assert!(g.fixtures(448).is_empty());
-        assert!(g.fixtures(455).is_empty(), "a Liga das Nações é nas outras épocas");
+        assert!(g.fixtures(455).is_empty(), "a Liga das Nações é nas outras temporadas");
 
         // A convocatória sai uma semana antes do 1º jogo (6/9) e os convocados saem a 3/9
         while g.date() < "2025-08-31" {
@@ -723,10 +723,10 @@ mod tests {
         let called = count(&g, "SELECT COUNT(*) FROM call_ups c JOIN people p ON p.id = c.person_id WHERE p.club_id = 1350");
         assert!(called >= 5, "o Bayern tem internacionais: {called}");
         assert!(g.away_internationals().is_empty(), "ainda no clube");
-        assert!(g.news.iter().any(|n| n.title.contains("convoca") || n.title.starts_with("Convocatórias")));
+        assert!(g.news.iter().any(|n| n.title.contains("convoca") || n.title.starts_with("Convocações")));
         let teams = count(&g, "SELECT COUNT(DISTINCT team_id) FROM call_ups");
         let some_team = count(&g, "SELECT team_id FROM call_ups GROUP BY team_id HAVING COUNT(*) >= 18 ORDER BY team_id LIMIT 1");
-        assert!(teams > 100, "{teams} selecções convocadas");
+        assert!(teams > 100, "{teams} seleções convocadas");
         assert!(count(&g, "SELECT MAX(n) FROM (SELECT COUNT(*) n FROM call_ups GROUP BY team_id)") <= 23);
         assert_eq!(
             count(&g, "SELECT COUNT(*) FROM call_ups c JOIN people p ON p.id = c.person_id WHERE p.national_team_id = c.team_id"),
@@ -762,9 +762,9 @@ mod tests {
         let wcq: HashSet<i32> = g.fixtures(WCQ_EUROPE).iter().flat_map(|f| [f.home.id, f.away.id]).collect();
         assert!(
             friendlies.iter().all(|f| !wcq.contains(&f.home.id) && !wcq.contains(&f.away.id)),
-            "quem joga as eliminatórias não faz amigáveis"
+            "quem joga as eliminatórias não faz amistosos"
         );
-        assert!(g.fixtures(FRIENDLY).len() > 100, "os amigáveis de março e junho");
+        assert!(g.fixtures(FRIENDLY).len() > 100, "os amistosos de março e junho");
         // O Historial: "Internacionais" na época do clube, fora dos Jogos Oficiais
         let capped: i32 =
             count(&g, "SELECT a.person_id FROM intl_apps a JOIN people p ON p.id = a.person_id WHERE p.club_id = 1350 LIMIT 1");
@@ -777,9 +777,9 @@ mod tests {
         let sheet = g.match_sheet(fx.id).unwrap();
         assert!(sheet.home.len() >= 11 && sheet.away.len() >= 11, "{} e {}", sheet.home.len(), sheet.away.len());
         assert_eq!(sheet.home.iter().chain(&sheet.away).filter(|l| l.mom).count(), 1);
-        assert!(sheet.home.iter().map(|l| l.goals).sum::<i32>() <= fx.home_goals.unwrap() as i32, "golos na ficha");
+        assert!(sheet.home.iter().map(|l| l.goals).sum::<i32>() <= fx.home_goals.unwrap() as i32, "gols na ficha");
         // Os internacionais do clube em campo
-        assert!(g.news.iter().any(|n| n.body.starts_with("Jogaram hoje pelas selecções")));
+        assert!(g.news.iter().any(|n| n.body.starts_with("Jogaram hoje pelas seleções")));
         let stages = g.competition_stages(WCQ_EUROPE);
         assert_eq!(stages[0].tables.len(), 12);
         assert!(stages[0].tables.iter().all(|t| t.rows.iter().all(|r| r.played == 2)));
@@ -787,7 +787,7 @@ mod tests {
         // O plantel das selecções fica com a última convocatória
         let last = g.world.get_club(some_team).unwrap();
         assert!(last.players.len() >= 18, "fora da janela: {}", last.players.len());
-        assert!(count(&g, caps) > caps_before, "internacionalizações somadas");
+        assert!(count(&g, caps) > caps_before, "jogos pela seleção somadas");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -809,7 +809,7 @@ mod tests {
         teams.sort_unstable();
         teams.dedup();
         assert_eq!(teams.len(), 48);
-        assert!(g.news.iter().any(|n| n.title.starts_with("Sorteio do Mundial")));
+        assert!(g.news.iter().any(|n| n.title.starts_with("Sorteio da Copa do Mundo")));
         while g.date() < "2026-07-20" {
             g.advance_day().unwrap();
         }
@@ -827,7 +827,7 @@ mod tests {
         assert!(!june.is_empty());
         let stages = g.competition_stages(448);
         assert_eq!(stages.len(), 2);
-        assert_eq!(stages[1].rounds.len(), 5, "dos dezasseisavos à final");
+        assert_eq!(stages[1].rounds.len(), 5, "dos dezesseis-avos à final");
         assert!(count(&g, "SELECT COUNT(*) FROM player_honours WHERE competition = 448 AND kind = 'winner'") >= 18);
         assert_eq!(count(&g, "SELECT COUNT(*) FROM call_ups"), 0);
         for st in &stages {
@@ -852,7 +852,7 @@ mod tests {
         assert_eq!(g.hosts_of(448, 2029).unwrap().len(), 3, "{:?}", names(&g, 448, 2029));
         assert_eq!(g.hosts_of(448, 2033).unwrap().len(), 1);
         assert_eq!(g.hosts_of(450, 2027).unwrap().len(), 4);
-        assert!(g.hosts_of(451, 2027).unwrap().is_empty(), "a Copa América de 2028 escolhe-se em abril de 2026");
+        assert!(g.hosts_of(451, 2027).unwrap().is_empty(), "a Copa América de 2028 é escolhida em abril de 2026");
 
         // Os anúncios: a Copa América de 2028 em abril de 2026, com notícia
         let (mut fresh, mut next) = (Vec::new(), 1000);
@@ -867,7 +867,7 @@ mod tests {
         let wc = g.hosts_of(448, 2037).unwrap();
         assert!(!wc.is_empty());
         assert!(wc.iter().all(|&t| matches!(g.team_continent(t).unwrap(), Some(3 | 5))), "{:?}", names(&g, 448, 2037));
-        assert!(fresh.iter().any(|n| n.title.contains("Mundial 2038")));
+        assert!(fresh.iter().any(|n| n.title.contains("Copa do Mundo 2038")));
         for n in &fresh {
             println!("{}: {}", n.title, n.body);
         }
@@ -904,7 +904,7 @@ mod tests {
         assert_eq!(squad.len(), SQUAD_SIZE);
         let count = |s: usize| squad.iter().filter(|&&id| c[id as usize].1 == s).count();
         assert_eq!(count(0), 3);
-        assert_eq!(count(3), 2, "só havia dois avançados");
+        assert_eq!(count(3), 2, "só havia dois atacantes");
         assert_eq!(count(1) + count(2), 18, "os lugares que sobram vão para os melhores");
         assert_eq!(sector(18, 1, 1, 1), 0);
         assert_eq!(sector(1, 15, 18, 5), 2);

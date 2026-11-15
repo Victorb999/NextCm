@@ -142,7 +142,7 @@ export default function PlayerOrdersDialog({
             </div>
             <div className="flex px-2 pb-1 pt-1">
               <button className="cm-purple h-6 w-40" onClick={() => setO(NO_ORDERS)}>
-                Como a Equipa
+                Como o Time
               </button>
             </div>
           </div>

@@ -422,11 +422,11 @@ impl Game {
             regs.iter().any(|r| self.year_matches(r.competition, year).any(|m| m.home_id == self.club_id || m.away_id == self.club_id));
         if ours_here || kind == SeasonKind::Calendar {
             let us = self.club_short(self.club_id);
-            let mut body = format!("A época {label} chegou ao fim.\n\n{}", lines.join("\n"));
+            let mut body = format!("A temporada {label} chegou ao fim.\n\n{}", lines.join("\n"));
             if let Some(l) = &ours {
                 body += &format!("\n\nO {us} {}.", l.to_lowercase().replacen("sobem", "sobe", 1).replacen("descem", "desce", 1));
             }
-            self.push_news(fresh, next_id, "competition", format!("Fim da época {label}"), body);
+            self.push_news(fresh, next_id, "competition", format!("Fim da temporada {label}"), body);
         }
         if let Some(pos) = our_position {
             let (up, down) = ours.as_deref().map_or((false, false), |l| (l.starts_with("Sobem"), l.starts_with("Descem")));
@@ -621,8 +621,11 @@ impl Game {
                 short.push(club);
             }
             if club == self.club_id && !(renewed.is_empty() && left.is_empty() && said_no.is_empty()) {
-                let mut body =
-                    String::from(if start { "Acabaram os contratos da época passada." } else { "Acabaram os contratos desta época." });
+                let mut body = String::from(if start {
+                    "Acabaram os contratos da temporada passada."
+                } else {
+                    "Acabaram os contratos desta temporada."
+                });
                 if !renewed.is_empty() {
                     body += &format!("\n\nRenovaram: {}.", join_names(&renewed));
                 }
@@ -716,10 +719,10 @@ impl Game {
             }
             if club == self.club_id && !signed.is_empty() {
                 let body = format!(
-                    "O plantel tinha menos de {MIN_SQUAD} jogadores: o adjunto contratou jogadores livres: {}.",
+                    "O elenco tinha menos de {MIN_SQUAD} jogadores: o auxiliar contratou jogadores livres: {}.",
                     join_names(&signed)
                 );
-                self.push_news(fresh, next_id, "message", "Reforços para o plantel".into(), body);
+                self.push_news(fresh, next_id, "message", "Reforços para o elenco".into(), body);
             }
         }
         Ok(())
@@ -949,7 +952,7 @@ impl Game {
             let body = format!(
                 "Chegaram aos juniores do clube: {}.
 
-Têm 16 anos e contrato de três anos. Começam na equipa de reservas.",
+Têm 16 anos e contrato de três anos. Começam no time de reservas.",
                 join_names(&names)
             );
             self.push_news(fresh, next_id, "message", "Novos juniores".into(), body);
@@ -976,7 +979,7 @@ mod tests {
 
     fn new_game(club_id: i32) -> NewGame {
         NewGame {
-            save_name: "Época".into(),
+            save_name: "Temporada".into(),
             first_name: "Victor".into(),
             last_name: "Araujo".into(),
             birth_date: None,
@@ -1078,7 +1081,7 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM competition_history WHERE year = 2025 AND competition_id IN (65, 79, 80)", [], |r| r.get(0))
             .unwrap();
         assert_eq!(history, 3, "A, B e C");
-        assert!(g.news().iter().any(|n| n.title == "Fim da época 2025"));
+        assert!(g.news().iter().any(|n| n.title == "Fim da temporada 2025"));
         assert!(g.news().iter().any(|n| n.title == "Calendário 2026"));
 
         // Mesma seed, mesma carreira
@@ -1143,7 +1146,7 @@ mod tests {
         let division =
             |club: i32| -> i32 { g.world.conn.query_row("SELECT division_id FROM clubs WHERE id = ?", [club], |r| r.get(0)).unwrap() };
         assert!(pl_bottom.iter().all(|&c| division(c) == 8), "desceram");
-        assert_eq!(g.table(crate::PREMIER_LEAGUE).len(), 20, "a época 2026/27 já corre");
+        assert_eq!(g.table(crate::PREMIER_LEAGUE).len(), 20, "a temporada 2026/27 já corre");
         // As notícias dos sorteios saem com os nomes dos clubes e das competições
         let draws: Vec<&NewsItem> = g.news().iter().filter(|n| n.title.starts_with("Sorteio")).collect();
         assert!(!draws.is_empty());
@@ -1166,7 +1169,7 @@ mod tests {
         assert_ne!(ca(&g), original, "o CA mudou");
         drop(g); // sair sem gravar
         let g = Game::load(&path).unwrap();
-        assert_eq!(ca(&g), original, "nada ficou gravado");
+        assert_eq!(ca(&g), original, "nada ficou salvo");
         assert_eq!(g.date(), "2025-07-01");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
@@ -1200,7 +1203,7 @@ mod tests {
         assert_eq!(loans, 0);
         let squad: i64 =
             g.world.conn.query_row("SELECT COUNT(*) FROM people WHERE club_id = 7568 AND is_player = 1", [], |r| r.get(0)).unwrap();
-        assert!(squad >= 22, "o plantel do treinador não se esvazia ({squad})");
+        assert!(squad >= 22, "o elenco do treinador não se esvazia ({squad})");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
         // Brasil 2026: do patch, o 2º semestre de 2025 já jogado, o treinador chega a 1/1/2026

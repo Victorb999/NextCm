@@ -582,7 +582,7 @@ mod tests {
             |label: &str, lines: &[crate::FinanceRow], col: usize| lines.iter().find(|l| l.label == label).map_or(0, |l| l.amounts[col]);
         assert!(amount("Salário", &f.expenses, 2) > 0);
         assert!(amount("Receitas TV", &f.income, 2) > 0, "TV a 1/8 e 1/9");
-        assert!(amount("Receitas Bilheteira", &f.income, 2) > 0, "jogos em casa em agosto");
+        assert!(amount("Receitas Bilheteria", &f.income, 2) > 0, "jogos em casa em agosto");
         assert!(amount("Receitas TV", &f.income, 0) > 0 && amount("Receitas TV", &f.income, 1) > 0, "setembro e agosto");
         assert_eq!(f.cash, start + f.result.amounts[2]);
         assert_eq!(f.result.amounts[2], f.total_income.amounts[2] - f.total_expenses.amounts[2]);

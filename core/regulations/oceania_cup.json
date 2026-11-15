@@ -1,6 +1,6 @@
 {
   "competition": 436,
-  "name": "Taça das Nações da OFC",
+  "name": "Copa das Nações da OFC",
   "order": 20,
   "season": "international",
   "cycle": {
@@ -36,7 +36,7 @@
       },
       "rounds": [
         {
-          "name": "Meias-finais",
+          "name": "Semifinais",
           "legs": 1,
           "dates": "w26",
           "neutral": true

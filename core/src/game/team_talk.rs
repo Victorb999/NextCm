@@ -249,7 +249,7 @@ impl Game {
         } else if !self.waiting_subs()?.is_empty() {
             "sub"
         } else {
-            return Err(Error::Invalid("Só se fala à equipa antes do jogo, ao intervalo, no fim ou a quem acabou de entrar.".into()));
+            return Err(Error::Invalid("Só se fala ao time antes do jogo, no intervalo, no fim ou a quem acabou de entrar.".into()));
         })
     }
 
@@ -286,7 +286,7 @@ impl Game {
         let s = self.talk_situation()?;
         let (title, options): (&str, &[(&str, &str)]) = match moment {
             "pre" => ("Palestra antes do jogo", &PRE),
-            "half" => ("Palestra ao intervalo", &HALF),
+            "half" => ("Palestra no intervalo", &HALF),
             "sub" => ("Uma palavra a quem entra", &SUB),
             _ => ("Palestra no fim do jogo", &FULL),
         };
@@ -364,7 +364,7 @@ impl Game {
             None => moment.to_string(),
         };
         if self.live.as_ref().is_some_and(|d| d.talks.contains(&mark)) {
-            return Err(Error::Invalid(if person.is_some() { "Já falou com ele." } else { "Já falou à equipa neste momento." }.into()));
+            return Err(Error::Invalid(if person.is_some() { "Já falou com ele." } else { "Já falou ao time neste momento." }.into()));
         }
         let s = self.talk_situation()?;
         let everyone = if moment == "sub" { self.waiting_subs()? } else { self.live_match_mut()?.talk_players() };
@@ -496,7 +496,7 @@ mod tests {
         let after = g.talk_view().unwrap();
         assert!(after.done && after.players.iter().filter(|p| p.listens).count() == 2);
         g.live_step(60).unwrap();
-        assert!(g.talk_view().map_or(true, |v| v.moment == "sub"), "a meio da segunda parte só ao suplente que entrou");
+        assert!(g.talk_view().map_or(true, |v| v.moment == "sub"), "no meio do segundo tempo só ao suplente que entrou");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

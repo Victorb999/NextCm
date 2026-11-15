@@ -3,8 +3,10 @@
 Remake do Championship Manager 01/02 (tema Coalizão do patch CLZ) com a base de dados 2025/26.
 Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, dados em SQLite.
 
-- **Língua:** responder e escrever docs em português do Brasil. Os textos do jogo seguem o CM em
-  português de Portugal ("Tácticas", "golo", "equipa", "plantel"): manter esse vocabulário na UI.
+- **Língua:** responder e escrever docs em português do Brasil. A UI e os textos do jogo (notícias,
+  mensagens, erros, nomes de competições e nações) também são em português do Brasil ("Táticas",
+  "gol", "time", "elenco", "temporada", "rodada", "Diretoria", "Salvar"). As siglas das posições
+  (GR, D, M, A...) continuam as do CM, porque são chaves no core e nos saves.
 - **Visual:** tem de parecer o CM 01/02 (coluna lateral, faixas com as cores do clube, abas escuras,
   botões roxos, diálogos e menus verdes). Sem animações, cards ou espaçamento de dashboard.
   Cantos levemente arredondados são permitidos (toque moderno); a densidade continua a do CM.
@@ -39,6 +41,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/reserves.rs` | Equipa de reservas: despromover e promover |
 | `core/src/game/reserve_matches.rs`, `reserve_report.rs` | Jogos das reservas e o onze do adjunto (ritmo, banco); o relatório mensal de quem sobe e quem desce |
 | `core/src/game/competition_stats.rs` | Golos esperados: a aba Estatísticas da competição e os últimos jogos na Análise |
+| `core/src/game/match_reports.rs`, `game/src/components/match/MatchHistory.tsx` | A partida jogada como no CM (Visão Geral, Estatísticas, Zonas, Relatório, Dados, Classificações): o `LiveView` final comprimido em `match_reports` (save 74); as reservas só com escalações e gols |
 | `core/src/game/friendlies.rs` | Amigáveis de clubes (competição 72): marcar (casa, fora, excursão), cancelar, convites; jogos em `friendly_apps` |
 | `core/src/game/internationals.rs` | Selecções: época internacional (1/8, ciclo de 4 anos), sorteios das fases finais, convocatórias (`call_ups`), "Int", internacionalizações |
 | `core/src/game/staff_hire.rs` | Contratar e despedir staff: proposta (`offers.kind = 'staff'`), resposta, multa ao clube, máximo por função, o substituto da IA |

@@ -84,13 +84,13 @@ impl Game {
                 mark(&g.date, format!("Estreia {of} {name}"));
             }
             if *club_goals == 0 && g.goals > 0 {
-                mark(&g.date, format!("Primeiro golo {of} {name}"));
+                mark(&g.date, format!("Primeiro gol {of} {name}"));
             }
             *club_apps += 1;
             *club_goals += g.goals as i64;
             let against = g.opponent.map(|o| format!(" contra o {}", self.club(o).short_name)).unwrap_or_default();
             if g.goals >= HAT_TRICK {
-                let what = if g.goals == HAT_TRICK { "Hat-trick".to_string() } else { format!("{} golos", g.goals) };
+                let what = if g.goals == HAT_TRICK { "Hat-trick".to_string() } else { format!("{} gols", g.goals) };
                 mark(&g.date, format!("{what}{against}"));
             }
             if national(g.club) {
@@ -104,7 +104,7 @@ impl Game {
             let old = goals;
             goals += g.goals as i64;
             if goals / GOALS_STEP > old / GOALS_STEP {
-                mark(&g.date, format!("{}.º golo da carreira{against}", goals / GOALS_STEP * GOALS_STEP));
+                mark(&g.date, format!("{}.º gol da carreira{against}", goals / GOALS_STEP * GOALS_STEP));
             }
         }
         marks.reverse();
@@ -119,12 +119,12 @@ impl Game {
             let vs = g.opponent.map(|o| format!("contra o {}, ", self.club(o).short_name)).unwrap_or_default();
             format!("{vs}{}", super::cm_date(&g.date))
         };
-        let mut out = vec![line("Jogos na carreira", apps.to_string(), None), line("Golos na carreira", goals.to_string(), None)];
+        let mut out = vec![line("Jogos na carreira", apps.to_string(), None), line("Gols na carreira", goals.to_string(), None)];
         if caps > 0 {
-            out.push(line("Internacionalizações", caps.to_string(), Some(format!("{intl_goals} golos"))));
+            out.push(line("Jogos pela seleção", caps.to_string(), Some(format!("{intl_goals} gols"))));
         }
         if let Some(g) = games.iter().filter(|g| g.goals > 0).max_by(|a, b| a.goals.cmp(&b.goals).then(b.date.cmp(&a.date))) {
-            out.push(line("Mais golos num jogo", g.goals.to_string(), Some(against(g))));
+            out.push(line("Mais gols num jogo", g.goals.to_string(), Some(against(g))));
         }
         if let Some(g) = games.iter().max_by(|a, b| a.rating.total_cmp(&b.rating).then(b.date.cmp(&a.date))) {
             out.push(line("Melhor nota", format!("{:.1}", g.rating), Some(against(g))));
@@ -141,7 +141,7 @@ impl Game {
             e.0 += g.goals;
         }
         if let Some(((_, club), (n, label))) = seasons.iter().filter(|(_, v)| v.0 > 0).max_by(|a, b| a.1.0.cmp(&b.1.0).then(b.0.cmp(a.0))) {
-            out.push(line("Melhor época (golos)", n.to_string(), Some(format!("{label}, {}", self.club(*club).short_name))));
+            out.push(line("Melhor temporada (gols)", n.to_string(), Some(format!("{label}, {}", self.club(*club).short_name))));
         }
         out
     }
@@ -198,11 +198,11 @@ mod tests {
         g.fill_marks(&mut p).unwrap();
         let texts: Vec<&str> = p.marks.iter().map(|m| m.text.as_str()).collect();
         assert!(texts.iter().any(|t| t.starts_with("Estreia pelo")), "{texts:?}");
-        assert!(texts.iter().any(|t| t.starts_with("Primeiro golo pelo")), "{texts:?}");
+        assert!(texts.iter().any(|t| t.starts_with("Primeiro gol pelo")), "{texts:?}");
         assert!(texts.contains(&"Hat-trick"), "{texts:?}");
         assert_eq!(p.marks[0].date, "2026-02-08", "do mais recente");
         let record = |label: &str| p.records.iter().find(|r| r.label == label).map(|r| r.value.clone());
-        assert_eq!(record("Mais golos num jogo").as_deref(), Some("3"));
+        assert_eq!(record("Mais gols num jogo").as_deref(), Some("3"));
         assert_eq!(record("Melhor nota").as_deref(), Some("9.1"));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);

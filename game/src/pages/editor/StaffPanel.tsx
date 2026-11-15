@@ -81,7 +81,7 @@ export default function StaffPanel({
       <div className="mb-1.5 flex items-baseline gap-3">
         <span className="font-title text-[22px] text-white">{staff.name}</span>
         <span className="text-cm-magenta">{clubName ?? 'Sem clube'}</span>
-        {staffDirty(edit) && <span className="text-[13px] text-cm-yellow">Alterações por gravar</span>}
+        {staffDirty(edit) && <span className="text-[13px] text-cm-yellow">Alterações por salvar</span>}
       </div>
       <div className="grid grid-cols-3 gap-2">
         <div className={BOX}>
@@ -100,7 +100,7 @@ export default function StaffPanel({
       <div className="mt-2 grid grid-cols-2 gap-2">
         <div className={BOX}>
           <Header>Ficha</Header>
-          <NumField label="Capacidade actual (CA)" value={data.ability} max={200} width="w-20" onChange={(v) => set({ ability: v })} />
+          <NumField label="Capacidade atual (CA)" value={data.ability} max={200} width="w-20" onChange={(v) => set({ ability: v })} />
           <NumField label="Potencial (PA)" value={data.potential} max={200} width="w-20" onChange={(v) => set({ potential: v })} />
           <NumField
             label="Reputação local"
@@ -110,7 +110,7 @@ export default function StaffPanel({
             onChange={(v) => set({ homeReputation: v })}
           />
           <NumField
-            label="Reputação actual"
+            label="Reputação atual"
             value={data.currentReputation}
             max={10000}
             width="w-20"

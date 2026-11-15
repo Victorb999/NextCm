@@ -146,7 +146,7 @@ const COLUMNS: Record<Exclude<TableView, 'more' | 'attributes'>, Column[]> = {
   stats: [
     POSITION,
     { label: 'Jogos', width: 'w-20', align: 'right', cell: apps, sort: (p) => p.apps || null, desc: true },
-    { label: 'Golos', width: 'w-16', align: 'right', cell: (p) => p.goals || '-', sort: (p) => p.goals || null, desc: true },
+    { label: 'Gols', width: 'w-16', align: 'right', cell: (p) => p.goals || '-', sort: (p) => p.goals || null, desc: true },
     { label: 'Assist', width: 'w-16', align: 'right', cell: (p) => p.assists || '-', sort: (p) => p.assists || null, desc: true },
     { label: 'HJ', width: 'w-12', align: 'right', cell: (p) => p.mom || '-', sort: (p) => p.mom || null, desc: true },
     RATING,
@@ -155,7 +155,7 @@ const COLUMNS: Record<Exclude<TableView, 'more' | 'attributes'>, Column[]> = {
     { label: 'Nat.', width: 'w-14', cell: (p) => p.nationCode ?? '-', sort: (p) => p.nationCode },
     { label: 'Idade', width: 'w-14', align: 'right', cell: (p) => p.age ?? '-', sort: (p) => p.age },
     { label: 'Ints', width: 'w-12', align: 'right', cell: (p) => p.caps, sort: (p) => p.caps, desc: true },
-    { label: 'Golos', width: 'w-14', align: 'right', cell: (p) => p.intlGoals, sort: (p) => p.intlGoals, desc: true },
+    { label: 'Gols', width: 'w-14', align: 'right', cell: (p) => p.intlGoals, sort: (p) => p.intlGoals, desc: true },
     { label: 'Forma', width: 'w-28', cell: (p) => form(p, '-'), sort: formAverage, desc: true },
     { label: 'Moral', width: 'w-24', cell: (p) => p.morale ?? '-', sort: moraleRank },
     { ...CONDITION, width: 'w-14' },

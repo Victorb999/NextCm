@@ -90,9 +90,9 @@ pub(super) fn intl_retired() -> &'static HashSet<i32> {
 /// O texto de cada castigo.
 pub(super) fn ban_text(kind: &str) -> &'static str {
     match kind {
-        "passport" => "Castigado por usar um passaporte falso",
-        "drugs" => "Castigado por doping",
-        _ => "Castigado por má conduta",
+        "passport" => "Suspenso por usar um passaporte falso",
+        "drugs" => "Suspenso por doping",
+        _ => "Suspenso por má conduta",
     }
 }
 
@@ -119,7 +119,7 @@ impl Game {
                     s.injury = Some(injury.clone());
                     s.injury_until = Some(until);
                     self.world.conn.execute(
-                        "INSERT INTO injury_log (person_id, date, injury, kind, days) VALUES (?, ?, ?, 'Antes da época', ?)",
+                        "INSERT INTO injury_log (person_id, date, injury, kind, days) VALUES (?, ?, ?, 'Antes da temporada', ?)",
                         params![player, today, injury, days],
                     )?;
                 }
@@ -207,8 +207,8 @@ impl Game {
             if from == Some(self.club_id) || to == self.club_id {
                 let name = self.person_name(person)?;
                 let (f, t) = (from.map(|c| self.club(c).short_name).unwrap_or_default(), self.club(to).short_name);
-                let body = format!("{name} mudou-se do {f} para o {t}, como estava combinado.");
-                fresh.push(self.news_item(*next_id, "transfer", format!("{name} muda-se para o {t}"), body));
+                let body = format!("{name} se mudou do {f} para o {t}, como estava combinado.");
+                fresh.push(self.news_item(*next_id, "transfer", format!("{name} se muda para o {t}"), body));
                 *next_id += 1;
             }
         }

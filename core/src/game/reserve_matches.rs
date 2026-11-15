@@ -270,7 +270,7 @@ impl Game {
             }
         }
         if !scorers.is_empty() {
-            scorers = format!("\n\nMarcadores:{scorers}");
+            scorers = format!("\n\nGols:{scorers}");
         }
         let mut n = self.news_item(
             id,
@@ -342,7 +342,8 @@ impl Game {
             home_pens: None,
             away_pens: None,
         };
-        Ok(super::player_record::MatchSheet { fixture: fixture_view, home: home_lines, away: away_lines })
+        let report = self.match_report(-fixture)?;
+        Ok(super::player_record::MatchSheet { fixture: fixture_view, home: home_lines, away: away_lines, report })
     }
 
     /// A equipa das reservas de um clube para o jogo de `day`: o adjunto escolhe o onze entre
@@ -671,7 +672,7 @@ impl Game {
     /// O treinador escolhe quem joga nas reservas (até 11, todos das reservas); vazio, o adjunto.
     pub fn set_reserve_picks(&mut self, picks: &[i32]) -> Result<ReserveLineup> {
         if picks.len() > 11 {
-            return Err(crate::Error::Invalid("A equipa das reservas tem 11 jogadores.".into()));
+            return Err(crate::Error::Invalid("O time das reservas tem 11 jogadores.".into()));
         }
         for id in picks {
             if !self.squads.state(*id).reserve
@@ -755,6 +756,11 @@ impl Game {
                 params![a.person, fixture, self.date, club, a.rating, a.goals, a.assists],
             )?;
         }
+        // A partida para a ficha: as escalações, as notas e os gols
+        let fixture_view = self.reserve_sheet(fixture)?.fixture;
+        let ratings: Vec<(i32, f64, i32, i32)> = apps.iter().map(|a| (a.person, a.rating, a.goals, a.assists)).collect();
+        let report = self.reserve_match_view(fixture_view, &teams, goals, &ratings);
+        self.store_report(-fixture, report)?;
         self.unsaved = true;
         Ok(())
     }
@@ -866,7 +872,7 @@ mod tests {
                 r.get(0)
             })
             .unwrap();
-        assert!(g.squads.state(player).reserve, "só os despromovidos jogam nas reservas do treinador");
+        assert!(g.squads.state(player).reserve, "só os rebaixados jogam nas reservas do treinador");
         let ours: i64 = g
             .world
             .conn
@@ -885,6 +891,11 @@ mod tests {
         let sheet = g.match_sheet(first.id).unwrap();
         assert_eq!(sheet.fixture.id, first.id);
         assert!(sheet.home.iter().chain(&sheet.away).any(|l| l.id == pick));
+        // A partida das reservas para a ficha: as escalações e um gol por cada um do placar
+        let report = sheet.report.as_ref().expect("partida das reservas guardada");
+        assert_eq!(report.home.players.len(), 11);
+        let total = sheet.fixture.home_goals.unwrap_or(0) + sheet.fixture.away_goals.unwrap_or(0);
+        assert_eq!(report.events.iter().filter(|e| e.kind == "goal").count() as i32, total);
         let mut p = g.world.get_person(player).unwrap();
         g.fill_record(&mut p).unwrap();
         let season = &p.seasons[0];

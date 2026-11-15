@@ -77,12 +77,12 @@ impl Game {
             .flatten();
         let Some(club) = club else { return Ok(None) };
         Ok(match self.reserve_mode()? {
-            ReserveMode::BTeam(b) if club == b && self.loan_of(person)?.is_none() => Some(("promote", "Promover à Equipa 'A'")),
-            ReserveMode::BTeam(_) if club == self.club_id && self.loan_of(person)?.is_none() => Some(("demote", "Relegar para Equipa 'B'")),
+            ReserveMode::BTeam(b) if club == b && self.loan_of(person)?.is_none() => Some(("promote", "Promover ao Time 'A'")),
+            ReserveMode::BTeam(_) if club == self.club_id && self.loan_of(person)?.is_none() => Some(("demote", "Relegar para Time 'B'")),
             ReserveMode::BTeam(_) => None,
             _ if club != self.club_id => None,
-            _ if self.squads.state(person).reserve => Some(("promote", "Promover ao Plantel Principal")),
-            _ => Some(("demote", "Despromover para Reservas")),
+            _ if self.squads.state(person).reserve => Some(("promote", "Promover ao Elenco Principal")),
+            _ => Some(("demote", "Rebaixar para Reservas")),
         })
     }
 
@@ -258,10 +258,10 @@ impl Game {
             return self.move_to_b_team(person, b, reserve, &squad);
         }
         let Some(rank) = squad.iter().position(|&id| id == person) else {
-            return Err(Error::Invalid("Só para os jogadores do seu plantel.".into()));
+            return Err(Error::Invalid("Só para os jogadores do seu elenco.".into()));
         };
         if self.squads.state(person).reserve == reserve {
-            return Err(Error::Invalid(if reserve { "Já está nas reservas." } else { "Já está no plantel principal." }.into()));
+            return Err(Error::Invalid(if reserve { "Já está nas reservas." } else { "Já está no elenco principal." }.into()));
         }
         let name = self.person_name(person)?;
         if reserve {
@@ -270,10 +270,10 @@ impl Game {
         self.squads.states.entry(person).or_default().reserve = reserve;
         let text = if reserve {
             self.demoted_morale(person, rank);
-            format!("{name} foi despromovido para a equipa de reservas.")
+            format!("{name} foi rebaixado para o time de reservas.")
         } else {
             self.change_morale(person, PROMOTED_MORALE);
-            format!("{name} foi promovido ao plantel principal.")
+            format!("{name} foi promovido ao elenco principal.")
         };
         self.clean_selection()?;
         self.refresh_live()?;
@@ -284,7 +284,7 @@ impl Game {
     fn check_first_team(&self, squad: &[i32]) -> Result<()> {
         let first_team = squad.iter().filter(|id| !self.squads.state(**id).reserve).count();
         if first_team <= MIN_FIRST_TEAM {
-            return Err(Error::Invalid(format!("O plantel principal precisa de pelo menos {MIN_FIRST_TEAM} jogadores.")));
+            return Err(Error::Invalid(format!("O elenco principal precisa de pelo menos {MIN_FIRST_TEAM} jogadores.")));
         }
         Ok(())
     }
@@ -302,11 +302,11 @@ impl Game {
         let (from, to) = if down { (self.club_id, b_team) } else { (b_team, self.club_id) };
         if club != Some(from) {
             return Err(Error::Invalid(
-                if down { "Só para os jogadores do seu plantel." } else { "Só para os jogadores da equipa B." }.into(),
+                if down { "Só para os jogadores do seu elenco." } else { "Só para os jogadores do time B." }.into(),
             ));
         }
         if self.loan_of(person)?.is_some() {
-            return Err(Error::Invalid("Está emprestado: não pode mudar de equipa.".into()));
+            return Err(Error::Invalid("Está emprestado: não pode mudar de time.".into()));
         }
         if down {
             self.check_first_team(squad)?;
@@ -317,10 +317,10 @@ impl Game {
         let text = if down {
             let rank = squad.iter().position(|&id| id == person).unwrap_or(squad.len());
             self.demoted_morale(person, rank);
-            format!("{name} foi relegado para a equipa B.")
+            format!("{name} foi relegado para o time B.")
         } else {
             self.change_morale(person, PROMOTED_MORALE);
-            format!("{name} foi promovido à equipa A.")
+            format!("{name} foi promovido ao time A.")
         };
         super::numbers::fix_squad_numbers(&self.world, &[from, to], self.seed, None)?;
         self.clean_selection()?;
@@ -404,7 +404,7 @@ mod tests {
         assert!(in_team(&g, star));
         let before = g.squads.state(star).morale;
         assert!(g.set_reserve(star, true).unwrap().contains("reservas"));
-        assert!(!in_team(&g, star), "fora da equipa principal");
+        assert!(!in_team(&g, star), "fora do time principal");
         assert_eq!(g.squads.state(star).morale, (before - 2 * DEMOTED_MORALE).max(1));
         assert!(g.player_status(star).unwrap().reserve);
         assert!(g.set_reserve(star, true).is_err());
@@ -509,7 +509,7 @@ mod tests {
     fn b_team_is_another_club() {
         const BENFICA: i32 = 1427;
         let Some((mut g, dir)) = start(BENFICA, "reservas-benfica") else { return };
-        let ReserveMode::BTeam(b) = g.reserve_mode().unwrap() else { panic!("o Benfica tem a equipa B") };
+        let ReserveMode::BTeam(b) = g.reserve_mode().unwrap() else { panic!("o Benfica tem o time B") };
         // Sem reservas, sem corte e sem jogos das reservas
         let squad = g.own_squad().unwrap();
         assert!(squad.iter().all(|id| !g.squads.state(*id).reserve && !g.is_ghost(*id)));
@@ -521,8 +521,8 @@ mod tests {
             g.world.conn.query_row("SELECT contract_expires FROM people WHERE id = ?", [id], |r| r.get(0)).unwrap()
         };
         let before = contract(&g);
-        assert_eq!(g.squad_move(id).unwrap(), Some(("demote", "Relegar para Equipa 'B'")));
-        assert!(g.set_reserve(id, true).unwrap().contains("equipa B"));
+        assert_eq!(g.squad_move(id).unwrap(), Some(("demote", "Relegar para Time 'B'")));
+        assert!(g.set_reserve(id, true).unwrap().contains("time B"));
         assert!(players_of(&g.world.conn, b).contains(&id) && !g.own_squad().unwrap().contains(&id));
         assert_eq!(contract(&g), before);
         // Os da B não se relacionam
@@ -530,8 +530,8 @@ mod tests {
         sel.starters[5] = Some(id);
         sel.auto = false;
         assert!(g.set_selection(sel).is_err());
-        assert_eq!(g.squad_move(id).unwrap(), Some(("promote", "Promover à Equipa 'A'")));
-        assert!(g.set_reserve(id, false).unwrap().contains("equipa A"));
+        assert_eq!(g.squad_move(id).unwrap(), Some(("promote", "Promover ao Time 'A'")));
+        assert!(g.set_reserve(id, false).unwrap().contains("time A"));
         assert!(g.own_squad().unwrap().contains(&id));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);

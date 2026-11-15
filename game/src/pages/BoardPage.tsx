@@ -23,8 +23,8 @@ const MEETINGS: Record<
   { title: string; prompt: string; list: () => Promise<BoardRequest[]>; ask: (key: string) => Promise<string> }
 > = {
   board: {
-    title: 'Reunião com a Direcção',
-    prompt: 'Especificar os detalhes das exigências à direcção:',
+    title: 'Reunião com a Diretoria',
+    prompt: 'Especificar os detalhes das exigências à diretoria:',
     list: api.boardRequests,
     ask: api.boardRequest,
   },
@@ -218,11 +218,11 @@ export default function BoardPage() {
       <ScreenHeader
         club={view?.club}
         eyebrow={<span className="text-cm-orange">{view ? `${view.club.name}${view.division ? ` · ${view.division}` : ''}` : ''}</span>}
-        title="Confiança da Direcção"
+        title="Confiança da Diretoria"
         right={
           <>
             <button className="cm-purple h-8 px-4" onClick={() => setMeeting('board')}>
-              Pedido à Direcção
+              Pedido à Diretoria
             </button>
             <button className="cm-purple h-8 px-4" onClick={() => setMeeting('league')}>
               Pedido à Liga

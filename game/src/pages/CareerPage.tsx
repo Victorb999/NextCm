@@ -54,7 +54,7 @@ export default function CareerPage() {
             <table className="w-full border-collapse text-[14px]">
               <thead className="sticky top-0">
                 <tr className="h-7">
-                  {['Clube', 'Período', 'Compras', 'Vendas', 'Dispensas', 'Títulos', 'Prémios'].map((h, i) => (
+                  {['Clube', 'Período', 'Compras', 'Vendas', 'Dispensas', 'Títulos', 'Prêmios'].map((h, i) => (
                     <th
                       key={h}
                       className={`bg-cm-headdeep px-3 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${i === 0 || i >= 5 ? 'text-left' : 'text-center'}`}
@@ -73,7 +73,7 @@ export default function CareerPage() {
                       </Link>
                     </td>
                     <td className="px-3 text-center text-white">
-                      {cmDate(c.joined)} – {c.left ? cmDate(c.left) : 'actual'}
+                      {cmDate(c.joined)} – {c.left ? cmDate(c.left) : 'atual'}
                     </td>
                     <td className="px-3 text-center tabular-nums text-cm-orange">
                       {c.purchases} <span className="text-cm-dim">({money(c.spent) || '€0'})</span>

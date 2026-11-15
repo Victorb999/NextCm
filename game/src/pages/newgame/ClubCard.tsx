@@ -31,9 +31,9 @@ export default function ClubCard({ id }: { id: number | null }) {
     ['Estádio', p.stadium ?? '-'],
     ['Capacidade', p.capacity ?? '-'],
     ['Instalações de Treino', p.facilities ?? '-'],
-    ['Época Passada', p.lastSeason ?? '-'],
+    ['Temporada Passada', p.lastSeason ?? '-'],
     ['Previsão dos Media', p.prediction ? `${p.prediction}º de ${p.clubsInDivision}` : '-'],
-    ['A Direcção espera', p.boardGoal],
+    ['A Diretoria espera', p.boardGoal],
   ]
   return (
     <div className="flex min-h-0 flex-1 flex-col">

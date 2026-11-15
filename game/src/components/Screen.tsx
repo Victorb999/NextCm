@@ -156,7 +156,7 @@ export function Tabs({
 /** Barra inferior roxa com Atrás / Seguinte (ou Cancelar / Ok). */
 export function BottomBar({
   left = 'Atrás',
-  right = 'Seguinte',
+  right = 'Próximo',
   onLeft,
   onRight,
 }: {

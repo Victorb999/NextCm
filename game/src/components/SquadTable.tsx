@@ -129,7 +129,7 @@ export default function SquadTable({
               <span
                 onMouseDown={stop}
                 onClick={toggle}
-                title={toggle ? 'Clique para pôr/tirar da equipa' : undefined}
+                title={toggle ? 'Clique para pôr/tirar do time' : undefined}
                 className={`w-10 shrink-0 text-center font-mono text-[12px] font-bold ${place ? 'cm-chip' : 'text-cm-mint'} ${toggle ? 'cursor-pointer' : ''}`}
               >
                 {place ?? <span className="text-[#5a5a66]">-</span>}

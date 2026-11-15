@@ -61,7 +61,7 @@ fn personality_label(
         out.push("Leal");
     }
     if sportsmanship >= 17 {
-        out.push("Desportivo");
+        out.push("Esportivo");
     }
     if temperament <= 5 {
         out.push("Temperamental");
@@ -122,7 +122,7 @@ impl Game {
         let reasons = self.unhappy_reasons(p.id)?;
         info.happiness = match reasons.first() {
             Some(r) => format!("{r}."),
-            None if club.is_some() => "Está a gostar de jogar no clube".into(),
+            None if club.is_some() => "Está gostando de jogar no clube".into(),
             None => "Procura clube".into(),
         };
         let (listed, requested): (bool, bool) = conn
@@ -153,7 +153,7 @@ impl Game {
                 .query_map([p.id, c], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<_>>()?;
             for (name, liked) in mates {
-                info.relationships.push(if liked { format!("Dá-se bem com {name}") } else { format!("Não se dá com {name}") });
+                info.relationships.push(if liked { format!("Se dá bem com {name}") } else { format!("Não se dá com {name}") });
             }
         }
         p.personal = Some(info);

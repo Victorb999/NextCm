@@ -8,7 +8,7 @@ const RANGES: Range[] = [
   ['minAge', 'maxAge', 'Idade', 99],
   ['minAbility', 'maxAbility', 'Capacidade (CA)', 200],
   ['minPotential', 'maxPotential', 'Potencial (PA)', 200],
-  ['minReputation', 'maxReputation', 'Reputação actual', 10000],
+  ['minReputation', 'maxReputation', 'Reputação atual', 10000],
 ]
 
 /** Os filtros da procura de jogadores, como no Player Search do editor do CM (o core filtra). */

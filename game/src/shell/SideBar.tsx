@@ -217,7 +217,7 @@ export default function SideBar({
           items={[
             { label: 'Opções...', onSelect: onOptions },
             'separator',
-            { label: 'Gravar Jogo', onSelect: () => onDialog('save') },
+            { label: 'Salvar Jogo', onSelect: () => onDialog('save') },
             { label: 'Sair para o Menu', onSelect: onExit },
           ]}
         />

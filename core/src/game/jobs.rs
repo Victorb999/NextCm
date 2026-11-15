@@ -253,7 +253,7 @@ impl Game {
         )?;
         self.unsaved = true;
         let name = self.club(club).name;
-        Ok(format!("Concorreu ao lugar de treinador do {name}. A resposta chega a {}.", cm_date(&answer)))
+        Ok(format!("Concorreu ao lugar de treinador do {name}. A resposta chega em {}.", cm_date(&answer)))
     }
 
     /// Botões de uma proposta de emprego.
@@ -320,7 +320,7 @@ impl Game {
         self.post_news_as(
             "jobs",
             format!("Novo treinador do {name}"),
-            format!("É o novo treinador do {name}. A Direcção espera ver resultados."),
+            format!("É o novo treinador do {name}. A Diretoria espera ver resultados."),
         );
         self.unsaved = true;
         Ok(())
@@ -348,7 +348,7 @@ impl Game {
             } else {
                 self.set_status(o.id, "rejected", None)?;
                 let body = if occupied && within {
-                    format!("O {name} agradece o interesse, mas mantém a confiança no treinador actual.")
+                    format!("O {name} agradece o interesse, mas mantém a confiança no treinador atual.")
                 } else {
                     format!("O {name} agradece o interesse, mas procura um treinador com outro perfil.")
                 };
@@ -457,7 +457,7 @@ impl Game {
         )?;
         let id = self.world.conn.last_insert_rowid() as i32;
         let name = self.club(club).name;
-        let body = format!("O {name} gostava de o ter como treinador e faz-lhe uma proposta. Responda até {}.", cm_date(&until));
+        let body = format!("O {name} gostaria de tê-lo como treinador e lhe faz uma proposta. Responda até {}.", cm_date(&until));
         self.offer_news(fresh, next_id, format!("Proposta do {name}"), body, id);
         Ok(())
     }
@@ -501,8 +501,8 @@ impl Game {
                     fresh,
                     next_id,
                     "jobs",
-                    format!("Treinador {coach_name} despedido"),
-                    format!("O {name} despediu o treinador {coach_name}."),
+                    format!("Treinador {coach_name} demitido"),
+                    format!("O {name} demitiu o treinador {coach_name}."),
                 );
             }
         }
@@ -554,8 +554,8 @@ mod tests {
         g.date = format!("{}-01", &first[0..7]);
         let (mut fresh, mut id) = (Vec::new(), 9000);
         g.jobs_day(&mut fresh, &mut id).unwrap();
-        assert!(g.coach_of(target).unwrap().is_none(), "despedido");
-        assert!(fresh.iter().any(|n| n.title.contains("despedido")));
+        assert!(g.coach_of(target).unwrap().is_none(), "demitido");
+        assert!(fresh.iter().any(|n| n.title.contains("demitido")));
         let view = g.jobs_view(None).unwrap();
         assert!(view.rows.iter().any(|r| r.club.id == target && r.vacant && r.situation == "Disponível"));
 

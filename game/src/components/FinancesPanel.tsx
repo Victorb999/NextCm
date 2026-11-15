@@ -61,7 +61,7 @@ export default function FinancesPanel({ clubId, view, mine }: { clubId: number; 
       <PanelTitle title={title} />
       <div className="py-1">
         <div className="mx-4 mb-3 grid h-7 grid-cols-[minmax(13rem,1.6fr)_repeat(4,1fr)] items-end border-b border-cm-orange pb-0.5">
-          <span className="text-[17px] font-semibold text-cm-orange">Rúbrica</span>
+          <span className="text-[17px] font-semibold text-cm-orange">Rubrica</span>
           {COLUMNS.map((c) => (
             <span key={c} className="text-[13px] text-cm-orange">
               {c}
@@ -87,7 +87,7 @@ export default function FinancesPanel({ clubId, view, mine }: { clubId: number; 
             </div>
             {/* Fair-play financeiro (não há no CM): o resultado das últimas 3 épocas contra o limite */}
             <div className="grid h-[22px] grid-cols-[minmax(13rem,1.6fr)_4fr] items-center px-4">
-              <span className="text-[17px] font-semibold text-white">Fair-play (3 épocas)</span>
+              <span className="text-[17px] font-semibold text-white">Fair-play (3 temporadas)</span>
               <span className="text-[13px] tabular-nums">
                 <Amount v={data.fairPlayResult} tone="text-cm-green" />
                 <span className="text-cm-yellow">
@@ -101,8 +101,8 @@ export default function FinancesPanel({ clubId, view, mine }: { clubId: number; 
               <div className="mt-4">
                 <Line label="Folha salarial" value={wage(data.wageBill, true)} />
                 <Line label="Limite salarial" value={`${wage(board.wageBudget, true)} (máximo ${wage(board.maxWage, true)} por jogador)`} />
-                <Line label="Confiança da Direcção" value={`${board.confidenceLabel} (${board.confidence}%)`} />
-                <Line label="Objectivo" value={`${board.goal.charAt(0).toUpperCase()}${board.goal.slice(1)} (${board.target}º lugar)`} />
+                <Line label="Confiança da Diretoria" value={`${board.confidenceLabel} (${board.confidence}%)`} />
+                <Line label="Objetivo" value={`${board.goal.charAt(0).toUpperCase()}${board.goal.slice(1)} (${board.target}º lugar)`} />
               </div>
             )}
           </>

@@ -6,9 +6,9 @@ export default function SackedDialog({ onRead, onJobs }: { onRead: () => void; o
   const game = useGame()
   return (
     <Overlay>
-      <DialogFrame title="Despedido" width={560}>
+      <DialogFrame title="Demitido" width={560}>
         <div className="py-3 text-center text-[16px] leading-snug text-white">
-          A Direcção do {game.info?.club.name} dispensou-o do cargo de treinador. Procure um novo clube.
+          A Diretoria do {game.info?.club.name} o dispensou do cargo de treinador. Procure um novo clube.
         </div>
         <div className="flex gap-1 pb-1">
           <button className="cm-purple h-8 flex-1 font-title text-[16px]" onClick={onRead}>

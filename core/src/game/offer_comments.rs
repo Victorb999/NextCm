@@ -10,7 +10,7 @@ use super::{Game, cm_date};
 use crate::{Result, date};
 
 /// Os papéis do mercado no plural, como o agente os diz.
-const ROLE_NAMES: [&str; ROLES] = ["guarda-redes", "defesas", "médios", "avançados"];
+const ROLE_NAMES: [&str; ROLES] = ["goleiros", "defensores", "meio-campistas", "atacantes"];
 /// Idade até à qual o clube que vende costuma pedir uma percentagem da próxima venda (como em
 /// `negotiation::seller_reply`).
 const YOUNG: i32 = 23;
@@ -65,7 +65,7 @@ impl Game {
         let needs = self.club_needs(club, Some(person))?;
         let names: Vec<&str> = needs.iter().map(|&r| ROLE_NAMES[r]).collect();
         out.push(match names.as_slice() {
-            [] => format!("O {seller} tem o plantel composto: não procura reforços."),
+            [] => format!("O {seller} tem o elenco composto: não procura reforços."),
             [one] => format!("O {seller} procura {one}: um na troca pode ajudar."),
             [rest @ .., last] => {
                 format!("O {seller} procura {} e {last}: um na troca pode ajudar.", rest.join(", "))
@@ -78,13 +78,13 @@ impl Game {
         let reply = self.reply_on(person, REPLY_DAYS);
         out.push(format!("Proposta hoje: o {seller} responde até {}.", cm_date(&reply)));
         if f.age <= YOUNG {
-            out.push(format!("Com {} anos, o {seller} deve pedir uma percentagem da próxima venda.", f.age));
+            out.push(format!("Com {} anos, o {seller} deve pedir uma porcentagem da próxima venda.", f.age));
         }
-        out.push("Valores por jogos ou internacionalizações contam menos do que à cabeça.".into());
+        out.push("Valores por jogos ou jogos pela seleção contam menos do que à cabeça.".into());
         if let Some(ends) = &f.expires {
             let left = date::parse(ends).unwrap_or(0) - date::parse(&self.date).unwrap_or(0);
             if (0..=super::contracts::PRECONTRACT_DAYS).contains(&(left as i64)) {
-                out.push(format!("O contrato acaba a {}: pode propor-lhe um pré-contrato.", cm_date(ends)));
+                out.push(format!("O contrato acaba em {}: pode propor um pré-contrato.", cm_date(ends)));
             }
         }
         Ok(out)

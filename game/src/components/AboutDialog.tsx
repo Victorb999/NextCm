@@ -57,7 +57,7 @@ export default function AboutDialog({ onClose }: { onClose: () => void }) {
                 Site: <span className="text-cm-yellow">victorb999.github.io/NextCm</span>
               </p>
               <p>
-                Encontrou um erro? Abra uma Issue no GitHub (Victorb999/NextCm) com a versão, os passos e o ficheiro de log, que fica em{' '}
+                Encontrou um erro? Abra uma Issue no GitHub (Victorb999/NextCm) com a versão, os passos e o arquivo de log, que fica em{' '}
                 <span className="text-cm-yellow">%LOCALAPPDATA%\com.nextcm.app\logs\NextCM.log</span>.
               </p>
             </div>
@@ -80,7 +80,7 @@ export default function AboutDialog({ onClose }: { onClose: () => void }) {
               <p>
                 A base de dados 2025/26 e o tema vêm do <b className="text-white">Update Coalizão</b>, da equipe{' '}
                 <b className="text-white">Coalizão CM</b> (coalizaocm.com.br), o maior acervo nacional de CM 01/02. Sem o trabalho deles,
-                este jogo não teria plantéis.
+                este jogo não teria elencos.
               </p>
               <p>Feito em Rust, Tauri, React e SQLite. Projeto aberto e sem fins comerciais.</p>
               <p className="text-[#999]">

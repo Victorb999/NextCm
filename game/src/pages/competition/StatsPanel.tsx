@@ -12,12 +12,12 @@ import { useNav } from '../../nav'
 type Criterion = 'goals' | 'assists' | 'rating' | 'xg' | 'overXg' | 'shots' | 'mom'
 
 const CRITERIA: { key: Criterion; label: string }[] = [
-  { key: 'goals', label: 'Golos' },
+  { key: 'goals', label: 'Gols' },
   { key: 'assists', label: 'Assistências' },
   { key: 'rating', label: 'Nota Média' },
-  { key: 'xg', label: 'Golos Esperados' },
-  { key: 'overXg', label: 'Golos acima do Esperado' },
-  { key: 'shots', label: 'Remates' },
+  { key: 'xg', label: 'Gols Esperados' },
+  { key: 'overXg', label: 'Gols acima do Esperado' },
+  { key: 'shots', label: 'Chutes' },
   { key: 'mom', label: 'Homem do Jogo' },
 ]
 
@@ -124,7 +124,7 @@ export default function StatsPanel({ id, date, own }: { id: number; date?: strin
           </div>
         )}
       </Panel>
-      <Panel title="Equipas" className="w-[440px] shrink-0">
+      <Panel title="Times" className="w-[440px] shrink-0">
         <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full border-collapse">
             <thead className="sticky top-0 z-10">

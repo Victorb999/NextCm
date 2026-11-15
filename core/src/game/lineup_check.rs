@@ -64,10 +64,10 @@ impl Game {
             let list: Vec<String> = outside.iter().map(|&id| self.person_name(id)).collect::<Result<_>>()?;
             let verb = if list.len() == 1 { "foi escolhido" } else { "foram escolhidos" };
             let parts = if list.len() == 1 { "não faz parte" } else { "não fazem parte" };
-            warnings.push(format!("{} {verb} como marcadores de bolas paradas, mas {parts} do onze inicial.", names(&list)));
+            warnings.push(format!("{} {verb} como cobradores de bolas paradas, mas {parts} do onze inicial.", names(&list)));
         }
         if let Some(c) = k.captain.filter(|c| !sel.starters.contains(&Some(*c))) {
-            warnings.push(format!("O capitão, {}, não faz parte do onze inicial: o adjunto escolhe outro.", self.person_name(c)?));
+            warnings.push(format!("O capitão, {}, não faz parte do onze inicial: o auxiliar escolhe outro.", self.person_name(c)?));
         }
         if sel.bench.len() < BENCH {
             warnings.push(match sel.bench.len() {
@@ -109,7 +109,7 @@ mod tests {
         // Véspera do primeiro jogo do Palmeiras
         let first = g.matches.iter().filter(|m| m.home_id == 7568 || m.away_id == 7568).map(|m| m.date.clone()).min().unwrap();
         g.date = date::add_days(&first, -1).unwrap();
-        assert_eq!(g.lineup_check().unwrap().problem, None, "o adjunto escolhe: nada a dizer");
+        assert_eq!(g.lineup_check().unwrap().problem, None, "o auxiliar escolhe: nada a dizer");
         let mut sel = g.club_tactics(7568).unwrap().selection();
         sel.auto = false;
         let full = sel.clone();

@@ -1,6 +1,6 @@
 {
   "competition": 452,
-  "name": "Taça das Nações Africanas",
+  "name": "Copa Africana de Nações",
   "order": 20,
   "season": "international",
   "cycle": {
@@ -40,19 +40,19 @@
       },
       "rounds": [
         {
-          "name": "Oitavos de final",
+          "name": "Oitavas de final",
           "legs": 1,
           "dates": "w26",
           "neutral": true
         },
         {
-          "name": "Quartos de final",
+          "name": "Quartas de final",
           "legs": 1,
           "dates": "m27",
           "neutral": true
         },
         {
-          "name": "Meias-finais",
+          "name": "Semifinais",
           "legs": 1,
           "dates": "w27",
           "neutral": true

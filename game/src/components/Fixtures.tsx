@@ -9,6 +9,7 @@ import type { StandingRow } from '../bindings/StandingRow'
 import { longDate, matchDate, pensText, shortDate } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
+import MatchHistory from './match/MatchHistory'
 import { Empty, Link, PanelTitle } from './Screen'
 
 // Listas de jogos, o calendário do clube e o Próximo/Último Jogo, no estilo das telas do CM.
@@ -124,15 +125,15 @@ export function ClubFixtureList({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PanelTitle
-        title={`Época ${fixtures[0]?.season ?? ''}`}
+        title={`Temporada ${fixtures[0]?.season ?? ''}`}
         right={
           <>
             {actions}
             <button className="cm-purple h-6 w-28" disabled>
-              {'<< Época'}
+              {'<< Temporada'}
             </button>
             <button className="cm-purple h-6 w-28" disabled>
-              {'Época >>'}
+              {'Temporada >>'}
             </button>
           </>
         }
@@ -189,7 +190,7 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
 function News({ list }: { list: PlayerNews[] | undefined }) {
   const nav = useNav()
   if (!list) return null
-  if (list.length === 0) return <>Plantel todo disponível</>
+  if (list.length === 0) return <>Elenco todo disponível</>
   return (
     <>
       {list.map((n) => (
@@ -218,22 +219,17 @@ export function MatchInfo({
   start: number
   empty: string
 }) {
-  const game = useGame()
   const nav = useNav()
   const [index, setIndex] = useState(start)
   const [preview, setPreview] = useState<MatchPreview | null>(null)
   const fixture = fixtures[index]
 
   useEffect(() => {
-    if (fixture) api.matchPreview(fixture.id).then(setPreview, () => setPreview(null))
+    if (fixture && !played(fixture)) api.matchPreview(fixture.id).then(setPreview, () => setPreview(null))
   }, [fixture])
 
   if (!fixture) return <Empty>{empty}</Empty>
-  const home = fixture.home.id === clubId
-  const us = home ? fixture.home : fixture.away
-  const them = home ? fixture.away : fixture.home
   const p = preview?.fixture.id === fixture.id ? preview : null
-  const last = p?.lastMeeting
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -255,6 +251,27 @@ export function MatchInfo({
           </>
         }
       />
+      {/* Um jogo já disputado: a partida inteira, como no CM */}
+      {played(fixture) ? (
+        <div className="flex min-h-0 flex-1 flex-col p-2">
+          <MatchHistory id={fixture.id} />
+        </div>
+      ) : (
+        <MatchPreviewRows fixture={fixture} clubId={clubId} preview={p} />
+      )}
+    </div>
+  )
+}
+
+/** O Próximo Jogo: data, local, regras, último confronto, odds, tempo e as notícias dos dois clubes. */
+function MatchPreviewRows({ fixture, clubId, preview: p }: { fixture: Fixture; clubId: number; preview: MatchPreview | null }) {
+  const game = useGame()
+  const home = fixture.home.id === clubId
+  const us = home ? fixture.home : fixture.away
+  const them = home ? fixture.away : fixture.home
+  const last = p?.lastMeeting
+  return (
+    <>
       <div className="shrink-0 py-2 text-center font-title text-[22px] font-bold text-cm-yellow">
         <ClubName club={them} className="!text-[22px] !text-cm-yellow" /> ({home ? 'Casa' : 'Fora'})
       </div>
@@ -276,7 +293,7 @@ export function MatchInfo({
           <InfoRow label="Último Confronto">
             {last
               ? `${last.home.shortName} ${last.homeGoals}-${last.awayGoals} ${last.away.shortName}, ${last.competition} ${shortDate(last.date)}`
-              : 'Nenhum nesta época'}
+              : 'Nenhum nesta temporada'}
           </InfoRow>
           {p?.odds && (
             <InfoRow label="Odds">
@@ -284,7 +301,7 @@ export function MatchInfo({
             </InfoRow>
           )}
           <InfoRow label="Tempo">{p?.weather ?? '…'}</InfoRow>
-          <InfoRow label="Condições Terreno Jogo">{p?.pitch ?? '…'}</InfoRow>
+          <InfoRow label="Condições do Gramado">{p?.pitch ?? '…'}</InfoRow>
           <InfoRow label={`Notícias: ${us.shortName}`}>
             <News list={home ? p?.homeNews : p?.awayNews} />
           </InfoRow>
@@ -293,6 +310,6 @@ export function MatchInfo({
           </InfoRow>
         </div>
       </div>
-    </div>
+    </>
   )
 }

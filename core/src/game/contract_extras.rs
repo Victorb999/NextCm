@@ -68,13 +68,13 @@ impl ContractExtras {
         let short = |offered: i64, asked: i64| asked > 0 && (offered as f64) < 0.9 * asked as f64;
         let mut out = Vec::new();
         if short(self.goal_bonus, asks.goal_bonus) {
-            out.push("prémio por golo marcado");
+            out.push("prêmio por gol marcado");
         }
         if short(self.assist_bonus, asks.assist_bonus) {
-            out.push("prémio por assistência");
+            out.push("prêmio por assistência");
         }
         if short(self.clean_sheet_bonus, asks.clean_sheet_bonus) {
-            out.push("prémio por jogo sem sofrer golos");
+            out.push("prêmio por jogo sem sofrer gols");
         }
         if let Some(fee) = asks.min_fee
             && self.min_fee.is_none_or(|m| m > fee)
@@ -82,7 +82,7 @@ impl ContractExtras {
             out.push("cláusula de venda");
         }
         if asks.relegation && !self.relegation {
-            out.push("cláusula de dispensa por despromoção");
+            out.push("cláusula de dispensa por rebaixamento");
         }
         if asks.non_promotion && !self.non_promotion {
             out.push("cláusula de rescisão");
@@ -135,19 +135,19 @@ impl ContractExtras {
     pub fn labels(&self) -> Vec<String> {
         let mut out = Vec::new();
         if self.goal_bonus > 0 {
-            out.push(format!("{} por golo", money_text(self.goal_bonus)));
+            out.push(format!("{} por gol", money_text(self.goal_bonus)));
         }
         if self.assist_bonus > 0 {
             out.push(format!("{} por assistência", money_text(self.assist_bonus)));
         }
         if self.clean_sheet_bonus > 0 {
-            out.push(format!("{} por jogo sem sofrer golos", money_text(self.clean_sheet_bonus)));
+            out.push(format!("{} por jogo sem sofrer gols", money_text(self.clean_sheet_bonus)));
         }
         if let Some(fee) = self.min_fee {
             out.push(format!("Cláusula de venda de {}", money_text(fee)));
         }
         if self.relegation {
-            out.push("Dispensa por despromoção".into());
+            out.push("Dispensa por rebaixamento".into());
         }
         if self.non_promotion {
             out.push("Rescisão se não subir".into());
@@ -289,7 +289,7 @@ impl Game {
             let name = self.person_name(o.person)?;
             let buyer = self.club(o.buyer).short_name;
             let body = format!(
-                "O {buyer} pagou a cláusula de venda de {name} ({}): o clube não pode recusar. O {buyer} negoceia agora o contrato com o jogador; a resposta chega a {}.",
+                "O {buyer} pagou a cláusula de venda de {name} ({}): o clube não pode recusar. O {buyer} negocia agora o contrato com o jogador; a resposta chega em {}.",
                 money_text(fee),
                 super::cm_date(&until)
             );
@@ -329,7 +329,7 @@ impl Game {
         for person in squad {
             let Some(e) = self.contract_extras(person)? else { continue };
             let why = if relegated && e.relegation {
-                "a cláusula de dispensa por despromoção"
+                "a cláusula de dispensa por rebaixamento"
             } else if stayed_below && e.non_promotion {
                 "a cláusula de rescisão (o clube não subiu)"
             } else {
@@ -391,7 +391,7 @@ mod tests {
         let (p, t) = squad
             .iter()
             .find_map(|&p| g.contract_terms(p, None).ok().filter(|t| t.asks != ContractExtras::default()).map(|t| (p, t)))
-            .expect("alguém exige prémios ou cláusulas");
+            .expect("alguém exige prêmios ou cláusulas");
         let next_day = |g: &mut Game| {
             g.date = crate::date::add_days(&g.date, 1).unwrap();
             let (mut fresh, mut id) = (Vec::new(), 9000);
@@ -461,7 +461,7 @@ mod tests {
         g.window_closed_news(&mut closed, &mut next).unwrap();
         assert_eq!(closed[0].title, "Prazo limite para transferências");
         assert!(closed[0].body.contains("Brasil"));
-        assert!(closed[1].title.starts_with("Actualização") && closed[1].body.contains("direcção"));
+        assert!(closed[1].title.starts_with("Atualização") && closed[1].body.contains("diretoria"));
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -470,7 +470,7 @@ mod tests {
     fn what_is_missing_and_the_counter() {
         let asks = ContractExtras { goal_bonus: 5000, min_fee: Some(50_000_000), relegation: true, ..Default::default() };
         let offer = ContractExtras { goal_bonus: 4000, min_fee: Some(60_000_000), ..Default::default() };
-        assert_eq!(offer.missing(&asks), ["prémio por golo marcado", "cláusula de venda", "cláusula de dispensa por despromoção"]);
+        assert_eq!(offer.missing(&asks), ["prêmio por gol marcado", "cláusula de venda", "cláusula de dispensa por rebaixamento"]);
         let counter = offer.with_asks(&asks);
         assert!(counter.missing(&asks).is_empty());
         assert_eq!(counter.min_fee, Some(50_000_000));

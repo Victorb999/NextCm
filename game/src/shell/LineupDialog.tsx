@@ -20,7 +20,7 @@ export default function LineupDialog({
   if (check.problem)
     return (
       <Overlay>
-        <DialogFrame title="Escolha Equipa" width={620}>
+        <DialogFrame title="Escolha Time" width={620}>
           <div className={`${text} py-3`}>{check.problem}</div>
           <button className="cm-purple h-9 w-full font-title text-xl" onClick={onTactics}>
             Ok

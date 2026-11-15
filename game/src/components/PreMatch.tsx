@@ -17,7 +17,7 @@ import TalkPanel from './TalkPanel'
 
 type Tab = 'teams' | 'analysis' | 'talk'
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'teams', label: 'Equipas' },
+  { key: 'teams', label: 'Times' },
   { key: 'analysis', label: 'Análise' },
   { key: 'talk', label: 'Palestra' },
 ]
@@ -113,18 +113,18 @@ function Analysis({ view, a }: { view: LiveView; a: MatchAnalysis }) {
             return (
               <Row key={side} label={`Últimos jogos (${side === 0 ? home : away})`}>
                 {r
-                  ? `${r.games} jogos: ${r.goalsFor}-${r.goalsAgainst} em golos, ${xgText(r.xgFor)}-${xgText(r.xgAgainst)} em golos esperados`
-                  : 'Sem jogos com golos esperados'}
+                  ? `${r.games} jogos: ${r.goalsFor}-${r.goalsAgainst} em gols, ${xgText(r.xgFor)}-${xgText(r.xgAgainst)} em gols esperados`
+                  : 'Sem jogos com gols esperados'}
               </Row>
             )
           })}
         </div>
       </Panel>
-      <Panel title="Antevisão">
+      <Panel title="Prévia">
         <div className="cm-zebra py-1">
           <Row label="Estádio">{[a.preview.venue, a.preview.city].filter(Boolean).join(', ') || '-'}</Row>
           <Row label="Tempo">{a.preview.weather}</Row>
-          <Row label="Condições Terreno Jogo">{a.preview.pitch}</Row>
+          <Row label="Condições do Gramado">{a.preview.pitch}</Row>
           <Row label="Último Confronto">
             {last
               ? `${last.home.shortName} ${last.homeGoals ?? '-'}-${last.awayGoals ?? '-'} ${last.away.shortName} (${last.competition})`
@@ -217,7 +217,7 @@ export default function PreMatch({
       </div>
       <BottomBar
         onLeft={prev ? () => setTab(prev.key) : undefined}
-        right={last ? 'Ir para o Jogo' : 'Seguinte'}
+        right={last ? 'Ir para o Jogo' : 'Próximo'}
         onRight={last || !next ? play : () => setTab(next.key)}
       />
     </div>

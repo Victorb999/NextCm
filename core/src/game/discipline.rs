@@ -96,7 +96,7 @@ impl Game {
         let club: Option<i32> =
             self.world.conn.query_row("SELECT club_id FROM people WHERE id = ? AND is_player = 1", [person], |r| r.get(0))?;
         if club != Some(self.club_id) {
-            return Err(Error::Invalid("Só para os jogadores do seu plantel.".into()));
+            return Err(Error::Invalid("Só para os jogadores do seu elenco.".into()));
         }
         Ok(())
     }
@@ -125,7 +125,7 @@ impl Game {
                 key: key.into(),
                 label: label.into(),
                 available: true,
-                reason: (!fair).then(|| "Não aconteceu: vai achar o castigo injusto.".to_string()),
+                reason: (!fair).then(|| "Não aconteceu: vai achar a punição injusta.".to_string()),
             });
         }
         Ok(DisciplineOptions { actions: ACTIONS.iter().map(|a| a.0.to_string()).collect(), reasons })
@@ -134,12 +134,12 @@ impl Game {
     /// Aplica um castigo; devolve a reação do jogador (que chega também como mensagem).
     pub fn discipline(&mut self, person: i32, action: usize, reason: &str) -> Result<String> {
         self.own_player(person)?;
-        let (label, weeks) = *ACTIONS.get(action).ok_or_else(|| Error::Invalid("Castigo desconhecido.".into()))?;
+        let (label, weeks) = *ACTIONS.get(action).ok_or_else(|| Error::Invalid("Punição desconhecida.".into()))?;
         if !REASONS.iter().any(|r| r.0 == reason) {
             return Err(Error::Invalid("Razão desconhecida.".into()));
         }
         if self.logged_since(person, &["discipline"], DISCIPLINE_DAYS)? {
-            return Err(Error::Invalid("Já o castigou há poucos dias.".into()));
+            return Err(Error::Invalid("Já o puniu há poucos dias.".into()));
         }
         let name = self.person_name(person)?;
         let m = self.mind(person)?;
@@ -152,14 +152,14 @@ impl Game {
         let fair = self.reason_happened(person, reason)?;
         let (delta, reaction) = if !fair {
             self.add_unhappy(person, "unfair")?;
-            (-4 - weeks as i32, format!("{name} não percebe o castigo e sente que foi tratado injustamente."))
+            (-4 - weeks as i32, format!("{name} não entende a punição e sente que foi tratado injustamente."))
         } else if m.professionalism >= 15 {
-            (1, format!("{name} aceitou o castigo e promete dar a volta por cima."))
+            (1, format!("{name} aceitou a punição e promete dar a volta por cima."))
         } else if m.temperament <= 7 {
             self.add_unhappy(person, "unfair")?;
-            (-3 - weeks as i32, format!("{name} reagiu mal ao castigo e discutiu com o treinador."))
+            (-3 - weeks as i32, format!("{name} reagiu mal à punição e discutiu com o treinador."))
         } else {
-            (-1, format!("{name} aceitou o castigo sem comentários."))
+            (-1, format!("{name} aceitou a punição sem comentários."))
         };
         self.change_morale(person, delta);
         self.world
@@ -167,7 +167,7 @@ impl Game {
             .execute("INSERT INTO player_log (person_id, kind, date) VALUES (?, 'discipline', ?)", params![person, self.date])?;
         let fined = if fine > 0 { format!(" A multa de {} entra nas contas do clube.", money_text(fine)) } else { String::new() };
         let body = format!("{label} a {name} ({}).{fined}\n\n{reaction}", REASONS.iter().find(|r| r.0 == reason).map_or("", |r| r.1));
-        self.post_news_as("press", format!("{name} castigado"), body);
+        self.post_news_as("press", format!("{name} punido"), body);
         self.unsaved = true;
         Ok(reaction)
     }
@@ -196,7 +196,7 @@ impl Game {
         let st = self.squads.state(person);
         let (delta, title, reaction) = if praise {
             if st.morale >= 18 {
-                (0, format!("{name} elogiado"), format!("{name} agradeceu o elogio, mas já anda nas nuvens: arrisca-se a facilitar."))
+                (0, format!("{name} elogiado"), format!("{name} agradeceu o elogio, mas já anda nas nuvens: se arrisca a facilitar."))
             } else {
                 // Vale mais para quem está em baixo ou joga pouco
                 let boost = if st.morale <= 8 || st.missed >= 3 { 4 } else { 2 };
@@ -281,7 +281,7 @@ mod tests {
         g.discipline(hot, 0, "sent_off").unwrap();
         assert!(morale(&g, hot) < h0);
         assert!(g.unhappy_reasons(hot).unwrap().iter().any(|r| r.contains("injustamente")));
-        assert!(g.discipline(hot, 0, "none").is_err(), "um castigo de cada vez");
+        assert!(g.discipline(hot, 0, "none").is_err(), "uma suspensão de cada vez");
 
         // Castigar sem razão, ou por uma que não aconteceu, revolta sempre
         let c0 = morale(&g, calm);

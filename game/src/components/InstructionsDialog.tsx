@@ -57,7 +57,7 @@ export default function InstructionsDialog({
 
   return (
     <Overlay>
-      <DialogFrame title="Instruções à Equipa" width={620} onCancel={onCancel} onOk={() => onOk(i, k)}>
+      <DialogFrame title="Instruções ao Time" width={620} onCancel={onCancel} onOk={() => onOk(i, k)}>
         {/* Linhas em zebra, como as listas */}
         <div className="cm-zebra py-1 [&>*]:rounded [&>*]:px-2">
           <DialogRow label="Mentalidade">
@@ -87,9 +87,9 @@ export default function InstructionsDialog({
           {yesNo('Defesa Intensa', 'tightMarking')}
           {(
             [
-              ['penalty', 'Penáltis'],
+              ['penalty', 'Pênaltis'],
               ['freeKick', 'Livres'],
-              ['corner', 'Cantos'],
+              ['corner', 'Escanteios'],
               ['playmaker', 'Organizador'],
               ['captain', 'Capitão'],
             ] as [keyof Takers, string][]
@@ -100,7 +100,7 @@ export default function InstructionsDialog({
                 onChange={(e) => setK((old) => ({ ...old, [key]: e.target.value ? Number(e.target.value) : null }))}
                 className="cm-field min-w-56"
               >
-                <option value="">Adjunto escolhe</option>
+                <option value="">Auxiliar escolhe</option>
                 {players.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -111,7 +111,7 @@ export default function InstructionsDialog({
           ))}
         </div>
         <div className="px-2 pt-1 text-[12px] text-cm-dlgtext">
-          Durante um jogo, as instruções mudam-se no botão Equipa da tela da partida.
+          Durante um jogo, as instruções se mudam no botão Time da tela da partida.
         </div>
       </DialogFrame>
     </Overlay>

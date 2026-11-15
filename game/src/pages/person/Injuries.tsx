@@ -7,7 +7,7 @@ import InfoRows from './InfoRows'
 /** Aba "Lesões & Castigos": só num jogo em curso, para jogadores de clubes vivos. */
 export default function Injuries({ p }: { p: PersonProfile }) {
   const st = p.status
-  if (!st) return <Empty>Sem registos.</Empty>
+  if (!st) return <Empty>Sem registros.</Empty>
   const health: [string, ReactNode][] = [
     ['Condição', `${st.condition}%`],
     [
@@ -20,7 +20,7 @@ export default function Injuries({ p }: { p: PersonProfile }) {
         'Nenhuma'
       ),
     ],
-    ['Regresso previsto', st.injuryUntil ? cmDate(st.injuryUntil) : '-'],
+    ['Retorno previsto', st.injuryUntil ? cmDate(st.injuryUntil) : '-'],
     ['Moral', st.moraleLabel],
   ]
   const rows: [string, ReactNode][] = [

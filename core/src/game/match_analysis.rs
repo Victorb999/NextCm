@@ -111,7 +111,7 @@ pub(super) fn paper_of(nation: &str) -> &'static str {
         "Netherlands" => "De Telegraaf",
         "Argentina" => "Olé",
         "Saudi Arabia" => "Al Riyadiyah",
-        _ => "O jornal desportivo",
+        _ => "O jornal esportivo",
     }
 }
 
@@ -142,7 +142,7 @@ fn review_text(p: [f64; 3], h: i32, a: i32, home: &str, away: &str) -> String {
     };
     match favourite {
         Some((fav, other, diff)) if diff >= 3 => {
-            format!("Previa a vitória do {fav}, mas não esperava {diff} golos de diferença. Uma noite difícil para o {other}.")
+            format!("Previa a vitória do {fav}, mas não esperava {diff} gols de diferença. Uma noite difícil para o {other}.")
         }
         Some((fav, other, diff)) if diff > 0 => format!("Como se previa, o {fav} ganhou ao {other}, sem grandes surpresas."),
         Some((fav, other, 0)) => format!("Esperava a vitória do {fav}, mas o {other} conseguiu segurar o empate."),
@@ -294,7 +294,7 @@ impl Game {
                     _ => format!("{name} passou ao lado do jogo (nota {rating}) {outcome} por {score} do {club}."),
                 };
                 if k.goals > 0 {
-                    text.push_str(&format!(" Marcou {}.", if k.goals == 1 { "um golo".to_string() } else { format!("{} golos", k.goals) }));
+                    text.push_str(&format!(" Marcou {}.", if k.goals == 1 { "um gol".to_string() } else { format!("{} gols", k.goals) }));
                 }
                 if k.assists > 0 {
                     let n = if k.assists == 1 { "uma assistência".to_string() } else { format!("{} assistências", k.assists) };
@@ -314,11 +314,11 @@ impl Game {
                     let next = apps + 1;
                     let now = goals + pl.goals as i64;
                     let text = if apps == 0 && self.joined_in_game(pl.id)? {
-                        Some("Estreou-se pelo clube".to_string())
+                        Some("Estreou pelo clube".to_string())
                     } else if next >= 50 && next % 50 == 0 {
                         Some(format!("Fez o {next}.º jogo pelo clube"))
                     } else if now / 25 > goals / 25 && now >= 25 {
-                        Some(format!("Chegou aos {} golos pelo clube", now / 25 * 25))
+                        Some(format!("Chegou aos {} gols pelo clube", now / 25 * 25))
                     } else {
                         None
                     };
@@ -343,14 +343,14 @@ impl Game {
             let name = self.person_name(id)?;
             let next = apps + 1;
             let text = if apps == 0 && self.joined_in_game(id)? {
-                Some("Pode estrear-se pelo clube".to_string())
+                Some("Pode estrear pelo clube".to_string())
             } else if next >= 50 && next % 50 == 0 {
                 Some(format!("Pode fazer o {next}.º jogo pelo clube"))
             } else {
                 let target = (goals / 25 + 1) * 25;
                 (goals >= 20 && target - goals <= 2).then(|| {
                     let left = target - goals;
-                    format!("Está a {left} {} dos {target} pelo clube", if left == 1 { "golo" } else { "golos" })
+                    format!("Está a {left} {} dos {target} pelo clube", if left == 1 { "gol" } else { "gols" })
                 })
             };
             if let Some(text) = text {
@@ -376,7 +376,7 @@ mod tests {
         assert!(strong[0] > 0.7 && strong[2] < 0.1);
         assert!(prediction_text(strong, "Palmeiras", "Remo").contains("favorito"));
         assert!(prediction_text(even, "A", "B").contains("equilibrado"));
-        assert!(review_text(strong, 5, 0, "Palmeiras", "Remo").contains("5 golos"));
+        assert!(review_text(strong, 5, 0, "Palmeiras", "Remo").contains("5 gols"));
         assert!(review_text(strong, 0, 1, "Palmeiras", "Remo").contains("Ninguém esperava"));
         assert!(review_text(even, 1, 1, "A", "B").contains("equilibrado"));
     }

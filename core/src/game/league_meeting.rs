@@ -117,7 +117,7 @@ impl Game {
         Ok(vec![
             BoardRequest {
                 key: "referee".into(),
-                label: "Queixas sobre a arbitragem".into(),
+                label: "Reclamações sobre a arbitragem".into(),
                 available: referee.is_none(),
                 reason: referee,
             },
@@ -138,7 +138,7 @@ impl Game {
             return Err(Error::Invalid(req.reason.unwrap_or_default()));
         }
         let (accepted, text) = if key == "referee" {
-            let (fixture, competition, sent_off) = self.open_grievance()?.ok_or_else(|| Error::Invalid("Sem queixa.".into()))?;
+            let (fixture, competition, sent_off) = self.open_grievance()?.ok_or_else(|| Error::Invalid("Sem reclamação.".into()))?;
             self.world.conn.execute("UPDATE league_issues SET used = 1 WHERE fixture_id = ?", [fixture])?;
             let mut rng = ChaCha8Rng::seed_from_u64((self.seed as u64) ^ 0xA2B1_7E00 ^ fixture as u64);
             let roll = (rng.next_u64() % 100) as i32;
@@ -149,9 +149,11 @@ impl Game {
                     if let Some(k) = self.squads.states.entry(player).or_default().cards.get_mut(&competition) {
                         k.suspended = (k.suspended - 1).max(0);
                     }
-                    (true, format!("A Liga analisou o jogo e deu-lhe razão: o castigo de {name} foi anulado."))
+                    (true, format!("A Liga analisou o jogo e lhe deu razão: a suspensão de {name} foi anulado."))
                 }
-                (0..=69, _) => (false, "A Liga tomou nota da sua queixa sobre a arbitragem, mas não vai tomar nenhuma medida.".to_string()),
+                (0..=69, _) => {
+                    (false, "A Liga tomou nota da sua reclamação sobre a arbitragem, mas não vai tomar nenhuma medida.".to_string())
+                }
                 _ => {
                     let fine = finance::round_money(FINE_SHARE * self.club_base(self.club_id)?).max(1_000);
                     self.book(self.club_id, "fines", fine)?;
@@ -173,7 +175,7 @@ impl Game {
                 None => (false, format!("A Liga recusou adiar o jogo com o {opponent} de {}.", cm_date(&m.date))),
             }
         };
-        let title = if accepted { "Pedido à Liga aceite" } else { "Resposta da Liga" };
+        let title = if accepted { "Pedido à Liga aceito" } else { "Resposta da Liga" };
         self.post_news(title.into(), format!("{}\n\n{text}", req.label), None);
         self.unsaved = true;
         Ok(text)

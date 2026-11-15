@@ -8,11 +8,11 @@ export function ymd(iso: string): [number, number, number] {
   return [y, m, d]
 }
 
-/** "2007-07-13" -> "13.7.2007" */
+/** "2007-07-13" -> "13/7/2007" */
 export function cmDate(iso: string | null | undefined): string {
   if (!iso) return '-'
   const [y, m, d] = ymd(iso)
-  return `${d}.${m}.${y}`
+  return `${d}/${m}/${y}`
 }
 
 /** Valor em euros (como no banco) na moeda escolhida: 11000 -> "€11K", 2500000 -> "€2.5M". */
@@ -50,10 +50,10 @@ export function shortListName(listName: string): string {
 
 const WEEKDAYS_SHORT: NonEmpty<string> = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
-/** "2025-08-02" -> "Sáb 2.8.2025" (calendários e jogos). */
+/** "2025-08-02" -> "Sáb 2/8/2025" (calendários e jogos). */
 export function matchDate(iso: string): string {
   const [y, m, d] = ymd(iso)
-  return `${WEEKDAYS_SHORT[new Date(y, m - 1, d).getDay()]} ${d}.${m}.${y}`
+  return `${WEEKDAYS_SHORT[new Date(y, m - 1, d).getDay()]} ${d}/${m}/${y}`
 }
 
 const WEEKDAYS_LONG = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']

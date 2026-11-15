@@ -2,7 +2,7 @@
 //! classificação calculada dos resultados. As datas vêm dos regulamentos (`regulation.rs`).
 
 use rand_core::RngCore;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::date;
@@ -47,7 +47,7 @@ pub struct Match {
 }
 
 /// Uma partida para a interface (com os clubes por extenso).
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct Fixture {
@@ -72,7 +72,7 @@ pub struct Fixture {
 }
 
 /// Uma linha da classificação: J V E D M S P.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct StandingRow {
@@ -114,7 +114,7 @@ pub fn round_robin(
     let half_rounds = n.saturating_sub(1);
     let rounds = half_rounds * legs.max(1) as usize;
     if dates.len() < rounds {
-        return Err(Error::Invalid(format!("regulamento da competição {competition_id}: {rounds} jornadas e só {} datas", dates.len())));
+        return Err(Error::Invalid(format!("regulamento da competição {competition_id}: {rounds} rodadas e só {} datas", dates.len())));
     }
 
     let mut first_half: Vec<Vec<(i32, i32)>> = Vec::with_capacity(half_rounds);
@@ -236,7 +236,7 @@ mod tests {
         // Cada clube joga uma vez por jornada, 19 em casa e 19 fora
         for r in 1..=38 {
             let teams: HashSet<i32> = ms.iter().filter(|m| m.round == r).flat_map(|m| [m.home_id, m.away_id]).collect();
-            assert_eq!(teams.len(), 20, "jornada {r}");
+            assert_eq!(teams.len(), 20, "rodada {r}");
         }
         let mut home: HashMap<i32, i32> = HashMap::new();
         for m in &ms {

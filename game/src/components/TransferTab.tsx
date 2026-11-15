@@ -126,7 +126,7 @@ export function OfferButtons({
               </button>
               <button
                 className="cm-purple h-9 flex-1 font-title text-xl"
-                title="Decidir depois (até ao prazo)"
+                title="Decidir depois (até o prazo)"
                 onClick={() => setConfirmSale(false)}
               >
                 Adiar
@@ -145,7 +145,7 @@ export function OfferButtons({
           name={offer.name}
           club={offer.buyer.shortName}
           value={offer.fee}
-          budgetText={`O ${offer.buyer.shortName} oferece ${money(offer.fee)}. Peça mais, uma percentagem da próxima venda, menos prestações ou um valor por jogos.`}
+          budgetText={`O ${offer.buyer.shortName} oferece ${money(offer.fee)}. Peça mais, uma porcentagem da próxima venda, menos parcelas ou um valor por jogos.`}
           initial={{ ...offer.deal, fee: Math.round(offer.fee * 1.25) }}
           error={error}
           onCancel={() => setCounter(false)}

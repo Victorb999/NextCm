@@ -18,10 +18,10 @@ import { selectionOf } from './selection'
 export const FORMATIONS = ['4-4-2', '5-3-2 Líbero', '5-3-2', '4-4-2', '4-3-3', '4-2-4', '3-5-2', '4-1-2-1-2', '4-5-1', '3-4-3']
 // Menu Tácticas, como no CM: Instruções à Equipa e as tácticas pré-definidas
 export const TACTICS_MENU = [
-  { key: 'load', label: 'Carregar Táctica' },
-  { key: 'save', label: 'Gravar Táctica' },
-  { key: 'instructions', label: 'Instruções à Equipa' },
-  ...FORMATIONS.map((label, i) => ({ key: String(i), label: `Pré-definida: ${label}` })).slice(1),
+  { key: 'load', label: 'Carregar Tática' },
+  { key: 'save', label: 'Salvar Tática' },
+  { key: 'instructions', label: 'Instruções ao Time' },
+  ...FORMATIONS.map((label, i) => ({ key: String(i), label: `Predefinida: ${label}` })).slice(1),
 ]
 
 // Opções das Instruções à Equipa (diálogo e resumo da tela de Tácticas)
@@ -33,7 +33,7 @@ export const MENTALITY: [Mentality, string][] = [
 export const PASSING: [Passing, string][] = [
   ['mixed', 'Misto'],
   ['short', 'Curto'],
-  ['direct', 'Directo'],
+  ['direct', 'Direto'],
   ['long', 'Longo'],
 ]
 export const TACKLING: [Tackling, string][] = [
@@ -44,20 +44,20 @@ export const TACKLING: [Tackling, string][] = [
 
 // Opções das instruções individuais (diálogo do jogador e o Vêr das Tácticas)
 export const ORDER_PASSING: [Passing | null, string][] = [
-  [null, 'Equipa'],
+  [null, 'Time'],
   ['mixed', 'Misto'],
   ['short', 'Curto'],
-  ['direct', 'Directo'],
+  ['direct', 'Direto'],
   ['long', 'Longo'],
 ]
 export const ORDER_TACKLING: [Tackling | null, string][] = [
-  [null, 'Equipa'],
+  [null, 'Time'],
   ['normal', 'Normal'],
   ['soft', 'Suave'],
   ['hard', 'Duro'],
 ]
 export const ORDER_PRESSING: [boolean | null, string][] = [
-  [null, 'Equipa'],
+  [null, 'Time'],
   [false, 'Não'],
   [true, 'Sim'],
 ]
@@ -78,11 +78,11 @@ export const ORDER_MARKING: [Marking, string][] = [
   ['manToMan', 'H-H'],
 ]
 export const ORDER_FLAGS: [keyof PlayerOrders, string][] = [
-  ['freeRole', 'Acção Livre'],
+  ['freeRole', 'Ação Livre'],
   ['forwardRuns', 'Movimentos Frente'],
   ['runWithBall', 'Correr com Bola'],
   ['holdBall', 'Segurar Bola'],
-  ['longShots', 'Remates Longe'],
+  ['longShots', 'Chutes Longe'],
   ['throughBalls', 'Passes Costas'],
   ['crosses', 'Cruzamentos'],
 ]
@@ -112,7 +112,7 @@ export type TacticsView =
 export const TACTICS_VIEWS: ({ key: TacticsView; label: string } | 'separator')[] = [
   { key: 'position', label: 'Posição' },
   { key: 'condition', label: 'Condição' },
-  { key: 'goals', label: 'Golos' },
+  { key: 'goals', label: 'Gols' },
   { key: 'form', label: 'Forma' },
   { key: 'rating', label: 'Classificação Média' },
   'separator',
@@ -122,12 +122,12 @@ export const TACTICS_VIEWS: ({ key: TacticsView; label: string } | 'separator')[
   { key: 'passTo', label: 'Passar para' },
   { key: 'setAttack', label: 'Bolas Paradas (A)' },
   { key: 'setDefence', label: 'Bolas Paradas (D)' },
-  { key: 'freeRole', label: 'Acção Livre' },
+  { key: 'freeRole', label: 'Ação Livre' },
   { key: 'forwardRuns', label: 'Movimentos Frente' },
   { key: 'runWithBall', label: 'Correr com Bola' },
   { key: 'holdBall', label: 'Segurar Bola' },
-  { key: 'longShots', label: 'Remates Longe' },
-  { key: 'throughBalls', label: 'Passes Costas Defesa' },
+  { key: 'longShots', label: 'Chutes Longe' },
+  { key: 'throughBalls', label: 'Passes nas Costas da Defesa' },
   { key: 'crosses', label: 'Cruzamentos' },
   { key: 'marking', label: 'Marcação' },
 ]

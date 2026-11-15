@@ -141,7 +141,7 @@ pub fn club_preview(world: &World, id: i32) -> Result<ClubPreview> {
             text.push_str(", com aquecimento subterrâneo");
         }
         if profile.retractable_roof {
-            text.push_str(", telhado retráctil");
+            text.push_str(", telhado retrátil");
         }
         text
     });
@@ -187,15 +187,15 @@ pub fn club_preview(world: &World, id: i32) -> Result<ClubPreview> {
 
 /// Os sectores do relatório do plantel: o nome, quantos contam no onze e a coluna da posição.
 const SECTORS: [(&str, &str, usize, &str); 4] = [
-    ("a baliza", "um guarda-redes", 1, "pl.pos_goalkeeper"),
-    ("a defesa", "um defesa", 4, "MAX(COALESCE(pl.pos_sweeper, 1), COALESCE(pl.pos_defender, 1), COALESCE(pl.pos_wing_back, 1))"),
+    ("o gol", "um goleiro", 1, "pl.pos_goalkeeper"),
+    ("a defesa", "um zagueiro", 4, "MAX(COALESCE(pl.pos_sweeper, 1), COALESCE(pl.pos_defender, 1), COALESCE(pl.pos_wing_back, 1))"),
     (
         "o meio-campo",
-        "um médio",
+        "um meio-campista",
         4,
         "MAX(COALESCE(pl.pos_defensive_midfielder, 1), COALESCE(pl.pos_midfielder, 1), COALESCE(pl.pos_attacking_midfielder, 1))",
     ),
-    ("o ataque", "um avançado", 2, "pl.pos_attacker"),
+    ("o ataque", "um atacante", 2, "pl.pos_attacker"),
 ];
 
 impl Game {
@@ -245,7 +245,7 @@ impl Game {
                 .query_row("SELECT contract_expires, wage FROM people WHERE id = ?", [self.manager_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
         let (transfer, wages): (i64, i64) =
             self.world.conn.query_row("SELECT transfer_budget, wage_budget FROM board WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?)))?;
-        let mut body = format!("A Direcção do {} apresenta as condições do seu contrato e os orçamentos para a época.\n\n", club.name);
+        let mut body = format!("A Diretoria do {} apresenta as condições do seu contrato e os orçamentos para a temporada.\n\n", club.name);
         if let Some(e) = &expires {
             body += &format!("O contrato vai até {}", super::cm_date(e));
             if let Some(w) = wage.filter(|&w| w > 0) {
@@ -259,7 +259,8 @@ impl Game {
             money_text(wages)
         );
         if favourite == Some(self.club_id) {
-            body += &format!("\n\nOs adeptos receberam bem a notícia: o novo treinador é adepto do {} desde criança.", club.short_name);
+            body +=
+                &format!("\n\nOs torcedores receberam bem a notícia: o novo treinador é torcedor do {} desde criança.", club.short_name);
         }
         self.push_news(&mut fresh, &mut next_id, "message", "Contrato e orçamentos".into(), body);
 
@@ -283,20 +284,20 @@ impl Game {
             let verdict = match place {
                 1 => "o favorito ao título".to_string(),
                 p if p <= 3 => "um dos candidatos ao título".to_string(),
-                p if p > total - 4 => "um dos candidatos à descida".to_string(),
-                _ => "uma equipa para o meio da tabela".to_string(),
+                p if p > total - 4 => "um dos candidatos ao rebaixamento".to_string(),
+                _ => "um time para o meio da tabela".to_string(),
             };
             let body = format!(
                 "O {paper} aponta o {us} para o {place}º lugar{league}: é {verdict}.\n\nOs favoritos do jornal: {}.",
                 super::season::join_names(&favourites)
             );
-            self.push_news(&mut fresh, &mut next_id, "message", format!("Previsão dos media: {us} em {place}º"), body);
+            self.push_news(&mut fresh, &mut next_id, "message", format!("Previsão da mídia: {us} em {place}º"), body);
         }
 
         // O adjunto: o relatório do plantel
         if let Some(text) = self.squad_report()? {
-            let who = self.assistant_name()?.unwrap_or_else(|| "O adjunto".into());
-            self.push_news(&mut fresh, &mut next_id, "message", "Relatório do plantel".into(), format!("{text}\n\n{who}"));
+            let who = self.assistant_name()?.unwrap_or_else(|| "O auxiliar".into());
+            self.push_news(&mut fresh, &mut next_id, "message", "Relatório do elenco".into(), format!("{text}\n\n{who}"));
         }
         Ok(fresh)
     }
@@ -375,12 +376,12 @@ impl Game {
             .collect::<rusqlite::Result<_>>()?;
         let us = self.club(self.club_id).short_name;
         let mut text =
-            format!("Estive a ver o plantel do {us}. Os jogadores mais importantes são {}.\n\n", super::season::join_names(&best));
+            format!("Estive vendo o elenco do {us}. Os jogadores mais importantes são {}.\n\n", super::season::join_names(&best));
         let (strong_name, _, _, _) = SECTORS[strong];
         text += &format!("O nosso ponto forte é {strong_name} ({}).", super::season::join_names(&ours[strong].1));
         if weak != strong {
             let (weak_name, one, _, _) = SECTORS[weak];
-            text += &format!(" O sector mais fraco é {weak_name}: recomendo contratar {one} se a direcção o permitir.");
+            text += &format!(" O setor mais fraco é {weak_name}: recomendo contratar {one} se a diretoria o permitir.");
         }
         if !young.is_empty() {
             text += &format!("\n\nVale a pena acompanhar {}: são jovens com muito potencial.", super::season::join_names(&young));
@@ -437,8 +438,8 @@ mod tests {
         let g = Game::create(&path, &dir, &new, 7).unwrap();
         let titles: Vec<&str> = g.news.iter().map(|n| n.title.as_str()).collect();
         assert!(titles.contains(&"Contrato e orçamentos"), "{titles:?}");
-        assert!(titles.iter().any(|t| t.starts_with("Previsão dos media")), "{titles:?}");
-        assert!(titles.contains(&"Relatório do plantel"), "{titles:?}");
+        assert!(titles.iter().any(|t| t.starts_with("Previsão da mídia")), "{titles:?}");
+        assert!(titles.contains(&"Relatório do elenco"), "{titles:?}");
         let contract = g.news.iter().find(|n| n.title == "Contrato e orçamentos").unwrap();
         assert!(contract.body.contains("desde criança"), "{}", contract.body);
         let club_rep: i32 = g.world.conn.query_row("SELECT reputation FROM clubs WHERE id = 7568", [], |r| r.get(0)).unwrap();

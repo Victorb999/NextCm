@@ -13,7 +13,7 @@
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::RngCore;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::engine::{SlotRating, TeamStrength, condition_factor, expected_goals, expected_goals_neutral, morale_factor, sector, uniform};
@@ -165,7 +165,7 @@ struct MatchPlayer {
 }
 
 /// Números de um jogador no jogo (a tela "Dados" do CM).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, TS)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerStats {
@@ -278,7 +278,7 @@ fn value(p: &TacticPlayer, prof: &Profile, fit: i32, condition: f64, morale: i32
 }
 
 /// Estatísticas de uma equipa no jogo.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, TS)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct TeamStats {
@@ -471,7 +471,7 @@ impl Team {
 }
 
 /// Um lance do relato.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct MatchEvent {
@@ -488,7 +488,7 @@ pub struct MatchEvent {
 }
 
 /// Um jogador na tela da partida.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct LivePlayer {
@@ -517,7 +517,7 @@ pub struct LivePlayer {
     pub stats: PlayerStats,
 }
 
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveTeam {
@@ -535,7 +535,7 @@ pub struct LiveTeam {
 }
 
 /// Outro jogo do dia, com o resultado no minuto em que vai o jogo do treinador.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct ScoreLine {
@@ -545,7 +545,7 @@ pub struct ScoreLine {
 }
 
 /// Tudo o que a tela da partida mostra.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveView {
@@ -832,7 +832,7 @@ impl LiveMatch {
             self.push("start", None, None, text);
         }
         if m == 46 {
-            self.push("start", None, None, "Começa a segunda parte.".into());
+            self.push("start", None, None, "Começa a segundo tempo.".into());
         }
         if AI_SUB_MINUTES.contains(&m) {
             for side in 0..2 {
@@ -929,10 +929,10 @@ impl LiveMatch {
         } else {
             match variant(5, m, id + 1) {
                 0 => format!("{name} arriscou o chute"),
-                1 => format!("{name} rematou com o pé direito"),
-                2 => format!("{name} rematou de primeira"),
+                1 => format!("{name} chutou com o pé direito"),
+                2 => format!("{name} chutou de primeira"),
                 3 => format!("{name} tentou de longe"),
-                _ => format!("{name} rematou com o pé esquerdo"),
+                _ => format!("{name} chutou com o pé esquerdo"),
             }
         };
         if roll < p_goal {
@@ -953,7 +953,7 @@ impl LiveMatch {
                     players[t].stats.shots += 1;
                     players[shooter].stats.xg -= p_goal;
                     players[t].stats.xg += p_goal;
-                    let action = if penalty { format!("{t_name} bate o penálti") } else { format!("{t_name} bate o livre directo") };
+                    let action = if penalty { format!("{t_name} cobra o pênalti") } else { format!("{t_name} cobra a falta") };
                     (t, t_name, players[t].info.id, action)
                 }
                 None => (shooter, name, id, action),
@@ -1007,25 +1007,25 @@ impl LiveMatch {
             let score = format!("{}-{}", self.score[0], self.score[1]);
             let club = self.short(side).to_string();
             let outcome = match variant(4, m, id) {
-                0 => format!("GOLO! {name} marca para o {club}! ({score})"),
-                1 => format!("GOLO! Remate certeiro de {name}! {score}"),
-                2 => format!("GOLO! {name} não perdoa e faz o {score}!"),
-                _ => format!("GOLO do {club}! {name} atira para o fundo da baliza! ({score})"),
+                0 => format!("GOL! {name} marca para o {club}! ({score})"),
+                1 => format!("GOL! Chute certeiro de {name}! {score}"),
+                2 => format!("GOL! {name} não perdoa e faz o {score}!"),
+                _ => format!("GOL do {club}! {name} atira para o fundo das redes! ({score})"),
             };
             let mut text = outcome.clone();
             let buildup = match (set_piece, assist) {
                 (Some((_, true)), _) => {
-                    text += " De penálti.";
-                    format!("Penálti para o {club}!")
+                    text += " De pênalti.";
+                    format!("Pênalti para o {club}!")
                 }
                 (Some(_), _) => {
-                    text += " De livre directo.";
+                    text += " De falta.";
                     format!("Livre perigoso para o {club} à entrada da área")
                 }
                 (None, Some(a)) if corner => {
                     let p = self.name(side, a);
-                    text += &format!(" Canto de {p}.");
-                    format!("{p} bate o canto para a área")
+                    text += &format!(" Escanteio de {p}.");
+                    format!("{p} cobra o escanteio na área")
                 }
                 (None, Some(a)) => {
                     let p = self.name(side, a);
@@ -1057,9 +1057,9 @@ impl LiveMatch {
                 self.teams[side].stats.corners += 1;
             }
             let text = match variant(4, m, id) {
-                0 => format!("{name} remata... defende {keeper}!"),
-                1 => format!("Grande defesa de {keeper} ao remate de {name}!"),
-                2 => format!("Remate de {name}, {keeper} agarra sem problemas."),
+                0 => format!("{name} chuta... defende {keeper}!"),
+                1 => format!("Grande defesa de {keeper} ao chute de {name}!"),
+                2 => format!("Chute de {name}, {keeper} agarra sem problemas."),
                 _ => format!("{name} obriga {keeper} a uma defesa difícil."),
             };
             let outcome = match variant(4, m, id + 5) {
@@ -1075,20 +1075,20 @@ impl LiveMatch {
                 self.teams[side].stats.corners += 1;
             }
             let text = match variant(4, m, id) {
-                0 => format!("{name} remata por cima da barra."),
+                0 => format!("{name} chuta por cima da barra."),
                 1 => format!("{name} atira ao lado."),
-                2 => format!("Remate de {name} bloqueado pela defesa."),
+                2 => format!("Chute de {name} bloqueado pela defesa."),
                 _ => format!("Boa jogada do {}, mas {name} falha o alvo.", self.short(side)),
             };
             let outcome = match variant(4, m, id + 5) {
                 0 => "Mas passou por cima do travessão".to_string(),
                 1 => "A bola saiu ao lado".to_string(),
-                2 => "A defesa bloqueou o remate".to_string(),
+                2 => "A defesa bloqueou o chute".to_string(),
                 _ => "Rasteiro, ao lado do poste".to_string(),
             };
             let buildup = match variant(3, m, id + 2) {
                 0 => format!("{} procurou {name} na área", self.mate(side, shooter)),
-                1 => format!("{name} recebeu de costas para a baliza"),
+                1 => format!("{name} recebeu de costas para o gol"),
                 _ => format!("Boa jogada do {}", self.short(side)),
             };
             self.push_lines("miss", Some(side), Some(id), text, vec![buildup, action, outcome]);
@@ -1156,7 +1156,7 @@ impl LiveMatch {
             self.teams[side].stats.fouls += 1;
             let name = self.name(side, i);
             let id = self.teams[side].players[i].info.id;
-            let text = format!("Cartão vermelho directo para {name}! O {} fica com dez.", self.short(side));
+            let text = format!("Cartão vermelho direto para {name}! O {} fica com dez.", self.short(side));
             self.push("red", Some(side), Some(id), text);
             self.send_off(side, i);
         }
@@ -1186,18 +1186,14 @@ impl LiveMatch {
             t.substitute(out, gk, m, r);
             t.players[gk].slot = Some(slot);
             t.players[gk].fit = fit_for_role(&t.players[gk].prof.pos, "GR");
-            let text = format!(
-                "Substituição no {}: sai {}, entra o guarda-redes {}.",
-                self.short(side),
-                self.name(side, out),
-                self.name(side, gk)
-            );
+            let text =
+                format!("Substituição no {}: sai {}, entra o goleiro {}.", self.short(side), self.name(side, out), self.name(side, gk));
             let id = self.teams[side].players[gk].info.id;
             self.push("sub", Some(side), Some(id), text);
         } else if let Some(&g) = outfield.iter().max_by_key(|&&o| fit_for_role(&t.players[o].prof.pos, "GR")) {
             t.players[g].slot = Some(slot);
             t.players[g].fit = fit_for_role(&t.players[g].prof.pos, "GR");
-            let text = format!("{} vai para a baliza.", self.name(side, g));
+            let text = format!("{} vai para o gol.", self.name(side, g));
             self.push("tactics", Some(side), None, text);
         }
     }
@@ -1213,7 +1209,7 @@ impl LiveMatch {
             self.teams[side].players[i].injured = true;
             let name = self.name(side, i);
             let id = self.teams[side].players[i].info.id;
-            let lines = vec![format!("{name} fica caído no relvado"), format!("{name} está lesionado e não pode continuar")];
+            let lines = vec![format!("{name} fica caído no gramado"), format!("{name} está lesionado e não pode continuar")];
             self.push_lines("injury", Some(side), Some(id), format!("{name} está lesionado e não pode continuar."), lines);
             let slot = self.teams[side].players[i].slot.unwrap_or(0);
             // Na equipa do treinador, quem decide é ele: o jogo pára nas Tácticas (no front) e,
@@ -1311,7 +1307,7 @@ impl LiveMatch {
         if self.finished() {
             return Err(Error::Invalid("O jogo já acabou.".into()));
         }
-        self.user.ok_or_else(|| Error::Invalid("Este jogo não é da sua equipa.".into()))
+        self.user.ok_or_else(|| Error::Invalid("Este jogo não é do seu time.".into()))
     }
 
     /// Para os testes: todos os jogadores de um lado partem-se quase a cada minuto.
@@ -1392,7 +1388,7 @@ impl LiveMatch {
         if self.teams[side].tactics.instructions != instructions {
             self.user_takes_over()?;
             self.teams[side].tactics.instructions = instructions;
-            let text = format!("O {} muda as instruções à equipa.", self.short(side));
+            let text = format!("O {} muda as instruções ao time.", self.short(side));
             self.push("tactics", Some(side), None, text);
         }
         Ok(())
@@ -1535,7 +1531,7 @@ impl LiveMatch {
             let after = self.selection(side);
             let shape = |s: &Selection| (s.formation, s.positions.clone(), s.runs.clone(), s.instructions);
             if shape(&before) != shape(&after) {
-                self.push("tactics", Some(side), None, format!("O {short} muda a táctica."));
+                self.push("tactics", Some(side), None, format!("O {short} muda a tática."));
             }
         }
         Ok(())
@@ -1918,13 +1914,13 @@ impl LiveMatch {
             let (p, q) = (self.name(side, i), self.name(side, j));
             let club = self.short(side).to_string();
             let gk = self.teams[side].goalkeeper().map(|g| self.name(side, g)).unwrap_or_else(|| p.clone());
-            let other_gk = self.teams[1 - side].goalkeeper().map(|g| self.name(1 - side, g)).unwrap_or_else(|| "o guarda-redes".into());
+            let other_gk = self.teams[1 - side].goalkeeper().map(|g| self.name(1 - side, g)).unwrap_or_else(|| "o goleiro".into());
             let line = match (uniform(r) * 10.0) as usize {
                 0 => format!("{p} conduz a bola pelo meio-campo"),
                 1 if i != j => format!("{p} abre o jogo para {q}"),
                 2 if i != j => format!("{p} tenta o passe longo para {q}"),
                 3 => format!("{gk} repôs a bola em jogo"),
-                4 => format!("{p} cobra o lançamento lateral"),
+                4 => format!("{p} cobra o arremesso lateral"),
                 5 => format!("{p} recupera a bola"),
                 6 => format!("Troca de passes do {club} no meio-campo"),
                 7 => format!("{p} tenta o drible mas perde a bola"),

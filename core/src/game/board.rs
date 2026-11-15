@@ -130,15 +130,15 @@ pub(super) fn expectation(world: &World, club: i32) -> Result<(i32, &'static str
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     )?;
     Ok(if total < 4 {
-        (total.max(1), "fazer uma boa época", division)
+        (total.max(1), "fazer uma boa temporada", division)
     } else if rank <= 3 {
         (3, "lutar pelo título", division)
     } else if rank <= total / 2 {
         (total / 2, "terminar na primeira metade da tabela", division)
     } else if rank <= total - 4 {
-        (total - 5, "garantir uma posição tranquila a meio da tabela", division)
+        (total - 5, "garantir uma posição tranquila no meio da tabela", division)
     } else {
-        (total - 4, "evitar a despromoção", division)
+        (total - 4, "evitar o rebaixamento", division)
     })
 }
 
@@ -362,10 +362,10 @@ impl Game {
             _ => "preocupante",
         };
         let supporters = match fans {
-            75.. => "Estamos satisfeitos por constatar que você conseguiu construir uma relação positiva com os adeptos.",
-            50..=74 => "Os adeptos estão contentes com o rumo do clube.",
-            30..=49 => "Os adeptos começam a ficar impacientes.",
-            _ => "Os adeptos estão descontentes e a pressão sobre o clube é grande.",
+            75.. => "Estamos satisfeitos por constatar que você conseguiu construir uma relação positiva com os torcedores.",
+            50..=74 => "Os torcedores estão contentes com o rumo do clube.",
+            30..=49 => "Os torcedores começam a ficar impacientes.",
+            _ => "Os torcedores estão descontentes e a pressão sobre o clube é grande.",
         };
         let line = |kind: &str, label: &str, text: String, level: Option<i32>| BoardLine {
             kind: kind.into(),
@@ -377,16 +377,16 @@ impl Game {
         // As finanças em 0–100: metade com saldo zero, cheio com meia época de receitas em caixa
         let money_level = (50.0 + 100.0 * cash as f64 / base).clamp(0.0, 100.0) as i32;
         let mut lines = vec![
-            line("performance", "Desempenho da equipa", format!("A direcção {} {mood}.", club.name), Some(confidence)),
+            line("performance", "Desempenho do time", format!("A diretoria {} {mood}.", club.name), Some(confidence)),
             line("finances", "Situação financeira", format!("A situação financeira do clube é {money}."), Some(money_level)),
-            line("fans", "Relação com os adeptos", supporters.to_string(), Some(fans)),
+            line("fans", "Relação com os torcedores", supporters.to_string(), Some(fans)),
         ];
         let idols: Vec<(i32, String)> =
             self.valuable_players()?.iter().map(|&id| Ok((id, self.person_name(id)?))).collect::<Result<_>>()?;
         let text = match idols.as_slice() {
             [] => None,
-            [(_, one)] => Some(format!("A direcção acredita que {one} é um elemento valioso do plantel.")),
-            [(_, a), (_, b), ..] => Some(format!("A direcção acredita que {a} e {b} são elementos valiosos do plantel.")),
+            [(_, one)] => Some(format!("A diretoria acredita que {one} é um elemento valioso do elenco.")),
+            [(_, a), (_, b), ..] => Some(format!("A diretoria acredita que {a} e {b} são elementos valiosos do elenco.")),
         };
         if let Some(text) = text {
             lines.push(BoardLine { players: idols, ..line("players", "Jogadores-chave", text, None) });
@@ -417,7 +417,7 @@ impl Game {
             "UPDATE board SET confidence = MAX(1, confidence - ?), fans = MAX(0, fans - ?) WHERE id = 1",
             params![IDOL_CONFIDENCE, IDOL_FANS],
         )?;
-        Ok(Some("A direcção e os adeptos não gostaram de ver sair um dos jogadores mais valiosos do plantel.".into()))
+        Ok(Some("A diretoria e os torcedores não gostaram de ver sair um dos jogadores mais valiosos do elenco.".into()))
     }
 
     /// Satisfação dos adeptos, de 0 a 100.
@@ -474,9 +474,9 @@ impl Game {
             self.change_manager_rep(super::jobs::REP_SACKED)?;
             self.career_leave()?;
             let body = format!(
-                "A Direcção do {club} perdeu a confiança no seu trabalho e decidiu dispensá-lo do cargo de treinador, com efeitos imediatos.\n\nProcure um novo clube em Informação de Empregos."
+                "A Diretoria do {club} perdeu a confiança no seu trabalho e decidiu dispensá-lo do cargo de treinador, com efeitos imediatos.\n\nProcure um novo clube em Informação de Empregos."
             );
-            fresh.push(self.news_item(*next_id, "message", "Despedido".into(), body));
+            fresh.push(self.news_item(*next_id, "message", "Demitido".into(), body));
             *next_id += 1;
             self.unsaved = true;
             return Ok(());
@@ -484,14 +484,14 @@ impl Game {
         if new < ULTIMATUM_AT && warning < 2 {
             warning = 2;
             let body = format!(
-                "A Direcção do {club} está muito descontente com os resultados. Se a situação não mudar depressa, será dispensado."
+                "A Diretoria do {club} está muito descontente com os resultados. Se a situação não mudar depressa, será dispensado."
             );
-            fresh.push(self.news_item(*next_id, "message", "Ultimato da Direcção".into(), body));
+            fresh.push(self.news_item(*next_id, "message", "Ultimato da Diretoria".into(), body));
             *next_id += 1;
         } else if new < WARNING_AT && warning < 1 {
             warning = 1;
-            let body = format!("A Direcção do {club} está preocupada com o rumo da equipa e espera melhorias nas próximas semanas.");
-            fresh.push(self.news_item(*next_id, "message", "A Direcção está preocupada".into(), body));
+            let body = format!("A Diretoria do {club} está preocupada com o rumo do time e espera melhorias nas próximas semanas.");
+            fresh.push(self.news_item(*next_id, "message", "A Diretoria está preocupada".into(), body));
             *next_id += 1;
         } else if new >= WARNING_AT + 10 {
             warning = 0;
@@ -524,12 +524,12 @@ impl Game {
             self.refresh_budgets()?;
             let b = self.board_view()?;
             let body = format!(
-                "A Direcção autoriza transferências até {} nesta janela e uma folha salarial até {} por semana (salário máximo de {} por jogador).",
+                "A Diretoria autoriza transferências até {} nesta janela e uma folha salarial até {} por semana (salário máximo de {} por jogador).",
                 super::market::money_text(b.transfer_budget),
                 super::market::money_text(b.wage_budget),
                 super::market::money_text(b.max_wage)
             );
-            fresh.push(self.news_item(*next_id, "message", "Orçamentos da Direcção".into(), body));
+            fresh.push(self.news_item(*next_id, "message", "Orçamentos da Diretoria".into(), body));
             *next_id += 1;
         }
         if !self.date.ends_with("-01") {
@@ -575,21 +575,21 @@ impl Game {
         let (target, goal): (i32, String) =
             self.world.conn.query_row("SELECT target, goal FROM board WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?)))?;
         let (delta, verdict): (i32, &str) = if relegated {
-            (-35, "A descida de divisão é inaceitável para a Direcção.")
+            (-35, "O rebaixamento de divisão é inaceitável para a Diretoria.")
         } else if promoted {
-            (20, "A subida de divisão deixou a Direcção muito satisfeita.")
+            (20, "O acesso de divisão deixou a Diretoria muito satisfeita.")
         } else if position == 1 {
-            (20, "O título superou todas as expectativas da Direcção.")
+            (20, "O título superou todas as expectativas da Diretoria.")
         } else if position <= target {
-            (12, "A Direcção está satisfeita: o objetivo da época foi cumprido.")
+            (12, "A Diretoria está satisfeita: o objetivo da temporada foi cumprido.")
         } else if position > target + 3 {
-            (-15, "A Direcção está desiludida: a equipa ficou longe do objetivo.")
+            (-15, "A Diretoria está desiludida: o time ficou longe do objetivo.")
         } else {
-            (0, "A época ficou perto do que a Direcção esperava.")
+            (0, "A temporada ficou perto do que a Diretoria esperava.")
         };
         self.change_manager_rep(super::jobs::REP_SEASON * delta.signum())?;
-        let body = format!("A Direcção esperava {goal} e a equipa terminou em {position}º lugar.\n\n{verdict}");
-        fresh.push(self.news_item(*next_id, "message", "Balanço da época".into(), body));
+        let body = format!("A Diretoria esperava {goal} e o time terminou em {position}º lugar.\n\n{verdict}");
+        fresh.push(self.news_item(*next_id, "message", "Balanço da temporada".into(), body));
         *next_id += 1;
         self.change_confidence(delta, fresh, next_id)
     }
@@ -608,8 +608,8 @@ impl Game {
         self.sync_funds()?;
         self.refresh_wage_budget()?;
         let league = division.map(|d| format!(" no {d}")).unwrap_or_default();
-        let body = format!("Para a nova época, a Direcção espera que a equipa consiga {goal}{league}.");
-        fresh.push(self.news_item(*next_id, "message", "Objectivos da época".into(), body));
+        let body = format!("Para a nova temporada, a Diretoria espera que o time consiga {goal}{league}.");
+        fresh.push(self.news_item(*next_id, "message", "Objetivos da temporada".into(), body));
         *next_id += 1;
         Ok(())
     }
@@ -625,7 +625,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("nextcm-sem-direcao-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
-            save_name: "Sem direção".into(),
+            save_name: "Sem diretoria".into(),
             first_name: "Victor".into(),
             last_name: "Araujo".into(),
             birth_date: None,
@@ -657,7 +657,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("nextcm-direcao-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
-            save_name: "Direção".into(),
+            save_name: "Diretoria".into(),
             first_name: "Victor".into(),
             last_name: "Araujo".into(),
             birth_date: None,
@@ -725,13 +725,13 @@ mod tests {
         // Avisos, ultimato e despedimento
         let (mut fresh, mut next_id) = (Vec::new(), 1000);
         g.change_confidence(-30, &mut fresh, &mut next_id).unwrap();
-        assert!(fresh.iter().any(|n| n.title == "A Direcção está preocupada"));
+        assert!(fresh.iter().any(|n| n.title == "A Diretoria está preocupada"));
         g.change_confidence(-20, &mut fresh, &mut next_id).unwrap();
-        assert!(fresh.iter().any(|n| n.title == "Ultimato da Direcção"));
+        assert!(fresh.iter().any(|n| n.title == "Ultimato da Diretoria"));
         assert!(!g.sacked());
         g.change_confidence(-100, &mut fresh, &mut next_id).unwrap();
         assert!(g.sacked() && g.info().unwrap().sacked);
-        assert!(fresh.iter().any(|n| n.title == "Despedido"));
+        assert!(fresh.iter().any(|n| n.title == "Demitido"));
         assert!(g.advance_day().is_ok(), "o jogo continua sem clube");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);

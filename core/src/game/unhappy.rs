@@ -34,12 +34,12 @@ pub const REASONS: [(&str, &str); 13] = [
     ("vented", "Desabafou os seus sentimentos publicamente"),
     ("subbed", "Descontente por ter sido substituído"),
     ("position", "Quer jogar numa posição diferente"),
-    ("teammate", "Não se dá com um colega de equipa"),
+    ("teammate", "Não se dá com um colega de time"),
 ];
 
 /// Queixas sobre o clube (o grupo "Club Unhappiness" do CM): chave com o prefixo `club_`.
 pub const CLUB_REASONS: [(&str, &str); 5] = [
-    ("club_depth", "Acha que o clube precisa de mais profundidade no plantel"),
+    ("club_depth", "Acha que o clube precisa de mais profundidade no elenco"),
     ("club_value", "Acha irrealista a avaliação que o clube faz dele"),
     ("club_facilities", "Descontente com as instalações de treino do clube"),
     ("club_ambition", "Duvida das ambições do clube"),
@@ -523,7 +523,7 @@ impl Game {
                         format!("{name} quer saber o seu futuro"),
                         format!(
                             "{name}, com {} anos e ainda nas reservas, deseja ver o seu futuro esclarecido. Promova-o ao \
-                             plantel principal, empreste-o ou ponha-o na lista de transferências.",
+                             elenco principal, empreste-o ou ponha-o na lista de transferências.",
                             p.age
                         ),
                     ));
@@ -674,7 +674,7 @@ impl Game {
                 format!("{name} ausente sem permissão"),
                 format!(
                     "{name} não apareceu no treino e não deu notícias: terá voltado para o seu país, com saudades de casa. \
-                     Deverá voltar por volta de {}. Para o evitar, pode dar-lhe uma folga (Acção → Dar Folga).",
+                     Deverá voltar por volta de {}. Para o evitar, pode lhe dar uma folga (Ação → Dar Folga).",
                     super::cm_date(&until)
                 ),
             ));
@@ -775,7 +775,7 @@ impl Game {
         let mine: bool =
             self.world.conn.query_row("SELECT club_id = ? FROM people WHERE id = ?", params![self.club_id, person], |r| r.get(0))?;
         if !mine || self.sacked() {
-            return Err(Error::Invalid("Só para os jogadores do seu plantel.".into()));
+            return Err(Error::Invalid("Só para os jogadores do seu elenco.".into()));
         }
         if !self.can_give_leave(person)? {
             return Err(Error::Invalid("Só se dá folga a quem tem saudades de casa.".into()));
@@ -791,7 +791,7 @@ impl Game {
         self.refresh_live()?;
         self.unsaved = true;
         let name = self.person_name(person)?;
-        Ok(format!("{name} vai passar duas semanas no seu país. Volta a {}.", super::cm_date(&until)))
+        Ok(format!("{name} vai passar duas semanas no seu país. Volta em {}.", super::cm_date(&until)))
     }
 
     /// O treinador recusa (ou não responde a) um pedido para sair.
@@ -822,7 +822,7 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert!(abroad >= HOMESICK_ABROAD, "{abroad} épocas fora");
+        assert!(abroad >= HOMESICK_ABROAD, "{abroad} temporadas fora");
     }
 
     #[test]
@@ -995,7 +995,7 @@ mod tests {
         assert!(g.unhappy_reasons(foreign).unwrap().contains(&reason_text("homesick").to_string()));
         assert!(g.can_give_leave(foreign).unwrap());
         let future = g.transfer_view(foreign).unwrap().future;
-        assert!(future.iter().any(|f| f == "Está a ter dificuldades em adaptar-se ao estilo de vida Brasileiro"), "{future:?}");
+        assert!(future.iter().any(|f| f == "Está tendo dificuldades em adaptar-se ao estilo de vida Brasileiro"), "{future:?}");
         let mut awol = false;
         for d in ["2025-08-25", "2025-09-01", "2025-09-08", "2025-09-15", "2025-09-22", "2025-09-29", "2025-10-06", "2025-10-13"] {
             monday(&mut g, d);
@@ -1026,7 +1026,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("nextcm-queixas-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
-            save_name: "Queixas".into(),
+            save_name: "Reclamações".into(),
             first_name: "Victor".into(),
             last_name: "Araujo".into(),
             birth_date: None,
@@ -1056,7 +1056,7 @@ mod tests {
         g.world.conn.execute("UPDATE people SET ambition = 16, temperament = 4 WHERE id = ?", [star]).unwrap();
         let news = monday(&mut g, "2025-07-07");
         assert!(g.club_unhappy_reasons(star).unwrap().contains(&reason_text("club_facilities").to_string()));
-        assert!(g.unhappy_reasons(star).unwrap().is_empty(), "as queixas do clube não são pessoais");
+        assert!(g.unhappy_reasons(star).unwrap().is_empty(), "as reclamações do clube não são pessoais");
         assert_eq!(g.player_status(star).unwrap().club_unhappy.len(), g.club_unhappy_reasons(star).unwrap().len());
         assert_eq!(news.iter().filter(|n| n.title == "Jogadores descontentes com o clube" && n.body.contains("instalações")).count(), 1);
         // Instalações boas: a queixa passa

@@ -200,7 +200,7 @@ export default function FriendlyPage({ mode }: { mode: Mode }) {
           )}
           {step === 'clubs' &&
             (clubs === null ? (
-              <Empty>A procurar clubes…</Empty>
+              <Empty>Procurando clubes…</Empty>
             ) : clubs.length === 0 ? (
               <Empty>Nenhum clube deste país pode jogar nesta data.</Empty>
             ) : (

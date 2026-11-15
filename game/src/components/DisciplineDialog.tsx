@@ -44,9 +44,9 @@ export default function DisciplineDialog({
         onCancel={onClose}
         onOk={() => void confirm()}
       >
-        <div className="pb-3 text-[15px] text-white">Especifique os detalhes da acção disciplinar sobre {name}.</div>
+        <div className="pb-3 text-[15px] text-white">Especifique os detalhes da ação disciplinar sobre {name}.</div>
         <div className="flex items-center gap-2 pb-3">
-          <span className="w-44 text-[15px] font-semibold text-white">Acção disciplinar</span>
+          <span className="w-44 text-[15px] font-semibold text-white">Ação disciplinar</span>
           <button className="cm-purple h-7 w-8 px-0" disabled={action === 0} onClick={() => setAction(action - 1)}>
             −
           </button>
@@ -57,9 +57,7 @@ export default function DisciplineDialog({
             +
           </button>
         </div>
-        <div className="pb-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-cm-orange">
-          Razão para a acção disciplinar
-        </div>
+        <div className="pb-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-cm-orange">Razão para a ação disciplinar</div>
         <div className="cm-zebra overflow-hidden rounded bg-black/30">
           {options?.reasons.map((r) => (
             <button

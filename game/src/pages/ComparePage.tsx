@@ -130,8 +130,8 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
               <InfoRow label="Nacionalidade" a={[people[0].nationality ?? '-']} b={[people[1].nationality ?? '-']} />
               <InfoRow
                 label="Internacional"
-                a={[`${people[0].internationalApps} jogos / ${people[0].internationalGoals} golos`, tone(intl[0], intl[1])]}
-                b={[`${people[1].internationalApps} jogos / ${people[1].internationalGoals} golos`, tone(intl[1], intl[0])]}
+                a={[`${people[0].internationalApps} jogos / ${people[0].internationalGoals} gols`, tone(intl[0], intl[1])]}
+                b={[`${people[1].internationalApps} jogos / ${people[1].internationalGoals} gols`, tone(intl[1], intl[0])]}
               />
               <InfoRow
                 label="Nascimento"
@@ -201,7 +201,7 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
                 {(
                   [
                     ['Jogos', (s) => s?.apps ?? 0, false],
-                    ['Golos', (s) => s?.goals ?? 0, false],
+                    ['Gols', (s) => s?.goals ?? 0, false],
                     ['Assistências', (s) => s?.assists ?? 0, false],
                     ['Nota média', (s) => s?.rating ?? 0, false],
                   ] as [string, (s: ReturnType<typeof official>) => number, boolean][]
@@ -211,7 +211,7 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
                   const show = (v: number) => (label === 'Nota média' ? (v ? v.toFixed(2) : '-') : String(v))
                   return <InfoRow key={label} label={label} a={[show(x), tone(x, y)]} b={[show(y), tone(y, x)]} />
                 })}
-                <div className="px-4 pt-2 text-center text-[12px] text-[#8a8a8a]">Jogos oficiais da época no clube.</div>
+                <div className="px-4 pt-2 text-center text-[12px] text-[#8a8a8a]">Jogos oficiais da temporada no clube.</div>
               </div>
             )}
             <div className="px-4 pb-1 text-center text-[12px] text-[#8a8a8a]">

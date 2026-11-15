@@ -11,9 +11,9 @@ type Money = 'goalBonus' | 'assistBonus' | 'cleanSheetBonus'
 type Flag = 'relegation' | 'nonPromotion' | 'managerJob'
 
 const BONUSES: [Money, string][] = [
-  ['goalBonus', 'Prémio por golo marcado'],
-  ['assistBonus', 'Prémio por assistência'],
-  ['cleanSheetBonus', 'Prémio por jogo sem sofrer golos'],
+  ['goalBonus', 'Prêmio por gol marcado'],
+  ['assistBonus', 'Prêmio por assistência'],
+  ['cleanSheetBonus', 'Prêmio por jogo sem sofrer gols'],
 ]
 
 function Row({
@@ -95,9 +95,9 @@ export default function ContractExtrasPanel({
   )
   const minFee = value.minFee
   return (
-    <Panel title={tab === 'bonuses' ? 'Prémios' : 'Cláusulas'} className="shrink-0">
+    <Panel title={tab === 'bonuses' ? 'Prêmios' : 'Cláusulas'} className="shrink-0">
       <div className="px-4 pt-2 text-[14px] text-cm-muted">
-        {tab === 'bonuses' ? 'Propôr ao jogador os seguintes prémios:' : 'Propôr ao jogador as seguintes cláusulas:'}
+        {tab === 'bonuses' ? 'Propor ao jogador os seguintes prêmios:' : 'Propor ao jogador as seguintes cláusulas:'}
       </div>
       <div className="cm-zebra py-1">
         {tab === 'bonuses' ? (
@@ -106,7 +106,7 @@ export default function ContractExtrasPanel({
         ) : (
           <>
             {flag('nonPromotion', 'Cláusula de rescisão (se o clube não subir)')}
-            {flag('relegation', 'Cláusula de dispensa por despromoção')}
+            {flag('relegation', 'Cláusula de dispensa por rebaixamento')}
             <Row
               label="Cláusula de venda"
               on={minFee !== null}

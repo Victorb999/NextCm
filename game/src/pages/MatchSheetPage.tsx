@@ -1,16 +1,16 @@
-import { useLoad } from '../useLoad'
 import { Trophy } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../api'
 import type { MatchSheet } from '../bindings/MatchSheet'
-import MatchLineups from '../components/MatchLineups'
-import { BottomBar, Empty, Link, Panel, ScreenHeader } from '../components/Screen'
-import { longDate, pensText, xgText } from '../format'
-import { sheetLineup } from '../matchLineup'
+import { MatchHistoryBody } from '../components/match/MatchHistory'
+import { BottomBar, Empty, ScreenHeader } from '../components/Screen'
+import { longDate } from '../format'
 import { useEscBack, useNav } from '../nav'
+import { useLoad } from '../useLoad'
 
-// A ficha de uma partida jogada (ao clicar num resultado): as faixas dos dois clubes com o
-// placar e as "Classificações Jogadores" do CM, com quem saiu e quem entrou.
+// A partida jogada (ao clicar num resultado nas notícias, no calendário, nas listas): a tela do
+// CM com a Visão Geral, as estatísticas, as zonas, o relatório, os Dados de cada clube e as
+// Classificações Jogadores (`MatchHistory`).
 
 export default function MatchSheetPage({ id }: { id: number }) {
   const nav = useNav()
@@ -18,26 +18,7 @@ export default function MatchSheetPage({ id }: { id: number }) {
   const [sheet, setSheet] = useState<MatchSheet | null>(null)
   const [error, setError] = useState<string | null>(null)
   useLoad(() => api.matchSheet(id), [id], setSheet, setError)
-
   const f = sheet?.fixture
-  const band = (club: NonNullable<typeof f>['home'], goals: number | null, right: boolean) => (
-    <div
-      className={`flex h-14 flex-1 items-center gap-3 rounded-md px-4 ${right ? 'flex-row-reverse' : ''}`}
-      style={{ color: club.fg ?? '#fff', background: club.bg ?? '#333' }}
-    >
-      <span className="min-w-0 flex-1 truncate font-title text-[26px] font-bold" style={{ textAlign: right ? 'right' : 'left' }}>
-        <Link onClick={() => nav.go({ kind: 'club', id: club.id })}>{club.shortName}</Link>
-      </span>
-      <span className="flex h-10 w-12 items-center justify-center rounded bg-black/80 font-title text-[26px] font-bold text-white">
-        {goals ?? ''}
-      </span>
-    </div>
-  )
-  // A melhor nota do jogo: o homem do jogo
-  const motm = sheet ? ([...sheet.home, ...sheet.away].find((l) => l.mom)?.id ?? null) : null
-  // Os golos esperados de cada lado: a soma dos de quem jogou (0 nos jogos antigos e nas reservas)
-  const sum = (side: MatchSheet['home']) => side.reduce((n, l) => n + l.xg, 0)
-  const xg: [number, number] = sheet ? [sum(sheet.home), sum(sheet.away)] : [0, 0]
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader
@@ -46,29 +27,9 @@ export default function MatchSheetPage({ id }: { id: number }) {
         title={f ? `${f.label} · ${longDate(f.date)}` : 'Partida'}
       />
       {error && <Empty>{error}</Empty>}
-      {sheet && f && (
-        <div className="mx-2 flex min-h-0 flex-1 flex-col gap-2">
-          <div className="flex shrink-0 gap-2">
-            {band(f.home, f.homeGoals, false)}
-            {band(f.away, f.awayGoals, true)}
-          </div>
-          {pensText(f) && <div className="shrink-0 text-center text-[14px] text-cm-yellow">{pensText(f)}</div>}
-          {xg[0] + xg[1] > 0 && (
-            <div className="flex shrink-0 items-center justify-center gap-3 text-[14px]">
-              <span className="w-14 rounded bg-black/60 text-center font-bold text-cm-magenta">{xgText(xg[0])}</span>
-              <span className="text-cm-text">Golos Esperados</span>
-              <span className="w-14 rounded bg-black/60 text-center font-bold text-cm-magenta">{xgText(xg[1])}</span>
-            </div>
-          )}
-          <Panel title="Classificações Jogadores" className="min-h-0 flex-1">
-            <div className="min-h-0 flex-1 overflow-auto">
-              <MatchLineups
-                home={{ club: f.home, entries: sheetLineup(sheet.home) }}
-                away={{ club: f.away, entries: sheetLineup(sheet.away) }}
-                motm={motm}
-              />
-            </div>
-          </Panel>
+      {sheet && (
+        <div className="mx-2 flex min-h-0 flex-1 flex-col">
+          <MatchHistoryBody sheet={sheet} />
         </div>
       )}
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />

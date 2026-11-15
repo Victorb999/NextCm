@@ -124,7 +124,7 @@ export function Row({
       <span
         onMouseDown={(e) => onToggle && e.stopPropagation()}
         onClick={toggle}
-        title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
+        title={onToggle ? 'Clique para pôr/tirar do time' : undefined}
         className={`${COL.num} font-semibold tabular-nums ${text} ${onToggle ? 'cursor-pointer' : ''}`}
       >
         {p.squadNumber ?? ''}
@@ -288,7 +288,7 @@ export function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: ()
   const i = t.instructions
   const name = (id: number | null) => {
     const p = t.starters.find((s) => s.player?.id === id)?.player
-    return p ? surname(p.listName) : 'Adjunto'
+    return p ? surname(p.listName) : 'Auxiliar'
   }
   const items: [string, string, boolean][] = [
     ['Mentalidade', MENTALITY.find(([k]) => k === i.mentality)?.[1] ?? '-', true],
@@ -298,7 +298,7 @@ export function InstructionsSummary({ t, onEdit }: { t: ClubTactics; onEdit?: ()
     ['Defesa em Linha', i.offsideTrap ? 'Sim' : 'Não', i.offsideTrap],
     ['Contra-Ataque', i.counterAttack ? 'Sim' : 'Não', i.counterAttack],
     ['Defesa Intensa', i.tightMarking ? 'Sim' : 'Não', i.tightMarking],
-    ['Penáltis', name(t.takers.penalty), false],
+    ['Pênaltis', name(t.takers.penalty), false],
     ['Livres', name(t.takers.freeKick), false],
   ]
   return (

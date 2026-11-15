@@ -14,19 +14,19 @@ use ts_rs::TS;
 /// Categorias do livro de contas (a chave no save e o texto da tela de Finanças), pela ordem
 /// do CM. Os cartões anuais e os investimentos ficam a zero, como no CM do patch.
 pub const INCOME: [(&str, &str); 9] = [
-    ("gate", "Receitas Bilheteira"),
+    ("gate", "Receitas Bilheteria"),
     ("season_tickets", "Cartões Anuais"),
     ("tv", "Receitas TV"),
     ("merchandising", "Merchandising"),
     ("sales", "Jogadores Vendidos"),
-    ("prizes", "Prémios em Dinheiro"),
+    ("prizes", "Prêmios em Dinheiro"),
     ("investments", "Investimentos"),
     ("interest_income", "Juros"),
     ("other", "Outros"),
 ];
 pub const EXPENSES: [(&str, &str); 9] = [
     ("wages", "Salário"),
-    ("match_bonuses", "Prémios"),
+    ("match_bonuses", "Prêmios"),
     ("bonuses", "Luvas"),
     ("dividends", "Dividendos"),
     ("purchases", "Jogadores Comprados"),

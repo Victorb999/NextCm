@@ -72,7 +72,7 @@ export default function ClubDialog({
           <div className="flex flex-col gap-2 text-white">
             <div className="flex items-baseline gap-3">
               <span className="font-title text-[22px]">{draft.name}</span>
-              {clubDirty(edit) && <span className="text-[13px] text-cm-yellow">Alterações por gravar</span>}
+              {clubDirty(edit) && <span className="text-[13px] text-cm-yellow">Alterações por salvar</span>}
               <button className="cm-purple ml-auto h-7 px-3 text-[13px]" onClick={() => onSquad(draft.id)}>
                 Listar jogadores na janela principal
               </button>
@@ -118,7 +118,7 @@ export default function ClubDialog({
                     )}
                     {draft.maxWage != null && (
                       <div className={ROW}>
-                        <span className="flex-1">Salário máximo actual</span>
+                        <span className="flex-1">Salário máximo atual</span>
                         <span className="w-32 pr-2 text-right font-mono text-cm-yellow">{draft.maxWage}</span>
                       </div>
                     )}
@@ -165,7 +165,7 @@ export default function ClubDialog({
                   </div>
                 </div>
                 <div className={BOX}>
-                  <Header>Equipamentos</Header>
+                  <Header>Uniformes</Header>
                   <div className="flex gap-3">
                     <div className="flex-1">
                       <ColorField label="Principal · texto" value={draft.homeFg} onChange={(v) => set({ homeFg: v })} />

@@ -55,7 +55,7 @@ export function SquadGrid({
         <span
           onMouseDown={stop}
           onClick={toggle}
-          title={onToggle ? 'Clique para pôr/tirar da equipa' : undefined}
+          title={onToggle ? 'Clique para pôr/tirar do time' : undefined}
           className={`w-10 shrink-0 text-center font-mono text-[12px] 
             font-bold ${e.badge ? 'cm-chip' : 'h-[18px] rounded bg-black/50'} ${onToggle ? 'cursor-pointer' : ''}`}
         >

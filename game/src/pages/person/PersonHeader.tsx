@@ -47,7 +47,7 @@ export default function PersonHeader({ p, action, tabs }: { p: PersonProfile | n
           <button
             data-menu-anchor
             className="cm-purple flex h-[44px] w-6 shrink-0 items-center justify-center text-[13px]"
-            title="Plantel do clube"
+            title="Elenco do clube"
             aria-expanded={!!squadMenu}
             onClick={openSquadMenu}
           >
@@ -103,7 +103,7 @@ export default function PersonHeader({ p, action, tabs }: { p: PersonProfile | n
                 <>
                   {' '}
                   (<b className="text-cm-yellow">{p.internationalApps}</b> internac. /{' '}
-                  <b className="text-cm-yellow">{p.internationalGoals}</b> golos)
+                  <b className="text-cm-yellow">{p.internationalGoals}</b> gols)
                 </>
               )}
               {pl && !p.ghost && (

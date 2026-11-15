@@ -351,12 +351,12 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
     const items: MenuNode[] = []
     if (mine && !reserves && club.reservesName)
       items.push({
-        label: 'Plantel de Reservas',
+        label: 'Elenco de Reservas',
         onSelect: () => nav.go({ kind: 'club', id, reserves: true }),
       })
     if (reserves)
       items.push({
-        label: 'Plantel Principal',
+        label: 'Elenco Principal',
         onSelect: () => nav.go({ kind: 'club', id }),
       })
     // As equipas B/II (Bayern Munich II...) são outros clubes: ficam na lista da divisão delas
@@ -384,10 +384,10 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
   }
 
   const filterOptions: MenuOption<string>[] = reserves
-    ? [...FILTER_OPTIONS, 'separator', { key: 'seniors', label: 'Incluir Séniores' }]
+    ? [...FILTER_OPTIONS, 'separator', { key: 'seniors', label: 'Incluir Seniores' }]
     : mine
       ? club?.reservesName
-        ? [...FILTER_OPTIONS, 'separator', { key: 'reserves', label: 'Equipa de Reservas' }]
+        ? [...FILTER_OPTIONS, 'separator', { key: 'reserves', label: 'Time de Reservas' }]
         : FILTER_OPTIONS
       : FILTER_OPTIONS
   const filterChecked = (key: string) => {
@@ -487,7 +487,7 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
       {tab === 'squad' && (
         <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-cm-headdeep px-2 py-1.5">
           <PurpleMenu
-            label="Vêr"
+            label="Ver"
             options={VIEWS}
             value={view}
             onChange={(v) => {
@@ -520,14 +520,14 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
               disabled={reserves ? !reserveView || !reserveLineup?.picks.length : !tactics || !teamView}
               onClick={() => void (reserves ? setPicks([]) : clearTeam())}
             >
-              Limpar Equipa
+              Limpar Time
             </button>
           )}
           {mine && (
             <button
               className="cm-purple h-6 w-40"
               disabled={!game.info?.numbersOpen}
-              title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-época'}
+              title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-temporada'}
               onClick={() => nav.go({ kind: 'squadNumbers' })}
             >
               Números
@@ -599,26 +599,26 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
               {reserveView && (
                 <span className="ml-2 self-center text-[11px] text-cm-dim">
                   {reserveLineup.picks.length
-                    ? `Escolheu ${reserveLineup.picks.length} · o adjunto completa o onze`
-                    : 'O adjunto escolhe o onze'}{' '}
-                  · clique no número ou na casa para pôr/tirar da equipa das reservas
+                    ? `Escolheu ${reserveLineup.picks.length} · o auxiliar completa o onze`
+                    : 'O auxiliar escolhe o onze'}{' '}
+                  · clique no número ou na casa para pôr/tirar do time das reservas
                 </span>
               )}
               {reserveView && (
                 <label
                   className="ml-2 flex cursor-pointer items-center gap-1 self-center text-[11px] text-cm-lilac"
-                  title="O adjunto desce até 4 do plantel principal com poucos minutos ou de volta de lesão"
+                  title="O auxiliar desce até 4 do elenco principal com poucos minutos ou de volta de lesão"
                 >
                   <input
                     type="checkbox"
                     checked={reserveLineup.rhythm}
                     onChange={(e) => void api.setReserveRhythm(e.target.checked).then(setReserveLineup)}
                   />
-                  Usar o plantel principal para ganhar ritmo
+                  Usar o elenco principal para ganhar ritmo
                 </label>
               )}
               {reserveView && guests.length > 0 && (
-                <span className="ml-2 self-center text-[11px] text-cm-mint" title="Do plantel principal, para ganhar ritmo">
+                <span className="ml-2 self-center text-[11px] text-cm-mint" title="Do elenco principal, para ganhar ritmo">
                   Descem para ganhar ritmo: {guests.map((g) => `${shortListName(g.name)} (${shortRole(g.role)})`).join(', ')}
                 </span>
               )}
@@ -648,7 +648,7 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
                   onToggle={reserveView ? toggleReserve : mine && tactics && teamView ? (e) => void toggle(e) : undefined}
                 />
               ) : (
-                <Empty>{filtered ? 'Nenhum jogador com este filtro.' : 'Ninguém registado.'}</Empty>
+                <Empty>{filtered ? 'Nenhum jogador com este filtro.' : 'Ninguém registrado.'}</Empty>
               )}
             </div>
           </>
@@ -703,19 +703,19 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
       <div className="mt-2">
         <Tabs
           tabs={[
-            { key: 'tactics', label: 'Tácticas' },
+            { key: 'tactics', label: 'Táticas' },
             { key: 'training', label: 'Treino', disabled: !mine },
             { key: 'last', label: 'Último Jogo', disabled: !lastMatch },
             // Num clube de reservas ou juniores, o atalho leva à Equipa Principal
             club?.parent
-              ? { key: 'parent', label: 'Equipa Principal' }
+              ? { key: 'parent', label: 'Time Principal' }
               : {
                   key: 'division',
                   // Com o lugar na liga, como o "4º A" do CM
                   label: division ? `${club?.leaguePosition != null ? `${club.leaguePosition}º ` : ''}${division.shortName}` : '-',
                   disabled: !division,
                 },
-            { key: 'history', label: 'Historial' },
+            { key: 'history', label: 'Histórico' },
           ]}
           active={tab === 'last' ? 'last' : ''}
           onChange={(k) => {

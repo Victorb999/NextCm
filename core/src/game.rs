@@ -42,6 +42,7 @@ mod manager_career;
 mod market;
 mod market_view;
 mod match_analysis;
+mod match_reports;
 mod negotiation;
 mod new_game;
 mod news_links;
@@ -165,7 +166,8 @@ pub use training::{TrainingPlan, TrainingView};
 /// 70: contratar staff (`staff_talks`, `staff_refills`), 4.0 item 24.
 /// 71: os favoritos e detestados de cada clube (`club_preferences`, do `club.dat`), editor.
 /// 72: a opção do ritmo nas reservas (`game.reserve_rhythm`), marco 4.1.
-pub const SAVE_VERSION: i32 = 72;
+/// 74: as partidas jogadas guardadas para a ficha como a do CM (`match_reports`).
+pub const SAVE_VERSION: i32 = 74;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -782,7 +784,7 @@ impl Game {
         let first = new.first_name.trim();
         let last = new.last_name.trim();
         if first.is_empty() || last.is_empty() {
-            return Err(Error::Invalid("Indique o nome e o apelido do treinador.".into()));
+            return Err(Error::Invalid("Indique o nome e o sobrenome do treinador.".into()));
         }
         if let Some(b) = &new.birth_date
             && date::parse(b).is_none()
@@ -794,7 +796,7 @@ impl Game {
         if path.exists() {
             return Err(Error::Invalid(format!("Já existe um jogo chamado \"{}\".", new.save_name.trim())));
         }
-        crate::progress::set("A copiar a base de dados…", 0.02);
+        crate::progress::set("Copiando a base de dados…", 0.02);
         std::fs::copy(world_path, &path)?;
         // Um world.sqlite de antes do esquema 8 não tem as instalações nem o aquecimento
         add_world_columns(&rusqlite::Connection::open(&path)?, world_path)?;
@@ -804,7 +806,7 @@ impl Game {
         crate::nation_names::translate_nations(&rusqlite::Connection::open(&path)?)?;
 
         let result = (|| {
-            crate::progress::set("A preparar o jogo…", 0.08);
+            crate::progress::set("Preparando o jogo…", 0.08);
             let mut world = World::open_save(&path)?;
             // O patch é de 2025/26; a Europa 26/27 começa um ano depois com os mesmos dados
             if new.start == StartSeason::Europe {
@@ -868,6 +870,7 @@ impl Game {
             tx.execute_batch(retirement::RETIREMENT_SCHEMA)?;
             tx.execute_batch(awards::AWARDS_SCHEMA)?;
             tx.execute_batch(staff_hire::STAFF_HIRE_SCHEMA)?;
+            tx.execute_batch(match_reports::REPORTS_SCHEMA)?;
             tx.execute_batch(board::SHIFT_SCHEMA)?;
             // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
             let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
@@ -953,15 +956,15 @@ impl Game {
             game.comp_nations = leagues::comp_nations(&game.world)?;
             let club_nation: Option<i32> =
                 game.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [new.club_id], |r| r.get(0)).unwrap_or(None);
-            crate::progress::set("A escolher as ligas…", 0.15);
+            crate::progress::set("Escolhendo as ligas…", 0.15);
             game.set_league_modes(&new.leagues, club_nation)?;
             // Como o CM ao começar: os atributos que o patch não define são gerados
-            crate::progress::set("A completar os atributos dos jogadores…", 0.2);
+            crate::progress::set("Completando os atributos dos jogadores…", 0.2);
             game.fill_missing_attributes()?;
-            crate::progress::set("A sortear os calendários…", 0.35);
+            crate::progress::set("Sorteando os calendários…", 0.35);
             game.schedule_season(SeasonKind::Calendar, year, &mut fresh, &mut next_id)?;
             game.schedule_season(SeasonKind::European, year, &mut fresh, &mut next_id)?;
-            crate::progress::set("A tratar dos empréstimos e dos contratos…", 0.5);
+            crate::progress::set("Tratando dos empréstimos e dos contratos…", 0.5);
             // Os empréstimos em curso de 2025/26 (o banco do CM não os tem)
             game.start_loans(if new.start == StartSeason::Europe { 1 } else { 0 })?;
             // O resto do player_setup.cfg: lesões, transferências acertadas, reformas e castigos
@@ -970,7 +973,7 @@ impl Game {
             if new.start == StartSeason::Europe {
                 game.start_contracts(&mut fresh, &mut next_id)?;
             }
-            crate::progress::set("A completar os plantéis…", 0.6);
+            crate::progress::set("Completando os elencos…", 0.6);
             game.complete_squads()?;
             numbers::fix_squad_numbers(&game.world, &[game.club_id], game.seed, None)?;
             game.refresh_live()?;
@@ -987,7 +990,7 @@ impl Game {
             }
             game.fit_start_wages()?;
             game.fill_staff_attributes()?;
-            crate::progress::set("A apresentar o treinador à Direcção…", 0.7);
+            crate::progress::set("Apresentando o treinador à Diretoria…", 0.7);
             game.board_setup()?;
             game.career_join(new.club_id)?;
             game.set_license(new.license)?;
@@ -995,7 +998,7 @@ impl Game {
             game.set_favourite_club(new.favourite_club)?;
             game.world.conn.execute("UPDATE game SET masking = ?", [new.masking])?;
             if !new.real_players {
-                crate::progress::set("A inventar os nomes dos jogadores…", 0.71);
+                crate::progress::set("Inventando os nomes dos jogadores…", 0.71);
                 game.invent_names()?;
             }
             game.start_reserves()?;
@@ -1006,7 +1009,7 @@ impl Game {
             for n in game.first_messages(new.favourite_club)? {
                 game.news.insert(0, n);
             }
-            crate::progress::set("A gravar o jogo…", 0.98);
+            crate::progress::set("Salvando o jogo…", 0.98);
             game.save()?;
             Ok(game)
         })();
@@ -1031,7 +1034,7 @@ impl Game {
         // A economia moderna (3.22) muda salários, saldos e receitas de todos: os jogos de antes não abrem
         if version < 56 {
             return Err(Error::Invalid(
-                "Jogo gravado antes da economia nova do NextCM (salários e receitas de hoje): comece um jogo novo.".into(),
+                "Jogo salvo antes da economia nova do NextCM (salários e receitas de hoje): comece um jogo novo.".into(),
             ));
         }
         let mut version = version;
@@ -1062,7 +1065,7 @@ impl Game {
             let played: i64 = world.conn.query_row("SELECT COUNT(*) FROM fixtures WHERE home_goals IS NOT NULL", [], |r| r.get(0))?;
             if played > 0 {
                 return Err(Error::Invalid(
-                    "Este jogo foi gravado com a época de julho a junho (antes das novas competições) e já tem jogos                      disputados. Comece um jogo novo."
+                    "Este jogo foi salvo com a temporada de julho a junho (antes das novas competições) e já tem jogos                      disputados. Comece um jogo novo."
                         .into(),
                 ));
             }
@@ -1460,11 +1463,35 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 72", [])?;
             version = 72;
         }
+        // Save 73: os textos do jogo em português do Brasil (nações, amistosos, lesões de antes da temporada)
+        if version == 72 {
+            crate::nation_names::brazilian_nations(&world.conn)?;
+            world.conn.execute_batch(
+                "UPDATE competitions SET name = 'Amistosos', short_name = 'Amistosos' WHERE id = 72;
+                 UPDATE competitions SET name = 'Amistosos Internacionais', short_name = 'Amistosos' WHERE id = 458;
+                 UPDATE injury_log SET kind = 'Antes da temporada' WHERE kind = 'Antes da época';",
+            )?;
+            world.conn.execute("UPDATE game SET version = 73", [])?;
+            version = 73;
+        }
+        // Save 74: as partidas jogadas guardadas (as de antes ficam só com as notas)
+        if version == 73 {
+            world.conn.execute_batch(match_reports::REPORTS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 74", [])?;
+            version = 74;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
-                "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
+                "Jogo salvo numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
             )));
         }
+        // Empréstimos esquecidos: o jogador foi depois comprado ou contratado a custo zero (a
+        // contratação não os apagava e ele voltava ao clube dono no fim do empréstimo)
+        world.conn.execute(
+            "DELETE FROM loans WHERE (SELECT t.kind FROM transfers t WHERE t.person_id = loans.person_id
+                                      ORDER BY t.date DESC, t.rowid DESC LIMIT 1) IN ('transfer', 'free')",
+            [],
+        )?;
         let news = world
             .conn
             .prepare("SELECT id, date, kind, title, body, read, offer_id, link, part FROM news ORDER BY date DESC, id DESC")?
@@ -1622,7 +1649,7 @@ impl Game {
         // preparados com a mesma seed); a meio da partida não
         let pending: Vec<NewsItem> = match &self.live {
             Some(day) if day.games.get(day.user).is_some_and(|(_, l)| !l.started()) => day.news.clone(),
-            Some(_) => return Err(Error::Invalid("Não é possível gravar durante um jogo.".into())),
+            Some(_) => return Err(Error::Invalid("Não é possível salvar durante um jogo.".into())),
             None => Vec::new(),
         };
         // O save vive numa transação aberta (ver `create`): aqui grava a memória e faz o commit
@@ -1812,7 +1839,7 @@ impl Game {
         let unnumbered = if unemployed { Vec::new() } else { self.unnumbered_for_next_match()? };
         if !unnumbered.is_empty() {
             if self.watch {
-                return Err(Error::Invalid("Há convocados sem número de camisola: defina os números do plantel.".into()));
+                return Err(Error::Invalid("Há convocados sem número de camisa: defina os números do elenco.".into()));
             }
             let current: Vec<NumberAssign> =
                 self.squad_numbers()?.players.iter().map(|p| NumberAssign { id: p.id, number: p.number }).collect();
@@ -2073,14 +2100,28 @@ impl Game {
         // Os internacionais do treinador que jogaram hoje pelas selecções
         if !internationals_played.is_empty() {
             let title = match internationals_played.as_slice() {
-                [one] => format!("{} jogou pela selecção", one.split(':').next().unwrap_or_default()),
+                [one] => format!("{} jogou pela seleção", one.split(':').next().unwrap_or_default()),
                 _ => "Os internacionais do clube em campo".to_string(),
             };
-            let body = format!("Jogaram hoje pelas selecções:\n\n{}", internationals_played.join("\n"));
+            let body = format!("Jogaram hoje pelas seleções:\n\n{}", internationals_played.join("\n"));
             fresh.push(self.news_item(next_id, "message", title, body));
             next_id += 1;
         }
-        for (i, live) in &day.games {
+        for (k, (i, live)) in day.games.iter().enumerate() {
+            // A partida inteira para a ficha (o do treinador com o estádio do dia)
+            let mut view = live.view(&[]);
+            let extras = if k == day.user { day.extras.clone() } else { None };
+            let extras = match extras {
+                Some(x) => x,
+                None => self.match_extras(*i)?,
+            };
+            view.venue = extras.venue;
+            view.city = extras.city;
+            view.weather = extras.weather;
+            view.referee = extras.referee;
+            view.attendance = extras.attendance;
+            view.user_side = None;
+            self.store_report(live.fixture.id, view)?;
             let m = &self.matches[*i];
             if self.comp_mode(m.competition_id) == leagues::LeagueMode::Play && !internationals::is_national_comp(m.competition_id) {
                 self.record_match(m.id, m.competition_id, [m.home_id, m.away_id], [live.player_lines(0), live.player_lines(1)])?;
@@ -2399,7 +2440,7 @@ impl Game {
                     "injury",
                     format!("{name} lesionado"),
                     format!(
-                        "{name} sofreu uma lesão no jogo de hoje: {}.\n\nO departamento médico prevê cerca de {days} dias de paragem (regresso a {back}).",
+                        "{name} sofreu uma lesão no jogo de hoje: {}.\n\nO departamento médico prevê cerca de {days} dias de recuperação (volta em {back}).",
                         injury.to_lowercase()
                     ),
                 ))
@@ -2424,14 +2465,14 @@ impl Game {
                     let why = if st.injury.is_some() { "lesionado" } else { "suspenso" };
                     format!("Sai {} ({why}), entra {inn}.", self.person_name(out)?)
                 }
-                None => format!("Entra {inn} para completar a equipa."),
+                None => format!("Entra {inn} para completar o time."),
             });
         }
         Ok(self.news_item(
             id,
             "message",
-            "Alterações na equipa".into(),
-            format!("O seu adjunto fez alterações na equipa para o jogo de hoje:\n\n{}", lines.join("\n")),
+            "Alterações no time".into(),
+            format!("O seu auxiliar fez alterações no time para o jogo de hoje:\n\n{}", lines.join("\n")),
         ))
     }
 
@@ -2520,25 +2561,15 @@ impl Game {
     }
 
     /// Ficha do "Próximo Jogo" para uma partida.
-    pub fn match_preview(&self, fixture_id: i32) -> Result<MatchPreview> {
-        let m = self.matches.iter().find(|m| m.id == fixture_id).ok_or_else(|| Error::NotFound(format!("partida {fixture_id}")))?;
+    /// O estádio, a cidade, o tempo e o gramado de uma partida (o tempo é um sorteio fixo por
+    /// partida, pela estação do ano no Brasil).
+    fn venue_and_weather(&self, m: &Match) -> Result<(Option<String>, Option<String>, String, &'static str)> {
         let (venue, city, roof): (Option<String>, Option<String>, bool) = self.world.conn.query_row(
             "SELECT s.name, ci.name, COALESCE(s.retractable_roof, 0) <> 0 FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id
              LEFT JOIN cities ci ON ci.id = s.city_id WHERE c.id = ?",
             [m.home_id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )?;
-        let last_meeting = self
-            .matches
-            .iter()
-            .filter(|o| {
-                o.result.is_some()
-                    && o.date < m.date
-                    && ((o.home_id == m.home_id && o.away_id == m.away_id) || (o.home_id == m.away_id && o.away_id == m.home_id))
-            })
-            .max_by(|a, b| a.date.cmp(&b.date))
-            .map(|o| self.fixture(o));
-
         // Tempo: estação do ano no Brasil e um sorteio fixo por partida
         let mut rng = engine::match_rng(self.seed ^ 0x7E47_4E52, m.id);
         let roll = |rng: &mut ChaCha8Rng| engine::uniform(rng);
@@ -2563,6 +2594,22 @@ impl Game {
         } else {
             ("Chuva forte", "Encharcado")
         };
+        Ok((venue, city, format!("{weather}, {temp}°C"), pitch))
+    }
+
+    pub fn match_preview(&self, fixture_id: i32) -> Result<MatchPreview> {
+        let m = self.matches.iter().find(|m| m.id == fixture_id).ok_or_else(|| Error::NotFound(format!("partida {fixture_id}")))?;
+        let (venue, city, weather, pitch) = self.venue_and_weather(m)?;
+        let last_meeting = self
+            .matches
+            .iter()
+            .filter(|o| {
+                o.result.is_some()
+                    && o.date < m.date
+                    && ((o.home_id == m.home_id && o.away_id == m.away_id) || (o.home_id == m.away_id && o.away_id == m.home_id))
+            })
+            .max_by(|a, b| a.date.cmp(&b.date))
+            .map(|o| self.fixture(o));
 
         let news = |club: i32| -> Result<Vec<PlayerNews>> {
             let mut out = Vec::new();
@@ -2572,7 +2619,7 @@ impl Game {
                 let st = self.squads.state(id);
                 if let Some(injury) = &st.injury {
                     let back = st.injury_until.as_deref().map(cm_date).unwrap_or_default();
-                    let text = format!("lesionado ({}, regresso a {back})", injury.to_lowercase());
+                    let text = format!("lesionado ({}, volta em {back})", injury.to_lowercase());
                     out.push(PlayerNews { id, name: self.person_name(id)?, text });
                 } else if st.suspended_in(Some(m.competition_id)) > 0 {
                     out.push(PlayerNews { id, name: self.person_name(id)?, text: "suspenso".into() });
@@ -2585,7 +2632,7 @@ impl Game {
             venue,
             city,
             last_meeting,
-            weather: format!("{weather}, {temp}°C"),
+            weather,
             pitch: pitch.into(),
             home_news: news(m.home_id)?,
             away_news: news(m.away_id)?,
@@ -2644,7 +2691,7 @@ impl Game {
             .map(|(h, a)| {
                 let (pf, pa) = if at_home { (h, a) } else { (a, h) };
                 let how = if pf > pa { "passou" } else { "foi eliminado" };
-                format!(" Nos penáltis, o {} {how} ({pf}-{pa}).", ours.short_name)
+                format!(" Nos pênaltis, o {} {how} ({pf}-{pa}).", ours.short_name)
             })
             .unwrap_or_default();
         let mut scorers = String::new();
@@ -2656,7 +2703,7 @@ impl Game {
             }
         }
         if !scorers.is_empty() {
-            scorers = format!("\n\nMarcadores:{scorers}");
+            scorers = format!("\n\nGols:{scorers}");
         }
         NewsItem {
             id,
@@ -2687,7 +2734,7 @@ impl Game {
         let mut body = match (table.first(), single_stage) {
             (Some(first), true) => {
                 let mut b =
-                    format!("O {champion} sagrou-se campeão {} {label} com {} pontos", self.of_competition(competition_id), first.points);
+                    format!("O {champion} se sagrou campeão {} {label} com {} pontos", self.of_competition(competition_id), first.points);
                 if let Some(s) = table.get(1) {
                     b += &format!(", {} à frente do {}", first.points - s.points, s.club.short_name);
                 }
@@ -2740,7 +2787,7 @@ impl Game {
         }
         let us = self.club(self.club_id).short_name;
         let label = regulation::season_label(first.competition_id, regulation::season_of(first.competition_id, &first.date));
-        let mut body = format!("Época {label}: o {us} joga ");
+        let mut body = format!("Temporada {label}: o {us} joga ");
         let names: Vec<String> = comps
             .iter()
             .map(|&c| {
@@ -2753,7 +2800,7 @@ impl Game {
         body += ".";
         let (verb, other) = if first.home_id == self.club_id { ("recebe", first.away_id) } else { ("visita", first.home_id) };
         body += &format!(
-            "\n\nO primeiro jogo é a {}: o {us} {verb} o {} ({}, {}).",
+            "\n\nO primeiro jogo é em {}: o {us} {verb} o {} ({}, {}).",
             cm_date(&first.date),
             self.club(other).short_name,
             self.competition_name(first.competition_id),
@@ -2841,7 +2888,7 @@ impl Game {
         while self.date < day {
             // O 2º semestre de 2025 é o mais demorado: a barra anda com os dias
             let done = (date::parse(&self.date).unwrap_or(first) - first) as f64 / total;
-            crate::progress::set(&format!("A jogar o 2º semestre de 2025: {}…", cm_date(&self.date)), 0.72 + 0.25 * done);
+            crate::progress::set(&format!("Jogando o 2º semestre de 2025: {}…", cm_date(&self.date)), 0.72 + 0.25 * done);
             self.advance_day()?;
         }
         self.prestart = false;
@@ -2938,32 +2985,37 @@ impl Game {
     /// Estádio e tempo (os do Próximo Jogo), árbitro e assistência de uma partida.
     fn match_extras(&self, index: usize) -> Result<MatchExtras> {
         let m = &self.matches[index];
-        let preview = self.match_preview(m.id)?;
+        let (venue, city, weather, _) = self.venue_and_weather(m)?;
         let mut rng = engine::match_rng(self.seed ^ 0x00A7_7E4D, m.id);
         // Árbitro: um nome e um apelido de pessoas da nação do clube da casa (um nome inventado)
         let nation: Option<i32> = self.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [m.home_id], |r| r.get(0))?;
-        let count: i64 = self.world.conn.query_row(
-            "SELECT COUNT(*) FROM people WHERE nation_id IS ? AND first_name <> '' AND second_name <> ''",
-            [nation],
-            |r| r.get(0),
-        )?;
-        let mut name_at = |col: &str| -> Result<String> {
-            let offset = (rand_core::RngCore::next_u64(&mut rng) % count.max(1) as u64) as i64;
-            Ok(self.world.conn.query_row(
-                &format!("SELECT {col} FROM people WHERE nation_id IS ? AND first_name <> '' AND second_name <> '' LIMIT 1 OFFSET ?"),
-                params![nation, offset],
-                |r| r.get::<_, String>(0),
-            )?)
+        // Um id ao acaso na faixa dos da nação e o primeiro com nome a partir dele (pelo índice da
+        // nação; um OFFSET varria a tabela a cada jogo)
+        let (low, high): (Option<i32>, Option<i32>) =
+            self.world
+                .conn
+                .query_row("SELECT MIN(id), MAX(id) FROM people WHERE nation_id IS ?", [nation], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        let mut name_at = |col: &str| -> Result<Option<String>> {
+            let (Some(low), Some(high)) = (low, high) else { return Ok(None) };
+            let from = low + (rand_core::RngCore::next_u64(&mut rng) % (high - low + 1).max(1) as u64) as i32;
+            let sql = format!(
+                "SELECT {col} FROM people WHERE nation_id IS ?1 AND first_name <> '' AND second_name <> '' AND id >= ?2 ORDER BY id LIMIT 1"
+            );
+            let found: Option<String> = self.world.conn.query_row(&sql, params![nation, from], |r| r.get(0)).optional()?;
+            Ok(match found {
+                Some(n) => Some(n),
+                None => self.world.conn.query_row(&sql, params![nation, low], |r| r.get(0)).optional()?,
+            })
         };
-        let referee = if count > 0 {
-            let (first, last) = (name_at("first_name")?, name_at("second_name")?);
-            let first = first.split_whitespace().next().unwrap_or_default().to_string();
-            format!("{first} {}", last.split_whitespace().last().unwrap_or_default())
-        } else {
-            "-".into()
+        let referee = match (name_at("first_name")?, name_at("second_name")?) {
+            (Some(first), Some(last)) => {
+                let first = first.split_whitespace().next().unwrap_or_default().to_string();
+                format!("{first} {}", last.split_whitespace().last().unwrap_or_default())
+            }
+            _ => "-".into(),
         };
         let attendance = self.attendance(m)?;
-        Ok(MatchExtras { venue: preview.venue, city: preview.city, weather: preview.weather, referee, attendance })
+        Ok(MatchExtras { venue, city, weather, referee, attendance })
     }
 
     /// Joga até ao minuto `minute` (no máximo 90).
@@ -2996,7 +3048,7 @@ impl Game {
     pub fn live_preview_tactics(&self, sel: &Selection) -> Result<ClubTactics> {
         let day = self.live_day()?;
         let live = &day.games[day.user].1;
-        let side = live.user_side().ok_or_else(|| Error::Invalid("Este jogo não é da sua equipa.".into()))?;
+        let side = live.user_side().ok_or_else(|| Error::Invalid("Este jogo não é do seu time.".into()))?;
         let mut t = live.tactics(&self.world, side, Some(sel))?;
         self.mark_key_players(&mut t)?;
         Ok(t)
@@ -3229,7 +3281,7 @@ fn competition_names(world: &World, matches: &[Match]) -> Result<HashMap<i32, St
 
 /// A preposição com o artigo antes do nome de uma competição: "do", "da" ou "das".
 fn article(name: &str) -> &'static str {
-    if ["Campeonato", "Mundial", "Euro"].iter().any(|p| name.starts_with(p)) {
+    if ["Campeonato", "Mundial"].iter().any(|p| name.starts_with(p)) {
         "do"
     } else if name.starts_with("Eliminatórias") {
         "das"
@@ -3349,11 +3401,11 @@ pub(super) fn of_name(name: &str) -> String {
     format!("{} {name}", article(name))
 }
 
-/// "2025-08-02" → "2.8.2025", como nas notícias do CM.
+/// "2025-08-02" → "2/8/2025".
 fn cm_date(iso: &str) -> String {
     let mut it = iso.split('-').map(|p| p.trim_start_matches('0'));
     let (y, m, d) = (it.next().unwrap_or(""), it.next().unwrap_or(""), it.next().unwrap_or(""));
-    format!("{d}.{m}.{y}")
+    format!("{d}/{m}/{y}")
 }
 
 /// Mensagem de boas-vindas da direção, com a expectativa pela reputação do clube na divisão.
@@ -3366,8 +3418,8 @@ fn welcome_news(world: &World, club: &ClubRef, manager: &str, date: &str) -> Res
         kind: "message".into(),
         title: format!("Bem-vindo ao {}", club.short_name),
         body: format!(
-            "A Direcção do {} dá as boas-vindas a {manager} como novo treinador.\n\n\
-             Para esta época, a Direcção espera que a equipa consiga {goal}{league}.",
+            "A Diretoria do {} dá as boas-vindas a {manager} como novo treinador.\n\n\
+             Para esta temporada, a Diretoria espera que o time consiga {goal}{league}.",
             club.name
         ),
         read: false,
@@ -3383,7 +3435,7 @@ pub fn delete_save(dir: &Path, file: &str) -> Result<()> {
     let name = Path::new(file).file_name().ok_or_else(|| Error::Invalid("Arquivo inválido.".into()))?;
     let path = dir.join(name);
     if path.extension().and_then(|e| e.to_str()) != Some("sqlite") || !path.exists() {
-        return Err(Error::Invalid("Esse jogo gravado não existe.".into()));
+        return Err(Error::Invalid("Esse jogo salvo não existe.".into()));
     }
     std::fs::remove_file(&path)?;
     Ok(())
@@ -3482,7 +3534,7 @@ mod tests {
 
     #[test]
     fn file_stem_is_safe() {
-        assert_eq!(file_stem(" Minha época/1 ").unwrap(), "Minha época_1");
+        assert_eq!(file_stem(" Minha temporada/1 ").unwrap(), "Minha temporada_1");
         assert!(file_stem("   ").is_err());
     }
 
@@ -3500,11 +3552,11 @@ mod tests {
         // Boas-vindas, calendário da época de transição, os números do plantel e as primeiras
         // mensagens (direcção, media e o relatório do adjunto)
         assert_eq!(info.unread_news, 6);
-        assert_eq!(g.news()[0].title, "Relatório do plantel");
-        assert!(g.news()[1].title.starts_with("Previsão dos media"));
+        assert_eq!(g.news()[0].title, "Relatório do elenco");
+        assert!(g.news()[1].title.starts_with("Previsão da mídia"));
         assert_eq!(g.news()[2].title, "Contrato e orçamentos");
         assert_eq!(g.news()[3].title, "Calendário 2025");
-        assert_eq!(g.news()[4].title, "Números do plantel");
+        assert_eq!(g.news()[4].title, "Números do elenco");
         assert!(g.news()[5].body.contains("Victor Araujo"));
 
         // O treinador está no plantel técnico e o Abel Ferreira saiu
@@ -3570,7 +3622,7 @@ mod tests {
             assert!(
                 news.iter().all(|n| n.offer_id.is_some()
                     || n.kind == "transfer"
-                    || n.title == "Orçamentos da Direcção"
+                    || n.title == "Orçamentos da Diretoria"
                     || n.title.starts_with("Reservas:")
                     || n.title.starts_with("Relatório: ")),
                 "{}",
@@ -3580,7 +3632,7 @@ mod tests {
         assert_eq!(date::add_days(g.date(), 1).unwrap(), first.date);
         // O relatório do adversário chegou 3 dias antes
         let opp = if first.home.id == 7568 { &first.away.short_name } else { &first.home.short_name };
-        assert!(g.news.iter().any(|n| n.title == format!("Relatório: {opp}") && n.body.contains("Joga habitualmente em")));
+        assert!(g.news.iter().any(|n| n.title == format!("Relatório: {opp}") && n.body.contains("Costuma jogar no")));
         // No dia do jogo: a manhã (pode parar nas notícias dela) e o jogo, à tarde ou à noite
         let mut news = Vec::new();
         while g.matches.iter().any(|m| m.id == first.id && m.result.is_none()) {
@@ -3592,13 +3644,13 @@ mod tests {
         let titles: Vec<&str> = news.iter().map(|n| n.title.as_str()).collect();
         // (e as propostas pelos jogadores, que chegam de manhã)
         assert_eq!(news.iter().filter(|n| n.kind != "injury" && n.kind != "transfer" && n.offer_id.is_none()).count(), 2, "{titles:?}");
-        assert!(news.iter().any(|n| n.body.starts_with("Série A, 1ª jornada.")), "{}", news[0].body);
+        assert!(news.iter().any(|n| n.body.starts_with("Série A, 1ª rodada.")), "{}", news[0].body);
         assert!(news.iter().any(|n| n.link.as_deref().is_some_and(|l| l.starts_with("press:"))));
         let mut days = 0;
         while g.fixtures(SERIE_A).iter().any(|f| f.home_goals.is_none()) {
             g.advance_to_next_event().unwrap();
             days += 1;
-            assert!(days < 2000, "a época não acaba");
+            assert!(days < 2000, "a temporada não acaba");
         }
         let results = g.fixtures(SERIE_A).iter().map(|f| (f.id, f.home_goals, f.away_goals)).collect();
         let table = g.table(SERIE_A);
@@ -3628,7 +3680,7 @@ mod tests {
         assert_eq!(goals, table.iter().map(|r| r.goals_against).sum::<i32>());
         // Números plausíveis: 2,0–3,2 golos por jogo e a tabela ordenada por pontos
         let per_game = goals as f64 / 380.0;
-        assert!((2.0..3.2).contains(&per_game), "{per_game:.2} golos por jogo");
+        assert!((2.0..3.2).contains(&per_game), "{per_game:.2} gols por jogo");
         assert!(table.windows(2).all(|w| w[0].points >= w[1].points));
     }
 
@@ -3776,7 +3828,7 @@ mod tests {
         g.set_selection(sel.clone()).unwrap();
         let live = g.live_tactics(side).unwrap();
         let on: Vec<_> = live.starters.iter().map(|s| s.player.as_ref().map(|p| p.id)).collect();
-        assert_eq!(on, sel.starters, "joga a equipa escolhida");
+        assert_eq!(on, sel.starters, "joga o time escolhido");
         assert_eq!(live.orders, sel.orders);
         // Instruções mudadas a meio do jogo ficam para o jogo seguinte
         g.live_step(10).unwrap();
@@ -3825,7 +3877,7 @@ mod tests {
         let subs = |s: usize| v.events.iter().filter(|e| e.kind == "sub" && e.side == Some(s as i32)).count();
         let hurt = |s: usize| v.events.iter().filter(|e| e.kind == "injury" && e.side == Some(s as i32)).count();
         assert!(hurt(side) > 0 && hurt(1 - side) > 0, "lesões dos dois lados");
-        assert_eq!(subs(side), 0, "na equipa do treinador ninguém entra sozinho");
+        assert_eq!(subs(side), 0, "no time do treinador ninguém entra sozinho");
         assert!(mine.players.iter().any(|p| p.injured), "o lesionado fica em campo");
         assert!(subs(1 - side) > 0 && !theirs.out.is_empty(), "a IA troca os seus");
         // Acabar o dia sem ver o resto: o adjunto volta a trocar os lesionados
@@ -3873,7 +3925,7 @@ mod tests {
         assert_eq!(a.paper, "Lance!");
         assert!(!a.prediction.is_empty());
         let half = seen.live_step(45).unwrap();
-        assert!(seen.match_review().is_ok(), "o Pós-Jogo também se lê a meio");
+        assert!(seen.match_review().is_ok(), "o Pós-Jogo também se lê no meio");
         assert!(half.half_time);
         let end_seen = seen.live_step(200).unwrap();
         let review = seen.match_review().unwrap();
@@ -3908,12 +3960,12 @@ mod tests {
         assert_eq!(v.others.len(), g.fixtures(SERIE_A).iter().filter(|f| f.date == today).count() - 1);
         let half = g.live_step(45).unwrap();
         assert!(half.half_time && !half.finished);
-        assert!(matches!(g.save(), Err(Error::Invalid(_))), "não grava a meio do jogo");
+        assert!(matches!(g.save(), Err(Error::Invalid(_))), "não salva no meio do jogo");
         assert!(half.events.iter().any(|e| e.kind == "half"));
         let end = g.live_step(200).unwrap();
         assert!(end.finished && end.minute == 90);
         let shots = end.home.stats.shots + end.away.stats.shots;
-        assert!(shots > 5, "{shots} remates");
+        assert!(shots > 5, "{shots} chutes");
         assert_eq!(end.home.stats.possession + end.away.stats.possession, 100);
         let goals = end.events.iter().filter(|e| e.kind == "goal").count() as i32;
         assert_eq!(goals, end.home_goals + end.away_goals);
@@ -3932,7 +3984,7 @@ mod tests {
         assert_eq!(titles(&news), titles(&quick.news()[..news.len()].iter().rev().cloned().collect::<Vec<_>>()));
         let body = &news.iter().find(|n| n.kind == "competition").unwrap().body;
         if goals > 0 {
-            assert!(body.contains("Marcadores:"), "{body}");
+            assert!(body.contains("Gols:"), "{body}");
         }
         g.save().unwrap();
         quick.save().unwrap();
@@ -4086,6 +4138,13 @@ mod tests {
                 "quem entra, entra no lugar de alguém"
             );
         }
+        // A partida guardada para a ficha: os gols com o minuto, sem o relato lance a lance
+        let report = sheet.report.as_ref().expect("partida guardada");
+        let (h, a) = g.matches.iter().find(|m| m.id == id).unwrap().result.unwrap();
+        let goals = |side: i32| report.events.iter().filter(|e| e.kind == "goal" && e.side == Some(side)).count();
+        assert_eq!((goals(0), goals(1)), (h as usize, a as usize));
+        assert!(report.events.iter().all(|e| e.lines.is_empty()) && report.home.players.len() >= 10);
+        assert!(report.useful_time > 0 && !report.referee.is_empty());
         assert!(g.match_sheet(g.matches.iter().find(|m| m.result.is_none()).unwrap().id).is_err());
         // Os resultados do dia: só as competições do Palmeiras e as do Brasil
         let comps = g.day_competitions().unwrap();
@@ -4318,7 +4377,7 @@ mod tests {
         let first = g.club_fixtures(palmeiras)[0].clone();
         let p = g.match_preview(first.id).unwrap();
         assert!(p.venue.is_some() && p.city.is_some());
-        assert!(p.last_meeting.is_none(), "1ª jornada: ainda não se defrontaram");
+        assert!(p.last_meeting.is_none(), "1ª rodada: ainda não se defrontaram");
         assert_eq!(p.weather, g.match_preview(first.id).unwrap().weather, "o tempo não muda ao reabrir");
         let odds = p.odds.expect("jogo por jogar: com odds");
         assert!(odds.iter().all(|o| *o > 1.0), "{odds:?}");
@@ -4411,7 +4470,7 @@ mod tests {
         let scorer = q("SELECT AVG(rating) FROM player_matches WHERE goals = 1 AND assists = 0");
         let brace = q("SELECT COALESCE(AVG(rating), 0) FROM player_matches WHERE goals = 2");
         println!(
-            "{n} notas: média {mean:.2}, 8+ {:.1}%, 9+ {:.2}%, 10 {:.2}%; com 1 golo {scorer:.2}, com 2 {brace:.2}",
+            "{n} notas: média {mean:.2}, 8+ {:.1}%, 9+ {:.2}%, 10 {:.2}%; com 1 gol {scorer:.2}, com 2 {brace:.2}",
             100.0 * share(8.0),
             100.0 * share(9.0),
             100.0 * share(10.0)
@@ -4419,7 +4478,7 @@ mod tests {
         // A média perto de 6,8 (os sites andam por 6,7–6,9); o 8 é bom jogo, o 9 raro
         assert!((6.6..7.1).contains(&mean), "{mean}");
         assert!(share(8.0) > 0.03 && share(8.0) < 0.25 && share(9.0) < 0.05);
-        assert!(scorer > 7.3, "quem marca um golo fica acima de 7,3: {scorer}");
+        assert!(scorer > 7.3, "quem marca um gol fica acima de 7,3: {scorer}");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

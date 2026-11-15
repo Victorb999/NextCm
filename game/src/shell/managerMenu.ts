@@ -17,18 +17,18 @@ export function managerMenu({
 }): MenuNode[] {
   const club = info.club
   return [
-    { label: `Plantel ${club.shortName}`, onSelect: () => go({ kind: 'club', id: club.id }) },
+    { label: `Elenco ${club.shortName}`, onSelect: () => go({ kind: 'club', id: club.id }) },
     // Sem reservas com uma equipa B à parte (o core diz)
     ...(info.reservesName ? [{ label: info.reservesName, onSelect: () => go({ kind: 'club', id: club.id, reserves: true }) }] : []),
     // Só na pré-época ou com jogadores sem número (regra no core)
-    ...(info.numbersOpen ? [{ label: 'Números Plantel', onSelect: () => go({ kind: 'squadNumbers' }) }] : []),
-    { label: 'Tácticas', onSelect: () => go({ kind: 'tactics', id: club.id }) },
+    ...(info.numbersOpen ? [{ label: 'Números Elenco', onSelect: () => go({ kind: 'squadNumbers' }) }] : []),
+    { label: 'Táticas', onSelect: () => go({ kind: 'tactics', id: club.id }) },
     { label: 'Treinos', onSelect: () => go({ kind: 'training' }) },
-    { label: 'Historial', onSelect: () => go({ kind: 'clubHistory', id: club.id }) },
+    { label: 'Histórico', onSelect: () => go({ kind: 'clubHistory', id: club.id }) },
     'separator',
     { label: info.unreadNews ? `Notícias (${info.unreadNews})` : 'Notícias', onSelect: () => go({ kind: 'news' }) },
     { label: 'Pesquisa Jogador & Staff', onSelect: () => go({ kind: 'search' }) },
-    { label: 'Confiança da Direcção', onSelect: () => go({ kind: 'board' }) },
+    { label: 'Confiança da Diretoria', onSelect: () => go({ kind: 'board' }) },
     { label: 'Informação de Empregos', onSelect: () => go({ kind: 'jobs' }) },
     { label: 'Transferências', onSelect: () => go({ kind: 'worldTransfers' }) },
     { label: 'Perfil do Treinador', onSelect: () => go({ kind: 'person', id: info.managerId }) },
@@ -36,6 +36,6 @@ export function managerMenu({
     'separator',
     { label: 'Ir de Férias', onSelect: () => onDialog('holiday') },
     ...(info.sacked ? [] : [{ label: 'Rescindir com Clube', onSelect: () => onDialog('resign') }]),
-    { label: 'Retirar-se', onSelect: () => onDialog('retire') },
+    { label: 'Aposentar-se', onSelect: () => onDialog('retire') },
   ]
 }

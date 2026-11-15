@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use rusqlite::{OptionalExtension, Row};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::attributes::{displayed_attributes, displayed_staff_attributes};
@@ -11,7 +11,7 @@ use crate::{Error, Result, World};
 /// Atributos por nome de coluna (`finishing`, `determination`...); `null` = não definido no banco.
 pub type Attributes = BTreeMap<String, Option<i32>>;
 
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct ClubRef {
@@ -39,7 +39,7 @@ pub struct PlayerDetails {
     pub world_reputation: Option<i32>,
     /// Siglas, ex.: "MA/A DEC".
     pub position: String,
-    /// Por extenso, ex.: "Médio Atacante/Avançado (Direita/Esquerda/Centro)".
+    /// Por extenso, ex.: "Meia/Atacante (Direita/Esquerda/Centro)".
     pub position_long: String,
     /// As etiquetas do perfil, uma por posição e lado ("MAD", "MAE", "AC").
     pub positions: Vec<crate::search::PositionTag>,
@@ -283,14 +283,13 @@ const MENTAL: [&str; 8] =
 fn position_long(p: &[Option<i32>; 12]) -> String {
     let natural = |i: usize| p[i].unwrap_or(0) >= NATURAL_POSITION;
     if natural(0) {
-        return "Guarda-Redes".into();
+        return "Goleiro".into();
     }
-    let roles: Vec<&str> =
-        [(1, "Líbero"), (2, "Defesa"), (7, "Ala"), (3, "Médio Defensivo"), (4, "Médio"), (5, "Médio Atacante"), (6, "Avançado")]
-            .into_iter()
-            .filter(|(i, _)| natural(*i))
-            .map(|(_, label)| label)
-            .collect();
+    let roles: Vec<&str> = [(1, "Líbero"), (2, "Zagueiro"), (7, "Ala"), (3, "Volante"), (4, "Meio-Campista"), (5, "Meia"), (6, "Atacante")]
+        .into_iter()
+        .filter(|(i, _)| natural(*i))
+        .map(|(_, label)| label)
+        .collect();
     let sides: Vec<&str> =
         [(8, "Direita"), (9, "Esquerda"), (10, "Centro")].into_iter().filter(|(i, _)| natural(*i)).map(|(_, label)| label).collect();
     match (roles.is_empty(), sides.is_empty()) {
@@ -536,7 +535,7 @@ mod tests {
         p[8] = Some(20);
         p[9] = Some(18);
         p[10] = Some(20);
-        assert_eq!(position_long(&p), "Médio Atacante/Avançado (Direita/Esquerda/Centro)");
+        assert_eq!(position_long(&p), "Meia/Atacante (Direita/Esquerda/Centro)");
     }
 
     #[test]

@@ -3,12 +3,12 @@ import { partLabel, ymd } from '../format'
 import { useGame } from '../game'
 import { START_DATE, WEEKDAYS } from './types'
 
-/** "2032-02-23" -> "Segunda-Feira 23.2.32", como a data do CM. */
+/** "2032-02-23" -> "Segunda-feira 23/2/32", como a data do CM. */
 function barDate(iso: string): string {
   const [y, m, d] = ymd(iso)
   const weekday = WEEKDAYS[new Date(y, m - 1, d).getDay()] ?? ''
-  const day = weekday.endsWith('o') ? weekday : `${weekday}-Feira`
-  return `${day} ${d}.${m}.${String(y).slice(2)}`
+  const day = weekday.endsWith('o') ? weekday : `${weekday}-feira`
+  return `${day} ${d}/${m}/${String(y).slice(2)}`
 }
 
 /** Barra no topo da janela: a marca, a data, o clube do treinador e o Continuar Jogo. */
@@ -34,7 +34,7 @@ export default function TopBar({ onContinue, busy, label = 'Continuar Jogo' }: {
       <button
         className="cm-continue ml-auto"
         disabled={!info || busy}
-        title={info ? 'Avança até ao próximo evento' : 'Comece ou carregue um jogo'}
+        title={info ? 'Avança até o próximo evento' : 'Comece ou carregue um jogo'}
         onClick={onContinue}
       >
         {label}

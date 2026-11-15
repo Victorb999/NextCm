@@ -180,7 +180,7 @@ export default function TrainingPage() {
           Editar Programa
         </button>
         <PurpleMenu
-          label="Vêr"
+          label="Ver"
           options={[
             { key: 'general', label: 'Geral' },
             { key: 'attributes', label: 'Atributos' },

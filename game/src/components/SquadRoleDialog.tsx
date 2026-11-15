@@ -47,13 +47,13 @@ export default function SquadRoleDialog({
   return (
     <Overlay>
       <DialogFrame
-        title="Definir Função no Plantel"
+        title="Definir Função no Elenco"
         width={620}
         onCancel={onCancel}
         onOk={chosen || job ? ok : undefined}
         cancelLabel="Atrás"
       >
-        {view && <div className="pb-2 text-[17px] text-white">A função de {view.name} no plantel:</div>}
+        {view && <div className="pb-2 text-[17px] text-white">A função de {view.name} no elenco:</div>}
         <div className="cm-zebra overflow-hidden rounded bg-black/30">
           {view?.roles.map((r) => (
             <button
@@ -73,7 +73,7 @@ export default function SquadRoleDialog({
             </button>
           ))}
         </div>
-        {view && !view.current && <div className="pt-2 text-[13px] text-cm-dlgtext">Sem função definida: conta o lugar no plantel.</div>}
+        {view && !view.current && <div className="pt-2 text-[13px] text-cm-dlgtext">Sem função definida: conta o lugar no elenco.</div>}
         {view && view.jobs.length > 0 && (
           <>
             <div className="pb-2 pt-3 text-[17px] text-white">Função no clube:</div>

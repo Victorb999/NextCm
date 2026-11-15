@@ -178,21 +178,21 @@ export default function SquadNumbersPage() {
             <span
               className={`rounded px-1.5 tracking-wider ${saved.preSeason ? 'bg-cm-dlgdeep text-cm-mint' : 'bg-[#3a2508] text-cm-orange'}`}
             >
-              {saved.preSeason ? 'Pré-época' : 'Época a decorrer'}
+              {saved.preSeason ? 'Pré-temporada' : 'Temporada a decorrer'}
             </span>
           )
         }
-        title={club ? `Números Plantel ${club.shortName}` : 'Números Plantel'}
+        title={club ? `Números Elenco ${club.shortName}` : 'Números Elenco'}
       />
       {saved && (
         <div className="mx-2 flex shrink-0 items-center gap-3 rounded-md border border-cm-yellow/60 bg-cm-yellow/[0.06] px-4 py-2 text-[13px] text-cm-text">
           <span className="font-bold text-cm-yellow">i</span>
           {saved.preSeason
             ? 'Os números ficam fixos a partir do primeiro jogo oficial.'
-            : 'Com a época a decorrer, só os jogadores sem número recebem um.'}
+            : 'Com a temporada a decorrer, só os jogadores sem número recebem um.'}
           <span className="text-cm-faint">·</span>
           <span>
-            Total no plantel: <b>{saved.players.length} jogadores</b>
+            Total no elenco: <b>{saved.players.length} jogadores</b>
           </span>
           {missing > 0 && (
             <span className="ml-auto rounded bg-cm-sel px-2 py-0.5 text-[12px] font-bold text-white">Sem número: {missing}</span>
@@ -200,7 +200,7 @@ export default function SquadNumbersPage() {
         </div>
       )}
       <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5">
-        <PurpleMenu label="Vêr" options={VIEWS} value={view} onChange={setView} />
+        <PurpleMenu label="Ver" options={VIEWS} value={view} onChange={setView} />
         <PurpleMenu label="Critério" options={CRITERIA} value={criterion} onChange={setCriterion} />
         <div className="flex-1" />
         <button
@@ -214,7 +214,7 @@ export default function SquadNumbersPage() {
         <button className="cm-purple h-7 w-32" onClick={() => void auto()} title="Números para quem não tem, pelas preferências">
           Auto
         </button>
-        <button className="cm-purple h-7 w-32" onClick={() => saved && reset(saved)} title="Volta aos números gravados">
+        <button className="cm-purple h-7 w-32" onClick={() => saved && reset(saved)} title="Volta aos números salvos">
           Anular
         </button>
       </div>
@@ -234,7 +234,7 @@ export default function SquadNumbersPage() {
                 <div
                   key={p.id}
                   onClick={() => !locked(p.id) && setSelected(p.id)}
-                  title={locked(p.id) ? 'Com a época a decorrer, este número está fixo' : undefined}
+                  title={locked(p.id) ? 'Com a temporada a decorrer, este número está fixo' : undefined}
                   className={`flex h-[30px] items-center gap-3 px-4 text-[14.5px] ${sel ? '!bg-cm-sel' : ''} ${
                     locked(p.id) ? 'opacity-45' : 'cursor-pointer hover:bg-white/[0.06]'
                   }`}
@@ -243,7 +243,7 @@ export default function SquadNumbersPage() {
                   <span className="min-w-0 flex-1 truncate text-white">
                     {shortListName(p.listName)}
                     {sel && (
-                      <span className="ml-2 rounded-[3px] bg-cm-yellow px-1 text-[10px] font-bold uppercase text-black">Seleccionado</span>
+                      <span className="ml-2 rounded-[3px] bg-cm-yellow px-1 text-[10px] font-bold uppercase text-black">Selecionado</span>
                     )}
                   </span>
                   <span className={`text-[13px] font-semibold ${sel ? 'text-white' : 'text-cm-orange'}`}>{p.position}</span>

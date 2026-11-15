@@ -559,7 +559,7 @@ mod tests {
         let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let (g, dir) = create(&path, "fantasmas", 4);
         let ghost: Option<i32> = g.world.conn.query_row("SELECT person_id FROM ghosts LIMIT 1", [], |r| r.get(0)).ok();
-        let ghost = ghost.expect("os plantéis pequenos têm jogadores de enchimento");
+        let ghost = ghost.expect("os elencos pequenos têm jogadores de enchimento");
         assert!(g.is_ghost(ghost));
         // Não se compram nem se emprestam, e o perfil não deixa propor contrato
         let view = g.transfer_view(ghost).unwrap();

@@ -208,14 +208,14 @@ pub fn set_staff(saves: &Path, file: &str, id: i32, data: &EditorStaffData, valu
 /// Valida e grava um membro do staff, sem transacção própria (ver `editor::in_tx`).
 pub(crate) fn apply_staff(world: &World, id: i32, data: &EditorStaffData, values: &[EditorValue]) -> Result<()> {
     let before = build(world, id)?;
-    check_range("Capacidade actual (CA)", data.ability, 0, 200)?;
+    check_range("Capacidade atual (CA)", data.ability, 0, 200)?;
     check_range("Potencial (PA)", data.potential, 0, 200)?;
     if data.potential < data.ability {
-        return Err(Error::Invalid("O potencial não pode ser menor que a capacidade actual.".into()));
+        return Err(Error::Invalid("O potencial não pode ser menor que a capacidade atual.".into()));
     }
     for (label, v) in [
         ("Reputação local", data.home_reputation),
-        ("Reputação actual", data.current_reputation),
+        ("Reputação atual", data.current_reputation),
         ("Reputação mundial", data.world_reputation),
     ] {
         check_range(label, v, 0, 10000)?;

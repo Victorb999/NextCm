@@ -88,7 +88,7 @@ impl Game {
         if up.is_empty() && down.is_empty() {
             return Ok(None);
         }
-        let mut body = "O seu adjunto fez o relatório do mês sobre as reservas.".to_string();
+        let mut body = "O seu auxiliar fez o relatório do mês sobre as reservas.".to_string();
         if !up.is_empty() {
             body += "\n\nQuem merece subir:";
             for line in up {
@@ -96,7 +96,7 @@ impl Game {
             }
         }
         if !down.is_empty() {
-            body += "\n\nQuem devia descer:";
+            body += "\n\nQuem deveria descer:";
             for line in down {
                 body += &format!("\n- {line}");
             }
@@ -183,9 +183,9 @@ impl Game {
             let played = minutes.get(&id).copied().unwrap_or(0);
             if team_games >= MIN_TEAM_GAMES && played < FEW_MINUTES {
                 let line = if played == 0 {
-                    format!("{name} não jogou no último mês: uns jogos pelas reservas davam-lhe ritmo.")
+                    format!("{name} não jogou no último mês: uns jogos pelas reservas lhe davam ritmo.")
                 } else {
-                    format!("{name} só jogou {played} minutos no último mês: uns jogos pelas reservas davam-lhe ritmo.")
+                    format!("{name} só jogou {played} minutos no último mês: uns jogos pelas reservas lhe davam ritmo.")
                 };
                 few.push((played, line));
                 continue;
@@ -197,7 +197,7 @@ impl Game {
                     poor.push((
                         avg,
                         format!(
-                            "{name} está em má forma (nota média {} nos últimos {} jogos): jogar pelas reservas ajudava-o a recuperar a confiança.",
+                            "{name} está em má forma (nota média {} nos últimos {} jogos): jogar pelas reservas o ajudava a recuperar a confiança.",
                             decimal(avg),
                             form.len()
                         ),
@@ -317,7 +317,7 @@ mod tests {
         assert_eq!(lineup.starters.len(), 11);
         // Na baliza, um guarda-redes (mesmo que seja de enchimento)
         let keeper = lineup.starters.iter().find(|s| s.role == "GR").unwrap().person;
-        assert!(g.is_keeper(keeper).unwrap(), "um guarda-redes na baliza");
+        assert!(g.is_keeper(keeper).unwrap(), "um goleiro na baliza");
         assert!(!lineup.bench.is_empty() && lineup.bench.len() <= RESERVE_BENCH_TEST);
         assert!(lineup.starters.iter().chain(&lineup.bench).all(|s| !s.first_team || !xi.contains(&s.person)));
 
@@ -341,7 +341,7 @@ mod tests {
         let (up, down) = (g.person_name(reserves[0]).unwrap(), g.person_name(outside[1]).unwrap());
         assert!(n.body.contains("Quem merece subir") && n.body.contains(&format!("{up} tem feito grandes exibições")), "{}", n.body);
         assert!(n.body.contains("nota média 7,8 em 3 jogos"), "{}", n.body);
-        assert!(n.body.contains("Quem devia descer") && n.body.contains(&format!("{down} está em má forma")), "{}", n.body);
+        assert!(n.body.contains("Quem deveria descer") && n.body.contains(&format!("{down} está em má forma")), "{}", n.body);
         let saved: i64 = g.world.conn.query_row("SELECT COUNT(*) FROM reserve_report_ca", [], |r| r.get(0)).unwrap();
         assert_eq!(saved as usize, squad.len());
         drop(g);

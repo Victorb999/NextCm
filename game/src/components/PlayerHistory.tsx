@@ -102,12 +102,12 @@ function Table({
 
 // Eixos do gráfico: o valor da época em 0–1 (o máximo é um jogador de topo nessa coluna)
 const AXES: { label: string; value: (s: StatLine) => number }[] = [
-  { label: 'Golos', value: (s) => (s.apps ? s.goals / s.apps / 0.8 : 0) },
+  { label: 'Gols', value: (s) => (s.apps ? s.goals / s.apps / 0.8 : 0) },
   { label: 'Assist.', value: (s) => (s.apps ? s.assists / s.apps / 0.5 : 0) },
   { label: 'Passes', value: (s) => ((s.passPct ?? 40) - 40) / 55 },
   { label: 'Cortes', value: (s) => (s.tackles ?? 0) / 5 },
   { label: 'Dribles', value: (s) => (s.dribbles ?? 0) / 3 },
-  { label: 'Remates', value: (s) => (s.shotPct ?? 0) / 80 },
+  { label: 'Chutes', value: (s) => (s.shotPct ?? 0) / 80 },
   { label: 'Nota', value: (s) => ((s.rating ?? 6) - 6) / 2.2 },
 ]
 
@@ -184,12 +184,12 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
 
   // Fora de um jogo em curso, só a carreira do patch
   if (p.seasons.length === 0) {
-    if (p.career.length === 0) return <Empty>Sem histórico registado.</Empty>
+    if (p.career.length === 0) return <Empty>Sem histórico registrado.</Empty>
     return (
       <Panel title="Carreira do Jogador" className="mb-1">
         <div className="min-h-0 flex-1 overflow-auto">
           <Table
-            head={['Época', 'Clube', 'Jogos', 'Golos']}
+            head={['Temporada', 'Clube', 'Jogos', 'Gols']}
             first={2}
             rows={p.career.map((c) => [c.year ?? '-', clubLink(c.club, c.onLoan), c.apps, c.goals])}
           />
@@ -228,7 +228,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
   if (view === 'career') {
     top = (
       <Table
-        head={['Época', 'Clube', ...STAT_HEAD]}
+        head={['Temporada', 'Clube', ...STAT_HEAD]}
         first={2}
         rows={p.seasons.map((s) => [s.label, clubLink(s.club, s.onLoan, s.transfer), ...statCells(s.stats)])}
         selected={season ? p.seasons.indexOf(season) : undefined}
@@ -255,7 +255,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
         ])}
       />
     ) : (
-      <Empty>Nenhuma lesão registada.</Empty>
+      <Empty>Nenhuma lesão registrada.</Empty>
     )
   } else if (view === 'suspensions') {
     top = p.suspensions.length ? (
@@ -271,7 +271,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
         ])}
       />
     ) : (
-      <Empty>Nenhuma suspensão registada.</Empty>
+      <Empty>Nenhuma suspensão registrada.</Empty>
     )
   } else {
     top = p.honours.length ? (
@@ -295,7 +295,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
     <div className="flex min-h-0 flex-1 flex-col gap-2 pb-1">
       <Panel
         title={VIEWS.find((v) => v.key === view)!.label}
-        right={<PurpleMenu label="Vêr" align="right" options={VIEWS} value={view} onChange={setView} />}
+        right={<PurpleMenu label="Ver" align="right" options={VIEWS} value={view} onChange={setView} />}
         className="min-h-[140px] max-h-[400px] flex-1 b"
       >
         <div className="min-h-0 flex-1 overflow-auto">{top}</div>
@@ -334,7 +334,7 @@ export default function PlayerHistory({ p }: { p: PersonProfile }) {
           Jogos na carreira: <b className="text-white">{career.apps}</b>
         </span>
         <span>
-          Golos: <b className="text-cm-orange">{career.goals}</b>
+          Gols: <b className="text-cm-orange">{career.goals}</b>
         </span>
         <span>
           Assistências: <b className="text-cm-mint">{career.assists}</b>

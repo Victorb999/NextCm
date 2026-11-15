@@ -8,7 +8,7 @@ import { useEscBack, useNav } from '../nav'
 const TABS = [
   { key: 'competitions', label: 'Competições' },
   { key: 'milestones', label: 'Marcos Significativos', disabled: true },
-  { key: 'records', label: 'Registos', disabled: true },
+  { key: 'records', label: 'Registros', disabled: true },
   { key: 'positions', label: 'Classificações' },
   { key: 'attendance', label: 'Assistências', disabled: true },
 ]
@@ -17,7 +17,7 @@ const ordinal = (n: number) => `${n}º`
 
 function Competitions({ c }: { c: ClubProfile }) {
   const nav = useNav()
-  if (c.honours.length === 0) return <Empty>Nenhum título registado.</Empty>
+  if (c.honours.length === 0) return <Empty>Nenhum título registrado.</Empty>
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <PanelTitle title="Títulos" />
@@ -45,13 +45,13 @@ function Competitions({ c }: { c: ClubProfile }) {
 
 function Positions({ c }: { c: ClubProfile }) {
   const nav = useNav()
-  if (!c.lastDivision || !c.lastPosition) return <Empty>Sem classificações registadas.</Empty>
+  if (!c.lastDivision || !c.lastPosition) return <Empty>Sem classificações registradas.</Empty>
   return (
     <div>
       <PanelTitle title="Recente" />
       <div className="flex h-7 items-center gap-3 px-4 text-[14px]">
         {/* O patch guarda só a posição "anterior", sem dizer de que ano */}
-        <span className="w-32 text-white">Época anterior</span>
+        <span className="w-32 text-white">Temporada anterior</span>
         <Link onClick={() => nav.go({ kind: 'competition', id: c.lastDivision!.id })} className="flex-1 text-cm-yellow">
           {c.lastDivision.name}
         </Link>
@@ -73,7 +73,7 @@ export default function ClubHistoryPage({ id }: { id: number }) {
 
   return (
     <div className="flex h-full flex-col">
-      <ScreenHeader club={club?.club} eyebrow={club?.club.name} title="Historial" />
+      <ScreenHeader club={club?.club} eyebrow={club?.club.name} title="Histórico" />
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
       <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col rounded-md bg-cm-surface">
         <ErrorBox>{error}</ErrorBox>

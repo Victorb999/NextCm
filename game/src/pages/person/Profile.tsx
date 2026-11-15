@@ -21,7 +21,7 @@ const STAFF_ATTRIBUTES: [string, string][] = [
   ['offside', 'Fora de Jogo'],
   ['free_roles', 'Funções Livres'],
   ['man_handling', 'Gestão Humana'],
-  ['directness', 'Jogo Directo'],
+  ['directness', 'Jogo Direto'],
   ['youngsters', 'Jovens'],
   ['loyalty', 'Lealdade'],
   ['marking', 'Marcação'],
@@ -30,7 +30,7 @@ const STAFF_ATTRIBUTES: [string, string][] = [
   ['pressing', 'Pressing'],
   ['professionalism', 'Profissionalismo'],
   ['resources', 'Recursos'],
-  ['tactics', 'Táctica'],
+  ['tactics', 'Tática'],
   ['coaching', 'Treinar'],
   ['coaching_gks', 'Treinar GR'],
   ['coaching_technique', 'Treinar Técnica'],
@@ -171,7 +171,7 @@ export default function Profile({ p }: { p: PersonProfile }) {
             </Panel>
           )}
           {p.assistantNote && (
-            <Panel title="Relatório do Adjunto">
+            <Panel title="Relatório do Auxiliar">
               <div className="px-3 py-2 text-[13.5px] italic leading-snug text-white">“{p.assistantNote}”</div>
             </Panel>
           )}
@@ -179,7 +179,7 @@ export default function Profile({ p }: { p: PersonProfile }) {
             <InfoRows
               rows={[
                 ...(pl ? ([['Número', pl.squadNumber ?? '-']] as [string, ReactNode][]) : []),
-                ['Rep. Actual', ability?.currentReputation ?? '-'],
+                ['Rep. Atual', ability?.currentReputation ?? '-'],
                 ['Rep. Mundial', ability?.worldReputation ?? '-'],
                 ['No clube desde', cmDate(p.clubJoined)],
                 ['Contrato até', cmDate(p.contractExpires)],
@@ -188,7 +188,7 @@ export default function Profile({ p }: { p: PersonProfile }) {
                       [
                         'Futuro',
                         <span key="r" className="text-cm-yellow">
-                          Termina a carreira no fim da época
+                          Termina a carreira no fim da temporada
                         </span>,
                       ],
                     ] as [string, ReactNode][])
@@ -209,22 +209,22 @@ export default function Profile({ p }: { p: PersonProfile }) {
           {p.reportOn
             ? `Os seus olheiros estão a observá-lo: o relatório chega a ${cmDate(p.reportOn)}.`
             : p.knowledge === 'unknown'
-              ? 'O seu clube não conhece este jogador. Mande observá-lo (Acção → Observar Jogador).'
+              ? 'O seu clube não conhece este jogador. Mande observá-lo (Ação → Observar Jogador).'
               : 'O seu clube conhece este jogador só em parte. Mande observá-lo para ver tudo.'}
         </div>
       )}
       {pl && p.seasons[0]?.byKind.length ? (
-        <Panel title={`Estatísticas da Época ${p.seasons[0].label}`} className="shrink-0">
+        <Panel title={`Estatísticas da Temporada ${p.seasons[0].label}`} className="shrink-0">
           <SeasonTable byKind={p.seasons[0].byKind} />
         </Panel>
       ) : (
         pl && (
-          <Panel title="Estatísticas da Época" className="shrink-0">
+          <Panel title="Estatísticas da Temporada" className="shrink-0">
             {p.season.length === 0 ? (
-              <Empty className="p-3">Ainda não jogou esta época.</Empty>
+              <Empty className="p-3">Ainda não jogou esta temporada.</Empty>
             ) : (
               <PurpleTable
-                head={['Competição', 'Jogos', 'Golos', 'Asts', 'Nota']}
+                head={['Competição', 'Jogos', 'Gols', 'Asts', 'Nota']}
                 rows={[
                   ...p.season.map((s) => [s.competition, s.apps, s.goals, s.assists, s.rating.toFixed(2)]),
                   [

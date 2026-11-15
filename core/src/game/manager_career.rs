@@ -145,9 +145,9 @@ impl Game {
         }
         self.world.conn.execute("INSERT OR IGNORE INTO retired (person_id, date) VALUES (?, ?)", params![self.manager_id, self.date])?;
         let name = self.person_name(self.manager_id)?;
-        self.post_news_as("jobs", format!("{name} retira-se"), format!("{name} anunciou o fim da carreira de treinador."));
+        self.post_news_as("jobs", format!("{name} se aposenta"), format!("{name} anunciou o fim da carreira de treinador."));
         self.unsaved = true;
-        Ok(format!("{name} retirou-se do futebol."))
+        Ok(format!("{name} se aposentou do futebol."))
     }
 
     /// "Ir de Férias": o adjunto escolhe a equipa e os dias passam sem ver os jogos, até
@@ -180,7 +180,7 @@ impl Game {
             self.clean_selection()?;
         }
         result?;
-        self.post_news_as("message", "De volta das férias".into(), format!("Voltou das férias a {}.", super::cm_date(&self.date)));
+        self.post_news_as("message", "De volta das férias".into(), format!("Voltou das férias em {}.", super::cm_date(&self.date)));
         self.unsaved = true;
         self.info()
     }

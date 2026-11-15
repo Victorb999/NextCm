@@ -47,6 +47,9 @@ pub struct MatchSheet {
     pub fixture: crate::Fixture,
     pub home: Vec<SheetLine>,
     pub away: Vec<SheetLine>,
+    /// A partida inteira (estatísticas, zonas, lances, escalações), como o CM a mostra depois;
+    /// `None` nos jogos de antes do save 74.
+    pub report: Option<crate::live::LiveView>,
 }
 
 /// Pontos fortes que o adjunto nota (atributo, frase) e os pontos fracos (atributo, o que
@@ -61,7 +64,7 @@ const STRENGTHS: [(&str, &str); 14] = [
     ("marking", "um marcador seguro"),
     ("heading", "forte no jogo aéreo"),
     ("crossing", "cruza muito bem"),
-    ("long_shots", "remata bem de longe"),
+    ("long_shots", "chuta bem de longe"),
     ("technique", "muito evoluído tecnicamente"),
     ("stamina", "incansável"),
     ("strength", "fisicamente muito forte"),
@@ -129,7 +132,7 @@ fn capitalise(s: &str) -> String {
 const FORM_GAMES: usize = 5;
 
 /// Os tipos de competição do Historial.
-const KINDS: [&str; 3] = ["Liga", "Taça", "Continentais"];
+const KINDS: [&str; 3] = ["Liga", "Copa", "Continentais"];
 
 /// Somas de um conjunto de jogos, para fazer uma `StatLine`.
 #[derive(Debug, Clone, Default)]
@@ -339,7 +342,7 @@ impl Game {
             };
             if club == m.home_id { home.push(line) } else { away.push(line) }
         }
-        Ok(MatchSheet { fixture: self.fixture(m), home, away })
+        Ok(MatchSheet { fixture: self.fixture(m), home, away, report: self.match_report(fixture)? })
     }
 
     /// Lesões e suspensões de um jogo para o Historial dos jogadores.
@@ -690,7 +693,7 @@ impl Game {
     pub fn set_nickname(&mut self, person: i32, nickname: &str) -> Result<()> {
         let nickname = nickname.trim();
         if nickname.chars().count() > 30 {
-            return Err(Error::Invalid("A alcunha tem no máximo 30 letras.".into()));
+            return Err(Error::Invalid("O apelido tem no máximo 30 letras.".into()));
         }
         if nickname.is_empty() {
             self.world.conn.execute("DELETE FROM nicknames WHERE person_id = ?", [person])?;
@@ -727,7 +730,7 @@ impl Game {
     pub fn release_player(&mut self, person: i32) -> Result<String> {
         let club: Option<i32> = self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [person], |r| r.get(0))?;
         if club != Some(self.club_id) || self.loan_of(person)?.is_some() {
-            return Err(Error::Invalid("Só se dispensam jogadores do seu plantel.".into()));
+            return Err(Error::Invalid("Só se dispensam jogadores do seu elenco.".into()));
         }
         let cost = self.release_cost(person)?;
         let name = self.person_name(person)?;
@@ -740,7 +743,7 @@ impl Game {
         }
         self.squad_changed()?;
         let text = if cost > 0 {
-            format!("{name} foi dispensado. O clube pagou-lhe {} de indemnização pelo resto do contrato.", money_text(cost))
+            format!("{name} foi dispensado. O clube lhe pagou {} de indenização pelo resto do contrato.", money_text(cost))
         } else {
             format!("{name} foi dispensado.")
         };
@@ -757,7 +760,7 @@ impl Game {
         let club = self.club(self.club_id).short_name;
         Ok(if cost > 0 {
             format!(
-                "Dispensar {name}? O {club} terá de o indemnizar em {} (contrato até {}).",
+                "Dispensar {name}? O {club} terá de o indenizar em {} (contrato até {}).",
                 money_text(cost),
                 until.as_deref().map(cm_date).unwrap_or_default()
             )

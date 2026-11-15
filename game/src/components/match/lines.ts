@@ -24,24 +24,24 @@ export type Line = {
 /** A bola parou (saiu, falta, golo, defesa, substituição...): é aí que se pode ir às Tácticas. */
 export const isStoppage = (l: Line) =>
   (l.last && ['goal', 'save', 'miss', 'yellow', 'red', 'injury', 'sub', 'tactics', 'half', 'end'].includes(l.kind)) ||
-  (l.kind === 'play' && /lançamento|repôs|agarra/.test(l.text))
+  (l.kind === 'play' && /arremesso|repôs|agarra/.test(l.text))
 
 /** A frase do golo em si ("GOLO! ..."), a última de cada lance de golo. */
-export const isGoalLine = (l: Line) => l.kind === 'goal' && l.text.startsWith('GOLO')
+export const isGoalLine = (l: Line) => l.kind === 'goal' && l.text.startsWith('GOL')
 
 /** O nome do lance na caixa do relato; os de perigo só dizem o que foi na última frase. */
 export function lineLabel(l: Line): string {
-  if (l.kind === 'goal') return isGoalLine(l) ? 'Golo' : 'Lance Perigoso'
-  if (l.kind === 'save' || l.kind === 'miss') return l.last ? (l.kind === 'save' ? 'Defesa' : 'Remate Falhado') : 'Lance Perigoso'
+  if (l.kind === 'goal') return isGoalLine(l) ? 'Gol' : 'Lance Perigoso'
+  if (l.kind === 'save' || l.kind === 'miss') return l.last ? (l.kind === 'save' ? 'Defesa' : 'Chute Falhado') : 'Lance Perigoso'
   const labels: Record<string, string> = {
     yellow: 'Cartão Amarelo',
     red: 'Cartão Vermelho',
     injury: 'Lesão',
     sub: 'Substituição',
-    tactics: 'Tácticas',
+    tactics: 'Táticas',
     half: 'Intervalo',
     end: 'Final',
-    start: 'Pontapé de Saída',
+    start: 'Saída de Bola',
   }
   return labels[l.kind] ?? 'Lance'
 }

@@ -67,7 +67,7 @@ export default function LoadGamePage() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  const head = ['Jogo', 'Treinador', 'Clube', 'Data do jogo', 'Gravado em']
+  const head = ['Jogo', 'Treinador', 'Clube', 'Data do jogo', 'Salvo em']
   return (
     <Overlay>
       <DialogFrame
@@ -89,7 +89,7 @@ export default function LoadGamePage() {
         }
       >
         <ErrorBox className="mb-2">{error}</ErrorBox>
-        {saves && saves.length === 0 && <div className="p-6 text-center text-cm-yellow">Nenhum jogo gravado.</div>}
+        {saves && saves.length === 0 && <div className="p-6 text-center text-cm-yellow">Nenhum jogo salvo.</div>}
         {saves && saves.length > 0 && (
           <table className="w-full overflow-hidden rounded border-collapse bg-black/40 text-[14px]">
             <thead>
@@ -133,7 +133,7 @@ export default function LoadGamePage() {
           </DialogFrame>
         </Overlay>
       )}
-      {busy && <Loading title="Carregar Jogo" detail={`A carregar ${saves?.[selected]?.name ?? 'o jogo'}…`} />}
+      {busy && <Loading title="Carregar Jogo" detail={`Carregando ${saves?.[selected]?.name ?? 'o jogo'}…`} />}
     </Overlay>
   )
 }

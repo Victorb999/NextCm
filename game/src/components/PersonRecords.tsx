@@ -4,7 +4,7 @@ import { Empty, Panel } from './Screen'
 
 /** A aba Marcos & Recordes do perfil: os recordes do jogador e os marcos da carreira (do core). */
 export default function PersonRecords({ p }: { p: PersonProfile }) {
-  if (!p.records.length && !p.marks.length) return <Empty>Sem registos.</Empty>
+  if (!p.records.length && !p.marks.length) return <Empty>Sem registros.</Empty>
   return (
     <div className="flex min-h-0 flex-1 items-start gap-2 overflow-auto pb-1">
       <Panel title="Recordes" className="w-[42%] shrink-0">
