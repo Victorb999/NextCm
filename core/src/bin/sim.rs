@@ -148,6 +148,11 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         let (sold, free, loans, released, fees) =
             game.market_totals(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("mercado");
         println!("  mercado: {sold} transferências (€{:.0}M), {free} livres, {loans} empréstimos, {released} dispensas", fees as f64 / 1e6);
+        // As duas janelas: a de inverno (janeiro e fevereiro) e a de verão (julho e agosto)
+        for (label, from, to) in [("janeiro", "01-01", "03-01"), ("verão", "07-01", "09-01")] {
+            let (sold, _, _, _, fees) = game.market_totals(&format!("{year}-{from}"), &format!("{year}-{to}")).expect("mercado");
+            println!("    janela de {label}: {sold} transferências (€{:.0}M)", fees as f64 / 1e6);
+        }
         println!("  Série A: {}", top.join(", "));
         for line in game.economy_report(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("economia") {
             println!("  {line}");

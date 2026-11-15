@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -217,6 +217,23 @@ impl Game {
         Ok(())
     }
 
+    /// Sem número não se escala: o primeiro da escolha `sel` (titular ou suplente) que não estava
+    /// em `before` e não tem número de camisola dá o erro, para o treinador o numerar antes.
+    pub(super) fn check_numbered(&self, before: &[i32], sel: &crate::tactics::Selection) -> Result<()> {
+        let picked = sel.starters.iter().flatten().chain(&sel.bench).filter(|id| !before.contains(id));
+        for &id in picked {
+            let number: Option<i32> =
+                self.world.conn.query_row("SELECT squad_number FROM players WHERE person_id = ?", [id], |r| r.get(0)).optional()?.flatten();
+            if number.is_none() {
+                let name = self.person_name(id)?;
+                return Err(crate::Error::Invalid(format!(
+                    "{name} não tem número de camisa: dê um número a ele em Números Elenco antes de escalá-lo."
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Pré-época: o clube do treinador ainda não jogou nenhum jogo oficial da época em curso.
     pub(super) fn pre_season(&self) -> bool {
         !self.season_matches().any(|m| m.result.is_some() && (m.home_id == self.club_id || m.away_id == self.club_id))
@@ -402,6 +419,21 @@ mod tests {
             g.advance_day().unwrap();
         }
         assert!(g.info().unwrap().needs_numbers);
+        // Sem número não se escala: tirá-lo do onze e voltar a pô-lo é recusado
+        let mut sel = g.club_tactics(7568).unwrap().selection();
+        let star = squad_rows(&g.world, 7568).unwrap()[0].0;
+        let had = sel.starters.iter().flatten().any(|&id| id == star);
+        if had {
+            for s in &mut sel.starters {
+                if *s == Some(star) {
+                    *s = None;
+                }
+            }
+            sel.bench.retain(|&id| id != star);
+            g.set_selection(sel.clone()).unwrap();
+        }
+        let err = g.toggle_player(&sel, star).err().map(|e| e.to_string()).unwrap_or_default();
+        assert!(err.contains("número de camisa"), "sem número não entra no time: {err}");
         g.set_watch(true);
         assert!(g.advance_day().is_err());
         // O Auto dá-lhe um número (o 10 se estiver livre) e o jogo segue

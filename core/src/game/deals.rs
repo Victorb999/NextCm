@@ -140,6 +140,8 @@ pub struct TransferView {
     pub can_renew: bool,
     /// Emprestado pelo clube do treinador a outro: chamá-lo de volta já.
     pub can_recall: bool,
+    /// Emprestado ao clube do treinador: devolvê-lo ao clube dono já.
+    pub can_send_back: bool,
     /// Emprestado ao treinador com opção de compra: o valor (0 = sem) e se dá para a exercer hoje.
     #[ts(type = "number")]
     pub option_fee: i64,
@@ -983,7 +985,8 @@ impl Game {
                 && !busy
                 && bored.is_none()
                 && !f.non_contract()
-                && (loaned_in || (f.club != Some(self.club_id) && self.loan_of(person)?.is_none())),
+                // Emprestado a outro clube compra-se ao dono; emprestado pelo treinador, já é dele
+                && (loaned_in || (f.club != Some(self.club_id) && self.loan_of(person)?.is_none_or(|l| l.0 != self.club_id))),
             can_loan: !ghost
                 && f.club.is_some()
                 && !f.non_contract()
@@ -993,6 +996,7 @@ impl Game {
                 && self.loan_of(person)?.is_none(),
             can_renew: (mine || loaned_out) && blocked.is_none() && !busy,
             can_recall: loaned_out && !busy && !self.sacked(),
+            can_send_back: loaned_in && !busy && !self.sacked(),
             option_fee: option.map_or(0, |o| o.1),
             can_option: option.is_some() && !busy && window,
             offer,
@@ -1429,17 +1433,18 @@ impl Game {
         if f.non_contract() && loaned_in.is_none() {
             return Err(Error::Invalid("Não tem contrato com o clube: proponha um contrato a ele.".into()));
         }
-        if loaned_in.is_none()
-            && let Some((parent, _)) = self.loan_of(person)?
-        {
-            return Err(Error::Invalid(format!("Está emprestado pelo {}: não pode ser vendido agora.", self.club(parent).short_name)));
+        // Emprestado a outro clube: a proposta vai para o clube dono (que o chama de volta para o
+        // vender); emprestado pelo próprio treinador, já é dele
+        let loaned_elsewhere = if loaned_in.is_none() { self.loan_of(person)?.map(|l| l.0) } else { None };
+        if loaned_elsewhere == Some(self.club_id) {
+            return Err(Error::Invalid("É do seu clube: está emprestado.".into()));
         }
         let countered = self.countered(person, "transfer")?;
         if countered.is_none() && self.open_offer(person)?.is_some() {
             return Err(Error::Invalid("Já há uma proposta em curso por este jogador.".into()));
         }
         let created = self.date.clone();
-        match loaned_in.or(f.club) {
+        match loaned_in.or(loaned_elsewhere).or(f.club) {
             None => {
                 let until = date::add_days(&self.date, AGREED_DAYS).unwrap_or_default();
                 self.world.conn.execute(
@@ -2251,7 +2256,9 @@ Confirme até {}.",
         let f = self.facts(o.person)?;
         // O dono: o clube dele ou, emprestado ao treinador, o clube que o emprestou
         let loaned_to_buyer = self.loan_of(o.person)?.is_some_and(|l| l.0 == seller && f.as_ref().is_some_and(|f| f.club == Some(o.buyer)));
-        let Some(f) = f.filter(|f| f.club == Some(seller) || loaned_to_buyer) else {
+        // Emprestado a um terceiro clube: o dono pode vendê-lo (chama-o de volta)
+        let loaned_elsewhere = !loaned_to_buyer && self.loan_of(o.person)?.is_some_and(|l| l.0 == seller);
+        let Some(f) = f.filter(|f| f.club == Some(seller) || loaned_to_buyer || loaned_elsewhere) else {
             self.set_status(o.id, "collapsed", None)?;
             let body = format!("{name} já não é jogador do {seller_name}.");
             self.offer_news(fresh, next_id, format!("Proposta por {name}"), body, o.id);
@@ -2311,8 +2318,8 @@ Confirme até {}.",
             }
             return Ok(());
         }
-        // O emprestado ao comprador já não conta no plantel do dono
-        if on_loan || (!loaned_to_buyer && count <= MIN_ROLE[f.role]) {
+        // O emprestado (ao comprador ou a outro clube) já não conta no plantel do dono
+        if (on_loan && !loaned_elsewhere) || (!loaned_to_buyer && !loaned_elsewhere && count <= MIN_ROLE[f.role]) {
             self.set_status(o.id, "rejected", None)?;
             let body = format!("O {seller_name} recusou a proposta por {name}: não está à venda.");
             self.offer_news(fresh, next_id, format!("Proposta por {name} recusada"), body, o.id);
@@ -2815,6 +2822,63 @@ mod tests {
                     .then(|| (id, g.asking_price(id, &f, FLAMENGO).unwrap()))
             })
             .collect()
+    }
+
+    #[test]
+    fn loans_bought_from_the_owner_and_sent_back() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-emprestimos-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Empréstimos".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: PALMEIRAS,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        let mut g = Game::create(&path, &dir, &new, 3).unwrap();
+        g.world.conn.execute("UPDATE clubs SET cash = 200000000 WHERE id = ?", [PALMEIRAS]).unwrap();
+        g.refresh_budgets().unwrap();
+        let until = date::add_days(&g.date, 200).unwrap();
+        // Um do Flamengo emprestado a outro clube: a proposta vai para o Flamengo, que o vende
+        let (target, ask) = for_sale(&g)[0];
+        let borrower: i32 = g
+            .world
+            .conn
+            .query_row(
+                "SELECT id FROM clubs WHERE division_id = (SELECT division_id FROM clubs WHERE id = ?) AND id NOT IN (?, ?) LIMIT 1",
+                params![FLAMENGO, FLAMENGO, PALMEIRAS],
+                |r| r.get(0),
+            )
+            .unwrap();
+        g.world.conn.execute("UPDATE people SET club_id = ? WHERE id = ?", params![borrower, target]).unwrap();
+        g.world.conn.execute("INSERT INTO loans (person_id, parent_id, until) VALUES (?, ?, ?)", params![target, FLAMENGO, until]).unwrap();
+        assert!(g.transfer_view(target).unwrap().can_offer, "compra-se ao dono");
+        g.make_offer(target, &DealTerms { fee: ask * 2, ..Default::default() }).unwrap();
+        assert_eq!(g.open_offer(target).unwrap().unwrap().seller, Some(FLAMENGO));
+        for _ in 0..5 {
+            g.advance_day().unwrap();
+        }
+        assert_eq!(g.transfer_view(target).unwrap().offer.map(|o| o.status).as_deref(), Some("agreed"));
+
+        // Um emprestado ao Palmeiras volta ao dono quando o treinador quiser
+        let (lent, _) = for_sale(&g)[1];
+        g.world.conn.execute("UPDATE people SET club_id = ? WHERE id = ?", params![PALMEIRAS, lent]).unwrap();
+        g.world.conn.execute("INSERT INTO loans (person_id, parent_id, until) VALUES (?, ?, ?)", params![lent, FLAMENGO, until]).unwrap();
+        assert!(g.transfer_view(lent).unwrap().can_send_back);
+        g.send_back_loan(lent).unwrap();
+        assert_eq!(g.facts(lent).unwrap().unwrap().club, Some(FLAMENGO));
+        assert!(g.loan_of(lent).unwrap().is_none());
+        assert!(g.send_back_loan(lent).is_err(), "já não está emprestado");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

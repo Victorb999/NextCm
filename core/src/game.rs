@@ -2366,7 +2366,9 @@ impl Game {
     /// Põe ou tira um jogador da escolha e mostra como fica (sem gravar).
     pub fn toggle_player(&self, sel: &Selection, player: i32) -> Result<ClubTactics> {
         let mut sel = sel.clone();
+        let before: Vec<i32> = sel.starters.iter().flatten().chain(&sel.bench).copied().collect();
         self.world.toggle_player(self.club_id, &mut sel, player)?;
+        self.check_numbered(&before, &sel)?;
         self.preview_selection(&sel)
     }
 
@@ -2383,6 +2385,9 @@ impl Game {
 
     /// Grava a escolha do treinador (Ok na tela de Tácticas).
     pub fn set_selection(&mut self, sel: Selection) -> Result<ClubTactics> {
+        let before: Vec<i32> =
+            self.selection.as_ref().map_or(Vec::new(), |s| s.starters.iter().flatten().chain(&s.bench).copied().collect());
+        self.check_numbered(&before, &sel)?;
         let t = self.preview_selection(&sel)?;
         self.selection = Some(sel);
         self.unsaved = true;
@@ -3056,7 +3061,14 @@ impl Game {
 
     /// O Ok das Tácticas a meio do jogo: aplica a escolha toda de uma vez.
     pub fn live_set_tactics(&mut self, sel: &Selection) -> Result<LiveView> {
-        self.live_day()?;
+        // Quem já está no jogo (em campo, no banco ou que já saiu) passou; quem entra precisa de número
+        let side = self.live_day()?.games[self.live_day()?.user].1.user_side();
+        if let Some(side) = side {
+            let t = self.live_tactics(side as i32)?;
+            let before: Vec<i32> =
+                t.starters.iter().filter_map(|s| s.player.as_ref().map(|p| p.id)).chain(t.bench.iter().map(|p| p.id)).collect();
+            self.check_numbered(&before, sel)?;
+        }
         let day = self.live.as_mut().expect("dia de jogo");
         day.games[day.user].1.apply_selection(&self.world, sel)?;
         // As instruções individuais mudadas no jogo ficam também na escolha do treinador (são

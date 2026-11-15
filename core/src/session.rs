@@ -746,6 +746,10 @@ impl Session {
         self.game()?.club_moves(id, &view, season)
     }
 
+    pub fn send_back_loan(&mut self, id: i32) -> Result<String> {
+        self.game_mut()?.send_back_loan(id)
+    }
+
     pub fn recall_loan(&mut self, id: i32) -> Result<String> {
         self.game_mut()?.recall_loan(id)
     }

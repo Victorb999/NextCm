@@ -289,6 +289,7 @@ export const api = {
   clubTransfers: (id: number) => call<TransferItem[]>('club_transfers', { id }),
   /** Chamar de volta um jogador emprestado pelo clube do treinador. */
   recallLoan: (id: number) => call<string>('recall_loan', { id }),
+  sendBackLoan: (id: number) => call<string>('send_back_loan', { id }),
   /** A aba Transferências do clube: a vista do menu Ver ("in", "out", "future"...) e a época. */
   clubMoves: (id: number, view: string, season: number | null) => call<ClubMoves>('club_moves', { id, view, season }),
   clubFixtures: (id: number) => call<Fixture[]>('club_fixtures', { id }),

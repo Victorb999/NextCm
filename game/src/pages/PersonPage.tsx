@@ -219,8 +219,8 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
     else if (k === 'role') setRoleDialog(true)
     else if (k === 'praise' || k === 'criticise') void comment(k)
     else if (k === 'promote' || k === 'demote') void moveSquad(k === 'demote')
-    else if (k === 'recall')
-      void api.recallLoan(id).then(
+    else if (k === 'recall' || k === 'sendBack')
+      void (k === 'recall' ? api.recallLoan(id) : api.sendBackLoan(id)).then(
         (text) => {
           setNotice(text)
           setError(null)

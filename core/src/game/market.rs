@@ -90,6 +90,15 @@ const MAX_LOAN_LISTED: usize = 2;
 /// [`EARLY_BIG_CHANCE`]: os grandes ficam para mais tarde, como no CM.
 const EARLY_BIG_FEE: i64 = 20_000_000;
 const EARLY_BIG_CHANCE: f64 = 0.2;
+
+/// A janela de inverno das ligas europeias é calma, como na vida real (em janeiro mexe-se cerca
+/// de um terço do verão): a IA negocia menos vezes; reforçar um titular (sem falta de jogadores na
+/// posição) e os negócios grandes são raros; não há bombásticas.
+const WINTER_DEAL: f64 = 0.2;
+const SUMMER_DEAL: f64 = 0.5;
+const WINTER_UPGRADE: f64 = 0.35;
+const WINTER_BIG_FEE: i64 = 25_000_000;
+const WINTER_BIG_CHANCE: f64 = 0.25;
 /// Um negócio da IA a partir disto faz-se em duas etapas: o acordo ("firma acordo com") e,
 /// [`AGREEMENT_DAYS`] dias depois, a assinatura. Entretanto o treinador pode entrar no negócio.
 const STAGED_FEE: i64 = 15_000_000;
@@ -313,6 +322,11 @@ pub(super) fn window_open(kind: SeasonKind, md: &str) -> bool {
     }
 }
 
+/// A janela de inverno de uma liga europeia (janeiro): a calma ([`WINTER_DEAL`]).
+fn winter_window(kind: SeasonKind, md: &str) -> bool {
+    matches!(kind, SeasonKind::European | SeasonKind::International) && md < "07-01"
+}
+
 /// Os 10 dias depois da primeira semana de uma janela ([`window_opening`]).
 fn early_window(md: &str) -> bool {
     ("07-08"..="07-17").contains(&md) || ("01-08"..="01-17").contains(&md)
@@ -442,7 +456,13 @@ impl Game {
                 ))
             })?
             .collect::<rusqlite::Result<_>>()?;
-        let since = date::add_days(&today, -SETTLE_DAYS).unwrap_or_default();
+        // Em janeiro, quem chegou na temporada (desde julho) ainda está a assentar: a IA não o
+        // revende já (os 180 dias acabavam a meio da janela de inverno)
+        let since = if &today[5..] < "07-01" {
+            format!("{}-07-01", today[0..4].parse::<i32>().unwrap_or(0) - 1).min(date::add_days(&today, -SETTLE_DAYS).unwrap_or_default())
+        } else {
+            date::add_days(&today, -SETTLE_DAYS).unwrap_or_default()
+        };
         let recent: HashSet<i32> = self
             .world
             .conn
@@ -589,7 +609,8 @@ impl Game {
                 deals.push(deal);
                 moved = true;
             }
-            if dealing && uniform(&mut rng) < 0.5 {
+            let deal_chance = if winter_window(kind, &md) { WINTER_DEAL } else { SUMMER_DEAL };
+            if dealing && uniform(&mut rng) < deal_chance {
                 if let Some(deal) = self.ai_buy(club, rep, kind, &market, &loaned, &mut done, &mut rng)? {
                     market.move_player(deal.person_id, deal.to.as_ref().map(|c| c.id));
                     deals.push(deal);
@@ -1018,7 +1039,9 @@ impl Game {
         let attraction = self.city_attraction(club)?;
         let wealth = self.wage_wealth(club)?;
         // A contratação bombástica: um clube muito rico, de vez em quando
-        let splurge = b.cash as f64 >= SPLURGE_CASH * b.base && uniform(rng) < SPLURGE_CHANCE;
+        let md = self.date[5..].to_string();
+        let winter = winter_window(kind, &md);
+        let splurge = b.cash as f64 >= SPLURGE_CASH * b.base && uniform(rng) < SPLURGE_CHANCE && !winter;
         let (premium, budget, wage_room) = if splurge {
             (1.5 + uniform(rng), b.cash as f64 * SPLURGE_BUDGET, b.wage_room.max(0.0) + b.cash as f64 * CASH_WAGES / 52.0)
         } else {
@@ -1040,7 +1063,6 @@ impl Game {
         let mut candidates: Vec<(&Listing, i64, i64)> = Vec::new();
         // O valor do plantel de cada clube que vende (para o indispensável) e o dia da janela
         let mut cores: HashMap<i32, f64> = HashMap::new();
-        let md = self.date[5..].to_string();
         for &i in &market.by_role[role] {
             let l = &market.listings[i];
             if l.ca > ceiling {
@@ -1058,7 +1080,8 @@ impl Game {
                 || l.id == self.manager_id
                 // Entre clubes da IA, quem acabou de chegar não volta a ser vendido na mesma janela
                 // (o treinador ainda o pode tentar, caro e raro: `willingness`)
-                || (l.club.is_some() && l.recent)
+                // (em janeiro, toda a temporada), a não ser que tenha pedido para sair
+                || (l.club.is_some() && l.recent && !market.requested.contains(&l.id))
             {
                 continue;
             }
@@ -1137,6 +1160,14 @@ impl Game {
             // Na primeira semana e pouco da janela os negócios grandes são raros
             if fee >= EARLY_BIG_FEE && early_window(&md) {
                 chance *= EARLY_BIG_CHANCE;
+            }
+            // Em janeiro compra-se por necessidade (falta de jogadores na posição); reforçar um
+            // titular e os negócios grandes são raros
+            if winter && short != Some(role) {
+                chance *= WINTER_UPGRADE;
+                if fee >= WINTER_BIG_FEE {
+                    chance *= WINTER_BIG_CHANCE;
+                }
             }
             if chance < 1.0 && uniform(rng) >= chance {
                 continue;
@@ -1319,6 +1350,39 @@ impl Game {
         let name = self.person_name(person)?;
         let club = from.map(|c| self.club(c).short_name).unwrap_or_default();
         Ok(format!("{name} foi chamado de volta do empréstimo ao {club}."))
+    }
+
+    /// Devolver ao clube dono um jogador que o treinador tem emprestado, quando quiser: o
+    /// empréstimo acaba hoje (a parte do salário e as taxas mensais por pagar também).
+    pub fn send_back_loan(&mut self, person: i32) -> Result<String> {
+        if self.sacked() {
+            return Err(crate::Error::Invalid("Não tem clube.".into()));
+        }
+        let parent: Option<i32> =
+            self.world.conn.query_row("SELECT parent_id FROM loans WHERE person_id = ?", [person], |r| r.get(0)).optional()?;
+        let club: Option<i32> = self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [person], |r| r.get(0))?;
+        let Some(parent) = parent.filter(|&p| club == Some(self.club_id) && p != self.club_id) else {
+            return Err(crate::Error::Invalid("Só para os jogadores emprestados ao seu clube.".into()));
+        };
+        let open: i64 = self.world.conn.query_row(
+            "SELECT COUNT(*) FROM offers WHERE person_id = ? AND status IN ('pending', 'countered', 'agreed', 'raised', 'waiting')",
+            [person],
+            |r| r.get(0),
+        )?;
+        if open > 0 {
+            return Err(crate::Error::Invalid("Há um negócio em curso por este jogador.".into()));
+        }
+        self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![parent, self.date, person])?;
+        self.number_after_move(person, Some(parent))?;
+        self.world.conn.execute("DELETE FROM loans WHERE person_id = ?", [person])?;
+        self.world.conn.execute(
+            "DELETE FROM payments WHERE person_id = ? AND payer = ? AND payee = ? AND due > ?",
+            params![person, self.club_id, parent, self.date],
+        )?;
+        self.log_transfer(person, Some(self.club_id), Some(parent), 0, "return")?;
+        self.squad_changed()?;
+        let name = self.person_name(person)?;
+        Ok(format!("{name} voltou ao {}: o empréstimo terminou hoje.", self.club(parent).short_name))
     }
 
     fn return_loans(&mut self) -> Result<bool> {

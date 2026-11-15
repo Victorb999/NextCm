@@ -28,9 +28,10 @@ export function personActions({
     ? [
         // Mercado. Emprestado ao clube: compra-se ao clube dono (o core diz se dá)
         loanedIn
-          ? m?.canOffer
-            ? [{ key: 'offer', label: 'Abordar Para Comprar' }]
-            : []
+          ? [
+              ...(m?.canOffer ? [{ key: 'offer', label: 'Abordar Para Comprar' }] : []),
+              ...(m?.canSendBack ? [{ key: 'sendBack', label: 'Devolver ao Clube' }] : []),
+            ]
           : [
               ...(m?.canRenew ? [{ key: 'renew', label: 'Oferecer Novo Contrato' }] : []),
               m?.transferListed

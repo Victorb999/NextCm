@@ -370,11 +370,12 @@ impl Game {
             .conn
             .prepare_cached(
                 "SELECT c.id, COALESCE(c.reputation, 1) FROM clubs c JOIN nations n ON n.id = c.nation_id
-                 WHERE n.name = ? AND c.is_national_team = 0
+                 WHERE n.name IN (?1, ?2) AND c.is_national_team = 0
                    AND (SELECT COUNT(*) FROM people p WHERE p.club_id = c.id AND p.is_player = 1) >= 11
                  ORDER BY c.reputation DESC, c.id",
             )?
-            .query_map([nation], |r| Ok((r.get(0)?, r.get(1)?)))?
+            // Os regulamentos dizem a nação em inglês; o save tem os nomes em português (save 69)
+            .query_map([nation, crate::nation_names::nation_pt(nation)], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         let mut pool: Vec<(i32, f64)> = pool
             .into_iter()

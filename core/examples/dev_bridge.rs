@@ -392,6 +392,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         }
         "club_transfers" => out(serde_json::to_value(session.club_transfers(id()?).map_err(e)?)),
         "recall_loan" => out(serde_json::to_value(session.recall_loan(id()?).map_err(e)?)),
+        "send_back_loan" => out(serde_json::to_value(session.send_back_loan(id()?).map_err(e)?)),
         "club_moves" => {
             let view = args["view"].as_str().ok_or("falta view")?.to_string();
             let season = args["season"].as_i64().map(|v| v as i32);
