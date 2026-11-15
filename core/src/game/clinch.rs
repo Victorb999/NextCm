@@ -185,3 +185,60 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+#[cfg(test)]
+mod bench_tests {
+    use crate::game::Game;
+
+    const PALMEIRAS: i32 = 7568;
+
+    /// Com o GR suplente lesionado e outro só nas reservas, o adjunto não passa de 9 suplentes
+    /// (antes punha 9 e mais o GR das reservas, e nenhuma troca era aceite).
+    #[test]
+    fn assistant_bench_never_passes_nine_with_the_backup_keeper_out() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-banco-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Banco".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: PALMEIRAS,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        let mut g = Game::create(&path, &dir, &new, 3).unwrap();
+        let keepers: Vec<i32> = g
+            .world
+            .conn
+            .prepare(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ? AND pl.pos_goalkeeper >= 15
+                 ORDER BY pl.current_ability DESC",
+            )
+            .unwrap()
+            .query_map([PALMEIRAS], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert!(keepers.len() >= 3, "{keepers:?}");
+        // O titular joga; o último vai para as reservas; os do meio estão lesionados
+        let last = *keepers.last().unwrap();
+        for &k in &keepers[1..keepers.len() - 1] {
+            g.squads.states.entry(k).or_default().injury = Some("Lesão no joelho".into());
+        }
+        g.squads.states.entry(last).or_default().reserve = true;
+        let t = g.club_tactics(PALMEIRAS).unwrap();
+        assert!(t.bench.len() <= crate::tactics::BENCH, "{} suplentes", t.bench.len());
+        assert!(t.bench.iter().any(|p| p.id == last), "o GR das reservas vai para o banco");
+        // E a escolha passa na validação (as trocas voltam a ser aceites)
+        assert!(g.set_selection(t.selection()).is_ok());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

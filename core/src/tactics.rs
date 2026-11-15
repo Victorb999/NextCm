@@ -765,6 +765,10 @@ impl World {
             group.sort_by_key(|c| (c.state.condition < MIN_CONDITION, std::cmp::Reverse(c.ca)));
             let has_keeper = bench.iter().any(|p| p.position.starts_with("GR"));
             if !has_keeper && let Some(i) = group.iter().position(|c| c.pos[GR].unwrap_or(1) >= 15) {
+                // Com o banco já cheio (o GR suplente lesionado), entra no lugar do último
+                if bench.len() >= BENCH {
+                    bench.pop();
+                }
                 bench.push(group.remove(i).player(None));
             }
             let take = BENCH.saturating_sub(bench.len()).min(group.len());
