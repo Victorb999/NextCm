@@ -79,12 +79,15 @@ function Scorers({ view, said, side, small }: { view: LiveView; said: Line[]; si
   const goals = new Map<string, number[]>()
   // As lesões também, a verde ("Mendoza lesionado 45"), como no CM
   const injuries: [string, number][] = []
+  // E as expulsões, a vermelho
+  const reds: [string, number][] = []
   for (const l of said) {
     if (l.side !== side) continue
     const p = [...team.players, ...team.out].find((p) => p.id === l.playerId)
     const name = p ? surname(p.listName) : '?'
     if (isGoalLine(l)) goals.set(name, [...(goals.get(name) ?? []), l.minute])
     else if (l.kind === 'injury' && l.last) injuries.push([name, l.minute])
+    else if (l.kind === 'red' && l.last) reds.push([name, l.minute])
   }
   return (
     <div className={`flex flex-1 flex-col ${small ? 'gap-0' : 'gap-1'} ${side === 1 ? 'items-start pl-8' : 'items-end pr-8'}`}>
@@ -103,13 +106,22 @@ function Scorers({ view, said, side, small }: { view: LiveView; said: Line[]; si
           <span className="text-cm-yellow">{minute}</span>
         </div>
       ))}
+      {reds.map(([name, minute]) => (
+        <div
+          key={`r${name}-${minute}`}
+          className={`flex font-title font-bold ${small ? 'gap-4 text-[17px] leading-[22px]' : 'gap-8 text-[22px]'}`}
+        >
+          <span className="text-cm-red">{name} expulso</span>
+          <span className="text-cm-yellow">{minute}</span>
+        </div>
+      ))}
     </div>
   )
 }
 
 export function Panorama({ view, line, said, started }: { view: LiveView; line: Line | null; said: Line[]; started: boolean }) {
   // Golos ou lesões: o bloco dos acontecimentos em cima
-  const anyGoal = said.some((l) => isGoalLine(l) || (l.kind === 'injury' && l.last))
+  const anyGoal = said.some((l) => isGoalLine(l) || ((l.kind === 'injury' || l.kind === 'red') && l.last))
   const motm = view.finished ? manOfTheMatch(view, said) : null
   const title = !started
     ? 'Saída de Bola'

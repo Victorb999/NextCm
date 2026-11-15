@@ -156,6 +156,18 @@ export function LiveScreen({
             )
             openWaiting(l.side as 0 | 1)
           }
+          // Uma expulsão (de qualquer lado): o jogo pára nas Tácticas do treinador para reorganizar o time
+          else if (l.kind === 'red' && l.last && l.side !== null && view.userSide !== null && !view.finished) {
+            const team = l.side === 0 ? view.home : view.away
+            const p = [...team.players, ...team.out].find((p) => p.id === l.playerId)
+            const name = p ? p.listName.split(', ').reverse().join(' ') : 'Um jogador'
+            setInjuryNote(
+              l.side === view.userSide
+                ? `${name} foi expulso: o time está com um a menos. Reorganize as posições.`
+                : `${name} foi expulso: o ${team.club.shortName} está com um a menos. Aproveite para atacar.`,
+            )
+            openWaiting(view.userSide as 0 | 1)
+          }
           // Tácticas pedidas: abrem na primeira paragem depois do pedido
           else if (waiting && shown + 1 > waiting.from && isStoppage(l)) openWaiting(waiting.side)
         },
