@@ -65,6 +65,7 @@ pub use game::{KeyMan, MatchAnalysis, MatchReview, Milestone};
 pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use game::{PressQuestion, PressView};
 pub use game::{ReserveLineup, ReserveSpot};
+pub use game::{StaffHireView, StaffJobOption};
 pub use game::{TalkLine, TalkOption, TalkReaction, TalkView};
 pub use game::{TrainingPlan, TrainingView};
 pub use league::{

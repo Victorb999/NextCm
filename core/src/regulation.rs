@@ -430,6 +430,8 @@ pub struct Zone {
     /// A competição para onde vão (vagas, subida ou descida).
     pub competition: Option<i32>,
     pub from_bottom: bool,
+    /// O nome na legenda quando não é o de `competition` (a fase seguinte, os eliminados).
+    pub label: Option<String>,
 }
 
 /// As faixas da classificação final de `competition`, tiradas dos regulamentos.
@@ -449,18 +451,44 @@ pub fn zones(competition: i32) -> Vec<Zone> {
     let mut zones: Vec<Zone> = slots
         .iter()
         .enumerate()
-        .map(|(i, &(from, to, comp))| Zone { from, to, kind: KINDS[i.min(2)], competition: Some(comp), from_bottom: false })
+        .map(|(i, &(from, to, comp))| Zone { from, to, kind: KINDS[i.min(2)], competition: Some(comp), from_bottom: false, label: None })
         .collect();
     if let Some(reg) = all().iter().find(|r| r.competition == competition) {
         if let Some(top) = reg.promotion.as_ref().and_then(|m| m.pick.top) {
             let to = reg.promotion.as_ref().map(|m| m.to);
-            zones.push(Zone { from: 1, to: top, kind: "promotion", competition: to, from_bottom: false });
+            zones.push(Zone { from: 1, to: top, kind: "promotion", competition: to, from_bottom: false, label: None });
         }
         if let Some(bottom) = reg.relegation.as_ref().and_then(|m| m.pick.bottom) {
             let to = reg.relegation.as_ref().map(|m| m.to);
-            zones.push(Zone { from: 1, to: bottom, kind: "relegation", competition: to, from_bottom: true });
+            zones.push(Zone { from: 1, to: bottom, kind: "relegation", competition: to, from_bottom: true, label: None });
         }
+        zones.extend(league_phase_zones(reg));
     }
+    zones
+}
+
+/// As faixas da fase de liga (Liga dos Campeões, Liga Europa): os que passam direto à ronda
+/// seguinte às isentas, os do play-off e os eliminados.
+fn league_phase_zones(reg: &Regulation) -> Vec<Zone> {
+    let Some(i) = reg.stages.iter().position(|s| s.kind == StageKind::LeaguePhase) else {
+        return Vec::new();
+    };
+    let Some(next) = reg.stages.get(i + 1).filter(|s| s.kind == StageKind::Knockout) else {
+        return Vec::new();
+    };
+    let Some(top) = next.entrants.previous.as_ref().and_then(|p| p.top) else {
+        return Vec::new();
+    };
+    let round = |r: usize| next.rounds.get(r).map(|r| r.name.clone());
+    let zone = |from, to, kind, label| Zone { from, to, kind, competition: None, from_bottom: false, label };
+    let mut zones = Vec::new();
+    if next.byes > 0 {
+        zones.push(zone(1, next.byes, "continental", round(1)));
+        zones.push(zone(next.byes + 1, top, "continental2", round(0)));
+    } else {
+        zones.push(zone(1, top, "continental", round(0)));
+    }
+    zones.push(zone(top + 1, 999, "relegation", Some("Eliminados".into())));
     zones
 }
 
@@ -583,6 +611,18 @@ pub fn is_weekend(day: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn league_phase_has_zones() {
+        // Liga Europa: 1-8 às oitavas, 9-24 ao play-off, o resto eliminado
+        let z = super::zones(328);
+        let at = |pos: usize| z.iter().find(|z| !z.from_bottom && z.from <= pos && pos <= z.to).map(|z| z.kind);
+        assert_eq!(
+            (at(1), at(8), at(9), at(24), at(25), at(36)),
+            (Some("continental"), Some("continental"), Some("continental2"), Some("continental2"), Some("relegation"), Some("relegation"))
+        );
+        assert_eq!(z[0].label.as_deref(), Some("Oitavas de final"));
+    }
+
     use super::*;
 
     #[test]

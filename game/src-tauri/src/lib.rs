@@ -205,6 +205,9 @@ session_command!(scout_player(id: i32) -> String);
 session_command!(scout_list(slot: i32) -> ScoutList);
 session_command!(report_staff(kind: String) -> Vec<ReportStaff>);
 session_command!(staff_report(id: i32, kind: String, staff: Vec<i32>) -> usize);
+session_command!(staff_hire_view(id: i32) -> nextcm_core::StaffHireView);
+session_command!(offer_staff_contract(id: i32, job: i32, wage: i64, years: i32) -> String);
+session_command!(sack_staff(id: i32) -> String);
 session_command!(assign_scout(slot: i32, kind: String, target: Option<i32>) -> ScoutList);
 session_command!(clear_scout(slot: i32) -> ScoutList);
 session_command!(search_clubs(text: String) -> Vec<ClubListItem>);
@@ -452,6 +455,9 @@ pub fn run() {
             scout_list,
             report_staff,
             staff_report,
+            staff_hire_view,
+            offer_staff_contract,
+            sack_staff,
             assign_scout,
             clear_scout,
             search_clubs,

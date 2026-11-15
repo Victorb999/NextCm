@@ -15,14 +15,17 @@ import PlayerHistory from '../components/PlayerHistory'
 import ReportDialog from '../components/ReportDialog'
 import SquadRoleDialog from '../components/SquadRoleDialog'
 import { BottomBar, ErrorBox, Panel, PurpleMenu, Tabs } from '../components/Screen'
+import type { StaffHireView } from '../bindings/StaffHireView'
 import type { TransferView } from '../bindings/TransferView'
+import StaffContractDialog from '../components/StaffContractDialog'
 import TransferActions, { type TransferAction } from '../components/TransferActions'
 import TextDialog from '../components/TextDialog'
-import TransferTab from '../components/TransferTab'
+import TransferTab, { OfferButtons } from '../components/TransferTab'
 import { compareFirst, setCompareFirst } from '../compare'
 import { personActions, takePendingAct } from '../personActions'
 import { useGame } from '../game'
 import { useNav } from '../nav'
+import { money } from '../format'
 
 const TABS = [
   { key: 'profile', label: 'Perfil Geral' },
@@ -49,6 +52,10 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
   const [version, setVersion] = useState(0)
   const [text, setText] = useState<'nickname' | 'note' | null>(null)
   const [release, setRelease] = useState<string | null>(null)
+  // O staff (4.0, item 24): o diálogo de contrato, a proposta em curso e o Despedir
+  const [hire, setHire] = useState<StaffHireView | null>(null)
+  const [staffDialog, setStaffDialog] = useState(false)
+  const [sackAsk, setSackAsk] = useState(false)
 
   const reload = () => {
     setVersion((v) => v + 1)
@@ -60,6 +67,18 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
   useEffect(() => {
     if (playing) api.transferView(id).then(setMarket, () => setMarket(null))
   }, [id, playing, version, date])
+
+  const staffGame = game.mode === 'game' && !!person && !person.player
+  useEffect(() => {
+    if (staffGame) api.staffHireView(id).then(setHire, () => setHire(null))
+    else setHire(null)
+  }, [id, staffGame, version, date])
+  const staffOptions = hire
+    ? [
+        ...(hire.blocked ? [] : [{ key: 'staffContract', label: hire.mine ? 'Renovar Contrato' : 'Oferecer Contrato' }]),
+        ...(hire.sackCost !== null ? [{ key: 'sack', label: 'Despedir' }] : []),
+      ]
+    : []
 
   // Esc / Backspace voltam para a tela anterior
   useEffect(() => {
@@ -210,6 +229,8 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
         (e) => setError(String(e)),
       )
     else if (k === 'leave') void giveLeave()
+    else if (k === 'staffContract') setStaffDialog(true)
+    else if (k === 'sack') setSackAsk(true)
     else setReport(k as 'medical' | 'fitness')
   }
 
@@ -229,10 +250,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
       <PersonHeader
         p={person}
         action={
-          game.mode === 'game' &&
-          person?.player &&
-          // O jogador de enchimento só tem os atributos, como no CM
-          !person.ghost && (
+          staffOptions.length > 0 ? (
             <PurpleMenu
               label="Acção"
               align="right"
@@ -242,9 +260,27 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
                   Acção <ChevronDown size={14} />
                 </>
               }
-              options={groups.flatMap((g, i) => (i ? ['separator' as const, ...g] : g))}
+              options={staffOptions}
               onChange={act}
             />
+          ) : (
+            game.mode === 'game' &&
+            person?.player &&
+            // O jogador de enchimento só tem os atributos, como no CM
+            !person.ghost && (
+              <PurpleMenu
+                label="Acção"
+                align="right"
+                buttonClass="flex h-9 items-center gap-1.5 rounded bg-cm-orange px-4 font-title text-[17px] font-bold text-black hover:brightness-110"
+                trigger={
+                  <>
+                    Acção <ChevronDown size={14} />
+                  </>
+                }
+                options={groups.flatMap((g, i) => (i ? ['separator' as const, ...g] : g))}
+                onChange={act}
+              />
+            )
           )
         }
         tabs={
@@ -277,8 +313,23 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
             <div className="flex w-[42%] shrink-0 flex-col gap-2">
               <Panel title="Contrato">
                 <Contract p={person} />
-                {game.mode === 'game' && buttonRow(contractButtons)}
+                {game.mode === 'game' && buttonRow(person.player ? contractButtons : staffOptions)}
               </Panel>
+              {hire?.blocked && <div className="px-1 text-[14px] text-cm-muted">{hire.blocked}</div>}
+              {hire?.offer && (
+                <Panel title="Proposta">
+                  <div className="p-3">
+                    <OfferButtons
+                      offer={hire.offer}
+                      onChange={() => {
+                        refreshInfo()
+                        void reload()
+                      }}
+                      onNegotiate={() => setStaffDialog(true)}
+                    />
+                  </div>
+                </Panel>
+              )}
               {person.personal && <PersonalPanel p={person} />}
             </div>
             {game.mode === 'game' && person.player && (
@@ -381,6 +432,47 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
             }}
           >
             <div className="py-6 text-center font-title text-[19px] text-white">{release}</div>
+          </DialogFrame>
+        </Overlay>
+      )}
+      {staffDialog && hire && (
+        <StaffContractDialog
+          view={hire}
+          onCancel={() => setStaffDialog(false)}
+          onDone={(message) => {
+            setStaffDialog(false)
+            setNotice(message)
+            setError(null)
+            refreshInfo()
+            void reload()
+          }}
+        />
+      )}
+      {sackAsk && hire && (
+        <Overlay>
+          <DialogFrame
+            title="Despedir"
+            width={560}
+            cancelLabel="Não"
+            okLabel="Sim"
+            onCancel={() => setSackAsk(false)}
+            onOk={() => {
+              setSackAsk(false)
+              void api.sackStaff(id).then(
+                (t) => {
+                  setNotice(t)
+                  setError(null)
+                  refreshInfo()
+                  void reload()
+                },
+                (e) => setError(String(e)),
+              )
+            }}
+          >
+            <div className="py-6 text-center font-title text-[19px] text-white">
+              Despedir {hire.name}?{' '}
+              {hire.sackCost ? `O clube paga ${money(hire.sackCost)} do resto do contrato.` : 'Não tem custos para o clube.'}
+            </div>
           </DialogFrame>
         </Overlay>
       )}

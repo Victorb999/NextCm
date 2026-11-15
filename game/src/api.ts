@@ -35,6 +35,7 @@ import type { ClubProfile } from './bindings/ClubProfile'
 import type { ClubTactics } from './bindings/ClubTactics'
 import type { CompetitionListItem } from './bindings/CompetitionListItem'
 import type { CompetitionProfile } from './bindings/CompetitionProfile'
+import type { StaffHireView } from './bindings/StaffHireView'
 import type { CompetitionStats } from './bindings/CompetitionStats'
 import type { ExchangeCandidate } from './bindings/ExchangeCandidate'
 import type { Fixture } from './bindings/Fixture'
@@ -277,6 +278,11 @@ export const api = {
   reportStaff: (kind: string) => call<ReportStaff[]>('report_staff', { kind }),
   /** Pede os relatórios; devolve quantos chegaram às mensagens. */
   staffReport: (id: number, kind: string, staff: number[]) => call<number>('staff_report', { id, kind, staff }),
+  /** Contratar staff (4.0, item 24): o diálogo, a proposta e o despedimento. */
+  staffHireView: (id: number) => call<StaffHireView>('staff_hire_view', { id }),
+  offerStaffContract: (id: number, job: number, wage: number, years: number) =>
+    call<string>('offer_staff_contract', { id, job, wage, years }),
+  sackStaff: (id: number) => call<string>('sack_staff', { id }),
   assignScout: (slot: number, kind: string, target: number | null) => call<ScoutList>('assign_scout', { slot, kind, target }),
   clearScout: (slot: number) => call<ScoutList>('clear_scout', { slot }),
   searchClubs: (text: string) => call<ClubListItem[]>('search_clubs', { text }),

@@ -130,8 +130,8 @@ function Analysis({ view, a }: { view: LiveView; a: MatchAnalysis }) {
               ? `${last.home.shortName} ${last.homeGoals ?? '-'}-${last.awayGoals ?? '-'} ${last.away.shortName} (${last.competition})`
               : 'Primeiro jogo entre os dois'}
           </Row>
-          <Row label={`Ausências (${home})`}>{a.preview.homeNews.join(' · ') || 'Nenhuma'}</Row>
-          <Row label={`Ausências (${away})`}>{a.preview.awayNews.join(' · ') || 'Nenhuma'}</Row>
+          <Row label={`Ausências (${home})`}>{a.preview.homeNews.map((n) => `${n.name} ${n.text}`).join(' · ') || 'Nenhuma'}</Row>
+          <Row label={`Ausências (${away})`}>{a.preview.awayNews.map((n) => `${n.name} ${n.text}`).join(' · ') || 'Nenhuma'}</Row>
         </div>
       </Panel>
       <div className="flex min-h-0 gap-2">

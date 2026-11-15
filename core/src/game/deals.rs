@@ -443,7 +443,7 @@ impl Game {
     pub(super) fn open_offer(&self, person: i32) -> Result<Option<Offer>> {
         Ok(self
             .offers_where(
-                "person_id = ?1 AND (buyer = ?2 OR seller = ?2) AND kind <> 'contract' AND status IN ('pending', 'countered', 'agreed', 'raised', 'talks', 'confirm')",
+                "person_id = ?1 AND (buyer = ?2 OR seller = ?2) AND kind NOT IN ('contract', 'staff') AND status IN ('pending', 'countered', 'agreed', 'raised', 'talks', 'confirm')",
                 params![person, self.club_id],
             )?
             .pop())
@@ -851,7 +851,7 @@ impl Game {
         let kind: Option<String> =
             self.world.conn.query_row("SELECT kind FROM offers WHERE id = ?", [offer], |r| r.get(0)).optional().ok().flatten();
         match kind.as_deref() {
-            Some("contract") => "contract",
+            Some("contract" | "staff") => "contract",
             Some("job") => "jobs",
             _ => "deal",
         }
@@ -1230,6 +1230,23 @@ impl Game {
                 "withdrawn" => ("Proposta retirada.".into(), Vec::new()),
                 _ => ("Negociações terminadas.".into(), Vec::new()),
             },
+            _ if o.kind == "staff" => match o.status.as_str() {
+                "pending" => {
+                    (format!("Propôs um contrato a {name}; a resposta chega a {until}."), vec![action("withdraw", "Retirar Proposta")])
+                }
+                "agreed" => (
+                    format!("{name} aceitou o contrato. Confirme até {until} para o fechar."),
+                    vec![action("confirm", "Confirmar"), action("withdraw", "Desistir")],
+                ),
+                "countered" => (
+                    format!("{name} fez uma contraproposta. Responda até {until}."),
+                    vec![action("accept", "Aceitar Contraproposta"), action("negotiate", "Negociar"), action("withdraw", "Desistir")],
+                ),
+                "done" => ("Contrato assinado.".into(), Vec::new()),
+                "withdrawn" => ("Proposta retirada.".into(), Vec::new()),
+                "rejected" => (format!("{name} recusou a proposta."), Vec::new()),
+                _ => ("Negociações terminadas.".into(), Vec::new()),
+            },
             _ if o.kind == "job" => match o.status.as_str() {
                 "applied" => (format!("Concorreu ao lugar no {}; a resposta chega a {until}.", buyer.name), Vec::new()),
                 "pending" => (
@@ -1534,6 +1551,10 @@ impl Game {
         }
         if o.kind == "contract" {
             self.answer_contract(&o, key)?;
+            return self.offer_view(id);
+        }
+        if o.kind == "staff" {
+            self.answer_staff(&o, key)?;
             return self.offer_view(id);
         }
         if o.kind == "job" {
@@ -2127,7 +2148,7 @@ Confirme até {}.",
     pub(super) fn offers_day(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let today = self.date.clone();
         for o in self.offers_where(
-            "buyer = ?1 AND kind NOT IN ('request', 'contract') AND status = 'pending' AND answer_on <= ?2",
+            "buyer = ?1 AND kind NOT IN ('request', 'contract', 'staff') AND status = 'pending' AND answer_on <= ?2",
             params![self.club_id, today],
         )? {
             self.seller_answers(&o, fresh, next_id)?;
@@ -2137,7 +2158,7 @@ Confirme até {}.",
         }
         // Prazos: propostas recebidas sem resposta, acordos sem contrato
         for o in self.offers_where(
-            "seller = ?1 AND kind NOT IN ('request', 'contract') AND status IN ('pending', 'countered') AND answer_on < ?2",
+            "seller = ?1 AND kind NOT IN ('request', 'contract', 'staff') AND status IN ('pending', 'countered') AND answer_on < ?2",
             params![self.club_id, today],
         )? {
             self.set_status(o.id, "withdrawn", None)?;
@@ -2160,6 +2181,8 @@ Confirme até {}.",
         self.release_clause_offers(fresh, next_id)?;
         self.sale_talks_day(fresh, next_id)?;
         self.contract_replies(fresh, next_id)?;
+        self.staff_replies(fresh, next_id)?;
+        self.staff_day(fresh, next_id)?;
         self.precontracts_due(fresh, next_id)?;
         self.waiting_deals_due(fresh, next_id)?;
         self.option_reminders(fresh, next_id)?;

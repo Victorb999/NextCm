@@ -22,6 +22,7 @@ use crate::MatchSheet;
 use crate::NewsLink;
 use crate::PressView;
 use crate::SquadRoleView;
+use crate::StaffHireView;
 use crate::StatusBar;
 use crate::WorldTransfers;
 use crate::tactic_file::{self, SavedFile};
@@ -715,6 +716,19 @@ impl Session {
 
     pub fn staff_report(&mut self, id: i32, kind: String, staff: Vec<i32>) -> Result<usize> {
         self.game_mut()?.staff_report(id, &kind, &staff)
+    }
+
+    /// O diálogo de contrato de um membro do staff (4.0, item 24).
+    pub fn staff_hire_view(&self, id: i32) -> Result<StaffHireView> {
+        self.game()?.staff_hire_view(id)
+    }
+
+    pub fn offer_staff_contract(&mut self, id: i32, job: i32, wage: i64, years: i32) -> Result<String> {
+        self.game_mut()?.offer_staff_contract(id, job, wage, years)
+    }
+
+    pub fn sack_staff(&mut self, id: i32) -> Result<String> {
+        self.game_mut()?.sack_staff(id)
     }
 
     pub fn scout_list(&self, slot: i32) -> Result<ScoutList> {

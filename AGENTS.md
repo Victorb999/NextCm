@@ -41,6 +41,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/competition_stats.rs` | Golos esperados: a aba Estatísticas da competição e os últimos jogos na Análise |
 | `core/src/game/friendlies.rs` | Amigáveis de clubes (competição 72): marcar (casa, fora, excursão), cancelar, convites; jogos em `friendly_apps` |
 | `core/src/game/internationals.rs` | Selecções: época internacional (1/8, ciclo de 4 anos), sorteios das fases finais, convocatórias (`call_ups`), "Int", internacionalizações |
+| `core/src/game/staff_hire.rs` | Contratar e despedir staff: proposta (`offers.kind = 'staff'`), resposta, multa ao clube, máximo por função, o substituto da IA |
 | `core/src/game/staff_reports.rs` | Relatórios do médico e do preparador físico sobre um jogador do plantel |
 | `core/src/game/contracts.rs` | Propostas de contrato com resposta do jogador, contraproposta, confirmação e pré-contratos |
 | `core/src/game/board.rs` | Direção: expectativa, confiança, avisos e despedimento, orçamentos, Confiança da Direcção e adeptos |

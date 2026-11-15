@@ -199,9 +199,19 @@ impl Game {
                 *bills.entry(club).or_default() -= part;
                 *bills.entry(parent).or_default() += part;
             }
+            // O staff com salário (os contratados pelo treinador) paga-se à parte dos 12%
+            let staff: HashMap<i32, i64> = self
+                .world
+                .conn
+                .prepare_cached(
+                    "SELECT club_id, SUM(wage) FROM people WHERE is_player = 0 AND club_id IS NOT NULL AND wage > 0 GROUP BY club_id",
+                )?
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<_>>()?;
             for &club in &clubs {
                 let bill = bills.get(&club).copied().unwrap_or(0);
-                self.book(club, "wages", (bill as f64 * (1.0 + finance::STAFF_SHARE)).round() as i64)?;
+                let staff = staff.get(&club).copied().unwrap_or(0);
+                self.book(club, "wages", (bill as f64 * (1.0 + finance::STAFF_SHARE)).round() as i64 + staff)?;
             }
         }
         if first {

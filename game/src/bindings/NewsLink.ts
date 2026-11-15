@@ -5,6 +5,6 @@
  */
 export type NewsLink = { text: string, 
 /**
- * "person" ou "club"
+ * "person", "club" ou "competition"
  */
 kind: string, id: number, };

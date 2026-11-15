@@ -273,9 +273,9 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
         }))
 
   const table = view !== 'traditional' && view !== 'staff'
-  // Casas da equipa, Limpar Equipa e pôr/tirar: na vista Tradicional (nas reservas, o onze delas)
-  const teamView = !reserves && view === 'traditional'
-  const reserveView = reserves && mine && view === 'traditional' && !!reserveLineup
+  // Casas da equipa, Limpar Equipa e pôr/tirar: em todas as vistas dos jogadores (nas reservas, o onze delas)
+  const teamView = !reserves && view !== 'staff'
+  const reserveView = reserves && mine && view !== 'staff' && !!reserveLineup
   // Os do plantel principal que o adjunto põe nas reservas (não estão na lista delas)
   const guests = reserveLineup ? [...reserveLineup.starters, ...reserveLineup.bench].filter((s) => s.firstTeam) : []
   const rowCount = table ? players.length : entries.length
@@ -615,11 +615,13 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
                 <SquadTable
                   view={view}
                   extra={{ more, attributes, group }}
-                  rows={players.map((p) => ({ p, place: placeOf(p.id) }))}
+                  rows={players.map((p, i) => ({ p, place: placeOf(p.id), entry: entries[i] }))}
                   selected={selected}
                   onSelect={setSelected}
                   onOpen={(pid) => open({ id: pid })}
                   header={{ text: headerText, onClick: clickHeader }}
+                  bind={mine && tactics && !reserves ? drag.bind : undefined}
+                  onToggle={reserveView ? toggleReserve : mine && tactics && teamView ? (e) => void toggle(e) : undefined}
                 />
               ) : !table && entries.length ? (
                 <SquadGrid

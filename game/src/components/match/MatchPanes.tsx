@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { api } from '../../api'
 import type { ClubRef } from '../../bindings/ClubRef'
 import type { LivePlayer } from '../../bindings/LivePlayer'
 import type { LiveTeam } from '../../bindings/LiveTeam'
 import type { LiveView } from '../../bindings/LiveView'
+import type { TableZone } from '../../bindings/TableZone'
 import { shortListName, xgText } from '../../format'
 import { liveLineup } from '../../matchLineup'
 import { conditionColour, MENTALITY, PASSING, TACKLING } from '../../tactics'
@@ -11,6 +13,7 @@ import PitchField from '../PitchField'
 import MatchLineups from '../MatchLineups'
 import { isGoalLine, pct, fullName, ratingColour } from './lines'
 import type { Line } from './lines'
+import { zoneRowStyle } from '../../zones'
 import { PossessionBar } from './Panorama'
 
 export function Stats({ view }: { view: LiveView }) {
@@ -411,6 +414,16 @@ export function Results({ view, own }: { view: LiveView; own: number }) {
 export function Table({ view, own }: { view: LiveView; own: number }) {
   const playing = [view.home.club.id, view.away.club.id]
   const heads = ['J', 'V', 'E', 'D', 'M', 'S', 'P']
+  // As faixas da competição (vagas, subida, descida), como na Classificação
+  const competition = view.fixture.competitionId
+  const [zones, setZones] = useState<{ id: number; list: TableZone[] }>({ id: -1, list: [] })
+  useEffect(() => {
+    api.getCompetition(competition).then(
+      (c) => setZones({ id: competition, list: c.zones }),
+      () => {},
+    )
+  }, [competition])
+  const list = zones.id === competition ? zones.list : []
   return (
     <div className="px-3 py-2 text-[13px]">
       <div className="flex h-5 items-center bg-cm-head font-bold text-cm-yellow">
@@ -426,6 +439,7 @@ export function Table({ view, own }: { view: LiveView; own: number }) {
         <div
           key={r.club.id}
           className={`flex h-[19px] items-center border-b border-cm-line ${playing.includes(r.club.id) ? 'bg-white/10' : ''}`}
+          style={playing.includes(r.club.id) ? undefined : zoneRowStyle(list, r.position, view.table.length)}
         >
           <span className="w-10 text-center text-white">{r.position}º</span>
           <span className={`flex-1 truncate ${r.club.id === own ? 'text-cm-pink' : 'text-white'}`}>{r.club.shortName}</span>

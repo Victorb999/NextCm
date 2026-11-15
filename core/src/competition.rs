@@ -203,6 +203,7 @@ impl World {
                     .or_else(|| self.conn.query_row("SELECT name FROM competitions WHERE id = ?", [c], |r| r.get::<_, String>(0)).ok())
             });
             let label = match (z.kind, target.flatten()) {
+                _ if z.label.is_some() => z.label.clone().unwrap_or_default(),
                 ("promotion", Some(n)) => format!("Subida: {n}"),
                 ("promotion", None) => "Subida".into(),
                 ("relegation", Some(n)) => format!("Descida: {n}"),

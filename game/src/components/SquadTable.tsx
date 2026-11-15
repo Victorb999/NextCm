@@ -1,4 +1,6 @@
 import type { SquadPlayer } from '../bindings/SquadPlayer'
+import type { Bind, Entry } from '../pages/club/squadView'
+import type { Spot } from '../selection'
 import { nameClass, squadName } from '../squad'
 import { columnsFor, type TableExtra, type TableView } from '../squadColumns'
 import { Link } from './Screen'
@@ -7,7 +9,8 @@ import { useNav } from '../nav'
 // As vistas em tabela do Vêr do plantel, como no CM: uma linha por jogador com Esc, Inf e
 // Nome à esquerda e as colunas da vista (contrato, selecção, estatísticas, penáltis).
 
-export type TableRow = { p: SquadPlayer; place: string | null }
+/** `entry` (no clube do treinador) liga a linha à equipa: arrastar e pôr/tirar, como na grelha. */
+export type TableRow = { p: SquadPlayer; place: string | null; entry?: Entry }
 
 const ALIGN = { left: 'text-left', right: 'text-right', center: 'text-center' }
 
@@ -75,6 +78,8 @@ export default function SquadTable({
   onOpen,
   extra = {},
   header,
+  bind,
+  onToggle,
 }: {
   view: TableView
   rows: TableRow[]
@@ -83,6 +88,10 @@ export default function SquadTable({
   onOpen: (id: number) => void
   extra?: TableExtra
   header?: HeaderProps
+  /** Só no clube do treinador: arrastar para mudar o lugar na equipa. */
+  bind?: (spot: Spot, label: string) => Bind
+  /** Só no clube do treinador: clicar na casa põe/tira da equipa. */
+  onToggle?: (e: Entry) => void
 }) {
   const columns = columnsFor(view, extra)
   const head = 'font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-dim'
@@ -102,34 +111,46 @@ export default function SquadTable({
         ))}
       </div>
       <div className="cm-zebra">
-        {rows.map(({ p, place }, i) => (
-          <div
-            key={p.id}
-            data-row={i}
-            data-person={p.id}
-            onClick={() => onSelect(i)}
-            onDoubleClick={() => onOpen(p.id)}
-            className={`flex h-6 items-center gap-2 px-2 ${i === selected ? '!bg-cm-sel' : ''}`}
-          >
-            <span className="w-10 shrink-0 text-center font-mono text-[12px] font-bold text-cm-mint">
-              {place ?? <span className="text-[#5a5a66]">-</span>}
-            </span>
-            <span className="w-10 shrink-0 text-center font-mono text-[12px]">
-              <InfBadge info={p.info} person={p.id} />
-            </span>
-            <span className={`min-w-28 flex-1 truncate text-[15px] font-semibold ${nameClass(p)}`}>
-              <Link onClick={() => onOpen(p.id)}>{squadName(p)}</Link>
-            </span>
-            {columns.map((c) => (
+        {rows.map(({ p, place, entry }, i) => {
+          const drag = bind && entry?.spot ? bind(entry.spot, entry.name) : undefined
+          const toggle = onToggle && entry && (() => onToggle(entry))
+          const stop = toggle && ((ev: React.MouseEvent) => ev.stopPropagation())
+          return (
+            <div
+              key={p.id}
+              data-row={i}
+              data-person={p.id}
+              data-spot={drag?.['data-spot']}
+              onMouseDown={drag?.onMouseDown}
+              onClick={() => onSelect(i)}
+              onDoubleClick={() => onOpen(p.id)}
+              className={`flex h-6 items-center gap-2 px-2 ${i === selected ? '!bg-cm-sel' : ''} ${drag ? 'cursor-grab' : ''}`}
+            >
               <span
-                key={c.label}
-                className={`${c.width} shrink-0 truncate font-mono text-[12.5px] ${ALIGN[c.align ?? 'left']} ${i === selected ? 'text-white' : 'text-cm-yellow'}`}
+                onMouseDown={stop}
+                onClick={toggle}
+                title={toggle ? 'Clique para pôr/tirar da equipa' : undefined}
+                className={`w-10 shrink-0 text-center font-mono text-[12px] font-bold ${place ? 'cm-chip' : 'text-cm-mint'} ${toggle ? 'cursor-pointer' : ''}`}
               >
-                {c.cell(p)}
+                {place ?? <span className="text-[#5a5a66]">-</span>}
               </span>
-            ))}
-          </div>
-        ))}
+              <span className="w-10 shrink-0 text-center font-mono text-[12px]">
+                <InfBadge info={p.info} person={p.id} />
+              </span>
+              <span className={`min-w-28 flex-1 truncate text-[15px] font-semibold ${nameClass(p)}`}>
+                <Link onClick={() => onOpen(p.id)}>{squadName(p)}</Link>
+              </span>
+              {columns.map((c) => (
+                <span
+                  key={c.label}
+                  className={`${c.width} shrink-0 truncate font-mono text-[12.5px] ${ALIGN[c.align ?? 'left']} ${i === selected ? 'text-white' : 'text-cm-yellow'}`}
+                >
+                  {c.cell(p)}
+                </span>
+              ))}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

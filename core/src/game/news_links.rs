@@ -19,7 +19,7 @@ use crate::Result;
 #[serde(rename_all = "camelCase")]
 pub struct NewsLink {
     pub text: String,
-    /// "person" ou "club"
+    /// "person", "club" ou "competition"
     pub kind: String,
     pub id: i32,
 }
@@ -58,6 +58,21 @@ impl Game {
                 }
             }
         }
+        // As competições pelo nome do regulamento ("Liga Europa") e pelo do banco
+        let mut comps: HashMap<String, i32> = HashMap::new();
+        for r in crate::regulation::all() {
+            if let Some(name) = r.name.as_ref().filter(|n| names.contains(*n)) {
+                comps.entry(name.clone()).or_insert(r.competition);
+            }
+        }
+        let mut stmt = conn.prepare_cached("SELECT id, name FROM competitions")?;
+        for row in stmt.query_map([], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, Option<String>>(1)?)))? {
+            if let (id, Some(name)) = row?
+                && names.contains(&name)
+            {
+                comps.entry(name).or_insert(id);
+            }
+        }
         // O resto: qualquer pessoa com esse nome (o índice é sem maiúsculas; o 2.º "=" exige-as)
         let mut anyone = conn.prepare_cached(
             "SELECT id FROM people WHERE display_name = ?1 COLLATE NOCASE AND display_name = ?1
@@ -69,6 +84,8 @@ impl Game {
                 Some(("person", id))
             } else if let Some(&(id, _)) = clubs.get(&name) {
                 Some(("club", id))
+            } else if let Some(&id) = comps.get(&name) {
+                Some(("competition", id))
             } else {
                 anyone.query_row([&name], |r| r.get(0)).optional()?.map(|id| ("person", id))
             };

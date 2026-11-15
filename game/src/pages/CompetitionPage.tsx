@@ -15,6 +15,7 @@ import { continentPt } from '../continents'
 import { matchDate } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
+import { ZONE_COLOURS, zoneAt } from '../zones'
 import StatsPanel from './competition/StatsPanel'
 
 const TABS = [
@@ -77,20 +78,6 @@ function History({ c }: { c: CompetitionProfile }) {
 }
 
 const COLS = ['J', 'V', 'E', 'D', 'M', 'S', 'P']
-// As cores das faixas da classificação (vagas, subida, descida), como as linhas do CM
-const ZONE_COLOURS: Record<string, string> = {
-  continental: '#1f9d3a',
-  continental2: '#2f6fd6',
-  continental3: '#16a3a3',
-  promotion: '#1f9d3a',
-  relegation: '#c02020',
-}
-
-/** A faixa do lugar `pos` (1 = primeiro) numa tabela de `n` clubes. */
-function zoneAt(zones: TableZone[], pos: number, n: number) {
-  return zones.find((z) => (z.fromBottom ? pos >= n - z.to + 1 && pos <= n - z.from + 1 : pos >= z.from && pos <= z.to))
-}
-
 const values = (r: StandingRow) => [r.played, r.won, r.drawn, r.lost, r.goalsFor, r.goalsAgainst, r.points]
 
 /** A legenda das faixas da classificação. */
@@ -146,7 +133,12 @@ function Table({
               const zone = rows.length ? ZONE_COLOURS[zoneAt(c.zones, i + 1, shown.length)?.kind ?? ''] : undefined
               const mine = row.club.id === own
               return (
-                <tr key={row.club.id} className={`h-[30px] text-[14.5px] ${mine ? 'bg-cm-pink/10' : ''}`}>
+                // A linha toda com a cor da faixa (o clube do treinador fica realçado pelo nome)
+                <tr
+                  key={row.club.id}
+                  className={`h-[30px] text-[14.5px] ${mine && !zone ? 'bg-cm-pink/10' : ''}`}
+                  style={zone ? { background: `${zone}30` } : undefined}
+                >
                   <td className="relative text-center font-semibold tabular-nums text-white">
                     {zone && <span className="absolute inset-y-1 left-0 w-1 rounded-r-sm" style={{ background: zone }} />}
                     {i + 1}º

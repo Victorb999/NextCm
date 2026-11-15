@@ -11,6 +11,7 @@ import { OfferButtons } from '../components/TransferTab'
 import { partLabel, ymd } from '../format'
 import { useGame } from '../game'
 import { useEscBack, useNav } from '../nav'
+import { setPendingAct } from '../personActions'
 
 const TABS = [
   { key: 'all', label: 'Todas' },
@@ -275,7 +276,13 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
                         setOffer(o)
                         api.listNews().then(setNews, () => {})
                       }}
-                      onNegotiate={() => nav.go({ kind: 'contract', id: offer.personId })}
+                      onNegotiate={() => {
+                        // O staff negoceia no diálogo do perfil
+                        if (offer.kind === 'staff') {
+                          setPendingAct(offer.personId, 'staffContract')
+                          nav.go({ kind: 'person', id: offer.personId, tab: 'contract' })
+                        } else nav.go({ kind: 'contract', id: offer.personId })
+                      }}
                     />
                     {offer.kind !== 'job' && (
                       <button className="cm-purple mt-1 h-7 min-w-36" onClick={() => nav.go({ kind: 'person', id: offer.personId })}>

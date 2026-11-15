@@ -93,6 +93,11 @@ pub(super) fn outcome_odds(home: f64, away: f64) -> [f64; 3] {
     [h / total, d / total, a / total]
 }
 
+/// Odds decimais (casa, empate, fora) pelos golos esperados, com a margem das casas.
+pub(crate) fn decimal_odds(home: f64, away: f64) -> [f64; 3] {
+    outcome_odds(home, away).map(|q| ((1.0 / (q * MARGIN)).max(1.01) * 100.0).round() / 100.0)
+}
+
 /// O jornal desportivo da nação (as das ligas do jogo).
 pub(super) fn paper_of(nation: &str) -> &'static str {
     match crate::nation_names::nation_en(nation) {
@@ -158,7 +163,7 @@ impl Game {
         let view = self.live_view()?;
         let (xh, xa) = live.expected_now();
         let p = outcome_odds(xh, xa);
-        let odds = p.map(|q| ((1.0 / (q * MARGIN)).max(1.01) * 100.0).round() / 100.0);
+        let odds = decimal_odds(xh, xa);
         let favourite = if p[0] - p[2] > 0.15 {
             Some(0)
         } else if p[2] - p[0] > 0.15 {

@@ -15,7 +15,7 @@ function findWord(text: string, name: string): number {
   return -1
 }
 
-/** Um texto com os nomes de `links` como ligações (jogador → perfil, clube → clube). */
+/** Um texto com os nomes de `links` como ligações (jogador → perfil, clube → clube, competição → competição). */
 export default function LinkedText({ text, links }: { text: string; links: NewsLink[] }) {
   const nav = useNav()
   // Corta o texto nos nomes, o mais comprido primeiro (já vêm assim do core); os valores na
@@ -40,7 +40,15 @@ export default function LinkedText({ text, links }: { text: string; links: NewsL
           <Link
             key={i}
             className="text-cm-yellow"
-            onClick={() => nav.go(p.kind === 'club' ? { kind: 'club', id: p.id } : { kind: 'person', id: p.id })}
+            onClick={() =>
+              nav.go(
+                p.kind === 'club'
+                  ? { kind: 'club', id: p.id }
+                  : p.kind === 'competition'
+                    ? { kind: 'competition', id: p.id }
+                    : { kind: 'person', id: p.id },
+              )
+            }
           >
             {p.text}
           </Link>

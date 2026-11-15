@@ -4,6 +4,7 @@ import { api } from '../api'
 import type { ClubRef } from '../bindings/ClubRef'
 import type { Fixture } from '../bindings/Fixture'
 import type { MatchPreview } from '../bindings/MatchPreview'
+import type { PlayerNews } from '../bindings/PlayerNews'
 import type { StandingRow } from '../bindings/StandingRow'
 import { longDate, matchDate, pensText, shortDate } from '../format'
 import { useGame } from '../game'
@@ -184,6 +185,22 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
+/** As ausências de um lado: o jogador (link para a ficha) e o motivo. */
+function News({ list }: { list: PlayerNews[] | undefined }) {
+  const nav = useNav()
+  if (!list) return null
+  if (list.length === 0) return <>Plantel todo disponível</>
+  return (
+    <>
+      {list.map((n) => (
+        <div key={n.id}>
+          <Link onClick={() => nav.go({ kind: 'person', id: n.id })}>{n.name}</Link> {n.text}
+        </div>
+      ))}
+    </>
+  )
+}
+
 /**
  * Próximo Jogo / Último Jogo do CM: "Adversário (Casa)", a competição e a ficha do jogo
  * (data, local, regras, último confronto, tempo, terreno e as notícias de cada lado).
@@ -202,6 +219,7 @@ export function MatchInfo({
   empty: string
 }) {
   const game = useGame()
+  const nav = useNav()
   const [index, setIndex] = useState(start)
   const [preview, setPreview] = useState<MatchPreview | null>(null)
   const fixture = fixtures[index]
@@ -220,15 +238,20 @@ export function MatchInfo({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PanelTitle
-        title={`${fixture.competition} · ${fixture.label}`}
-        right={
+        title={
           <>
-            <button className="cm-purple h-6 w-28" disabled={index <= 0} onClick={() => setIndex(index - 1)}>
-              {'<< Data'}
-            </button>
-            <button className="cm-purple h-6 w-28" disabled={index >= fixtures.length - 1} onClick={() => setIndex(index + 1)}>
-              {'Data >>'}
-            </button>
+            <span className="flex items-center gap-1.5 normal-case tracking-normal">
+              <button className="cm-purple h-6 w-28" disabled={index <= 0} onClick={() => setIndex(index - 1)}>
+                {'<< Data'}
+              </button>
+              <button className="cm-purple h-6 w-28" disabled={index >= fixtures.length - 1} onClick={() => setIndex(index + 1)}>
+                {'Data >>'}
+              </button>
+            </span>
+            <span className="ml-2">
+              <Link onClick={() => nav.go({ kind: 'competition', id: fixture.competitionId })}>{fixture.competition}</Link>
+              {` · ${fixture.label}`}
+            </span>
           </>
         }
       />
@@ -255,15 +278,18 @@ export function MatchInfo({
               ? `${last.home.shortName} ${last.homeGoals}-${last.awayGoals} ${last.away.shortName}, ${last.competition} ${shortDate(last.date)}`
               : 'Nenhum nesta época'}
           </InfoRow>
+          {p?.odds && (
+            <InfoRow label="Odds">
+              {`${fixture.home.shortName} ${p.odds[0].toFixed(2)} · Empate ${p.odds[1].toFixed(2)} · ${fixture.away.shortName} ${p.odds[2].toFixed(2)}`}
+            </InfoRow>
+          )}
           <InfoRow label="Tempo">{p?.weather ?? '…'}</InfoRow>
           <InfoRow label="Condições Terreno Jogo">{p?.pitch ?? '…'}</InfoRow>
           <InfoRow label={`Notícias: ${us.shortName}`}>
-            {(home ? p?.homeNews : p?.awayNews)?.map((n) => <div key={n}>{n}</div>) ?? null}
-            {p && (home ? p.homeNews : p.awayNews).length === 0 && 'Plantel todo disponível'}
+            <News list={home ? p?.homeNews : p?.awayNews} />
           </InfoRow>
           <InfoRow label={`Notícias: ${them.shortName}`}>
-            {(home ? p?.awayNews : p?.homeNews)?.map((n) => <div key={n}>{n}</div>) ?? null}
-            {p && (home ? p.awayNews : p.homeNews).length === 0 && 'Plantel todo disponível'}
+            <News list={home ? p?.awayNews : p?.homeNews} />
           </InfoRow>
         </div>
       </div>

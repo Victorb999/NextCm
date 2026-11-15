@@ -63,6 +63,7 @@ mod season;
 mod shortlist;
 mod squad_view;
 mod staff_fill;
+mod staff_hire;
 mod staff_reports;
 mod start_loans;
 mod status_bar;
@@ -105,6 +106,7 @@ pub use scout_tasks::{ScoutFind, ScoutList};
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
 pub use squad_view::{SquadAttributes, SquadMore};
+pub use staff_hire::{StaffHireView, StaffJobOption};
 pub use staff_reports::ReportStaff;
 pub use status_bar::StatusBar;
 pub use team_talk::{TalkLine, TalkOption, TalkReaction, TalkView};
@@ -160,7 +162,8 @@ pub use training::{TrainingPlan, TrainingView};
 /// 60: os amigáveis de clubes (competição 72, `friendly_apps`, `friendly_invites`), marco 4.0.
 /// 61: o CA no relatório mensal das reservas (`reserve_report_ca`), marco 4.1.
 /// 62: os golos esperados de cada jogo (`player_matches.xg`, `friendly_apps.xg`, `intl_apps.xg`), marco 4.3.
-pub const SAVE_VERSION: i32 = 69;
+/// 70: contratar staff (`staff_talks`, `staff_refills`), 4.0 item 24.
+pub const SAVE_VERSION: i32 = 70;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -673,8 +676,21 @@ pub struct MatchPreview {
     /// "Normais", "Molhado"...
     pub pitch: String,
     /// Lesionados e suspensos de cada lado.
-    pub home_news: Vec<String>,
-    pub away_news: Vec<String>,
+    pub home_news: Vec<PlayerNews>,
+    pub away_news: Vec<PlayerNews>,
+    /// Odds decimais (casa, empate, fora) antes do jogo; nenhuma nos jogos já jogados.
+    pub odds: Option<[f64; 3]>,
+}
+
+/// Uma ausência no Próximo Jogo: o jogador (com link) e o motivo.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerNews {
+    pub id: i32,
+    pub name: String,
+    /// "lesionado (contusão na coxa, regresso a 6.11.2026)", "suspenso".
+    pub text: String,
 }
 
 pub struct Game {
@@ -846,6 +862,7 @@ impl Game {
             tx.execute_batch(player_record::XG_SCHEMA)?;
             tx.execute_batch(retirement::RETIREMENT_SCHEMA)?;
             tx.execute_batch(awards::AWARDS_SCHEMA)?;
+            tx.execute_batch(staff_hire::STAFF_HIRE_SCHEMA)?;
             tx.execute_batch(board::SHIFT_SCHEMA)?;
             // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
             let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
@@ -1421,6 +1438,12 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 69", [])?;
             version = 69;
         }
+        // Save 70: contratar staff (4.0, item 24)
+        if version == 69 {
+            world.conn.execute_batch(staff_hire::STAFF_HIRE_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 70", [])?;
+            version = 70;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo gravado numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1915,6 +1938,14 @@ impl Game {
     /// resultado, para os dias passarem depressa.
     fn quick_result(&self, i: usize) -> Result<(u8, u8)> {
         let m = &self.matches[i];
+        let (xh, xa) = self.pre_match_expected(m)?;
+        let mut rng = engine::match_rng(self.seed ^ 0x0FA5_7000, m.id);
+        Ok((engine::poisson(xh, &mut rng), engine::poisson(xa, &mut rng)))
+    }
+
+    /// Golos esperados de uma partida com os onzes que o adjunto escolheria hoje, a torcida e
+    /// o peso da camisa (o motor rápido e as odds do Próximo Jogo).
+    fn pre_match_expected(&self, m: &Match) -> Result<(f64, f64)> {
         let strength = |club: i32| -> Result<engine::TeamStrength> {
             let state = self.club_state(club, Some(m.competition_id));
             Ok(engine::TeamStrength::from_tactics(&self.world.auto_tactics(club, Some(&state), Instructions::default())?))
@@ -1922,9 +1953,7 @@ impl Game {
         let (home, away) = (strength(m.home_id)?, strength(m.away_id)?);
         let (xh, xa) = if m.neutral { engine::expected_goals_neutral(&home, &away) } else { engine::expected_goals(&home, &away) };
         let o = self.occasion(m)?;
-        let (xh, xa) = (xh * o.crowd * (1.0 + 0.03 * o.shirt), xa * (1.0 - 0.03 * o.shirt));
-        let mut rng = engine::match_rng(self.seed ^ 0x0FA5_7000, m.id);
-        Ok((engine::poisson(xh, &mut rng), engine::poisson(xa, &mut rng)))
+        Ok((xh * o.crowd * (1.0 + 0.03 * o.shirt), xa * (1.0 - 0.03 * o.shirt)))
     }
 
     /// A partida `i` de hoje com as equipas de agora: a partida, o lado do treinador e as
@@ -2519,7 +2548,7 @@ impl Game {
             ("Chuva forte", "Encharcado")
         };
 
-        let news = |club: i32| -> Result<Vec<String>> {
+        let news = |club: i32| -> Result<Vec<PlayerNews>> {
             let mut out = Vec::new();
             let mut ids: Vec<i32> = self.squads.traits.iter().filter(|(_, t)| t.club_id == club).map(|(&id, _)| id).collect();
             ids.sort_unstable();
@@ -2527,9 +2556,10 @@ impl Game {
                 let st = self.squads.state(id);
                 if let Some(injury) = &st.injury {
                     let back = st.injury_until.as_deref().map(cm_date).unwrap_or_default();
-                    out.push(format!("{} lesionado ({}, regresso a {back})", self.person_name(id)?, injury.to_lowercase()));
+                    let text = format!("lesionado ({}, regresso a {back})", injury.to_lowercase());
+                    out.push(PlayerNews { id, name: self.person_name(id)?, text });
                 } else if st.suspended_in(Some(m.competition_id)) > 0 {
-                    out.push(format!("{} suspenso", self.person_name(id)?));
+                    out.push(PlayerNews { id, name: self.person_name(id)?, text: "suspenso".into() });
                 }
             }
             Ok(out)
@@ -2543,6 +2573,8 @@ impl Game {
             pitch: pitch.into(),
             home_news: news(m.home_id)?,
             away_news: news(m.away_id)?,
+            // Só para mostrar: se a força não se calcular, a ficha sai sem odds
+            odds: if m.result.is_none() { self.pre_match_expected(m).ok().map(|(h, a)| match_analysis::decimal_odds(h, a)) } else { None },
         })
     }
 
@@ -4242,6 +4274,8 @@ mod tests {
         assert!(p.venue.is_some() && p.city.is_some());
         assert!(p.last_meeting.is_none(), "1ª jornada: ainda não se defrontaram");
         assert_eq!(p.weather, g.match_preview(first.id).unwrap().weather, "o tempo não muda ao reabrir");
+        let odds = p.odds.expect("jogo por jogar: com odds");
+        assert!(odds.iter().all(|o| *o > 1.0), "{odds:?}");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

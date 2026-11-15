@@ -364,6 +364,14 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let staff: Vec<i32> = serde_json::from_value(args["staff"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.staff_report(id()?, kind, staff).map_err(e)?))
         }
+        "staff_hire_view" => out(serde_json::to_value(session.staff_hire_view(id()?).map_err(e)?)),
+        "offer_staff_contract" => {
+            let job = args["job"].as_i64().ok_or("falta job")? as i32;
+            let wage = args["wage"].as_i64().ok_or("falta wage")?;
+            let years = args["years"].as_i64().ok_or("falta years")? as i32;
+            out(serde_json::to_value(session.offer_staff_contract(id()?, job, wage, years).map_err(e)?))
+        }
+        "sack_staff" => out(serde_json::to_value(session.sack_staff(id()?).map_err(e)?)),
         "scout_list" => {
             let slot = args["slot"].as_i64().ok_or("falta slot")? as i32;
             out(serde_json::to_value(session.scout_list(slot).map_err(e)?))
