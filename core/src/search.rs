@@ -748,6 +748,17 @@ mod tests {
             .search_people(&SearchQuery { kind: Some(PersonKind::Staff), job: Some(9), sort: Some(SearchSort::Club), ..Default::default() })
             .unwrap();
         assert!(by_club.items.iter().all(|p| p.job.as_deref() == Some("Olheiro")));
+        // Os atributos de treino da aba Preparadores também filtram (Ataque, Treinar Técnica)
+        for key in ["attacking", "coaching_technique"] {
+            let mins = vec![AttributeMin { key: key.into(), min: 18 }];
+            let q = SearchQuery { kind: Some(PersonKind::Staff), attributes: Some(mins), limit: Some(20), ..Default::default() };
+            let r = w.search_people(&q).unwrap();
+            assert!(r.total > 0, "{key}");
+            for p in &r.items {
+                let v = w.get_person(p.id).unwrap().staff.unwrap().attributes[key].unwrap_or(0);
+                assert!(v >= 18, "{key} {v}");
+            }
+        }
     }
 
     #[test]

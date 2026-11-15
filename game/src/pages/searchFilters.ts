@@ -27,20 +27,23 @@ export const SIDES: { key: Side; label: string }[] = [
   { key: 'right', label: 'Direita' },
 ]
 
-/** Atributos da aba Atributos dos filtros de staff, por ordem alfabética como no CM. */
+/** Atributos da aba Atributos dos filtros de staff, por ordem alfabética e com os nomes do perfil
+ * (os de treino são os da aba Preparadores). */
 export const STAFF_FILTER_ATTRIBUTES: [string, string][] = [
   ['adaptability', 'Adaptabilidade'],
-  ['judgement', 'Avaliação Capacidade Jogador'],
-  ['judging_potential', 'Avaliação Potencial Jogador'],
-  ['tactics', 'Conhecimento Tático'],
+  ['attacking', 'Ataque'],
+  ['judgement', 'Avaliar Jogadores'],
+  ['judging_potential', 'Avaliar Potencial'],
   ['determination', 'Determinação'],
+  ['discipline', 'Disciplina'],
   ['physiotherapy', 'Fisioterapia'],
-  ['man_handling', 'Gestão de Pessoas'],
+  ['man_handling', 'Gestão Humana'],
+  ['youngsters', 'Jovens'],
   ['motivating', 'Motivação'],
-  ['discipline', 'Nível de Disciplina'],
-  ['youngsters', 'Trabalho Com Jovens'],
-  ['coaching_gks', 'Treino de Goleiros'],
-  ['coaching', 'Treino Jogadores Campo'],
+  ['tactics', 'Tática'],
+  ['coaching', 'Treinar'],
+  ['coaching_gks', 'Treinar GR'],
+  ['coaching_technique', 'Treinar Técnica'],
 ]
 
 /** A lista da aba Atributos para jogadores ou staff. */
