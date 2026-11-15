@@ -214,6 +214,7 @@ export default function TransferTab({ personId, version, onChanged }: { personId
   // Uma linha por frase, como no CM (só a primeira com o rótulo)
   view.future.forEach((f, i) => rows.push([i === 0 ? 'Futuro' : '', f]))
   view.expenses.forEach((e, i) => rows.push([i === 0 ? 'Possíveis Despesas' : '', e]))
+  view.clauses.forEach((c, i) => rows.push([i === 0 ? 'Cláusulas' : '', c]))
   if (view.optionFee) rows.push(['Opção de compra', money(view.optionFee)])
   if (view.loanFrom) {
     rows.push([

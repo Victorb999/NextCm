@@ -59,6 +59,10 @@ future: Array<string>,
  */
 expenses: Array<string>, 
 /**
+ * As cláusulas do contrato (venda mínima, saída se o clube descer...), quando há.
+ */
+clauses: Array<string>, 
+/**
  * Os Comentários do agente na proposta de transferência (FM08): o que o clube procura, a
  * cláusula, o prazo e os extras. Vazio para os do treinador e os livres.
  */

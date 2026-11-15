@@ -157,6 +157,8 @@ pub struct TransferView {
     pub future: Vec<String>,
     /// Possíveis Despesas: os prémios do contrato que o clube pode ter de pagar.
     pub expenses: Vec<String>,
+    /// As cláusulas do contrato (venda mínima, saída se o clube descer...), quando há.
+    pub clauses: Vec<String>,
     /// Os Comentários do agente na proposta de transferência (FM08): o que o clube procura, a
     /// cláusula, o prazo e os extras. Vazio para os do treinador e os livres.
     pub comments: Vec<String>,
@@ -963,6 +965,7 @@ impl Game {
             interested,
             future,
             expenses: self.expenses(person, mine)?,
+            clauses: self.clauses(person, mine)?,
             comments: if mine || f.is_free() || loan.is_some() { Vec::new() } else { self.offer_comments(person, &f)? },
             person_id: person,
             mine,
@@ -1188,6 +1191,25 @@ impl Game {
         }
         if e.clean_sheet_bonus > 0 {
             out.push(format!("{} por jogo sem sofrer gols", money_text(e.clean_sheet_bonus)));
+        }
+        Ok(out)
+    }
+
+    /// As cláusulas do contrato de um jogador do plantel do treinador, em frases curtas.
+    fn clauses(&self, person: i32, mine: bool) -> Result<Vec<String>> {
+        let Some(e) = self.contract_extras(person)?.filter(|_| mine) else { return Ok(Vec::new()) };
+        let mut out = Vec::new();
+        if let Some(fee) = e.min_fee {
+            out.push(format!("Venda mínima de {}: o clube não pode recusar", money_text(fee)));
+        }
+        if e.relegation {
+            out.push("Sai livre se o clube for rebaixado".into());
+        }
+        if e.non_promotion {
+            out.push("Sai livre se o clube não subir".into());
+        }
+        if e.manager_job {
+            out.push("Sai se lhe oferecerem um lugar de treinador".into());
         }
         Ok(out)
     }

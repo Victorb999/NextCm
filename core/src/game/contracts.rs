@@ -460,7 +460,10 @@ impl Game {
         match (o.status.as_str(), key) {
             ("agreed" | "countered", "confirm" | "accept") => {
                 self.finalize_contract(o)?;
-                self.note_action(o.id, if key == "confirm" { "confirmou a transferência" } else { "aceitou a contraproposta" });
+                // À espera da janela, a notícia do acordo já diz tudo
+                if self.offer(o.id)?.status != "waiting" {
+                    self.note_action(o.id, if key == "confirm" { "confirmou a transferência" } else { "aceitou a contraproposta" });
+                }
             }
             ("pending" | "agreed" | "countered", "withdraw") => {
                 self.set_status(o.id, "withdrawn", None)?;
@@ -523,10 +526,15 @@ impl Game {
                     self.world.conn.execute("UPDATE offers SET answer_on = ? WHERE id = ?", params![keep, deal.id])?;
                     let club = self.club(self.club_id).short_name;
                     let seller = deal.seller.map(|s| self.club(s).short_name).unwrap_or_default();
+                    let terms = self.terms_text(&deal.deal_terms())?;
                     self.post_news(
-                        format!("Transferência de {name} para {club} está em suspenso"),
+                        format!("{name} acerta com o {club}"),
                         format!(
-                            "A proposta de transferência por {name} {seller} para {club} não pode prosseguir neste momento devido à data limite de transferências.\n\nO negócio se consuma em {}, quando abrir a janela.",
+                            "{club} e {seller} fecharam a transferência de {name} ({terms}), e o jogador já assinou contrato até {} ({} por semana).
+
+                             Como a janela de transferências está fechada, {name} continua no {seller} e só se apresenta ao {club} em {}, quando ela abrir.",
+                            cm_date(&until),
+                            money_text(t.wage),
                             cm_date(&opens)
                         ),
                         Some(o.id),

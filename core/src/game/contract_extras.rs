@@ -434,6 +434,11 @@ mod tests {
         let cash = g.cash_of(PALMEIRAS).unwrap();
         g.pay_match_bonuses(PALMEIRAS, &[line], 0).unwrap();
         assert_eq!(g.cash_of(PALMEIRAS).unwrap(), cash - 2500);
+        // O perfil mostra os prémios e as cláusulas do contrato
+        let view = g.transfer_view(scorer).unwrap();
+        assert!(view.expenses.iter().any(|e| e.contains("por gol")));
+        assert!(view.clauses.iter().any(|c| c.starts_with("Venda mínima de €1,0M")), "{:?}", view.clauses);
+        assert!(view.clauses.iter().any(|c| c.contains("rebaixado")));
 
         // Cláusula de venda paga: a proposta passa logo às conversas e não se pode recusar
         g.world
