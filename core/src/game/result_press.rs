@@ -167,6 +167,12 @@ mod tests {
         assert_eq!(title(game(LIBERTADORES, (5, 0))).as_deref(), Some("Palmeiras atropela o Flamengo na Copa Libertadores"));
         assert!(title(Match { group: None, ..game(SERIE_A, (0, 4)) }).is_some_and(|t| t.starts_with("Vexame")));
         assert_eq!(title(Match { group: None, ..game(SERIE_A, (1, 0)) }), None, "um 1-0 não é notícia");
+        // No mata-mata, a etiqueta no lugar da posição: o país nas internacionais, a divisão nas copas
+        let cup = |comp: i32| g.fixture(&Match { tie: Some(0), leg: 1, group: None, ..game(comp, (1, 0)) });
+        let libertadores = cup(LIBERTADORES);
+        assert!(libertadores.knockout && libertadores.home_tag.as_deref() == Some("BRA"), "{:?}", libertadores.home_tag);
+        assert_eq!(cup(crate::league::COPA_DO_BRASIL).away_tag.as_deref(), Some("Série A"));
+        assert!(!g.fixture(&game(SERIE_A, (1, 0))).knockout);
         // A aba Prêmios: os prémios gravados da competição, com a temporada e o nome
         let star: i32 =
             g.world.conn.query_row("SELECT id FROM people WHERE club_id = ? AND is_player = 1 LIMIT 1", [PALMEIRAS], |r| r.get(0)).unwrap();

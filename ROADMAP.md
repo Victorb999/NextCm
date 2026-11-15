@@ -180,6 +180,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | **4.3** Golos esperados | Os golos esperados (xG) de cada remate somados por equipa e por jogador: na partida, na ficha, no Mais Dados, na aba Estatísticas da competição e na Análise do Pré-Jogo | Os golos esperados aparecem nas telas e, na CLI, a média deles bate com a dos golos sem mudar nenhum resultado |
 | **4.4** Prémios individuais | Jogador, Jovem e Treinador do Mês; os prémios da época de cada liga (todas, também as de fundo) e a Equipa da Época; a Bola de Ouro em dezembro; no Historial e no Currículo, com peso na reputação e no valor | Numa época saem os prémios de todas as ligas e os vencedores sobem de reputação e de valor |
 | **4.5** Aposentadoria e regens | Jogador e staff ao mesmo tempo (Jogador/Treinador, Jogador/Preparador, o menu Staff / Jogador no perfil); a reforma pelo contrato, lesões, minutos, CA e personalidade, com aviso antes; o reformado pode virar staff; cada reforma gera um regen da mesma nação; os juniores pela formação da nação, as instalações, a data do país e safras que variam | Na CLI a população fica estável em 20 épocas; no jogo um veterano pode ser Jogador/Treinador e um reformado aparece como staff |
+| **4.6** Copas nacionais | Uma copa por país das ligas jogáveis (Coppa Italia, FA Cup, Copa del Rey, DFB-Pokal, Coupe de France, Taça de Portugal...), com as entradas por divisão, jogo único ou ida e volta, datas livres e a vaga continental do campeão | Numa temporada cada país tem a sua copa com campeão, sem datas a bater, e o campeão leva a vaga |
 | **4.2** Treinar uma selecção | Acumular uma selecção com o clube: convite pela reputação, candidatura ou Novo Jogo; convocatória, Tácticas e jogos ao vivo; a federação avalia; anfitriões em casa | O treinador aceita uma selecção sem largar o clube, convoca e joga uma janela FIFA, e as médias continuam na CLI |
 
 #### Detalhe de cada marco
@@ -228,6 +229,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 4.3 — Golos esperados (feito a 13/11, save 62)](docs/roadmap/4.3-golos-esperados.md)
 - [Marco 4.4 — Prémios individuais (feito a 14/11, save 66)](docs/roadmap/4.4-premios.md)
 - [Marco 4.5 — Aposentadoria e regens (feito a 14/11, save 63)](docs/roadmap/4.5-aposentadoria-e-regens.md)
+- [Marco 4.6 — Copas nacionais](docs/roadmap/4.6-copas-nacionais.md)
 
 ---
 

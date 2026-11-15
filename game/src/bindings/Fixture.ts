@@ -16,4 +16,13 @@ label: string,
 /**
  * Época do jogo: "2026" ou "2025/26".
  */
-season: string, neutral: boolean, homePens: number | null, awayPens: number | null, };
+season: string, neutral: boolean, homePens: number | null, awayPens: number | null, 
+/**
+ * Jogo de mata-mata (a classificação de uma fase anterior já não conta).
+ */
+knockout: boolean, 
+/**
+ * No mata-mata, a etiqueta de cada clube no lugar da posição: a divisão nas copas nacionais
+ * ("Série B") e o código do país nas internacionais ("ITA").
+ */
+homeTag: string | null, awayTag: string | null, };

@@ -26,32 +26,32 @@ const BOTTOM: i32 = 4;
 
 /// Uma resposta e o que ela faz.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct Answer {
-    label: String,
+pub(super) struct Answer {
+    pub(super) label: String,
     /// Moral de todo o plantel.
     #[serde(default)]
-    squad: i32,
+    pub(super) squad: i32,
     /// Elogio (`true`) ou crítica ao jogador da pergunta.
     #[serde(default)]
-    praise: Option<bool>,
+    pub(super) praise: Option<bool>,
     /// Moral só do jogador da pergunta.
     #[serde(default)]
-    player: i32,
+    pub(super) player: i32,
     #[serde(default)]
-    board: i32,
+    pub(super) board: i32,
     #[serde(default)]
-    fans: i32,
+    pub(super) fans: i32,
     /// Provoca o adversário: ele vem mais motivado para o jogo.
     #[serde(default)]
-    provoke: bool,
+    pub(super) provoke: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Question {
-    text: String,
+pub(super) struct Question {
+    pub(super) text: String,
     #[serde(default)]
-    person: Option<i32>,
-    answers: Vec<Answer>,
+    pub(super) person: Option<i32>,
+    pub(super) answers: Vec<Answer>,
 }
 
 /// Uma conferência para a tela: as perguntas e as respostas possíveis.
@@ -75,7 +75,7 @@ pub struct PressQuestion {
     pub answers: Vec<String>,
 }
 
-fn answer(label: &str) -> Answer {
+pub(super) fn answer(label: &str) -> Answer {
     Answer { label: label.into(), ..Default::default() }
 }
 
@@ -118,13 +118,21 @@ impl Game {
             return Ok(());
         }
         let opp = if m.home_id == self.club_id { m.away_id } else { m.home_id };
-        let mut questions = vec![self.opponent_question(opp)?];
-        // Com um treinador do outro lado, às vezes perguntam por ele em vez da forma
-        match self.rival_coach_question(opp, m.id)? {
-            Some(q) => questions.push(q),
-            None => questions.extend(self.form_question()?),
+        let mut rng = self.press_rng(m.id, 1);
+        let mut questions = vec![self.opponent_question(opp, &mut rng)?];
+        // Os temas do momento (o clássico, a disputa do título, as críticas...) e, para completar,
+        // o treinador do outro lado, a forma e a terceira de sempre
+        questions.extend(self.topical_questions(&m, &mut rng)?.into_iter().take(2));
+        if questions.len() < 3 {
+            questions.extend(self.rival_coach_question(opp, m.id)?);
         }
-        questions.extend(self.third_question()?);
+        if questions.len() < 3 {
+            questions.extend(self.form_question()?);
+        }
+        if questions.len() < 3 {
+            questions.extend(self.third_question()?);
+        }
+        questions.truncate(3);
         self.open_press("pre", m.id, &tomorrow, &questions, fresh, next_id, &self.club(opp).short_name)
     }
 
@@ -143,9 +151,19 @@ impl Game {
     ) -> Result<()> {
         let opp_name = self.club(opp).short_name;
         let score = format!("{ours}-{theirs}");
+        let mut rng = self.press_rng(fixture, 2);
+        let say =
+            |rng: &mut _, options: &[&str]| super::press_topics::pick(rng, options).replace("{score}", &score).replace("{opp}", &opp_name);
         let (text, answers) = if ours > theirs {
             (
-                format!("Vitória por {score} sobre o {opp_name}. Satisfeito com a exibição?"),
+                say(
+                    &mut rng,
+                    &[
+                        "Vitória por {score} sobre o {opp}. Satisfeito com a exibição?",
+                        "{score} sobre o {opp}. Foi a melhor exibição do time na temporada?",
+                        "O time venceu o {opp} por {score}. O que mais o agradou?",
+                    ],
+                ),
                 vec![
                     Answer { squad: 1, fans: 1, ..answer("Merecemos ganhar, fomos melhores do princípio ao fim.") },
                     answer("Foi só um jogo. Ainda não ganhamos nada."),
@@ -155,7 +173,14 @@ impl Game {
             )
         } else if ours < theirs {
             (
-                format!("Derrota por {score} com o {opp_name}. O que falhou?"),
+                say(
+                    &mut rng,
+                    &[
+                        "Derrota por {score} com o {opp}. O que falhou?",
+                        "O {opp} ganhou por {score}. Onde o jogo foi perdido?",
+                        "Uma derrota dura, {score} com o {opp}. Os torcedores merecem uma explicação?",
+                    ],
+                ),
                 vec![
                     Answer { squad: 1, board: -1, ..answer("A responsabilidade é minha. Os jogadores deram tudo.") },
                     Answer { squad: -2, board: 1, ..answer("Alguns jogadores não estiveram ao nível que exijo.") },
@@ -165,7 +190,10 @@ impl Game {
             )
         } else {
             (
-                format!("Empate a {score} com o {opp_name}. Um ponto ganho ou dois perdidos?"),
+                say(
+                    &mut rng,
+                    &["Empate a {score} com o {opp}. Um ponto ganho ou dois perdidos?", "{score} com o {opp}. O empate foi justo?"],
+                ),
                 vec![
                     Answer { squad: 1, ..answer("Um bom ponto. O time mostrou caráter.") },
                     Answer { squad: -1, board: 1, ..answer("Dois pontos perdidos. Tínhamos de ganhar.") },
@@ -180,6 +208,13 @@ impl Game {
         let focus = best.filter(|b| b.1 >= 7.0).or(worst);
         if let Some((p, r)) = focus
             && let Some(q) = self.player_question(p, r)?
+        {
+            questions.push(q);
+        }
+        // Um tema do momento, se houver (as continentais e o clássico já passaram)
+        if !sent_off
+            && let Some(m) = self.matches.iter().find(|m| m.id == fixture).cloned()
+            && let Some(q) = self.topical_questions(&m, &mut rng)?.into_iter().next()
         {
             questions.push(q);
         }
@@ -266,10 +301,19 @@ impl Game {
         Ok(statuses.iter().take_while(|s| s.as_str() != "done").count())
     }
 
-    fn opponent_question(&self, opp: i32) -> Result<Question> {
+    fn opponent_question(&self, opp: i32, rng: &mut impl rand_core::RngCore) -> Result<Question> {
         let name = self.club(opp).short_name;
         Ok(Question {
-            text: format!("Como vê o jogo com o {name}?"),
+            text: super::press_topics::pick(
+                rng,
+                &[
+                    "Como vê o jogo com o {opp}?",
+                    "O que espera do {opp} amanhã?",
+                    "O {opp} chega embalado. Como pretende pará-lo?",
+                    "Qual é o ponto forte do {opp} que mais o preocupa?",
+                ],
+            )
+            .replace("{opp}", &name),
             person: None,
             answers: vec![
                 Answer { squad: 1, fans: 1, ..answer("Vamos ganhar. Somos melhores e vamos prová-lo.") },
@@ -309,7 +353,7 @@ impl Game {
     }
 
     /// Vitórias nos últimos 5 jogos do treinador.
-    fn recent_wins(&self) -> (usize, usize) {
+    pub(super) fn recent_wins(&self) -> (usize, usize) {
         let mut games: Vec<&crate::league::Match> =
             self.matches.iter().filter(|m| m.result.is_some() && (m.home_id == self.club_id || m.away_id == self.club_id)).collect();
         games.sort_by(|a, b| b.date.cmp(&a.date));

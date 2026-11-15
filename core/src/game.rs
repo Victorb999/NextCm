@@ -53,6 +53,7 @@ mod personal_info;
 mod player_record;
 mod player_setup;
 mod press;
+mod press_topics;
 mod regen;
 mod reserve_matches;
 mod reserve_report;
@@ -2572,6 +2573,9 @@ impl Game {
             neutral: m.neutral,
             home_pens: m.pens.map(|r| r.0 as i32),
             away_pens: m.pens.map(|r| r.1 as i32),
+            knockout: m.tie.is_some(),
+            home_tag: m.tie.and_then(|_| self.knockout_tag(m.competition_id, m.home_id)),
+            away_tag: m.tie.and_then(|_| self.knockout_tag(m.competition_id, m.away_id)),
         }
     }
 
@@ -2677,6 +2681,20 @@ impl Game {
     }
 
     /// Classificação da 1ª fase de uma competição viva, se for de pontos corridos (vazia nas outras).
+    /// A etiqueta de um clube num jogo de mata-mata: o código do país nas competições
+    /// internacionais (continentais e de seleções) e a divisão nas copas nacionais.
+    fn knockout_tag(&self, comp: i32, club: i32) -> Option<String> {
+        use crate::league::{CHAMPIONS_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, SUL_AMERICANA};
+        let international =
+            [CHAMPIONS_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, SUL_AMERICANA].contains(&comp) || internationals::is_national_comp(comp);
+        let sql = if international {
+            "SELECT n.code FROM clubs c JOIN nations n ON n.id = c.nation_id WHERE c.id = ?"
+        } else {
+            "SELECT COALESCE(NULLIF(k.short_name, ''), k.name) FROM clubs c JOIN competitions k ON k.id = c.division_id WHERE c.id = ?"
+        };
+        self.world.conn.query_row(sql, [club], |r| r.get::<_, Option<String>>(0)).ok().flatten()
+    }
+
     pub fn table(&self, competition_id: i32) -> Vec<StandingRow> {
         let mut rows = self.stage_table(competition_id, self.current_season(competition_id), 0, None);
         self.mark_clinched(competition_id, &mut rows);

@@ -69,6 +69,15 @@ pub struct Fixture {
     pub neutral: bool,
     pub home_pens: Option<i32>,
     pub away_pens: Option<i32>,
+    /// Jogo de mata-mata (a classificação de uma fase anterior já não conta).
+    #[serde(default)]
+    pub knockout: bool,
+    /// No mata-mata, a etiqueta de cada clube no lugar da posição: a divisão nas copas nacionais
+    /// ("Série B") e o código do país nas internacionais ("ITA").
+    #[serde(default)]
+    pub home_tag: Option<String>,
+    #[serde(default)]
+    pub away_tag: Option<String>,
 }
 
 /// Uma linha da classificação: J V E D M S P.

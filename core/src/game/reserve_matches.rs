@@ -214,6 +214,9 @@ impl Game {
                 neutral: false,
                 home_pens: None,
                 away_pens: None,
+                knockout: false,
+                home_tag: None,
+                away_tag: None,
             });
         }
         Ok(out)
@@ -341,6 +344,9 @@ impl Game {
             neutral: false,
             home_pens: None,
             away_pens: None,
+            knockout: false,
+            home_tag: None,
+            away_tag: None,
         };
         let report = self.match_report(-fixture)?;
         Ok(super::player_record::MatchSheet { fixture: fixture_view, home: home_lines, away: away_lines, report })
