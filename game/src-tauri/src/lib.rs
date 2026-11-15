@@ -25,7 +25,7 @@ use nextcm_core::{
 };
 use nextcm_core::{CareerClub, ContinueStep, ManagerStats};
 use nextcm_core::{DealTerms, LoanTerms};
-use nextcm_core::{EditorClub, EditorHit, EditorPlayer, EditorProfile, EditorProfileView, EditorValue};
+use nextcm_core::{EditorClub, EditorHit, EditorPlayer, EditorProfileView};
 use nextcm_core::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
 use nextcm_core::{SavedFile, TrainingPlan, TrainingView};
 use nextcm_core::{TalkLine, TalkReaction, TalkView};
@@ -151,23 +151,19 @@ session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
 session_command!(exchange_candidates(id: i32) -> Vec<nextcm_core::ExchangeCandidate>);
 session_command!(squad_role_view(id: i32) -> SquadRoleView);
 session_command!(status_bar(kind: String, id: Option<i32>) -> StatusBar);
-session_command!(editor_search(file: String, query: String) -> Vec<EditorHit>);
+session_command!(editor_search(file: String, filter: nextcm_core::EditorFilter) -> Vec<EditorHit>);
+session_command!(editor_options(file: String) -> nextcm_core::EditorOptions);
+session_command!(editor_save(file: String, changes: nextcm_core::EditorChanges) -> usize);
 session_command!(editor_player(file: String, id: i32) -> EditorPlayer);
 session_command!(editor_export_csv(file: String, ids: Vec<i32>) -> String);
-session_command!(editor_set_attributes(file: String, id: i32, values: Vec<EditorValue>) -> EditorPlayer);
 session_command!(editor_search_staff(file: String, query: String) -> Vec<nextcm_core::EditorHit>);
 session_command!(editor_staff(file: String, id: i32) -> nextcm_core::EditorStaff);
-session_command!(
-    editor_set_staff(file: String, id: i32, data: nextcm_core::EditorStaffData, values: Vec<EditorValue>) -> nextcm_core::EditorStaff
-);
 session_command!(editor_profile(file: String, id: i32) -> EditorProfileView);
-session_command!(editor_set_profile(file: String, id: i32, profile: EditorProfile) -> EditorProfileView);
 session_command!(editor_search_clubs(file: String, query: String) -> Vec<EditorHit>);
 session_command!(editor_squad(file: String, club_id: i32) -> Vec<EditorHit>);
 session_command!(editor_commands() -> Vec<nextcm_core::EditorCommand>);
 session_command!(editor_command(file: String, ids: Vec<i32>, commands: Vec<String>, first_team: bool) -> usize);
 session_command!(editor_club(file: String, id: i32) -> EditorClub);
-session_command!(editor_set_club(file: String, club: EditorClub) -> EditorClub);
 session_command!(set_squad_role(id: i32, role: String) -> String);
 session_command!(offer_to_clubs(id: i32, loan: bool, fee: i64, exclude_rivals: bool) -> String);
 session_command!(ask_loan(id: i32, terms: LoanTerms) -> TransferView);
@@ -406,18 +402,16 @@ pub fn run() {
             editor_search,
             editor_player,
             editor_export_csv,
-            editor_set_attributes,
+            editor_options,
+            editor_save,
             editor_search_staff,
             editor_staff,
-            editor_set_staff,
             editor_profile,
-            editor_set_profile,
             editor_search_clubs,
             editor_squad,
             editor_commands,
             editor_command,
             editor_club,
-            editor_set_club,
             set_squad_role,
             ask_loan,
             exercise_option,

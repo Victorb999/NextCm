@@ -27,7 +27,7 @@ mod competitions;
 mod contract_extras;
 mod contracts;
 mod cup_tied;
-mod deals;
+pub(crate) mod deals;
 mod discipline;
 mod fair_play;
 mod finances;
@@ -163,7 +163,8 @@ pub use training::{TrainingPlan, TrainingView};
 /// 61: o CA no relatório mensal das reservas (`reserve_report_ca`), marco 4.1.
 /// 62: os golos esperados de cada jogo (`player_matches.xg`, `friendly_apps.xg`, `intl_apps.xg`), marco 4.3.
 /// 70: contratar staff (`staff_talks`, `staff_refills`), 4.0 item 24.
-pub const SAVE_VERSION: i32 = 70;
+/// 71: os favoritos e detestados de cada clube (`club_preferences`, do `club.dat`), editor.
+pub const SAVE_VERSION: i32 = 71;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -795,6 +796,8 @@ impl Game {
         std::fs::copy(world_path, &path)?;
         // Um world.sqlite de antes do esquema 8 não tem as instalações nem o aquecimento
         add_world_columns(&rusqlite::Connection::open(&path)?, world_path)?;
+        // Um world.sqlite de antes do esquema 11 não tem as preferências dos clubes
+        add_club_preferences(&rusqlite::Connection::open(&path)?, world_path)?;
         // Os nomes das nações em português
         crate::nation_names::translate_nations(&rusqlite::Connection::open(&path)?)?;
 
@@ -1443,6 +1446,11 @@ impl Game {
             world.conn.execute_batch(staff_hire::STAFF_HIRE_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 70", [])?;
             version = 70;
+        }
+        if version == 70 {
+            add_club_preferences(&world.conn, path)?;
+            world.conn.execute("UPDATE game SET version = 71", [])?;
+            version = 71;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -3296,6 +3304,36 @@ fn add_preferences(conn: &rusqlite::Connection, near: &Path) -> Result<()> {
     };
     conn.execute_batch("DETACH DATABASE src")?;
     Ok(filled?)
+}
+
+/// As preferências dos clubes (save 71): os jogadores/staff favoritos e detestados do
+/// `club.dat`, copiados do `world.sqlite` mais próximo (vazia se ele não as tiver).
+fn add_club_preferences(conn: &rusqlite::Connection, near: &Path) -> Result<()> {
+    let has = |db: &str| -> Result<bool> {
+        let n: i64 = conn.query_row(
+            &format!("SELECT COUNT(*) FROM {db}.sqlite_master WHERE type = 'table' AND name = 'club_preferences'"),
+            [],
+            |r| r.get(0),
+        )?;
+        Ok(n > 0)
+    };
+    if has("main")? {
+        return Ok(());
+    }
+    conn.execute_batch(
+        "CREATE TABLE club_preferences (club_id INTEGER NOT NULL, person_id INTEGER NOT NULL, liked INTEGER NOT NULL);
+         CREATE INDEX IF NOT EXISTS idx_club_preferences ON club_preferences(club_id);",
+    )?;
+    let Some(source) = World::locate(near).filter(|p| p.as_path() != near) else { return Ok(()) };
+    conn.execute("ATTACH DATABASE ? AS src", [source.to_string_lossy()])?;
+    let filled = (|| -> Result<()> {
+        if has("src")? {
+            conn.execute_batch("INSERT INTO club_preferences SELECT club_id, person_id, liked FROM src.club_preferences;")?;
+        }
+        Ok(())
+    })();
+    conn.execute_batch("DETACH DATABASE src")?;
+    filled
 }
 
 /// "da Série A", "do Mundial", "das Eliminatórias do Mundial (UEFA)".

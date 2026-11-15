@@ -80,8 +80,47 @@ pub struct EditorHit {
     pub id: i32,
     pub name: String,
     pub club: Option<String>,
+    /// CA (nos clubes, a reputação).
     pub ability: Option<i32>,
+    /// PA (nos clubes, nada).
+    pub potential: Option<i32>,
 }
+
+/// Os filtros da procura de jogadores (como o Player Search do editor do CM); `None` = sem filtro.
+#[derive(Debug, Clone, Default, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase", default)]
+pub struct EditorFilter {
+    pub query: String,
+    pub min_age: Option<i32>,
+    pub max_age: Option<i32>,
+    pub min_ability: Option<i32>,
+    pub max_ability: Option<i32>,
+    pub min_potential: Option<i32>,
+    pub max_potential: Option<i32>,
+    /// Reputação actual.
+    pub min_reputation: Option<i32>,
+    pub max_reputation: Option<i32>,
+    /// Chave de [`POSITIONS`]: joga lá com 15 ou mais.
+    pub position: Option<String>,
+    pub nation_id: Option<i32>,
+    /// País do clube (o "Based" do CM).
+    pub based_id: Option<i32>,
+    pub division_id: Option<i32>,
+}
+
+/// As listas dos filtros: nações e divisões.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorOptions {
+    pub nations: Vec<EditorNation>,
+    pub divisions: Vec<EditorNation>,
+    pub position_keys: Vec<String>,
+}
+
+/// Máximo de resultados de uma procura.
+const SEARCH_LIMIT: i64 = 250;
 
 /// Um atributo na tela do editor.
 #[derive(Debug, Clone, Serialize, TS)]
@@ -164,20 +203,77 @@ fn hit_name(world: &World, id: i32) -> Result<(String, Option<String>, Option<i3
     )?)
 }
 
-/// Procura jogadores pelo nome num save fechado (até 40 resultados, os melhores primeiro).
-pub fn search(saves: &Path, file: &str, query: &str) -> Result<Vec<EditorHit>> {
-    let world = open_save(saves, file)?;
+fn like_of(query: &str) -> String {
     let text = crate::search::fold(query.trim());
-    let mut st = world.conn.prepare(
-        "SELECT p.id, p.display_name, c.name, pl.current_ability FROM people p
+    format!("%{}%", text.replace('!', "!!").replace('%', "!%").replace('_', "!_"))
+}
+
+fn hit_row(r: &rusqlite::Row) -> rusqlite::Result<EditorHit> {
+    Ok(EditorHit { id: r.get(0)?, name: r.get(1)?, club: r.get(2)?, ability: r.get(3)?, potential: r.get(4)? })
+}
+
+/// Procura jogadores num save fechado pelo nome e pelos filtros (os melhores primeiro).
+pub fn search(saves: &Path, file: &str, f: &EditorFilter) -> Result<Vec<EditorHit>> {
+    use rusqlite::types::Value;
+    let world = open_save(saves, file)?;
+    let mut sql = String::from(
+        "SELECT p.id, p.display_name, c.name, pl.current_ability, pl.potential_ability FROM people p
          JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id
-         WHERE p.search_name LIKE ? ESCAPE '!' ORDER BY pl.current_ability DESC, p.display_name LIMIT 40",
-    )?;
-    let like = format!("%{}%", text.replace('!', "!!").replace('%', "!%").replace('_', "!_"));
-    let rows = st
-        .query_map([like], |r| Ok(EditorHit { id: r.get(0)?, name: r.get(1)?, club: r.get(2)?, ability: r.get(3)? }))?
-        .collect::<rusqlite::Result<_>>()?;
+         WHERE p.search_name LIKE ? ESCAPE '!'",
+    );
+    let mut args: Vec<Value> = vec![like_of(&f.query).into()];
+    let mut range = |expr: &str, min: Option<i32>, max: Option<i32>| {
+        if let Some(v) = min {
+            sql.push_str(&format!(" AND {expr} >= ?"));
+            args.push(i64::from(v).into());
+        }
+        if let Some(v) = max {
+            sql.push_str(&format!(" AND {expr} <= ?"));
+            args.push(i64::from(v).into());
+        }
+    };
+    range("COALESCE(pl.current_ability, 0)", f.min_ability, f.max_ability);
+    range("COALESCE(pl.potential_ability, 0)", f.min_potential, f.max_potential);
+    range("COALESCE(pl.current_reputation, 0)", f.min_reputation, f.max_reputation);
+    // A idade no dia do jogo (sem data de nascimento, fica de fora)
+    range("CAST((julianday((SELECT date FROM game)) - julianday(p.birth_sort)) / 365.25 AS INTEGER)", f.min_age, f.max_age);
+    if let Some(pos) = &f.position {
+        if !POSITIONS.contains(&pos.as_str()) {
+            return Err(Error::Invalid(format!("Posição desconhecida: {pos}.")));
+        }
+        sql.push_str(&format!(" AND COALESCE(pl.pos_{pos}, 1) >= 15"));
+    }
+    for (expr, v) in [("p.nation_id", f.nation_id), ("c.nation_id", f.based_id), ("c.division_id", f.division_id)] {
+        if let Some(v) = v {
+            sql.push_str(&format!(" AND {expr} = ?"));
+            args.push(i64::from(v).into());
+        }
+    }
+    sql.push_str(&format!(" ORDER BY pl.current_ability DESC, p.display_name LIMIT {SEARCH_LIMIT}"));
+    let mut st = world.conn.prepare(&sql)?;
+    let rows = st.query_map(rusqlite::params_from_iter(args), hit_row)?.collect::<rusqlite::Result<_>>()?;
     Ok(rows)
+}
+
+/// As listas dos filtros da procura.
+pub fn options(saves: &Path, file: &str) -> Result<EditorOptions> {
+    let world = open_save(saves, file)?;
+    let list = |sql: &str| -> Result<Vec<EditorNation>> {
+        Ok(world
+            .conn
+            .prepare(sql)?
+            .query_map([], |r| Ok(EditorNation { id: r.get(0)?, name: r.get(1)? }))?
+            .collect::<rusqlite::Result<_>>()?)
+    };
+    Ok(EditorOptions {
+        nations: list("SELECT id, name FROM nations WHERE name IS NOT NULL ORDER BY name")?,
+        divisions: list(
+            "SELECT d.id, d.name || COALESCE(' (' || n.name || ')', '') FROM competitions d LEFT JOIN nations n ON n.id = d.nation_id
+             WHERE d.id IN (SELECT division_id FROM clubs WHERE is_national_team = 0) AND d.name IS NOT NULL
+             ORDER BY n.name, d.reputation DESC, d.name",
+        )?,
+        position_keys: POSITIONS.iter().map(|p| p.to_string()).collect(),
+    })
 }
 
 fn build(world: &World, id: i32) -> Result<EditorPlayer> {
@@ -246,9 +342,10 @@ pub fn export_csv(saves: &Path, file: &str, ids: &[i32]) -> Result<String> {
 /// Grava os atributos editados (valores de 1 a 20 como o jogo os mostra) e devolve o jogador
 /// como ficou: os relativos passam por [`stored_for_shown`], por isso o valor mostrado pode
 /// diferir um ponto quando o par CA/atributo não permite o valor pedido.
+#[cfg(test)]
 pub fn set_attributes(saves: &Path, file: &str, id: i32, values: &[EditorValue]) -> Result<EditorPlayer> {
     let world = open_save(saves, file)?;
-    apply_values(&world, id, values)?;
+    in_tx(&world, || apply_values(&world, id, values))?;
     build(&world, id)
 }
 
@@ -275,7 +372,7 @@ fn apply_values(world: &World, id: i32, values: &[EditorValue]) -> Result<()> {
             raw.insert(v.key.clone(), Some(stored));
         }
     }
-    let tx = world.conn.unchecked_transaction()?;
+    let tx = &world.conn;
     for v in values {
         if MENTAL.contains(&v.key.as_str()) {
             tx.execute(&format!("UPDATE people SET {} = ? WHERE id = ?", v.key), rusqlite::params![v.value, id])?;
@@ -284,7 +381,6 @@ fn apply_values(world: &World, id: i32, values: &[EditorValue]) -> Result<()> {
             tx.execute(&format!("UPDATE players SET {} = ? WHERE person_id = ?", v.key), rusqlite::params![stored, id])?;
         }
     }
-    tx.commit()?;
     Ok(())
 }
 
@@ -385,6 +481,9 @@ pub fn command(saves: &Path, file: &str, ids: &[i32], commands: &[String], first
             set("left_foot", 20);
             set("right_foot", 20);
         }
+        if has("morale_20") || has("morale_1") || has("fitness_100") {
+            ensure_state(&world, id)?;
+        }
         let tx = world.conn.unchecked_transaction()?;
         if has("abilities_200") {
             tx.execute("UPDATE players SET current_ability = 200, potential_ability = 200 WHERE person_id = ?", [id])?;
@@ -481,7 +580,47 @@ const POSITIONS: [&str; 12] = [
     "free_role",
 ];
 
-/// A ficha de um jogador (aba Dados): identidade, reputações, contrato e posições.
+/// Uma preferência: clube ou pessoa favorito (`liked`) ou detestado.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorPreference {
+    /// "club" ou "person".
+    pub kind: String,
+    pub target_id: i32,
+    /// Só para mostrar (ignorado ao gravar).
+    #[serde(default)]
+    pub name: Option<String>,
+    pub liked: bool,
+}
+
+/// Um empréstimo (a sub-aba Empréstimo): o clube dono do passe, até quando e a parte do
+/// salário que o clube onde joga paga.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorLoan {
+    pub parent_id: i32,
+    /// Só para mostrar (ignorado ao gravar).
+    #[serde(default)]
+    pub parent_name: Option<String>,
+    /// "AAAA-MM-DD"
+    pub until: String,
+    /// 0 a 100.
+    pub wage_share: i32,
+}
+
+/// Uma opção de uma lista (chave e texto).
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorChoice {
+    pub key: String,
+    pub label: String,
+}
+
+/// A ficha de um jogador (abas Dados e Contrato): identidade, reputações, contrato, posições,
+/// estado, empréstimo e preferências.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -509,6 +648,21 @@ pub struct EditorProfile {
     pub unhappy: Vec<String>,
     /// As 12 posições (1 a 20) na ordem de [`POSITIONS`].
     pub positions: Vec<i32>,
+    /// A função no clube (as do Definir Função, mais "notneeded"); `None` = pelo lugar no plantel.
+    pub role: Option<String>,
+    /// Na lista de transferências pelo clube, a pedido dele e na lista de empréstimos.
+    pub listed: bool,
+    pub requested: bool,
+    pub loan_listed: bool,
+    /// Jogos seguidos sem jogar, condição física (0–100) e a lesão (`None` = sem estado no save).
+    pub missed: Option<i32>,
+    pub condition: Option<i32>,
+    pub injury: Option<String>,
+    /// "AAAA-MM-DD"
+    pub injury_until: Option<String>,
+    pub loan: Option<EditorLoan>,
+    /// Clubes e pessoas favoritos e detestados (as Preferências do CM).
+    pub favourites: Vec<EditorPreference>,
 }
 
 /// Um motivo de insatisfação (caixa de seleção).
@@ -522,7 +676,7 @@ pub struct EditorReason {
     pub club: bool,
 }
 
-/// Uma nação para a lista de escolha.
+/// Uma nação (ou divisão) para a lista de escolha.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -531,7 +685,7 @@ pub struct EditorNation {
     pub name: String,
 }
 
-/// A aba Dados de um jogador, com as chaves das posições e a lista de nações.
+/// A ficha de um jogador, com as chaves das posições e as listas de escolha.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -541,9 +695,23 @@ pub struct EditorProfileView {
     pub position_keys: Vec<String>,
     pub reasons: Vec<EditorReason>,
     pub nations: Vec<EditorNation>,
+    /// As funções no clube.
+    pub roles: Vec<EditorChoice>,
+    /// Do plantel do treinador do jogo: só lá a insatisfação e a função contam (nos outros
+    /// clubes o jogo apaga a insatisfação no dia seguinte).
+    pub managed: bool,
+}
+
+/// Máximo de favoritos (ou de detestados) de cada tipo, como no CM.
+const MAX_PREFERENCES: usize = 3;
+
+fn person_or_club_name(world: &World, kind: &str, id: i32) -> Option<String> {
+    let sql = if kind == "club" { "SELECT name FROM clubs WHERE id = ?" } else { "SELECT display_name FROM people WHERE id = ?" };
+    world.conn.query_row(sql, [id], |r| r.get(0)).ok().flatten()
 }
 
 fn profile_view(world: &World, id: i32) -> Result<EditorProfileView> {
+    use rusqlite::OptionalExtension;
     let ok: i64 = world.conn.query_row("SELECT COUNT(*) FROM players WHERE person_id = ?", [id], |r| r.get(0))?;
     if ok == 0 {
         return Err(Error::Invalid("Só se editam jogadores.".into()));
@@ -556,7 +724,7 @@ fn profile_view(world: &World, id: i32) -> Result<EditorProfileView> {
                 p.contract_expires, COALESCE(p.wage, 0), p.club_joined, {pos_cols}
          FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?"
     );
-    let profile = world.conn.query_row(&sql, [id], |r| {
+    let mut profile = world.conn.query_row(&sql, [id], |r| {
         let mut positions = Vec::new();
         for i in 0..POSITIONS.len() {
             positions.push(r.get::<_, i32>(13 + i)?);
@@ -578,15 +746,58 @@ fn profile_view(world: &World, id: i32) -> Result<EditorProfileView> {
             morale: None,
             unhappy: Vec::new(),
             positions,
+            role: None,
+            listed: false,
+            requested: false,
+            loan_listed: false,
+            missed: None,
+            condition: None,
+            injury: None,
+            injury_until: None,
+            loan: None,
+            favourites: Vec::new(),
         })
     })?;
-    let mut profile = profile;
-    profile.morale = world.conn.query_row("SELECT morale FROM player_state WHERE person_id = ?", [id], |r| r.get(0)).ok();
-    profile.unhappy = world
-        .conn
-        .prepare("SELECT reason FROM unhappy WHERE person_id = ?")
-        .and_then(|mut st| st.query_map([id], |r| r.get(0))?.collect::<rusqlite::Result<Vec<String>>>())
-        .unwrap_or_default();
+    let conn = &world.conn;
+    // Sem linha em `player_state`, o estado é o de partida (o jogo só grava os que mudaram)
+    let (morale, missed, condition, injury, until) = conn
+        .query_row("SELECT morale, missed, condition, injury, injury_until FROM player_state WHERE person_id = ?", [id], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })
+        .optional()?
+        .unwrap_or((crate::squad::START_MORALE, 0, 100, None, None));
+    profile.morale = Some(morale);
+    profile.missed = Some(missed);
+    profile.condition = Some(condition);
+    profile.injury = injury;
+    profile.injury_until = until;
+    profile.unhappy = conn
+        .prepare("SELECT reason FROM unhappy WHERE person_id = ? ORDER BY since, reason")?
+        .query_map([id], |r| r.get(0))?
+        .collect::<rusqlite::Result<Vec<String>>>()?;
+    profile.role = conn.query_row("SELECT role FROM squad_roles WHERE person_id = ?", [id], |r| r.get(0)).optional()?;
+    if let Some((listed, loan, requested)) = conn
+        .query_row("SELECT transfer = 1, loan = 1, requested = 1 FROM transfer_list WHERE person_id = ?", [id], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })
+        .optional()?
+    {
+        (profile.listed, profile.loan_listed, profile.requested) = (listed, loan, requested);
+    }
+    profile.loan = conn
+        .query_row(
+            "SELECT l.parent_id, c.name, l.until, l.wage_share FROM loans l LEFT JOIN clubs c ON c.id = l.parent_id WHERE l.person_id = ?",
+            [id],
+            |r| Ok(EditorLoan { parent_id: r.get(0)?, parent_name: r.get(1)?, until: r.get(2)?, wage_share: r.get(3)? }),
+        )
+        .optional()?;
+    profile.favourites = conn
+        .prepare("SELECT kind, target_id, liked != 0 FROM preferences WHERE person_id = ? ORDER BY kind, liked DESC, rowid")?
+        .query_map([id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i32>(1)?, r.get::<_, bool>(2)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?
+        .into_iter()
+        .map(|(kind, target_id, liked)| EditorPreference { name: person_or_club_name(world, &kind, target_id), kind, target_id, liked })
+        .collect();
     let reasons = crate::game::unhappy::REASONS
         .iter()
         .map(|(k, l)| EditorReason { key: k.to_string(), label: l.to_string(), club: false })
@@ -596,9 +807,25 @@ fn profile_view(world: &World, id: i32) -> Result<EditorProfileView> {
             club: true,
         }))
         .collect();
-    let mut st = world.conn.prepare("SELECT id, name FROM nations WHERE name IS NOT NULL ORDER BY name")?;
+    let mut st = conn.prepare("SELECT id, name FROM nations WHERE name IS NOT NULL ORDER BY name")?;
     let nations = st.query_map([], |r| Ok(EditorNation { id: r.get(0)?, name: r.get(1)? }))?.collect::<rusqlite::Result<_>>()?;
-    Ok(EditorProfileView { id, profile, reasons, position_keys: POSITIONS.iter().map(|p| p.to_string()).collect(), nations })
+    let roles = crate::game::deals::SQUAD_ROLES
+        .iter()
+        .map(|r| (r.0, r.1))
+        .chain([crate::game::deals::NOT_NEEDED])
+        .map(|(k, l)| EditorChoice { key: k.into(), label: l.into() })
+        .collect();
+    let managed: bool =
+        conn.query_row("SELECT COUNT(*) > 0 FROM people p, game g WHERE p.id = ? AND p.club_id = g.club_id", [id], |r| r.get(0))?;
+    Ok(EditorProfileView {
+        id,
+        profile,
+        reasons,
+        position_keys: POSITIONS.iter().map(|p| p.to_string()).collect(),
+        nations,
+        roles,
+        managed,
+    })
 }
 
 /// A ficha (aba Dados) de um jogador de um save fechado.
@@ -606,14 +833,59 @@ pub fn profile(saves: &Path, file: &str, id: i32) -> Result<EditorProfileView> {
     profile_view(&open_save(saves, file)?, id)
 }
 
+/// Cria a linha de `player_state` com o estado de partida, se o jogador ainda não a tem.
+fn ensure_state(world: &World, id: i32) -> Result<()> {
+    world.conn.execute(
+        "INSERT OR IGNORE INTO player_state (person_id, condition, morale, yellows, suspended) VALUES (?, 100, ?, 0, 0)",
+        rusqlite::params![id, crate::squad::START_MORALE],
+    )?;
+    Ok(())
+}
+
 pub(crate) fn check_range(label: &str, v: i32, min: i32, max: i32) -> Result<()> {
     if (min..=max).contains(&v) { Ok(()) } else { Err(Error::Invalid(format!("{label}: o valor vai de {min} a {max} (recebi {v})."))) }
 }
 
+fn check_date(label: &str, s: Option<&str>) -> Result<()> {
+    match s.filter(|s| !s.is_empty()) {
+        Some(s) if crate::date::parse(s).is_none() => Err(Error::Invalid(format!("{label} inválido (use AAAA-MM-DD)."))),
+        _ => Ok(()),
+    }
+}
+
+/// Valida as preferências: tipo, alvo que existe, sem repetidos e no máximo 3 de cada lista.
+fn check_preferences(world: &World, owner: Option<i32>, list: &[EditorPreference], kinds: &[&str]) -> Result<()> {
+    for p in list {
+        if !kinds.contains(&p.kind.as_str()) {
+            return Err(Error::Invalid(format!("Preferência desconhecida: {}.", p.kind)));
+        }
+        if person_or_club_name(world, &p.kind, p.target_id).is_none() {
+            return Err(Error::Invalid("Preferência: clube ou pessoa desconhecido.".into()));
+        }
+        if p.kind == "person" && Some(p.target_id) == owner {
+            return Err(Error::Invalid("Ninguém é favorito de si mesmo.".into()));
+        }
+        if list.iter().filter(|q| q.kind == p.kind && q.target_id == p.target_id).count() > 1 {
+            return Err(Error::Invalid(format!("{} aparece duas vezes nas preferências.", p.name.as_deref().unwrap_or("Alguém"))));
+        }
+        if list.iter().filter(|q| q.kind == p.kind && q.liked == p.liked).count() > MAX_PREFERENCES {
+            return Err(Error::Invalid(format!("No máximo {MAX_PREFERENCES} favoritos e {MAX_PREFERENCES} detestados de cada tipo.")));
+        }
+    }
+    Ok(())
+}
+
 /// Valida e grava a ficha do jogador. CA até 200 e PA ≥ CA; as datas têm de existir.
+#[cfg(test)]
 pub fn set_profile(saves: &Path, file: &str, id: i32, p: &EditorProfile) -> Result<EditorProfileView> {
     let world = open_save(saves, file)?;
-    profile_view(&world, id)?;
+    in_tx(&world, || apply_profile(&world, id, p))?;
+    profile_view(&world, id)
+}
+
+/// Valida e grava a ficha de um jogador, sem transacção própria (ver [`in_tx`]).
+fn apply_profile(world: &World, id: i32, p: &EditorProfile) -> Result<()> {
+    let before = profile_view(world, id)?.profile;
     check_range("Capacidade actual (CA)", p.ability, 0, 200)?;
     check_range("Potencial (PA)", p.potential, 0, 200)?;
     if p.potential < p.ability {
@@ -642,22 +914,27 @@ pub fn set_profile(saves: &Path, file: &str, id: i32, p: &EditorProfile) -> Resu
         }
         None => None,
     };
-    if let Some(s) = p.contract_expires.as_deref().filter(|s| !s.is_empty())
-        && crate::date::parse(s).is_none()
-    {
-        return Err(Error::Invalid("Fim do contrato inválido (use AAAA-MM-DD).".into()));
-    }
-    if let Some(s) = p.contract_start.as_deref().filter(|s| !s.is_empty())
-        && crate::date::parse(s).is_none()
-    {
-        return Err(Error::Invalid("Início do contrato inválido (use AAAA-MM-DD).".into()));
-    }
+    check_date("Fim do contrato", p.contract_expires.as_deref())?;
+    check_date("Início do contrato", p.contract_start.as_deref())?;
+    check_date("Fim da lesão", p.injury_until.as_deref())?;
     if let Some(m) = p.morale {
         check_range("Moral", m, 1, 20)?;
+    }
+    if let Some(m) = p.missed {
+        check_range("Jogos seguidos sem jogar", m, 0, 99)?;
+    }
+    if let Some(c) = p.condition {
+        check_range("Condição física", c, 0, 100)?;
     }
     let known: Vec<&str> = crate::game::unhappy::REASONS.iter().chain(&crate::game::unhappy::CLUB_REASONS).map(|r| r.0).collect();
     if let Some(bad) = p.unhappy.iter().find(|k| !known.contains(&k.as_str())) {
         return Err(Error::Invalid(format!("Motivo de insatisfação desconhecido: {bad}.")));
+    }
+    if let Some(role) = &p.role
+        && !crate::game::deals::SQUAD_ROLES.iter().any(|r| r.0 == role)
+        && role != crate::game::deals::NOT_NEEDED.0
+    {
+        return Err(Error::Invalid(format!("Função desconhecida: {role}.")));
     }
     for n in [p.nation_id, p.second_nation_id].into_iter().flatten() {
         let ok: i64 = world.conn.query_row("SELECT COUNT(*) FROM nations WHERE id = ?", [n], |r| r.get(0))?;
@@ -665,10 +942,27 @@ pub fn set_profile(saves: &Path, file: &str, id: i32, p: &EditorProfile) -> Resu
             return Err(Error::Invalid("Nação desconhecida.".into()));
         }
     }
-    let tx = world.conn.unchecked_transaction()?;
+    let club: Option<i32> = world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [id], |r| r.get(0))?;
+    if let Some(l) = &p.loan {
+        let Some(club) = club else {
+            return Err(Error::Invalid("Sem clube, não pode estar emprestado.".into()));
+        };
+        if l.parent_id == club {
+            return Err(Error::Invalid("O clube dono do passe tem de ser outro que não o clube onde joga.".into()));
+        }
+        if person_or_club_name(world, "club", l.parent_id).is_none() {
+            return Err(Error::Invalid("Empréstimo: clube desconhecido.".into()));
+        }
+        if crate::date::parse(&l.until).is_none() {
+            return Err(Error::Invalid("Fim do empréstimo inválido (use AAAA-MM-DD).".into()));
+        }
+        check_range("Parte do salário", l.wage_share, 0, 100)?;
+    }
+    check_preferences(world, Some(id), &p.favourites, &["club", "person"])?;
+    let tx = &world.conn;
     tx.execute(
         "UPDATE people SET birth_date = ?, birth_year = ?, birth_sort = ?, nation_id = ?, second_nation_id = ?,
-                international_apps = ?, international_goals = ?, contract_expires = ?, wage = ?, ability = ?
+                international_apps = ?, international_goals = ?, contract_expires = ?, wage = ?, ability = ?, club_joined = ?
          WHERE id = ?",
         rusqlite::params![
             birth.as_ref().map(|b| b.0.clone()),
@@ -681,20 +975,59 @@ pub fn set_profile(saves: &Path, file: &str, id: i32, p: &EditorProfile) -> Resu
             p.contract_expires.as_deref().filter(|s| !s.is_empty()),
             p.wage,
             p.ability,
+            p.contract_start.as_deref().filter(|s| !s.is_empty()),
             id
         ],
     )?;
+    // O estado do jogador (a linha nasce com o estado de partida, se ainda não a tinha)
+    ensure_state(world, id)?;
+    let injury = p.injury.as_deref().map(str::trim).filter(|s| !s.is_empty());
     tx.execute(
-        "UPDATE people SET club_joined = ? WHERE id = ?",
-        rusqlite::params![p.contract_start.as_deref().filter(|s| !s.is_empty()), id],
+        "UPDATE player_state SET morale = COALESCE(?, morale), missed = COALESCE(?, missed), condition = COALESCE(?, condition),
+                injury = ?, injury_until = ? WHERE person_id = ?",
+        rusqlite::params![p.morale, p.missed, p.condition, injury, injury.and(p.injury_until.as_deref().filter(|s| !s.is_empty())), id],
     )?;
     if let Some(m) = p.morale {
-        tx.execute("UPDATE player_state SET morale = ? WHERE person_id = ?", rusqlite::params![m, id])?;
+        tx.execute("UPDATE players SET morale = ? WHERE person_id = ?", rusqlite::params![m, id])?;
     }
+    // Os motivos que já estavam guardam a data e o pormenor (que colega, que jogo)
     let today: String = tx.query_row("SELECT date FROM game", [], |r| r.get(0))?;
-    tx.execute("DELETE FROM unhappy WHERE person_id = ?", [id])?;
+    for k in before.unhappy.iter().filter(|k| !p.unhappy.contains(k)) {
+        tx.execute("DELETE FROM unhappy WHERE person_id = ? AND reason = ?", rusqlite::params![id, k])?;
+    }
     for k in &p.unhappy {
         tx.execute("INSERT OR IGNORE INTO unhappy (person_id, reason, since) VALUES (?, ?, ?)", rusqlite::params![id, k, today])?;
+    }
+    match &p.role {
+        Some(r) => tx.execute("INSERT OR REPLACE INTO squad_roles (person_id, role) VALUES (?, ?)", rusqlite::params![id, r])?,
+        None => tx.execute("DELETE FROM squad_roles WHERE person_id = ?", [id])?,
+    };
+    if p.listed || p.loan_listed || p.requested {
+        tx.execute(
+            "INSERT INTO transfer_list (person_id, transfer, loan, requested) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(person_id) DO UPDATE SET transfer = ?2, loan = ?3, requested = ?4",
+            rusqlite::params![id, p.listed || p.requested, p.loan_listed, p.requested],
+        )?;
+    } else {
+        tx.execute("DELETE FROM transfer_list WHERE person_id = ?", [id])?;
+    }
+    match &p.loan {
+        Some(l) => tx.execute(
+            "INSERT INTO loans (person_id, parent_id, until, wage_share) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(person_id) DO UPDATE SET parent_id = ?2, until = ?3, wage_share = ?4",
+            rusqlite::params![id, l.parent_id, l.until, l.wage_share],
+        )?,
+        // Sem empréstimo: fica de vez no clube onde joga
+        None => tx.execute("DELETE FROM loans WHERE person_id = ?", [id])?,
+    };
+    if p.favourites != before.favourites {
+        tx.execute("DELETE FROM preferences WHERE person_id = ?", [id])?;
+        for f in &p.favourites {
+            tx.execute(
+                "INSERT INTO preferences (person_id, kind, target_id, liked) VALUES (?, ?, ?, ?)",
+                rusqlite::params![id, f.kind, f.target_id, f.liked],
+            )?;
+        }
     }
     let sets = POSITIONS.iter().map(|k| format!("pos_{k} = ?")).collect::<Vec<_>>().join(", ");
     let mut values: Vec<rusqlite::types::Value> =
@@ -708,11 +1041,37 @@ pub fn set_profile(saves: &Path, file: &str, id: i32, p: &EditorProfile) -> Resu
         ),
         rusqlite::params_from_iter(values),
     )?;
-    tx.commit()?;
-    profile_view(&world, id)
+    Ok(())
 }
 
 // ---------------------------------------------------------------- clubes
+
+/// Um clube ou uma pessoa numa lista do editor (os rivais).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorRef {
+    pub id: i32,
+    /// Só para mostrar (ignorado ao gravar).
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+/// Um salário da folha do clube.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorWage {
+    pub id: i32,
+    /// Só para mostrar (ignorado ao gravar).
+    #[serde(default)]
+    pub name: Option<String>,
+    /// Jogador (senão, staff).
+    #[serde(default)]
+    pub player: bool,
+    /// Salário semanal.
+    pub wage: i32,
+}
 
 /// O clube aberto no editor (Edit Club): o que o NextCM guarda.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -738,53 +1097,106 @@ pub struct EditorClub {
     pub home_bg: Option<String>,
     pub away_fg: Option<String>,
     pub away_bg: Option<String>,
+    /// Até 3 clubes rivais.
+    pub rivals: Vec<EditorRef>,
+    /// Jogadores/staff favoritos e detestados do clube (`kind` = "person").
+    pub favourites: Vec<EditorPreference>,
+    /// A folha: os salários de quem está no clube, do maior para o menor.
+    pub wages: Vec<EditorWage>,
+    /// Só no clube do treinador: a folha permitida pela direcção (muda a troca com os fundos,
+    /// para durar além da próxima revisão) e o salário máximo de hoje (só leitura).
+    #[ts(type = "number | null")]
+    pub wage_budget: Option<i64>,
+    #[ts(type = "number | null")]
+    pub max_wage: Option<i64>,
 }
 
 fn club_view(world: &World, id: i32) -> Result<EditorClub> {
-    world
+    use rusqlite::OptionalExtension;
+    let (mut club, rivals) = world
         .conn
         .query_row(
             "SELECT c.id, c.name, COALESCE(c.reputation, 0), COALESCE(c.professional_status, 1), COALESCE(c.training, 0),
                     COALESCE(c.cash, 0), s.name, COALESCE(s.capacity, 0), COALESCE(s.seating_capacity, 0),
                     COALESCE(s.expansion_capacity, 0), COALESCE(s.undersoil_heating, 0),
-                    c.home_fg, c.home_bg, c.away_fg, c.away_bg
+                    c.home_fg, c.home_bg, c.away_fg, c.away_bg, c.rival1_id, c.rival2_id, c.rival3_id
              FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id WHERE c.id = ? AND c.is_national_team = 0",
             [id],
             |r| {
-                Ok(EditorClub {
-                    id: r.get(0)?,
-                    name: r.get(1)?,
-                    reputation: r.get(2)?,
-                    professional_status: r.get(3)?,
-                    training: r.get(4)?,
-                    cash: r.get(5)?,
-                    stadium_name: r.get(6)?,
-                    capacity: r.get(7)?,
-                    seating: r.get(8)?,
-                    expansion: r.get(9)?,
-                    undersoil_heating: r.get::<_, i32>(10)? != 0,
-                    home_fg: r.get(11)?,
-                    home_bg: r.get(12)?,
-                    away_fg: r.get(13)?,
-                    away_bg: r.get(14)?,
-                })
+                Ok((
+                    EditorClub {
+                        id: r.get(0)?,
+                        name: r.get(1)?,
+                        reputation: r.get(2)?,
+                        professional_status: r.get(3)?,
+                        training: r.get(4)?,
+                        cash: r.get(5)?,
+                        stadium_name: r.get(6)?,
+                        capacity: r.get(7)?,
+                        seating: r.get(8)?,
+                        expansion: r.get(9)?,
+                        undersoil_heating: r.get::<_, i32>(10)? != 0,
+                        home_fg: r.get(11)?,
+                        home_bg: r.get(12)?,
+                        away_fg: r.get(13)?,
+                        away_bg: r.get(14)?,
+                        rivals: Vec::new(),
+                        favourites: Vec::new(),
+                        wages: Vec::new(),
+                        wage_budget: None,
+                        max_wage: None,
+                    },
+                    [r.get::<_, Option<i32>>(15)?, r.get(16)?, r.get(17)?],
+                ))
             },
         )
-        .map_err(|_| Error::Invalid("Clube não encontrado.".into()))
+        .map_err(|_| Error::Invalid("Clube não encontrado.".into()))?;
+    club.rivals = rivals.into_iter().flatten().map(|r| EditorRef { id: r, name: person_or_club_name(world, "club", r) }).collect();
+    let conn = &world.conn;
+    let has_prefs: i64 =
+        conn.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'club_preferences'", [], |r| r.get(0))?;
+    if has_prefs > 0 {
+        club.favourites = conn
+            .prepare("SELECT person_id, liked != 0 FROM club_preferences WHERE club_id = ? ORDER BY liked DESC, rowid")?
+            .query_map([id], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, bool>(1)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .into_iter()
+            .map(|(target_id, liked)| EditorPreference {
+                kind: "person".into(),
+                target_id,
+                name: person_or_club_name(world, "person", target_id),
+                liked,
+            })
+            .collect();
+    }
+    club.wages = conn
+        .prepare(
+            "SELECT id, display_name, is_player = 1, COALESCE(wage, 0) FROM people WHERE club_id = ?
+             ORDER BY COALESCE(wage, 0) DESC, display_name",
+        )?
+        .query_map([id], |r| Ok(EditorWage { id: r.get(0)?, name: r.get(1)?, player: r.get(2)?, wage: r.get(3)? }))?
+        .collect::<rusqlite::Result<_>>()?;
+    let mine: i32 = conn.query_row("SELECT club_id FROM game", [], |r| r.get(0))?;
+    if mine == id
+        && let Some((budget, max)) =
+            conn.query_row("SELECT wage_budget, max_wage FROM board WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?))).optional()?
+    {
+        club.wage_budget = Some(budget);
+        club.max_wage = Some(max);
+    }
+    Ok(club)
 }
 
-/// Procura clubes pelo nome num save fechado (até 40 resultados, os de maior reputação primeiro).
+/// Procura clubes pelo nome num save fechado (os de maior reputação primeiro).
 pub fn search_clubs(saves: &Path, file: &str, query: &str) -> Result<Vec<EditorHit>> {
     let world = open_save(saves, file)?;
     let text = query.trim().to_lowercase();
-    let mut st = world.conn.prepare(
-        "SELECT c.id, c.name, n.name, c.reputation FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id
-         WHERE c.is_national_team = 0 AND LOWER(c.name) LIKE ? ESCAPE '!' ORDER BY c.reputation DESC, c.name LIMIT 40",
-    )?;
+    let mut st = world.conn.prepare(&format!(
+        "SELECT c.id, c.name, n.name, c.reputation, NULL FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id
+         WHERE c.is_national_team = 0 AND LOWER(c.name) LIKE ? ESCAPE '!' ORDER BY c.reputation DESC, c.name LIMIT {SEARCH_LIMIT}"
+    ))?;
     let like = format!("%{}%", text.replace('!', "!!").replace('%', "!%").replace('_', "!_"));
-    let rows = st
-        .query_map([like], |r| Ok(EditorHit { id: r.get(0)?, name: r.get(1)?, club: r.get(2)?, ability: r.get(3)? }))?
-        .collect::<rusqlite::Result<_>>()?;
+    let rows = st.query_map([like], hit_row)?.collect::<rusqlite::Result<_>>()?;
     Ok(rows)
 }
 
@@ -792,13 +1204,11 @@ pub fn search_clubs(saves: &Path, file: &str, query: &str) -> Result<Vec<EditorH
 pub fn squad(saves: &Path, file: &str, club_id: i32) -> Result<Vec<EditorHit>> {
     let world = open_save(saves, file)?;
     let mut st = world.conn.prepare(
-        "SELECT p.id, p.display_name, c.name, pl.current_ability FROM people p
+        "SELECT p.id, p.display_name, c.name, pl.current_ability, pl.potential_ability FROM people p
          JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id
          WHERE p.club_id = ? ORDER BY pl.current_ability DESC, p.display_name",
     )?;
-    let rows = st
-        .query_map([club_id], |r| Ok(EditorHit { id: r.get(0)?, name: r.get(1)?, club: r.get(2)?, ability: r.get(3)? }))?
-        .collect::<rusqlite::Result<_>>()?;
+    let rows = st.query_map([club_id], hit_row)?.collect::<rusqlite::Result<_>>()?;
     Ok(rows)
 }
 
@@ -816,9 +1226,16 @@ fn check_color(label: &str, c: &Option<String>) -> Result<()> {
 }
 
 /// Valida e grava o clube (e o estádio dele).
+#[cfg(test)]
 pub fn set_club(saves: &Path, file: &str, c: &EditorClub) -> Result<EditorClub> {
     let world = open_save(saves, file)?;
-    club_view(&world, c.id)?;
+    in_tx(&world, || apply_club(&world, c))?;
+    club_view(&world, c.id)
+}
+
+/// Valida e grava um clube, sem transacção própria (ver [`in_tx`]).
+fn apply_club(world: &World, c: &EditorClub) -> Result<()> {
+    let before = club_view(world, c.id)?;
     check_range("Reputação", c.reputation, 0, 10000)?;
     check_range("Estatuto profissional", c.professional_status, 1, 3)?;
     check_range("Instalações de treino", c.training, 1, 20)?;
@@ -835,11 +1252,42 @@ pub fn set_club(saves: &Path, file: &str, c: &EditorClub) -> Result<EditorClub> 
     check_color("Cor principal (fundo)", &c.home_bg)?;
     check_color("Cor alternativa (letra)", &c.away_fg)?;
     check_color("Cor alternativa (fundo)", &c.away_bg)?;
+    if c.rivals.len() > 3 {
+        return Err(Error::Invalid("No máximo 3 rivais.".into()));
+    }
+    for (i, r) in c.rivals.iter().enumerate() {
+        if r.id == c.id {
+            return Err(Error::Invalid("Um clube não é rival de si mesmo.".into()));
+        }
+        if c.rivals[..i].iter().any(|o| o.id == r.id) {
+            return Err(Error::Invalid("Rival repetido.".into()));
+        }
+        let ok: i64 = world.conn.query_row("SELECT COUNT(*) FROM clubs WHERE id = ? AND is_national_team = 0", [r.id], |x| x.get(0))?;
+        if ok == 0 {
+            return Err(Error::Invalid("Rival: clube desconhecido.".into()));
+        }
+    }
+    check_preferences(world, None, &c.favourites, &["person"])?;
+    for w in &c.wages {
+        check_range("Salário", w.wage, 0, 100_000_000)?;
+        if !before.wages.iter().any(|b| b.id == w.id) {
+            return Err(Error::Invalid("Salário de alguém que não está no clube.".into()));
+        }
+    }
+    if let Some(v) = c.wage_budget {
+        if before.wage_budget.is_none() {
+            return Err(Error::Invalid("Só o clube do treinador tem orçamento salarial da direcção.".into()));
+        }
+        if !(0..=10_000_000_000).contains(&v) {
+            return Err(Error::Invalid("Folha permitida: o valor vai de 0 a 10 mil milhões.".into()));
+        }
+    }
     let norm = |v: &Option<String>| v.as_deref().filter(|s| !s.is_empty()).map(str::to_lowercase);
-    let tx = world.conn.unchecked_transaction()?;
+    let rival = |i: usize| c.rivals.get(i).map(|r| r.id);
+    let tx = &world.conn;
     tx.execute(
         "UPDATE clubs SET reputation = ?, professional_status = ?, training = ?, cash = ?,
-                home_fg = ?, home_bg = ?, away_fg = ?, away_bg = ? WHERE id = ?",
+                home_fg = ?, home_bg = ?, away_fg = ?, away_bg = ?, rival1_id = ?, rival2_id = ?, rival3_id = ? WHERE id = ?",
         rusqlite::params![
             c.reputation,
             c.professional_status,
@@ -849,6 +1297,9 @@ pub fn set_club(saves: &Path, file: &str, c: &EditorClub) -> Result<EditorClub> 
             norm(&c.home_bg),
             norm(&c.away_fg),
             norm(&c.away_bg),
+            rival(0),
+            rival(1),
+            rival(2),
             c.id
         ],
     )?;
@@ -857,8 +1308,110 @@ pub fn set_club(saves: &Path, file: &str, c: &EditorClub) -> Result<EditorClub> 
          WHERE id = (SELECT stadium_id FROM clubs WHERE id = ?)",
         rusqlite::params![c.capacity, c.seating, c.expansion, c.undersoil_heating as i32, c.id],
     )?;
-    tx.commit()?;
-    club_view(&world, c.id)
+    if c.favourites != before.favourites {
+        tx.execute_batch(
+            "CREATE TABLE IF NOT EXISTS club_preferences (club_id INTEGER NOT NULL, person_id INTEGER NOT NULL, liked INTEGER NOT NULL)",
+        )?;
+        tx.execute("DELETE FROM club_preferences WHERE club_id = ?", [c.id])?;
+        for f in &c.favourites {
+            tx.execute(
+                "INSERT INTO club_preferences (club_id, person_id, liked) VALUES (?, ?, ?)",
+                rusqlite::params![c.id, f.target_id, f.liked],
+            )?;
+        }
+    }
+    for w in c.wages.iter().filter(|w| !before.wages.contains(w)) {
+        tx.execute("UPDATE people SET wage = ? WHERE id = ? AND club_id = ?", rusqlite::params![w.wage, w.id, c.id])?;
+    }
+    // A folha permitida: a diferença vai para a troca com os fundos, que a direcção mantém
+    if let (Some(new), Some(old)) = (c.wage_budget, before.wage_budget)
+        && new != old
+    {
+        tx.execute("UPDATE board SET wage_budget = ?1, wage_shift = wage_shift + ?2 WHERE id = 1", rusqlite::params![new, new - old])?;
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------- gravar tudo de uma vez
+
+/// As mudanças de um jogador por gravar: a ficha (se mudou) e os atributos mudados.
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorPlayerChange {
+    pub id: i32,
+    /// Para as mensagens de erro.
+    pub name: String,
+    pub profile: Option<EditorProfile>,
+    pub values: Vec<EditorValue>,
+}
+
+/// As mudanças de um membro do staff por gravar.
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorStaffChange {
+    pub id: i32,
+    pub name: String,
+    pub data: crate::editor_staff::EditorStaffData,
+    pub values: Vec<EditorValue>,
+}
+
+/// Tudo o que o editor acumulou para gravar de uma vez.
+#[derive(Debug, Clone, Default, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase", default)]
+pub struct EditorChanges {
+    pub players: Vec<EditorPlayerChange>,
+    pub staff: Vec<EditorStaffChange>,
+    pub clubs: Vec<EditorClub>,
+}
+
+/// Corre `job` numa transacção: tudo ou nada.
+pub(crate) fn in_tx<T>(world: &World, job: impl FnOnce() -> Result<T>) -> Result<T> {
+    world.conn.execute_batch("BEGIN IMMEDIATE")?;
+    match job() {
+        Ok(v) => {
+            world.conn.execute_batch("COMMIT")?;
+            Ok(v)
+        }
+        Err(e) => {
+            let _ = world.conn.execute_batch("ROLLBACK");
+            Err(e)
+        }
+    }
+}
+
+/// A mensagem de erro com o nome de quem a causou.
+fn named(name: &str) -> impl Fn(Error) -> Error + '_ {
+    move |e| match e {
+        Error::Invalid(m) => Error::Invalid(format!("{name}: {m}")),
+        e => e,
+    }
+}
+
+/// Grava todas as mudanças acumuladas no editor de uma vez: se uma for recusada, nada fica
+/// gravado e o erro diz de quem é. Devolve quantos jogadores, staff e clubes mudaram.
+pub fn save_changes(saves: &Path, file: &str, ch: &EditorChanges) -> Result<usize> {
+    let world = open_save(saves, file)?;
+    in_tx(&world, || {
+        for c in &ch.clubs {
+            apply_club(&world, c).map_err(named(&c.name))?;
+        }
+        // A ficha antes dos atributos: os relativos convertem-se com a CA nova
+        for p in &ch.players {
+            if let Some(profile) = &p.profile {
+                apply_profile(&world, p.id, profile).map_err(named(&p.name))?;
+            }
+            if !p.values.is_empty() {
+                apply_values(&world, p.id, &p.values).map_err(named(&p.name))?;
+            }
+        }
+        for s in &ch.staff {
+            crate::editor_staff::apply_staff(&world, s.id, &s.data, &s.values).map_err(named(&s.name))?;
+        }
+        Ok(ch.clubs.len() + ch.players.len() + ch.staff.len())
+    })
 }
 
 #[cfg(test)]
@@ -890,8 +1443,8 @@ mod tests {
         let file = g.path().file_name().unwrap().to_string_lossy().to_string();
         drop(g);
 
-        let hits = search(&dir, &file, "gabriel").unwrap();
-        assert!(!hits.is_empty() && hits.len() <= 40);
+        let hits = search(&dir, &file, &EditorFilter { query: "gabriel".into(), ..Default::default() }).unwrap();
+        assert!(!hits.is_empty() && hits.len() as i64 <= SEARCH_LIMIT);
         let id = hits[0].id;
         let before = player(&dir, &file, id).unwrap();
         assert!(before.attributes.iter().any(|a| a.key == "finishing" && a.relative));
@@ -1022,6 +1575,63 @@ mod tests {
             .unwrap();
         assert!(team.is_some() && same, "{team:?}");
         drop(w);
+
+        // Filtros: CA, idade e posição; todos os resultados cumprem
+        let f = EditorFilter { min_ability: Some(140), max_age: Some(30), position: Some("attacker".into()), ..Default::default() };
+        let found = search(&dir, &file, &f).unwrap();
+        assert!(!found.is_empty() && found.iter().all(|h| h.ability.unwrap_or(0) >= 140 && h.potential.is_some()));
+        assert!(search(&dir, &file, &EditorFilter { position: Some("nada".into()), ..Default::default() }).is_err());
+        let opts = options(&dir, &file).unwrap();
+        assert!(!opts.divisions.is_empty() && !opts.nations.is_empty());
+
+        // Gravar tudo de uma vez: função, listas, empréstimo, favoritos, rivais e salários
+        let star = ids[3];
+        let other_club = search_clubs(&dir, &file, "flamengo").unwrap()[0].id;
+        let mut prof = profile(&dir, &file, star).unwrap().profile;
+        prof.role = Some("key".into());
+        prof.requested = true;
+        prof.unhappy = vec!["contract".into()];
+        prof.loan = Some(EditorLoan { parent_id: other_club, parent_name: None, until: "2027-06-30".into(), wage_share: 50 });
+        prof.favourites = vec![EditorPreference { kind: "club".into(), target_id: other_club, name: None, liked: true }];
+        let mut cl = club(&dir, &file, clubs[0].id).unwrap();
+        let rival = search_clubs(&dir, &file, "corinthians").unwrap()[0].id;
+        cl.rivals = vec![EditorRef { id: rival, name: None }];
+        cl.favourites = vec![EditorPreference { kind: "person".into(), target_id: star, name: None, liked: false }];
+        cl.wages[0].wage = 77_777;
+        let paid = cl.wages[0].id;
+        let ch = EditorChanges {
+            players: vec![EditorPlayerChange {
+                id: star,
+                name: "Estrela".into(),
+                profile: Some(prof),
+                values: vec![EditorValue { key: "pace".into(), value: 18 }],
+            }],
+            staff: Vec::new(),
+            clubs: vec![cl.clone()],
+        };
+        assert_eq!(save_changes(&dir, &file, &ch).unwrap(), 2);
+        let v = profile(&dir, &file, star).unwrap().profile;
+        assert_eq!(v.role.as_deref(), Some("key"));
+        assert!(v.requested && v.listed && v.unhappy == ["contract"]);
+        assert_eq!(v.loan.as_ref().map(|l| (l.parent_id, l.wage_share)), Some((other_club, 50)));
+        assert_eq!(v.favourites.len(), 1);
+        let again = club(&dir, &file, cl.id).unwrap();
+        assert_eq!(again.rivals.iter().map(|r| r.id).collect::<Vec<_>>(), vec![rival]);
+        assert_eq!(again.favourites.len(), 1);
+        assert_eq!(again.wages.iter().find(|w| w.id == paid).unwrap().wage, 77_777);
+        // Uma mudança recusada: nada fica gravado e o erro diz de quem é
+        let mut bad_club = again.clone();
+        bad_club.reputation = 5;
+        let mut bad = profile(&dir, &file, star).unwrap().profile;
+        bad.potential = 1;
+        let ch = EditorChanges {
+            players: vec![EditorPlayerChange { id: star, name: "Estrela".into(), profile: Some(bad), values: Vec::new() }],
+            staff: Vec::new(),
+            clubs: vec![bad_club],
+        };
+        let err = save_changes(&dir, &file, &ch).unwrap_err().to_string();
+        assert!(err.contains("Estrela"), "{err}");
+        assert_eq!(club(&dir, &file, cl.id).unwrap().reputation, again.reputation);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

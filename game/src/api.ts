@@ -53,11 +53,11 @@ import type { EditorClub } from './bindings/EditorClub'
 import type { EditorHit } from './bindings/EditorHit'
 import type { EditorCommand } from './bindings/EditorCommand'
 import type { EditorPlayer } from './bindings/EditorPlayer'
-import type { EditorProfile } from './bindings/EditorProfile'
+import type { EditorChanges } from './bindings/EditorChanges'
+import type { EditorFilter } from './bindings/EditorFilter'
+import type { EditorOptions } from './bindings/EditorOptions'
 import type { EditorProfileView } from './bindings/EditorProfileView'
-import type { EditorValue } from './bindings/EditorValue'
 import type { EditorStaff } from './bindings/EditorStaff'
-import type { EditorStaffData } from './bindings/EditorStaffData'
 import type { Instructions } from './bindings/Instructions'
 import type { LiveView } from './bindings/LiveView'
 import type { MatchPreview } from './bindings/MatchPreview'
@@ -222,18 +222,15 @@ export const api = {
   transferView: (id: number) => call<TransferView>('transfer_view', { id }),
   makeOffer: (id: number, terms: DealTerms) => call<TransferView>('make_offer', { id, terms }),
   /** Editor de jogos salvos (save fechado): procurar jogadores, abrir um e gravar os atributos. */
-  editorSearch: (file: string, query: string) => call<EditorHit[]>('editor_search', { file, query }),
+  editorSearch: (file: string, filter: EditorFilter) => call<EditorHit[]>('editor_search', { file, filter }),
+  editorOptions: (file: string) => call<EditorOptions>('editor_options', { file }),
+  /** Grava de uma vez as mudanças acumuladas no editor (tudo ou nada); devolve quantos mudaram. */
+  editorSave: (file: string, changes: EditorChanges) => call<number>('editor_save', { file, changes }),
   editorPlayer: (file: string, id: number) => call<EditorPlayer>('editor_player', { file, id }),
   editorExportCsv: (file: string, ids: number[]) => call<string>('editor_export_csv', { file, ids }),
-  editorSetAttributes: (file: string, id: number, values: EditorValue[]) =>
-    call<EditorPlayer>('editor_set_attributes', { file, id, values }),
   editorSearchStaff: (file: string, query: string) => call<EditorHit[]>('editor_search_staff', { file, query }),
   editorStaff: (file: string, id: number) => call<EditorStaff>('editor_staff', { file, id }),
-  editorSetStaff: (file: string, id: number, data: EditorStaffData, values: EditorValue[]) =>
-    call<EditorStaff>('editor_set_staff', { file, id, data, values }),
   editorProfile: (file: string, id: number) => call<EditorProfileView>('editor_profile', { file, id }),
-  editorSetProfile: (file: string, id: number, profile: EditorProfile) =>
-    call<EditorProfileView>('editor_set_profile', { file, id, profile }),
   editorSearchClubs: (file: string, query: string) => call<EditorHit[]>('editor_search_clubs', { file, query }),
   editorSquad: (file: string, clubId: number) => call<EditorHit[]>('editor_squad', { file, clubId }),
   /** O "Custom Command" do editor: os comandos e aplicá-los a uma lista de jogadores (devolve quantos mudaram). */
@@ -241,7 +238,6 @@ export const api = {
   editorCommand: (file: string, ids: number[], commands: string[], firstTeam: boolean) =>
     call<number>('editor_command', { file, ids, commands, firstTeam }),
   editorClub: (file: string, id: number) => call<EditorClub>('editor_club', { file, id }),
-  editorSetClub: (file: string, club: EditorClub) => call<EditorClub>('editor_set_club', { file, club }),
   squadRoleView: (id: number) => call<SquadRoleView>('squad_role_view', { id }),
   statusBar: (kind: string, id: number | null) => call<StatusBar>('status_bar', { kind, id }),
   competitionStats: (id: number) => call<CompetitionStats>('competition_stats', { id }),

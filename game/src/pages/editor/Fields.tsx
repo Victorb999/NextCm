@@ -146,3 +146,51 @@ export function NationSelect({
     </label>
   )
 }
+
+/** Uma lista de até `max` nomes (favoritos, detestados, rivais), como no Edit Club do CM: as vagas
+ * a "<nenhum>", × tira um, Adicionar abre a procura e Limpar Tudo esvazia. */
+export function RefList({
+  title,
+  items,
+  max = 3,
+  onAdd,
+  onRemove,
+  onClear,
+}: {
+  title: string
+  items: { id: number; name: string | null }[]
+  max?: number
+  onAdd: () => void
+  onRemove: (id: number) => void
+  onClear: () => void
+}) {
+  const empty = Math.max(0, max - items.length)
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="px-1 text-center text-[13px] font-bold text-white">{title}</div>
+      <div className="cm-zebra rounded border border-white/15 bg-black/40">
+        {items.map((it) => (
+          <div key={it.id} className="flex h-6 items-center gap-1 px-2 text-[13.5px] text-cm-yellow">
+            <span className="min-w-0 flex-1 truncate">{it.name ?? `#${it.id}`}</span>
+            <button className="w-5 text-cm-lilac hover:text-white" title="Tirar" onClick={() => onRemove(it.id)}>
+              ×
+            </button>
+          </div>
+        ))}
+        {Array.from({ length: empty }, (_, i) => (
+          <div key={`e${i}`} className="flex h-6 items-center px-2 text-[13.5px] text-[#8a8a8a]">
+            &lt;nenhum&gt;
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex gap-1">
+        <button className="cm-purple h-6 flex-1 text-[12.5px]" disabled={items.length >= max} onClick={onAdd}>
+          Adicionar
+        </button>
+        <button className="cm-purple h-6 flex-1 text-[12.5px]" disabled={!items.length} onClick={onClear}>
+          Limpar Tudo
+        </button>
+      </div>
+    </div>
+  )
+}

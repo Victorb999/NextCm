@@ -1,76 +1,64 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import type { EditorHit } from '../../bindings/EditorHit'
-import type { EditorStaff } from '../../bindings/EditorStaff'
 import type { EditorStaffData } from '../../bindings/EditorStaffData'
+import { staffDirty, type StaffEdit } from './editorEdits'
 import { BOX, LABELS, ROW } from './editorText'
 import { AttributeRow, Header, NumField } from './Fields'
 
 // O staff no Editor de Jogos Salvos (marco 4.0, item 16): a ficha (CA/PA, reputações, clube,
 // função, salário e contrato) e os atributos de staff e mentais, pelo valor que o jogo mostra.
-// A validação e a conversão dos relativos ficam no core (`editor_staff.rs`).
+// A validação e a conversão dos relativos ficam no core (`editor_staff.rs`). As mudanças ficam
+// por gravar no editor, com as dos jogadores e dos clubes.
 
 export default function StaffPanel({
   file,
   id,
+  edit,
+  onEdit,
   run,
 }: {
   file: string
   id: number
+  /** O que já se abriu (e mudou) desta pessoa nesta sessão do editor. */
+  edit: StaffEdit | undefined
+  onEdit: (e: StaffEdit) => void
   /** O `run` do editor: liga o "a trabalhar" e mostra o erro do core. */
   run: <T>(job: () => Promise<T>) => Promise<T | undefined>
 }) {
-  const [staff, setStaff] = useState<EditorStaff | null>(null)
-  const [data, setData] = useState<EditorStaffData | null>(null)
-  const [draft, setDraft] = useState<Record<string, number>>({})
-  const [notice, setNotice] = useState<string | null>(null)
   // Mudar de clube: a procura e o nome do clube escolhido
   const [clubQuery, setClubQuery] = useState('')
   const [clubHits, setClubHits] = useState<EditorHit[]>([])
   const [clubName, setClubName] = useState<string | null>(null)
 
+  // Ao mudar de pessoa, ou depois de gravar (o editor esquece o que tinha aberto): abre de novo
+  const missing = !edit
   useEffect(() => {
+    setClubHits([])
+    if (edit) {
+      setClubName(edit.data.clubId === edit.staff.data.clubId ? edit.staff.club : null)
+      return
+    }
     let live = true
     api.editorStaff(file, id).then(
       (s) => {
         if (!live) return
-        setStaff(s)
-        setData(s.data)
-        setDraft({})
+        onEdit({ staff: s, data: s.data, draft: {} })
         setClubName(s.club)
-        setNotice(null)
       },
       () => {},
     )
     return () => {
       live = false
     }
-  }, [file, id])
+    // O `edit` muda a cada tecla: conta só se falta
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file, id, missing])
 
-  const changes = useMemo(
-    () => (staff ? staff.attributes.filter((a) => draft[a.key] !== undefined && draft[a.key] !== a.shown) : []),
-    [staff, draft],
-  )
-  if (!staff || !data) return null
-  const dirty = changes.length > 0 || JSON.stringify(data) !== JSON.stringify(staff.data)
-  const set = (p: Partial<EditorStaffData>) => setData((d) => (d ? { ...d, ...p } : d))
-
-  const save = async () => {
-    const s = await run(() =>
-      api.editorSetStaff(
-        file,
-        id,
-        data,
-        changes.map((a) => ({ key: a.key, value: draft[a.key] ?? a.shown })),
-      ),
-    )
-    if (!s) return
-    setStaff(s)
-    setData(s.data)
-    setDraft({})
-    setClubName(s.club)
-    setNotice(`${s.name}: gravado.`)
-  }
+  if (!edit) return null
+  const { staff, data, draft } = edit
+  const set = (p: Partial<EditorStaffData>) => onEdit({ ...edit, data: { ...data, ...p } })
+  const setDraft = (key: string, v: number) => onEdit({ ...edit, draft: { ...draft, [key]: v } })
 
   const findClubs = async () => {
     const found = await run(() => api.editorSearchClubs(file, clubQuery))
@@ -79,7 +67,7 @@ export default function StaffPanel({
 
   const attrRow = (key: string) => {
     const a = staff.attributes.find((x) => x.key === key)
-    return a ? <AttributeRow key={key} a={a} value={draft[key] ?? a.shown} onChange={(v) => setDraft((d) => ({ ...d, [key]: v }))} /> : null
+    return a ? <AttributeRow key={key} a={a} value={draft[key] ?? a.shown} onChange={(v) => setDraft(key, v)} /> : null
   }
   const staffKeys = staff.attributes
     .filter((a) => a.group === 'staff')
@@ -93,10 +81,7 @@ export default function StaffPanel({
       <div className="mb-1.5 flex items-baseline gap-3">
         <span className="font-title text-[22px] text-white">{staff.name}</span>
         <span className="text-cm-magenta">{clubName ?? 'Sem clube'}</span>
-        {notice && <span className="text-[13px] text-cm-yellow">{notice}</span>}
-        <button className="cm-purple ml-auto h-8 enabled:text-cm-yellow" disabled={!dirty} onClick={() => void save()}>
-          Actualizar Staff
-        </button>
+        {staffDirty(edit) && <span className="text-[13px] text-cm-yellow">Alterações por gravar</span>}
       </div>
       <div className="grid grid-cols-3 gap-2">
         <div className={BOX}>

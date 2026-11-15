@@ -3,4 +3,12 @@
 /**
  * Um resultado da procura.
  */
-export type EditorHit = { id: number, name: string, club: string | null, ability: number | null, };
+export type EditorHit = { id: number, name: string, club: string | null, 
+/**
+ * CA (nos clubes, a reputação).
+ */
+ability: number | null, 
+/**
+ * PA (nos clubes, nada).
+ */
+potential: number | null, };

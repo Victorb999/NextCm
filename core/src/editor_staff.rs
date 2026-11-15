@@ -92,12 +92,12 @@ pub fn search(saves: &Path, file: &str, query: &str) -> Result<Vec<EditorHit>> {
     let text = crate::search::fold(query.trim());
     let like = format!("%{}%", text.replace('!', "!!").replace('%', "!%").replace('_', "!_"));
     let mut st = world.conn.prepare(
-        "SELECT p.id, p.display_name, c.name, np.current_ability FROM people p
+        "SELECT p.id, p.display_name, c.name, np.current_ability, np.potential_ability FROM people p
          JOIN non_players np ON np.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id
          WHERE p.is_player = 0 AND p.search_name LIKE ? ESCAPE '!' ORDER BY np.current_ability DESC, p.display_name LIMIT 40",
     )?;
     let rows = st
-        .query_map([like], |r| Ok(EditorHit { id: r.get(0)?, name: r.get(1)?, club: r.get(2)?, ability: r.get(3)? }))?
+        .query_map([like], |r| Ok(EditorHit { id: r.get(0)?, name: r.get(1)?, club: r.get(2)?, ability: r.get(3)?, potential: r.get(4)? }))?
         .collect::<rusqlite::Result<_>>()?;
     Ok(rows)
 }
@@ -198,9 +198,16 @@ fn stored_for_shown(ca: i32, key: &str, target: i32) -> i32 {
 
 /// Valida e grava a ficha e os atributos editados (valores de 1 a 20 como o jogo os mostra).
 /// O treinador do jogo não muda de clube aqui, e um clube só tem um treinador principal.
+#[cfg(test)]
 pub fn set_staff(saves: &Path, file: &str, id: i32, data: &EditorStaffData, values: &[EditorValue]) -> Result<EditorStaff> {
     let world = open_save(saves, file)?;
-    let before = build(&world, id)?;
+    crate::editor::in_tx(&world, || apply_staff(&world, id, data, values))?;
+    build(&world, id)
+}
+
+/// Valida e grava um membro do staff, sem transacção própria (ver `editor::in_tx`).
+pub(crate) fn apply_staff(world: &World, id: i32, data: &EditorStaffData, values: &[EditorValue]) -> Result<()> {
+    let before = build(world, id)?;
     check_range("Capacidade actual (CA)", data.ability, 0, 200)?;
     check_range("Potencial (PA)", data.potential, 0, 200)?;
     if data.potential < data.ability {
@@ -263,7 +270,7 @@ pub fn set_staff(saves: &Path, file: &str, id: i32, data: &EditorStaffData, valu
     // Tirado do clube agora: livre, sem função, salário nem contrato
     let released = club.is_none() && before.data.club_id.is_some();
     let ca = data.ability;
-    let tx = world.conn.unchecked_transaction()?;
+    let tx = &world.conn;
     tx.execute(
         "UPDATE non_players SET current_ability = ?, potential_ability = ?, home_reputation = ?, current_reputation = ?,
                 world_reputation = ? WHERE person_id = ?",
@@ -294,8 +301,7 @@ pub fn set_staff(saves: &Path, file: &str, id: i32, data: &EditorStaffData, valu
             tx.execute(&format!("UPDATE non_players SET {} = ? WHERE person_id = ?", v.key), rusqlite::params![stored, id])?;
         }
     }
-    tx.commit()?;
-    build(&world, id)
+    Ok(())
 }
 
 #[cfg(test)]

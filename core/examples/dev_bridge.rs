@@ -168,8 +168,17 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         }
         "editor_search" => {
             let file = args["file"].as_str().ok_or("falta file")?.to_string();
-            let query = args["query"].as_str().unwrap_or("").to_string();
-            out(serde_json::to_value(session.editor_search(file, query).map_err(e)?))
+            let filter: nextcm_core::EditorFilter = serde_json::from_value(args["filter"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.editor_search(file, filter).map_err(e)?))
+        }
+        "editor_options" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            out(serde_json::to_value(session.editor_options(file).map_err(e)?))
+        }
+        "editor_save" => {
+            let file = args["file"].as_str().ok_or("falta file")?.to_string();
+            let changes: nextcm_core::EditorChanges = serde_json::from_value(args["changes"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.editor_save(file, changes).map_err(e)?))
         }
         "editor_player" => {
             let file = args["file"].as_str().ok_or("falta file")?.to_string();
@@ -184,25 +193,9 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let file = args["file"].as_str().ok_or("falta file")?.to_string();
             out(serde_json::to_value(session.editor_staff(file, id()?).map_err(e)?))
         }
-        "editor_set_staff" => {
-            let file = args["file"].as_str().ok_or("falta file")?.to_string();
-            let data: nextcm_core::EditorStaffData = serde_json::from_value(args["data"].clone()).map_err(|e| e.to_string())?;
-            let values: Vec<nextcm_core::EditorValue> = serde_json::from_value(args["values"].clone()).map_err(|e| e.to_string())?;
-            out(serde_json::to_value(session.editor_set_staff(file, id()?, data, values).map_err(e)?))
-        }
-        "editor_set_attributes" => {
-            let file = args["file"].as_str().ok_or("falta file")?.to_string();
-            let values: Vec<nextcm_core::EditorValue> = serde_json::from_value(args["values"].clone()).map_err(|e| e.to_string())?;
-            out(serde_json::to_value(session.editor_set_attributes(file, id()?, values).map_err(e)?))
-        }
         "editor_profile" => {
             let file = args["file"].as_str().ok_or("falta file")?.to_string();
             out(serde_json::to_value(session.editor_profile(file, id()?).map_err(e)?))
-        }
-        "editor_set_profile" => {
-            let file = args["file"].as_str().ok_or("falta file")?.to_string();
-            let profile: nextcm_core::EditorProfile = serde_json::from_value(args["profile"].clone()).map_err(|e| e.to_string())?;
-            out(serde_json::to_value(session.editor_set_profile(file, id()?, profile).map_err(e)?))
         }
         "editor_search_clubs" => {
             let file = args["file"].as_str().ok_or("falta file")?.to_string();
@@ -230,11 +223,6 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "editor_club" => {
             let file = args["file"].as_str().ok_or("falta file")?.to_string();
             out(serde_json::to_value(session.editor_club(file, id()?).map_err(e)?))
-        }
-        "editor_set_club" => {
-            let file = args["file"].as_str().ok_or("falta file")?.to_string();
-            let club: nextcm_core::EditorClub = serde_json::from_value(args["club"].clone()).map_err(|e| e.to_string())?;
-            out(serde_json::to_value(session.editor_set_club(file, club).map_err(e)?))
         }
         "competition_stats" => out(serde_json::to_value(session.competition_stats(id()?).map_err(e)?)),
         "friendly_dates" => {

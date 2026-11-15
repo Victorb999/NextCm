@@ -221,8 +221,18 @@ impl Session {
         crate::editor_command(&self.saves_dir, self.editor_file(&file)?, &ids, &commands, first_team)
     }
 
-    pub fn editor_search(&self, file: String, query: String) -> Result<Vec<crate::EditorHit>> {
-        crate::editor_search(&self.saves_dir, self.editor_file(&file)?, &query)
+    pub fn editor_search(&self, file: String, filter: crate::EditorFilter) -> Result<Vec<crate::EditorHit>> {
+        crate::editor_search(&self.saves_dir, self.editor_file(&file)?, &filter)
+    }
+
+    /// As listas dos filtros da procura (nações, divisões, posições).
+    pub fn editor_options(&self, file: String) -> Result<crate::EditorOptions> {
+        crate::editor_options(&self.saves_dir, self.editor_file(&file)?)
+    }
+
+    /// Grava de uma vez tudo o que o editor acumulou (tudo ou nada).
+    pub fn editor_save(&self, file: String, changes: crate::EditorChanges) -> Result<usize> {
+        crate::editor_save(&self.saves_dir, self.editor_file(&file)?, &changes)
     }
 
     /// Exporta para CSV os jogadores da lista do editor; devolve o caminho do ficheiro.
@@ -243,26 +253,8 @@ impl Session {
         crate::editor_staff(&self.saves_dir, self.editor_file(&file)?, id)
     }
 
-    pub fn editor_set_staff(
-        &self,
-        file: String,
-        id: i32,
-        data: crate::EditorStaffData,
-        values: Vec<crate::EditorValue>,
-    ) -> Result<crate::EditorStaff> {
-        crate::editor_set_staff(&self.saves_dir, self.editor_file(&file)?, id, &data, &values)
-    }
-
-    pub fn editor_set_attributes(&self, file: String, id: i32, values: Vec<crate::EditorValue>) -> Result<crate::EditorPlayer> {
-        crate::editor_set_attributes(&self.saves_dir, self.editor_file(&file)?, id, &values)
-    }
-
     pub fn editor_profile(&self, file: String, id: i32) -> Result<crate::EditorProfileView> {
         crate::editor_profile(&self.saves_dir, self.editor_file(&file)?, id)
-    }
-
-    pub fn editor_set_profile(&self, file: String, id: i32, profile: crate::EditorProfile) -> Result<crate::EditorProfileView> {
-        crate::editor_set_profile(&self.saves_dir, self.editor_file(&file)?, id, &profile)
     }
 
     pub fn editor_search_clubs(&self, file: String, query: String) -> Result<Vec<crate::EditorHit>> {
@@ -275,10 +267,6 @@ impl Session {
 
     pub fn editor_club(&self, file: String, id: i32) -> Result<crate::EditorClub> {
         crate::editor_club(&self.saves_dir, self.editor_file(&file)?, id)
-    }
-
-    pub fn editor_set_club(&self, file: String, club: crate::EditorClub) -> Result<crate::EditorClub> {
-        crate::editor_set_club(&self.saves_dir, self.editor_file(&file)?, &club)
     }
 
     pub fn list_saves(&self) -> Result<Vec<SaveSummary>> {

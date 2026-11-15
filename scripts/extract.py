@@ -281,6 +281,11 @@ CREATE TABLE career_history (
 CREATE TABLE preferences (
     person_id INTEGER NOT NULL, kind TEXT NOT NULL, target_id INTEGER NOT NULL, liked INTEGER NOT NULL
 );
+
+-- Preferências do clube (club.dat): jogadores/staff favoritos (liked = 1) e detestados (0)
+CREATE TABLE club_preferences (
+    club_id INTEGER NOT NULL, person_id INTEGER NOT NULL, liked INTEGER NOT NULL
+);
 """
 
 INDEXES = """
@@ -488,6 +493,18 @@ def preferences(r):
             yield {"person_id": pid, "kind": kind, "target_id": target, "liked": liked}
 
 
+def club_preferences(r):
+    """Os 3 jogadores/staff favoritos (byte 155) e os 3 detestados (167) de cada clube."""
+    for tid in (T_CLUB, T_NAT_CLUB):
+        for _, b in r.table(tid, 581):
+            club, seen = i32(b, 0), set()
+            for n, person in enumerate(struct.unpack_from("<6i", b, 155)):
+                if person < 0 or person in seen:
+                    continue
+                seen.add(person)
+                yield {"club_id": club, "person_id": person, "liked": int(n < 3)}
+
+
 def career_history(r):
     seen = set()  # o banco tem entradas duplicadas
     for _, b in r.table(T_STAFF_HISTORY, 17):
@@ -538,6 +555,7 @@ def main():
         "non_players": insert(db, "non_players", nonplayer_rows),
         "career_history": insert(db, "career_history", career_history(r)),
         "preferences": insert(db, "preferences", preferences(r)),
+        "club_preferences": insert(db, "club_preferences", club_preferences(r)),
     }
     db.executescript(INDEXES)
     db.execute("ANALYZE")  # estatísticas para o planejador escolher bons índices
@@ -545,7 +563,7 @@ def main():
         "source": os.path.basename(os.path.normpath(args.src)),
         "year_offset": args.year_offset,
         "extracted_at": dt.datetime.now().isoformat(timespec="seconds"),
-        "schema_version": 10,
+        "schema_version": 11,
     }.items()))
     db.commit()
     db.close()

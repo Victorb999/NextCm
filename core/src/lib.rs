@@ -31,14 +31,12 @@ mod world;
 pub use club::{ClubProfile, CompetitionRef, Honour, SquadPlayer, StaffMember};
 pub use competition::{ClubListItem, CompetitionListItem, CompetitionProfile, ContinentRef, HistoryEntry, TableZone};
 pub use editor::{EditorAttribute, EditorClub, EditorHit, EditorNation, EditorPlayer, EditorProfile, EditorProfileView, EditorValue};
+pub use editor::{EditorChanges, EditorFilter, EditorOptions, options as editor_options, save_changes as editor_save};
 pub use editor::{EditorCommand, command as editor_command, commands as editor_commands, export_csv as editor_export_csv};
-pub use editor::{
-    club as editor_club, profile as editor_profile, search_clubs as editor_search_clubs, set_club as editor_set_club,
-    set_profile as editor_set_profile, squad as editor_squad,
-};
-pub use editor::{player as editor_player, search as editor_search, set_attributes as editor_set_attributes};
+pub use editor::{club as editor_club, profile as editor_profile, search_clubs as editor_search_clubs, squad as editor_squad};
+pub use editor::{player as editor_player, search as editor_search};
 pub use editor_staff::{EditorJob, EditorStaff, EditorStaffData};
-pub use editor_staff::{search as editor_search_staff, set_staff as editor_set_staff, staff as editor_staff};
+pub use editor_staff::{search as editor_search_staff, staff as editor_staff};
 pub use engine::{TeamStrength, expected_goals};
 pub use finance::{ClubFinances, FinanceRow};
 pub use game::ContractExtras;
