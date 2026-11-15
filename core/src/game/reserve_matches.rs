@@ -57,7 +57,12 @@ pub struct ReserveLineup {
     /// O banco: um de cada sector (GR, defesa, médio, avançado) e o resto pelos melhores.
     pub bench: Vec<ReserveSpot>,
     pub picks: Vec<i32>,
+    /// O adjunto pode descer jogadores do plantel principal para ganharem ritmo.
+    pub rhythm: bool,
 }
+
+/// Save 72: a opção de descer jogadores do plantel principal para ganharem ritmo.
+pub(super) const RHYTHM_SCHEMA: &str = "ALTER TABLE game ADD COLUMN reserve_rhythm INTEGER NOT NULL DEFAULT 1";
 
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
@@ -486,7 +491,9 @@ impl Game {
             }
         }
         rhythm.sort();
-        plan.first.extend(rhythm.into_iter().take(RHYTHM_MAX).map(|r| r.3));
+        if self.reserve_rhythm()? {
+            plan.first.extend(rhythm.into_iter().take(RHYTHM_MAX).map(|r| r.3));
+        }
         Ok(plan)
     }
 
@@ -646,7 +653,19 @@ impl Game {
         let reserves: Vec<i32> =
             self.squads.squad_state(self.club_id, None).into_iter().filter(|(_, a)| a.reserve).map(|(id, _)| id).collect();
         let picks = self.reserve_picks()?.into_iter().filter(|id| reserves.contains(id)).collect();
-        Ok(ReserveLineup { starters, bench, picks })
+        Ok(ReserveLineup { starters, bench, picks, rhythm: self.reserve_rhythm()? })
+    }
+
+    /// Se o adjunto desce jogadores do plantel principal para ganharem ritmo (ligado por omissão).
+    pub(super) fn reserve_rhythm(&self) -> Result<bool> {
+        Ok(self.world.conn.query_row("SELECT reserve_rhythm FROM game", [], |r| r.get::<_, i32>(0))? != 0)
+    }
+
+    /// Liga ou desliga o ritmo: desligado, nas reservas só jogam os que estão nelas.
+    pub fn set_reserve_rhythm(&mut self, on: bool) -> Result<ReserveLineup> {
+        self.world.conn.execute("UPDATE game SET reserve_rhythm = ?", [on as i32])?;
+        self.unsaved = true;
+        self.reserve_lineup()
     }
 
     /// O treinador escolhe quem joga nas reservas (até 11, todos das reservas); vazio, o adjunto.

@@ -207,6 +207,7 @@ export const api = {
   /** O onze das reservas para o próximo jogo delas e os escolhidos pelo treinador. */
   reserveLineup: () => call<ReserveLineup>('reserve_lineup'),
   setReservePicks: (ids: number[]) => call<ReserveLineup>('set_reserve_picks', { ids }),
+  setReserveRhythm: (on: boolean) => call<ReserveLineup>('set_reserve_rhythm', { on }),
   /** "Dar Folga" a quem tem saudades de casa. */
   giveLeave: (id: number) => call<string>('give_leave', { id }),
   jobsView: (nation: number | null) => call<JobsView>('jobs_view', { nation }),

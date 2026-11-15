@@ -126,6 +126,7 @@ session_command!(press_comment(id: i32, kind: String) -> String);
 session_command!(set_reserve(id: i32, reserve: bool) -> String);
 session_command!(reserve_lineup() -> ReserveLineup);
 session_command!(set_reserve_picks(ids: Vec<i32>) -> ReserveLineup);
+session_command!(set_reserve_rhythm(on: bool) -> ReserveLineup);
 session_command!(competition_stats(id: i32) -> CompetitionStats);
 session_command!(friendly_dates(chosen: Vec<String>) -> Vec<FriendlyDay>);
 session_command!(tour_nations() -> Vec<TourNation>);
@@ -373,6 +374,7 @@ pub fn run() {
             set_reserve,
             reserve_lineup,
             set_reserve_picks,
+            set_reserve_rhythm,
             competition_stats,
             friendly_dates,
             tour_nations,

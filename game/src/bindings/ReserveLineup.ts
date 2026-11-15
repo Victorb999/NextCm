@@ -9,4 +9,8 @@ export type ReserveLineup = { starters: Array<ReserveSpot>,
 /**
  * O banco: um de cada sector (GR, defesa, médio, avançado) e o resto pelos melhores.
  */
-bench: Array<ReserveSpot>, picks: Array<number>, };
+bench: Array<ReserveSpot>, picks: Array<number>, 
+/**
+ * O adjunto pode descer jogadores do plantel principal para ganharem ritmo.
+ */
+rhythm: boolean, };

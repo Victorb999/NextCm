@@ -332,6 +332,14 @@ fn window_closing(kind: SeasonKind, md: &str) -> bool {
     }
 }
 
+/// O último dia da janela aberta hoje (`None` com a janela fechada).
+fn window_last_day(kind: SeasonKind, today: &str) -> Option<String> {
+    if !window_open(kind, &today[5..]) {
+        return None;
+    }
+    (0..120).filter_map(|d| date::add_days(today, d)).take_while(|day| window_open(kind, &day[5..])).last()
+}
+
 /// Fim de um empréstimo: o fim da época do clube que recebe.
 /// O próximo dia (a partir de hoje) com a janela de transferências aberta.
 pub(super) fn next_window(kind: SeasonKind, today: &str) -> String {
@@ -482,7 +490,33 @@ impl Game {
     /// O mercado do dia: devoluções de emprestados todos os dias; às segundas e quintas, com a
     /// janela aberta, compras, empréstimos e (no último dia) dispensas. Devolve a notícia com
     /// as transferências do dia, se houver alguma que interesse ao treinador.
+    /// A janela do país do treinador abriu hoje: o aviso, com o último dia (o da semana antes e o
+    /// do prazo esgotado estão em `deals.rs`).
+    fn window_news(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        if self.sacked() {
+            return Ok(());
+        }
+        let kind = self.kind_of(self.club_id)?;
+        let Some(last) = window_last_day(kind, &self.date) else { return Ok(()) };
+        let yesterday = date::add_days(&self.date, -1).unwrap_or_default();
+        if yesterday.len() != 10 || window_open(kind, &yesterday[5..]) {
+            return Ok(());
+        }
+        let nation: String = self.world.conn.query_row(
+            "SELECT COALESCE(n.name, '') FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id WHERE c.id = ?",
+            [self.club_id],
+            |r| r.get(0),
+        )?;
+        let body = format!(
+            "A janela de transferências para os clubes de {nation} abriu hoje e vai até {}. Já pode comprar, vender e emprestar jogadores.",
+            cm_date(&last)
+        );
+        self.push_news(fresh, next_id, "message", "Mercado aberto".into(), body);
+        Ok(())
+    }
+
     pub(super) fn market_day(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        self.window_news(fresh, next_id)?;
         let mut moved = self.return_loans()?;
         // Os acordos da IA que chegam hoje à assinatura (todos os dias, não só nos de mercado)
         let signed = self.complete_agreements()?;
@@ -1272,6 +1306,7 @@ impl Game {
         }
         self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![self.club_id, self.date, person])?;
         self.number_after_move(person, Some(self.club_id))?;
+        self.ask_number(person, Some(self.club_id))?;
         self.world.conn.execute("DELETE FROM loans WHERE person_id = ?", [person])?;
         self.log_transfer(person, from, Some(self.club_id), 0, "return")?;
         self.refresh_live()?;
@@ -1292,6 +1327,7 @@ impl Game {
             let from: Option<i32> = self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [id], |r| r.get(0))?;
             self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![parent, self.date, id])?;
             self.number_after_move(id, Some(parent))?;
+            self.ask_number(id, Some(parent))?;
             self.world.conn.execute("DELETE FROM loans WHERE person_id = ?", [id])?;
             self.log_transfer(id, from, Some(parent), 0, "return")?;
         }
@@ -1336,6 +1372,7 @@ impl Game {
         )?;
         self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [id])?;
         self.number_after_move(id, to)?;
+        self.ask_number(id, to)?;
         if fee > 0 {
             if let Some(t) = to {
                 self.book(t, "purchases", fee)?;
@@ -1555,6 +1592,26 @@ mod tests {
         assert_eq!(loan_until(SeasonKind::Calendar, "2026-02-10"), "2026-12-31");
         assert_eq!(money_text(12_500_000), "€12,5M");
         assert_eq!((money_text(850_000), money_text(1_900), money_text(500)), ("€850K".into(), "€1.900".into(), "€500".into()));
+        assert_eq!(window_last_day(SeasonKind::Calendar, "2027-01-01").as_deref(), Some("2027-03-15"));
+        assert_eq!(window_last_day(SeasonKind::European, "2026-08-31").as_deref(), Some("2026-08-31"));
+        assert_eq!(window_last_day(SeasonKind::Calendar, "2027-04-01"), None);
+    }
+
+    #[test]
+    fn window_opening_message() {
+        let dir = std::env::temp_dir().join(format!("nextcm-janela-{}", std::process::id()));
+        let Some(mut g) = summer_game(&dir, "2025-07-01") else { return };
+        // O Palmeiras (época de calendário): janela de 1/1 a 15/3
+        let titles = |g: &mut Game, day: &str| {
+            g.date = day.to_string();
+            let (mut fresh, mut id) = (Vec::new(), 1);
+            g.window_news(&mut fresh, &mut id).unwrap();
+            fresh.into_iter().map(|n| n.title).collect::<Vec<_>>()
+        };
+        assert_eq!(titles(&mut g, "2026-01-01"), ["Mercado aberto"]);
+        assert!(titles(&mut g, "2026-01-02").is_empty());
+        assert!(titles(&mut g, "2026-03-16").is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn summer_game(dir: &std::path::Path, until: &str) -> Option<Game> {

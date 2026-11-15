@@ -627,11 +627,14 @@ impl Game {
         )?;
         for o in due {
             self.set_status(o.id, "agreed", None)?;
+            let name = self.person_name(o.person)?;
             if let Err(e) = self.finalize_contract(&o) {
                 self.set_status(o.id, "collapsed", None)?;
-                let name = self.person_name(o.person)?;
                 let body = format!("A transferência de {name} não se consumou: {e}");
                 self.offer_news(fresh, next_id, format!("Negócio por {name} caiu"), body, o.id);
+            } else if self.offer(o.id)?.status == "done" {
+                let body = format!("A janela de transferências abriu e a transferência de {name} consumou-se: já está no seu plantel.");
+                self.offer_news(fresh, next_id, format!("{name} chega ao clube"), body, o.id);
             }
         }
         Ok(())

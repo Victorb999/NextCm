@@ -604,6 +604,19 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
                   · clique no número ou na casa para pôr/tirar da equipa das reservas
                 </span>
               )}
+              {reserveView && (
+                <label
+                  className="ml-2 flex cursor-pointer items-center gap-1 self-center text-[11px] text-cm-lilac"
+                  title="O adjunto desce até 4 do plantel principal com poucos minutos ou de volta de lesão"
+                >
+                  <input
+                    type="checkbox"
+                    checked={reserveLineup.rhythm}
+                    onChange={(e) => void api.setReserveRhythm(e.target.checked).then(setReserveLineup)}
+                  />
+                  Usar o plantel principal para ganhar ritmo
+                </label>
+              )}
               {reserveView && guests.length > 0 && (
                 <span className="ml-2 self-center text-[11px] text-cm-mint" title="Do plantel principal, para ganhar ritmo">
                   Descem para ganhar ritmo: {guests.map((g) => `${shortListName(g.name)} (${shortRole(g.role)})`).join(', ')}

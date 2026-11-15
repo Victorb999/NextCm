@@ -164,7 +164,8 @@ pub use training::{TrainingPlan, TrainingView};
 /// 62: os golos esperados de cada jogo (`player_matches.xg`, `friendly_apps.xg`, `intl_apps.xg`), marco 4.3.
 /// 70: contratar staff (`staff_talks`, `staff_refills`), 4.0 item 24.
 /// 71: os favoritos e detestados de cada clube (`club_preferences`, do `club.dat`), editor.
-pub const SAVE_VERSION: i32 = 71;
+/// 72: a opção do ritmo nas reservas (`game.reserve_rhythm`), marco 4.1.
+pub const SAVE_VERSION: i32 = 72;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -428,7 +429,8 @@ CREATE TABLE game (
     seed INTEGER NOT NULL,
     manager_id INTEGER NOT NULL,
     club_id INTEGER NOT NULL,
-    created TEXT NOT NULL
+    created TEXT NOT NULL,
+    reserve_rhythm INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE news (
     id INTEGER PRIMARY KEY,
@@ -1451,6 +1453,12 @@ impl Game {
             add_club_preferences(&world.conn, path)?;
             world.conn.execute("UPDATE game SET version = 71", [])?;
             version = 71;
+        }
+        // Save 72: a opção do ritmo nas reservas
+        if version == 71 {
+            world.conn.execute_batch(reserve_matches::RHYTHM_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 72", [])?;
+            version = 72;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(

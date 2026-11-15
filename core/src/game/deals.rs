@@ -367,13 +367,17 @@ pub(super) struct Facts {
     pub(super) joined: Option<String>,
     pub(super) ambition: f64,
     pub(super) loyalty: f64,
+    /// O contrato já acabou, mas o fim de época só o trata no corte seguinte (um contrato até
+    /// 1/1 passa o corte de 20/12): o jogador ainda está no clube e já está livre.
+    pub(super) expired: bool,
 }
 
 impl Facts {
     /// Num clube sem contrato nem salário (o jogador amador do banco, como o "Jogador/Treinador"
-    /// de um clube pequeno): como no CM, está livre e assina só com uma proposta de contrato.
+    /// de um clube pequeno) ou com o contrato acabado: como no CM, está livre e assina só com uma
+    /// proposta de contrato.
     pub(super) fn non_contract(&self) -> bool {
-        self.club.is_some() && self.expires.is_none() && self.wage <= 0
+        self.club.is_some() && ((self.expires.is_none() && self.wage <= 0) || self.expired)
     }
 
     /// Livre: sem clube ou sem contrato.
@@ -492,6 +496,7 @@ impl Game {
             age: age_on(birth.as_deref(), birth_year, &self.date),
             wage,
             value: self.world.market_value_of(id, &self.date)?.unwrap_or(0),
+            expired: expires.as_deref().is_some_and(|e| e < self.date.as_str()),
             expires,
             joined,
             ambition: ambition as f64,
@@ -884,6 +889,7 @@ impl Game {
         self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![to, self.date, person])?;
         self.world.conn.execute("DELETE FROM transfer_list WHERE person_id = ?", [person])?;
         self.number_after_move(person, Some(to))?;
+        self.ask_number(person, Some(to))?;
         self.log_transfer(person, Some(parent), Some(to), 0, "loan")?;
         Ok(until)
     }
@@ -978,7 +984,13 @@ impl Game {
                 && bored.is_none()
                 && !f.non_contract()
                 && (loaned_in || (f.club != Some(self.club_id) && self.loan_of(person)?.is_none())),
-            can_loan: !ghost && f.club.is_some() && f.club != Some(self.club_id) && !busy && window && self.loan_of(person)?.is_none(),
+            can_loan: !ghost
+                && f.club.is_some()
+                && !f.non_contract()
+                && f.club != Some(self.club_id)
+                && !busy
+                && window
+                && self.loan_of(person)?.is_none(),
             can_renew: (mine || loaned_out) && blocked.is_none() && !busy,
             can_recall: loaned_out && !busy && !self.sacked(),
             option_fee: option.map_or(0, |o| o.1),
@@ -1562,6 +1574,11 @@ impl Game {
             return self.offer_view(id);
         }
         let incoming = o.buyer != self.club_id;
+        // Uma proposta antiga por um de enchimento (de antes de a IA os deixar em paz) cai
+        if incoming && self.is_ghost(o.person) && matches!(o.status.as_str(), "pending" | "countered" | "agreed") {
+            self.set_status(id, "collapsed", None)?;
+            return Err(Error::Invalid(GHOST_ONLY.into()));
+        }
         match (incoming, o.status.as_str(), key) {
             (false, "pending" | "countered" | "agreed", "withdraw") => self.set_status(id, "withdrawn", None)?,
             (false, "countered", "accept" | "pay") if o.kind == "loan" => {
@@ -2450,14 +2467,15 @@ Confirme até {}.",
     /// Propostas dos clubes da IA pelos jogadores do treinador (dias de mercado).
     fn ai_bids(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         type Mine = (i32, i32, Option<i32>, Option<i32>, Option<i64>);
-        // Os do plantel (não os emprestados por outros clubes), com a lista
+        // Os do plantel (não os emprestados por outros clubes nem os de enchimento), com a lista
         let mine: Vec<Mine> = self
             .world
             .conn
             .prepare_cached(
                 "SELECT p.id, COALESCE(pl.current_ability, 1), t.transfer, t.loan, t.asking
                  FROM people p JOIN players pl ON pl.person_id = p.id LEFT JOIN transfer_list t ON t.person_id = p.id
-                 WHERE p.club_id = ? AND p.is_player = 1 AND p.id NOT IN (SELECT person_id FROM loans) ORDER BY p.id",
+                 WHERE p.club_id = ? AND p.is_player = 1 AND p.id NOT IN (SELECT person_id FROM loans)
+                   AND p.id NOT IN (SELECT person_id FROM ghosts) ORDER BY p.id",
             )?
             .query_map([self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
             .collect::<rusqlite::Result<_>>()?;
@@ -2800,6 +2818,65 @@ mod tests {
     }
 
     #[test]
+    fn no_bids_for_filler_players() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-enchimento-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Enchimento".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: PALMEIRAS,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        let mut g = Game::create(&path, &dir, &new, 3).unwrap();
+        // Todo o plantel na lista, metade marcada como de enchimento
+        let ids: Vec<i32> = g
+            .world
+            .conn
+            .prepare("SELECT id FROM people WHERE club_id = ? AND is_player = 1 AND id NOT IN (SELECT person_id FROM loans) ORDER BY id")
+            .unwrap()
+            .query_map([PALMEIRAS], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        for (i, id) in ids.iter().enumerate() {
+            if i % 2 == 0 {
+                g.world.conn.execute("INSERT OR IGNORE INTO ghosts (person_id) VALUES (?)", [id]).unwrap();
+            }
+            g.world
+                .conn
+                .execute(
+                    "INSERT OR REPLACE INTO transfer_list (person_id, transfer, loan, asking, requested) VALUES (?, 1, 0, NULL, 0)",
+                    [id],
+                )
+                .unwrap();
+        }
+        let (mut fresh, mut next_id) = (Vec::new(), 1_000_000);
+        g.ai_bids(&mut fresh, &mut next_id).unwrap();
+        let bids: Vec<i32> = g
+            .world
+            .conn
+            .prepare("SELECT person_id FROM offers WHERE buyer <> ? AND seller = ?")
+            .unwrap()
+            .query_map([PALMEIRAS, PALMEIRAS], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert!(!bids.is_empty(), "os outros da lista recebem propostas");
+        assert!(bids.iter().all(|id| !g.is_ghost(*id)), "ninguém propõe pelos de enchimento");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn listing_and_squad_roles() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let dir = std::env::temp_dir().join(format!("nextcm-funcoes-{}", std::process::id()));
@@ -2980,6 +3057,8 @@ Palmeiras fez uma nova proposta."
         let after = g.facts(other).unwrap().unwrap();
         assert!(after.expires > before && after.wage == wage);
         assert_eq!(after.expires.as_deref(), Some(t.ends[t.years as usize - 1].as_str()));
+        // Chega sem número: a mensagem leva à tela Números Plantel
+        assert!(g.news.iter().any(|n| n.title.starts_with("Número de camisola") && n.link.as_deref() == Some("squadNumbers")));
 
         // Venda: na lista e barato, aparece uma proposta; aceitar vende-o
         let sell = g.world.conn.query_row(
@@ -3042,6 +3121,14 @@ Palmeiras fez uma nova proposta."
         g.precontracts_due(&mut fresh, &mut id).unwrap();
         assert_eq!(g.facts(pre).unwrap().unwrap().club, Some(PALMEIRAS));
         assert!(fresh.iter().any(|n| n.title.contains("chega ao clube")));
+
+        // Contrato já acabado (passou o corte do fim de época): está livre, não há pré-contrato
+        let (gone, _) = for_sale(&g)[4];
+        let ended = date::add_days(&g.date, -5).unwrap();
+        g.world.conn.execute("UPDATE people SET contract_expires = ? WHERE id = ?", params![ended, gone]).unwrap();
+        assert!(g.facts(gone).unwrap().unwrap().is_free());
+        assert!(!g.contract_terms(gone, None).unwrap().precontract);
+        assert!(g.make_offer(gone, &DealTerms::default()).is_err(), "propõe-se o contrato, não ao clube");
 
         // Um livre com uma proposta melhor de outro clube escolhe o outro clube
         let free: i32 = g

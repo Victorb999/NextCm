@@ -307,6 +307,10 @@ mod tests {
         assert!(squad.iter().filter(|id| g.is_ghost(**id)).all(|id| !plan.first.contains(id)), "os de enchimento só completam");
         // Sem 3 jornadas jogadas, ninguém desce só por falta de minutos
         assert!(!plan.first.contains(&outside[1]));
+        // Com o ritmo desligado, só jogam os das reservas
+        assert!(g.set_reserve_rhythm(false).unwrap().starters.iter().all(|s| !s.first_team));
+        assert!(!g.reserve_plan(comp, day).unwrap().first.contains(&outside[0]));
+        assert!(g.set_reserve_rhythm(true).unwrap().rhythm);
 
         // O onze e o banco das reservas: quem desce aparece marcado; o banco cobre os sectores
         let lineup = g.reserve_lineup().unwrap();

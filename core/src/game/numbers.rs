@@ -199,6 +199,24 @@ impl Game {
         Ok(())
     }
 
+    /// Quem chega ao plantel do treinador fica sem número: a mensagem para lhe dar um (com a
+    /// tela Números Plantel), como no CM.
+    pub(super) fn ask_number(&mut self, id: i32, to: Option<i32>) -> Result<()> {
+        if to != Some(self.club_id) || self.sacked() || self.is_ghost(id) {
+            return Ok(());
+        }
+        let name = self.person_name(id)?;
+        self.post_news(
+            format!("Número de camisola para {name}"),
+            format!(
+                "{name} chegou ao plantel sem número de camisola. Escolha-lhe um em Números Plantel: sem número não pode ser convocado."
+            ),
+            None,
+        );
+        self.news[0].link = Some("squadNumbers".into());
+        Ok(())
+    }
+
     /// Pré-época: o clube do treinador ainda não jogou nenhum jogo oficial da época em curso.
     pub(super) fn pre_season(&self) -> bool {
         !self.season_matches().any(|m| m.result.is_some() && (m.home_id == self.club_id || m.away_id == self.club_id))

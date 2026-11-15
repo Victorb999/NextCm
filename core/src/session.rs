@@ -782,6 +782,10 @@ impl Session {
         self.game()?.reserve_lineup()
     }
 
+    pub fn set_reserve_rhythm(&mut self, on: bool) -> Result<ReserveLineup> {
+        self.game_mut()?.set_reserve_rhythm(on)
+    }
+
     pub fn set_reserve_picks(&mut self, ids: Vec<i32>) -> Result<ReserveLineup> {
         self.game_mut()?.set_reserve_picks(&ids)
     }

@@ -428,7 +428,8 @@ impl Game {
                         EXISTS (SELECT 1 FROM loans o WHERE o.person_id = p.id AND o.parent_id <> p.club_id),
                         COALESCE(p.nation_id <> c.nation_id AND COALESCE(p.second_nation_id, 0) <> c.nation_id, 0)
                  FROM people p JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id
-                 WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC, p.id",
+                 WHERE p.club_id = ? AND p.is_player = 1 AND p.id NOT IN (SELECT person_id FROM ghosts)
+                 ORDER BY pl.current_ability DESC, p.id",
             )?
             .query_map([self.club_id], |r| {
                 Ok((
@@ -477,8 +478,9 @@ impl Game {
         if date::weekday(&self.date) != Some(1) {
             return Ok(());
         }
-        // Quem saiu do clube leva os motivos com ele
+        // Quem saiu do clube leva os motivos com ele; os de enchimento nunca se queixam
         self.world.conn.execute("DELETE FROM unhappy WHERE person_id NOT IN (SELECT id FROM people WHERE club_id = ?)", [self.club_id])?;
+        self.world.conn.execute("DELETE FROM unhappy WHERE person_id IN (SELECT person_id FROM ghosts)", [])?;
         let today = date::parse(&self.date).unwrap_or(0);
         let grudge = date::add_days(&self.date, -GRUDGE_DAYS).unwrap_or_default();
         self.world
@@ -963,6 +965,12 @@ mod tests {
         let news = monday(&mut g, "2025-07-14");
         assert!(news.iter().any(|n| n.title.contains("quer saber o seu futuro")));
         assert!(g.unhappy_reasons(young).unwrap().contains(&reason_text("future").to_string()));
+        // Um de enchimento nas mesmas condições nunca se queixa
+        g.world.conn.execute("INSERT INTO ghosts (person_id) VALUES (?)", [young]).unwrap();
+        let news = monday(&mut g, "2025-07-21");
+        assert!(g.unhappy_reasons(young).unwrap().is_empty() && !news.iter().any(|n| n.title.contains("quer saber o seu futuro")));
+        g.world.conn.execute("DELETE FROM ghosts WHERE person_id = ?", [young]).unwrap();
+        monday(&mut g, "2025-07-14");
         let mut club = g.world.get_club(PALMEIRAS).unwrap();
         g.fill_squad(&mut club).unwrap();
         assert_eq!(club.players.iter().find(|p| p.id == young).unwrap().info.as_deref(), Some("Fut"));
