@@ -51,6 +51,26 @@ const STATUSES: { key: Status; label: string }[] = [
   { key: 'free', label: 'Sem contrato' },
 ]
 
+// A Pesquisa Staff: o Vêr (todos ou só os sem clube) e o cargo (`jobs.id`; quem está sem clube
+// guarda o último)
+const STAFF_STATUSES: { key: 'all' | 'free'; label: string }[] = [
+  { key: 'all', label: 'Todos' },
+  { key: 'free', label: 'Sem clube' },
+]
+const JOBS: { key: string; label: string }[] = [
+  { key: '', label: 'Todos os cargos' },
+  { key: '5', label: 'Treinador' },
+  { key: '6', label: 'Auxiliar Técnico' },
+  { key: '7', label: 'Treinador do Time B' },
+  { key: '8', label: 'Preparador' },
+  { key: '9', label: 'Olheiro' },
+  { key: '10', label: 'Fisioterapeuta' },
+  { key: '3', label: 'Diretor de Futebol' },
+  { key: '12', label: 'Jogador/Treinador' },
+  { key: '13', label: 'Jogador/Preparador' },
+  { key: '14', label: 'Jogador/Fisioterapeuta' },
+]
+
 function Row({
   p,
   index,
@@ -161,11 +181,15 @@ export default function SearchPage({ active }: { active: boolean }) {
     setScout(null)
     setShortlist(k === 'shortlist')
     setKind(k === 'shortlist' ? 'players' : (k as PersonKind))
+    // A staff não tem valor de mercado: ordena-se pelo nome
+    if (k === 'staff' && sort === 'value') setSort('name')
     goPage(0)
   }
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [sort, setSort] = useState<SearchSort>('value')
   const [status, setStatus] = useState<Status>('all')
+  const [staffStatus, setStaffStatus] = useState<'all' | 'free'>('all')
+  const [job, setJob] = useState('')
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState(0)
   const [dialog, setDialog] = useState(false)
@@ -200,6 +224,7 @@ export default function SearchPage({ active }: { active: boolean }) {
   const idle =
     !shortlist &&
     (status === 'all' || kind !== 'players') &&
+    (kind !== 'staff' || (staffStatus === 'all' && !job)) &&
     !debouncedText.trim() &&
     nationId === null &&
     age === null &&
@@ -235,6 +260,7 @@ export default function SearchPage({ active }: { active: boolean }) {
         own,
       ),
       status: shortlist ? ('shortlist' as const) : status === 'all' || kind !== 'players' ? undefined : status,
+      ...(kind === 'staff' ? { noClub: staffStatus === 'free' || undefined, job: job ? Number(job) : undefined } : {}),
       sort,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
@@ -264,6 +290,8 @@ export default function SearchPage({ active }: { active: boolean }) {
     own,
     kind,
     status,
+    staffStatus,
+    job,
     sort,
     page,
     listTick,
@@ -315,6 +343,8 @@ export default function SearchPage({ active }: { active: boolean }) {
   // Os filtros ativos, em etiquetas na barra roxa
   const chips = [
     status !== 'all' && players ? STATUSES.find((s) => s.key === status)!.label : null,
+    kind === 'staff' && staffStatus === 'free' ? 'Sem clube' : null,
+    kind === 'staff' && job ? (JOBS.find((j) => j.key === job)?.label ?? null) : null,
     ...describe(filters, nationName).split(' · '),
   ].filter((t): t is string => !!t && t !== 'Todos')
   const barButton =
@@ -362,6 +392,40 @@ export default function SearchPage({ active }: { active: boolean }) {
                 }
               />
             )}
+            {kind === 'staff' && (
+              <>
+                <PurpleMenu
+                  label="Ver"
+                  options={STAFF_STATUSES}
+                  value={staffStatus}
+                  onChange={(s) => {
+                    setStaffStatus(s)
+                    goPage(0)
+                  }}
+                  buttonClass={barButton}
+                  trigger={
+                    <>
+                      Ver <ChevronDown size={14} />
+                    </>
+                  }
+                />
+                <PurpleMenu
+                  label="Cargo"
+                  options={JOBS}
+                  value={job}
+                  onChange={(j) => {
+                    setJob(j)
+                    goPage(0)
+                  }}
+                  buttonClass={barButton}
+                  trigger={
+                    <>
+                      Cargo <ChevronDown size={14} />
+                    </>
+                  }
+                />
+              </>
+            )}
             <label className="ml-1 flex items-center gap-2 text-[13px] font-semibold text-white">
               Nome:
               <input
@@ -386,6 +450,8 @@ export default function SearchPage({ active }: { active: boolean }) {
                 title="Tirar todos os filtros"
                 onClick={() => {
                   setStatus('all')
+                  setStaffStatus('all')
+                  setJob('')
                   applyFilters(EMPTY_FILTERS)
                   nameRef.current?.focus()
                 }}
@@ -429,9 +495,15 @@ export default function SearchPage({ active }: { active: boolean }) {
                 <thead className="sticky top-0 z-10">
                   <tr className="h-8">
                     <Th label="Nome" sort="name" current={sort} onSort={setSort} className="text-left" />
-                    <Th label="Clube" current={sort} onSort={setSort} className="text-left" />
-                    <Th label="Nação" current={sort} onSort={setSort} className="text-left" />
-                    <Th label={players ? 'Posição' : 'Cargo'} current={sort} onSort={setSort} className="text-left" />
+                    <Th label="Clube" sort="club" current={sort} onSort={setSort} className="text-left" />
+                    <Th label="Nação" sort="nation" current={sort} onSort={setSort} className="text-left" />
+                    <Th
+                      label={players ? 'Posição' : 'Cargo'}
+                      sort={players ? undefined : 'job'}
+                      current={sort}
+                      onSort={setSort}
+                      className="text-left"
+                    />
                     <Th label="Inf" current={sort} onSort={setSort} />
                     <Th label="Idade" sort="age" current={sort} onSort={setSort} />
                     <Th label="Valor" sort="value" current={sort} onSort={setSort} />

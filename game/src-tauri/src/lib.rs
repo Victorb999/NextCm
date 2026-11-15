@@ -16,6 +16,7 @@ use nextcm_core::ReserveLineup;
 use nextcm_core::SquadRoleView;
 use nextcm_core::StatusBar;
 use nextcm_core::WorldTransfers;
+use nextcm_core::{AreaStrength, CoachAreas, SavedFile, TrainingPlan, TrainingView};
 use nextcm_core::{
     BoardConfidence, BoardRequest, BoardView, ClubFinances, ClubListItem, ClubProfile, ClubTactics, CompetitionListItem,
     CompetitionProfile, ContinentRef, ContractReply, ContractTerms, DisciplineOptions, Fixture, GameInfo, Instructions, JobsView, LiveView,
@@ -27,7 +28,6 @@ use nextcm_core::{CareerClub, ContinueStep, ManagerStats};
 use nextcm_core::{DealTerms, LoanTerms};
 use nextcm_core::{EditorClub, EditorHit, EditorPlayer, EditorProfileView};
 use nextcm_core::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
-use nextcm_core::{SavedFile, TrainingPlan, TrainingView};
 use nextcm_core::{TalkLine, TalkReaction, TalkView};
 use tauri::{Manager, State};
 
@@ -148,6 +148,7 @@ session_command!(set_squad_numbers(numbers: Vec<NumberAssign>) -> SquadNumbers);
 session_command!(training_view() -> TrainingView);
 session_command!(match_sheet(id: i32) -> MatchSheet);
 session_command!(set_training(plan: TrainingPlan) -> TrainingView);
+session_command!(training_strength(coaches: Vec<CoachAreas>) -> Vec<AreaStrength>);
 session_command!(transfer_view(id: i32) -> TransferView);
 session_command!(make_offer(id: i32, terms: DealTerms) -> TransferView);
 session_command!(exchange_candidates(id: i32) -> Vec<nextcm_core::ExchangeCandidate>);
@@ -397,6 +398,7 @@ pub fn run() {
             training_view,
             match_sheet,
             set_training,
+            training_strength,
             transfer_view,
             make_offer,
             exchange_candidates,

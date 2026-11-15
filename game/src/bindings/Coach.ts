@@ -15,4 +15,13 @@ quality: string,
 /**
  * As áreas que treina (Prep. Física, Táctica, Finalização, Técnica, Goleiro).
  */
-areas: Array<boolean>, };
+areas: Array<boolean>, 
+/**
+ * O atributo dele em cada área (1–20, pela mesma ordem): Treinar, Tática, Ataque, Treinar
+ * Técnica e Treinar GR.
+ */
+ratings: Array<number>, 
+/**
+ * Motivação (rende um pouco mais) e Jovens (os jogadores até 21 anos evoluem mais).
+ */
+motivating: number, youngsters: number, };

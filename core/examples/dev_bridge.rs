@@ -111,6 +111,10 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         }
         "match_sheet" => out(serde_json::to_value(session.match_sheet(id()?).map_err(e)?)),
         "training_view" => out(serde_json::to_value(session.training_view().map_err(e)?)),
+        "training_strength" => {
+            let coaches: Vec<nextcm_core::CoachAreas> = serde_json::from_value(args["coaches"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.training_strength(coaches).map_err(e)?))
+        }
         "set_training" => {
             let plan: nextcm_core::TrainingPlan = serde_json::from_value(args["plan"].clone()).map_err(|e| e.to_string())?;
             out(serde_json::to_value(session.set_training(plan).map_err(e)?))

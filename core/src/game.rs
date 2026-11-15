@@ -111,7 +111,7 @@ pub use staff_hire::{StaffHireView, StaffJobOption};
 pub use staff_reports::ReportStaff;
 pub use status_bar::StatusBar;
 pub use team_talk::{TalkLine, TalkOption, TalkReaction, TalkView};
-pub use training::{TrainingPlan, TrainingView};
+pub use training::{AreaStrength, CoachAreas, TrainingPlan, TrainingView};
 
 /// Versão do formato do save; saves de outra versão são recusados até haver migração.
 /// 2: tabela `fixtures` (marco 3.2). 3: estado dos jogadores e a escolha da equipa (3.3).
@@ -4111,6 +4111,31 @@ mod tests {
         assert!(g.set_training(&TrainingPlan { programs: v.programs.clone(), players: Vec::new(), coaches: Some(bad) }).is_err());
         let back: Vec<CoachAreas> = v.coaches.iter().map(|c| CoachAreas { person: c.id, areas: c.areas.clone() }).collect();
         g.set_training(&TrainingPlan { programs: v.programs.clone(), players: Vec::new(), coaches: Some(back) }).unwrap();
+
+        // Cada área usa o atributo dela: o preparador bom de Tática e fraco no resto faz a Tática
+        // forte; as áreas que ninguém treina dizem-no (a prévia, antes de gravar)
+        let coach = v.coaches[0].id;
+        g.world.conn.execute("UPDATE non_players SET tactics = 20, coaching = 1, motivating = 10 WHERE person_id = ?", [coach]).unwrap();
+        let tactics_only: Vec<CoachAreas> = v
+            .coaches
+            .iter()
+            .map(|c| CoachAreas {
+                person: c.id,
+                areas: if c.id == coach { vec![false, true, false, false, false] } else { vec![false; 5] },
+            })
+            .collect();
+        let s = g.training_strength(&tactics_only).unwrap();
+        assert_eq!((s[1].value, s[1].coaches), (20, 1), "{s:?}");
+        assert!(s[0].label == "Ninguém treina" && s[0].coaches == 0, "{s:?}");
+        let fitness_only: Vec<CoachAreas> = tactics_only
+            .iter()
+            .map(|c| CoachAreas {
+                person: c.person,
+                areas: if c.person == coach { vec![true, false, false, false, false] } else { c.areas.clone() },
+            })
+            .collect();
+        assert!(g.training_strength(&fitness_only).unwrap()[0].value < 10, "o Treinar dele é 1");
+        assert_eq!(g.training_view().unwrap().coaches[0].ratings.len(), 5);
 
         // Em meses aprende a posição nova
         let rating = |g: &Game| -> i32 {

@@ -26,9 +26,9 @@ use crate::StaffHireView;
 use crate::StatusBar;
 use crate::WorldTransfers;
 use crate::tactic_file::{self, SavedFile};
+use crate::{AreaStrength, CoachAreas, ReserveLineup, TrainingPlan, TrainingView};
 use crate::{DealTerms, LoanTerms};
 use crate::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
-use crate::{ReserveLineup, TrainingPlan, TrainingView};
 use crate::{TalkLine, TalkReaction, TalkView};
 
 /// Um dia do Continuar Jogo (comando `continue_step`).
@@ -558,6 +558,10 @@ impl Session {
     }
 
     /// O Ok da tela de Treinos: programas e o programa de cada jogador.
+    pub fn training_strength(&self, coaches: Vec<CoachAreas>) -> Result<Vec<AreaStrength>> {
+        self.game()?.training_strength(&coaches)
+    }
+
     pub fn set_training(&mut self, plan: TrainingPlan) -> Result<TrainingView> {
         self.game_mut()?.set_training(&plan)
     }

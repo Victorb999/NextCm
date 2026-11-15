@@ -85,6 +85,10 @@ pub enum SearchSort {
     Age,
     /// Pelo valor de mercado na data do jogo (calculado, não há coluna).
     Value,
+    /// Pelo nome do clube (os sem clube no fim), da nação e do cargo (a Pesquisa Staff).
+    Club,
+    Nation,
+    Job,
 }
 
 /// Situação no mercado (o "Vêr" da pesquisa do CM).
@@ -144,6 +148,13 @@ pub struct SearchQuery {
     /// Sem os jogadores deste clube ("Incluir Plantel: Não").
     #[ts(optional)]
     pub exclude_club: Option<i32>,
+    /// Só os deste cargo (`jobs.id`: 5 treinador, 6 auxiliar, 8 preparador, 9 olheiro...); quem está
+    /// sem clube guarda o último.
+    #[ts(optional)]
+    pub job: Option<i32>,
+    /// Só os sem clube (a Pesquisa Staff; nos jogadores é o "Livres" do Vêr).
+    #[ts(optional)]
+    pub no_club: Option<bool>,
     #[serde(skip)]
     #[ts(skip)]
     pub injured_ids: Vec<i32>,
@@ -396,6 +407,16 @@ impl World {
         {
             wheres.push(format!("p.id NOT IN ({sql})"));
         }
+        if let Some(job) = q.job {
+            wheres.push("p.club_job = ?".into());
+            args.push(Box::new(job));
+        }
+        if q.no_club == Some(true) {
+            wheres.push("p.club_id IS NULL".into());
+            if has("retired")? {
+                wheres.push("p.id NOT IN (SELECT person_id FROM retired)".into());
+            }
+        }
         if let Some(club) = q.exclude_club {
             wheres.push("(p.club_id IS NULL OR p.club_id <> ?)".into());
             args.push(Box::new(club));
@@ -421,6 +442,11 @@ impl World {
             SearchSort::Age => "p.birth_sort DESC NULLS LAST, p.display_name",
             // A página sai dos ids já ordenados pelo valor (abaixo)
             SearchSort::Value => "p.id",
+            SearchSort::Club => {
+                "(SELECT COALESCE(NULLIF(short_name, ''), name) FROM clubs WHERE id = p.club_id) COLLATE NOCASE NULLS LAST, p.list_name COLLATE NOCASE"
+            }
+            SearchSort::Nation => "(SELECT name FROM nations WHERE id = p.nation_id) COLLATE NOCASE NULLS LAST, p.list_name COLLATE NOCASE",
+            SearchSort::Job => "(SELECT name FROM jobs WHERE id = p.club_job) COLLATE NOCASE NULLS LAST, p.list_name COLLATE NOCASE",
         };
         let limit = q.limit.unwrap_or(50).min(MAX_LIMIT);
         let offset = q.offset.unwrap_or(0);
@@ -698,6 +724,30 @@ mod tests {
         assert_eq!(tags, [("MAD".into(), false), ("MAC".into(), false), ("AD".into(), false), ("AC".into(), true)]);
         p[0] = Some(20);
         assert_eq!(position_label(&p), "GR");
+    }
+
+    #[test]
+    fn staff_by_job_without_club_and_sorted() {
+        let Some(w) = world() else { return };
+        let q = SearchQuery {
+            kind: Some(PersonKind::Staff),
+            job: Some(5),
+            no_club: Some(true),
+            sort: Some(SearchSort::Nation),
+            limit: Some(200),
+            ..Default::default()
+        };
+        let r = w.search_people(&q).unwrap();
+        assert!(r.total > 0);
+        assert!(r.items.iter().all(|p| p.club_id.is_none() && p.job.as_deref() == Some("Treinador")), "{:?}", r.items.first());
+        let nations: Vec<String> = r.items.iter().map(|p| p.nation.clone().unwrap_or_default().to_lowercase()).collect();
+        let mut sorted = nations.clone();
+        sorted.sort();
+        assert_eq!(nations, sorted, "pela nação");
+        let by_club = w
+            .search_people(&SearchQuery { kind: Some(PersonKind::Staff), job: Some(9), sort: Some(SearchSort::Club), ..Default::default() })
+            .unwrap();
+        assert!(by_club.items.iter().all(|p| p.job.as_deref() == Some("Olheiro")));
     }
 
     #[test]

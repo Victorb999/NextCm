@@ -11,6 +11,8 @@ import type { DisciplineOptions } from './bindings/DisciplineOptions'
 import type { LineupCheck } from './bindings/LineupCheck'
 import type { LoanTerms } from './bindings/LoanTerms'
 import type { MatchSheet } from './bindings/MatchSheet'
+import type { AreaStrength } from './bindings/AreaStrength'
+import type { CoachAreas } from './bindings/CoachAreas'
 import type { TrainingPlan } from './bindings/TrainingPlan'
 import type { TrainingView } from './bindings/TrainingView'
 import type { WorldTransfers } from './bindings/WorldTransfers'
@@ -188,6 +190,7 @@ export const api = {
   trainingView: () => call<TrainingView>('training_view'),
   matchSheet: (id: number) => call<MatchSheet>('match_sheet', { id }),
   setTraining: (plan: TrainingPlan) => call<TrainingView>('set_training', { plan }),
+  trainingStrength: (coaches: CoachAreas[]) => call<AreaStrength[]>('training_strength', { coaches }),
   /** A direção do clube do treinador: expectativa, confiança e orçamentos. */
   boardView: () => call<BoardView>('board_view'),
   /** Equilibrar orçamentos: quanto da folha semanal vem dos fundos de transferências (negativo: ao contrário). */

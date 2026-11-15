@@ -71,6 +71,13 @@ const AREA_WEIGHT: [f64; 4] = [0.0, 0.4, 1.0, 1.6];
 const AREA_GAIN: f64 = 0.15;
 /// Os nomes das áreas no diálogo Preparadores.
 const AREA_NAMES: [&str; 5] = ["Prep. Física", "Tática", "Finalização", "Técnica", "Goleiro"];
+/// O atributo de staff que conta em cada área: Treinar (físico), Tática, Ataque (finalização),
+/// Treinar Técnica e Treinar GR. Um preparador vale pelo que sabe da área que treina.
+const AREA_ATTRIBUTES: [&str; 5] = ["coaching", "tactics", "attacking", "coaching_technique", "coaching_gks"];
+/// A Motivação de quem treina a área: até ±5% no rendimento dele (10 = nada).
+const MOTIVATION_SPAN: f64 = 0.1;
+/// Os Jovens do melhor nisso: até ±10% na evolução dos jogadores até 21 anos (10 = nada).
+const YOUTH_SPAN: f64 = 0.2;
 /// Rendimento de um treinador pelo número de áreas que treina (1 a 5): quem treina tudo
 /// rende menos, como a carga dos preparadores do CM.
 const SPREAD: [f64; 5] = [1.0, 1.0, 1.0, 0.95, 0.9];
@@ -155,6 +162,26 @@ pub struct Coach {
     pub quality: String,
     /// As áreas que treina (Prep. Física, Táctica, Finalização, Técnica, Goleiro).
     pub areas: Vec<bool>,
+    /// O atributo dele em cada área (1–20, pela mesma ordem): Treinar, Tática, Ataque, Treinar
+    /// Técnica e Treinar GR.
+    pub ratings: Vec<i32>,
+    /// Motivação (rende um pouco mais) e Jovens (os jogadores até 21 anos evoluem mais).
+    pub motivating: i32,
+    pub youngsters: i32,
+}
+
+/// A força de uma área do treino com os preparadores que a treinam (o rodapé do painel).
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct AreaStrength {
+    pub name: String,
+    /// 1–20, como os atributos (sem ninguém, o treino sozinho).
+    pub value: i32,
+    /// "Excelente" … "Fraco", ou "Ninguém treina".
+    pub label: String,
+    /// Quantos contam (no Goleiro, só o melhor; nas outras, os três melhores).
+    pub coaches: i32,
 }
 
 /// As áreas de um treinador no diálogo Preparadores.
@@ -175,6 +202,8 @@ pub struct TrainingView {
     pub players: Vec<SquadPlayer>,
     pub assign: Vec<ProgramAssign>,
     pub coaches: Vec<Coach>,
+    /// A força de cada área com as áreas atuais dos preparadores.
+    pub strength: Vec<AreaStrength>,
 }
 
 fn quality_label(v: i32) -> &'static str {
@@ -298,64 +327,116 @@ impl Game {
         Ok(assign.get(&person).and_then(|id| programs.iter().find(|p| p.id == *id)).cloned())
     }
 
-    /// Os treinadores do clube do treinador, os melhores primeiro, com o Treino Jogadores
-    /// Campo e o Treino Guarda-Redes.
-    fn coaches_of(&self) -> Result<Vec<(Coach, i32, i32)>> {
-        type Row = (i32, String, i32, String, i32, i32, Option<i32>);
+    /// Os treinadores do clube do treinador, os melhores primeiro, com o atributo de cada área.
+    fn coaches_of(&self) -> Result<Vec<Coach>> {
+        type Row = (i32, String, String, [i32; 5], i32, i32, Option<i32>);
+        let columns = AREA_ATTRIBUTES.iter().map(|a| format!("COALESCE(np.{a}, 1)")).collect::<Vec<_>>().join(", ");
         let rows: Vec<Row> = self
             .world
             .conn
-            .prepare_cached(
-                "SELECT p.id, p.display_name, j.id, j.name, COALESCE(np.coaching, 1), COALESCE(np.coaching_gks, 1),
+            .prepare_cached(&format!(
+                "SELECT p.id, p.display_name, j.name, {columns}, COALESCE(np.motivating, 10), COALESCE(np.youngsters, 10),
                         (SELECT areas FROM coach_areas a WHERE a.person_id = p.id)
                  FROM people p JOIN jobs j ON j.id = p.club_job JOIN non_players np ON np.person_id = p.id
-                 WHERE p.club_id = ? AND j.id IN (5, 6, 7, 8, 12, 13) ORDER BY np.coaching DESC, p.id",
-            )?
-            .query_map([self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?
+                 WHERE p.club_id = ? AND j.id IN (5, 6, 7, 8, 12, 13) ORDER BY np.coaching DESC, p.id"
+            ))?
+            .query_map([self.club_id], |r| {
+                let ratings = [r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?];
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, ratings, r.get(8)?, r.get(9)?, r.get(10)?))
+            })?
             .collect::<rusqlite::Result<_>>()?;
-        // O de guarda-redes: mais Treino Guarda-Redes do que Treino Jogadores Campo
-        let keeper_coach = rows.iter().any(|r| r.5 > r.4);
+        // O de guarda-redes: mais Treinar GR do que Treinar
+        let keeper_coach = rows.iter().any(|r| r.3[4] > r.3[0]);
         Ok(rows
             .into_iter()
-            .map(|(id, name, _, job, coaching, gks, saved)| {
+            .map(|(id, name, job, ratings, motivating, youngsters, saved)| {
                 let areas: Vec<bool> = match saved {
                     Some(bits) => (0..AREAS.len()).map(|a| bits & (1 << a) != 0).collect(),
-                    None => default_areas(gks > coaching, keeper_coach).to_vec(),
+                    None => default_areas(ratings[4] > ratings[0], keeper_coach).to_vec(),
                 };
                 let works: Vec<&str> = AREA_NAMES.iter().zip(&areas).filter(|(_, on)| **on).map(|(n, _)| *n).collect();
                 let works = if works.is_empty() { "Nada".into() } else { works.join(", ") };
-                let quality = quality_label(if gks > coaching { gks } else { coaching });
-                (Coach { id, name, job, works, quality: quality.into(), areas }, coaching, gks)
+                // A qualidade: o melhor atributo nas áreas que treina (ou o Treinar, sem nenhuma)
+                let best = ratings.iter().zip(&areas).filter(|(_, on)| **on).map(|(r, _)| *r).max().unwrap_or(ratings[0]);
+                Coach {
+                    id,
+                    name,
+                    job,
+                    works,
+                    quality: quality_label(best).into(),
+                    areas,
+                    ratings: ratings.to_vec(),
+                    motivating,
+                    youngsters,
+                }
             })
             .collect())
     }
 
     /// Qualidade (0–1) de cada área: a média dos três melhores que a treinam (no Goleiro, o
-    /// melhor), cada um a render menos quanto mais áreas tiver, e nunca menos do que sem
-    /// ninguém; um clube sem treinadores, 0,5.
-    fn coach_quality(&self) -> Result<[f64; 5]> {
-        let coaches = self.coaches_of()?;
+    /// melhor), pelo atributo dessa área e a Motivação, cada um a render menos quanto mais
+    /// áreas tiver, e nunca menos do que sem ninguém; um clube sem treinadores, 0,5. Com
+    /// quantos contam.
+    fn area_quality(coaches: &[Coach]) -> [(f64, usize); 5] {
         if coaches.is_empty() {
-            return Ok([0.5; 5]);
+            return [(0.5, 0); 5];
         }
-        let mut out = [NO_COACH; 5];
+        let mut out = [(NO_COACH, 0); 5];
         for (area, q) in out.iter_mut().enumerate() {
             let mut values: Vec<f64> = coaches
                 .iter()
-                .filter(|c| c.0.areas.get(area) == Some(&true))
+                .filter(|c| c.areas.get(area) == Some(&true))
                 .map(|c| {
-                    let n = c.0.areas.iter().filter(|a| **a).count().clamp(1, 5);
-                    (if area == 4 { c.2 } else { c.1 }) as f64 / 20.0 * SPREAD[n - 1]
+                    let n = c.areas.iter().filter(|a| **a).count().clamp(1, 5);
+                    let motivation = 1.0 + MOTIVATION_SPAN * (c.motivating - 10) as f64 / 20.0;
+                    c.ratings[area] as f64 / 20.0 * SPREAD[n - 1] * motivation
                 })
                 .collect();
             values.sort_unstable_by(|a, b| b.total_cmp(a));
             values.truncate(if area == 4 { 1 } else { 3 });
             // Um treinador fraco não treina pior do que ninguém
             if !values.is_empty() {
-                *q = (values.iter().sum::<f64>() / values.len() as f64).max(NO_COACH);
+                *q = ((values.iter().sum::<f64>() / values.len() as f64).clamp(NO_COACH, 1.0), values.len());
             }
         }
-        Ok(out)
+        out
+    }
+
+    fn coach_quality(&self) -> Result<[f64; 5]> {
+        Ok(Self::area_quality(&self.coaches_of()?).map(|q| q.0))
+    }
+
+    /// A força de cada área com as áreas pedidas (o painel Preparadores, antes de gravar).
+    pub fn training_strength(&self, plan: &[CoachAreas]) -> Result<Vec<AreaStrength>> {
+        let mut coaches = self.coaches_of()?;
+        for c in &mut coaches {
+            if let Some(a) = plan.iter().find(|a| a.person == c.id) {
+                c.areas = a.areas.iter().copied().chain(std::iter::repeat(false)).take(AREAS.len()).collect();
+            }
+        }
+        Ok(Self::strength_of(&coaches))
+    }
+
+    fn strength_of(coaches: &[Coach]) -> Vec<AreaStrength> {
+        Self::area_quality(coaches)
+            .iter()
+            .zip(AREA_NAMES)
+            .map(|(&(q, n), name)| {
+                let value = (q * 20.0).round() as i32;
+                AreaStrength {
+                    name: name.into(),
+                    value,
+                    label: if n == 0 && !coaches.is_empty() { "Ninguém treina".into() } else { quality_label(value).into() },
+                    coaches: n as i32,
+                }
+            })
+            .collect()
+    }
+
+    /// Os Jovens do melhor preparador nisso: o fator na evolução dos jogadores até 21 anos.
+    fn youth_coaching(&self) -> Result<f64> {
+        let best = self.coaches_of()?.iter().map(|c| c.youngsters).max().unwrap_or(10);
+        Ok(1.0 + YOUTH_SPAN * (best - 10) as f64 / 20.0)
     }
 
     /// Para a evolução do mês: o efeito do treino em cada jogador do plantel do treinador.
@@ -402,6 +483,7 @@ impl Game {
                 .collect()
         };
         let coach_quality = if self.sacked() { [0.5; 5] } else { self.coach_quality()? };
+        let youth_coaching = if self.sacked() { 1.0 } else { self.youth_coaching()? };
         let columns: Vec<&str> = AREAS.iter().flat_map(|a| a.iter().copied()).collect();
         let managed = self.managed_sql(None);
         let sql = format!(
@@ -460,7 +542,9 @@ impl Game {
                 }
                 let weight = AREA_WEIGHT[load[area].clamp(0, 3) as usize];
                 let quality = if own { coach_quality[area] } else { 0.5 };
-                let chance = AREA_GAIN * weight * youth * room * (0.5 + 0.5 * quality);
+                // Os jovens do clube do treinador evoluem mais com um bom preparador de jovens
+                let young_coach = if own && age <= 21 { youth_coaching } else { 1.0 };
+                let chance = AREA_GAIN * weight * youth * room * (0.5 + 0.5 * quality) * young_coach;
                 if chance > 0.0 && uniform(&mut rng) < chance {
                     let open: Vec<usize> = (from..to).filter(|&i| values[i].is_some_and(|v| v < 20)).collect();
                     if !open.is_empty() {
@@ -596,10 +680,11 @@ impl Game {
         let mut assign: Vec<ProgramAssign> =
             self.assignments(&programs)?.into_iter().map(|(person, program)| ProgramAssign { person, program }).collect();
         assign.sort_by_key(|a| a.person);
-        let coaches = self.coaches_of()?.into_iter().map(|c| c.0).collect();
+        let coaches = self.coaches_of()?;
+        let strength = Self::strength_of(&coaches);
         // Os emprestados a outros clubes aparecem no plantel, mas não treinam cá
         let players = club.players.into_iter().filter(|p| !p.loaned_out).collect();
-        Ok(TrainingView { club: club.club, programs, players, assign, coaches })
+        Ok(TrainingView { club: club.club, programs, players, assign, coaches, strength })
     }
 
     /// O Ok da tela: grava os programas (novos com id 0, os que faltam são apagados) e o
@@ -632,7 +717,7 @@ impl Game {
             }
         }
         let squad: Vec<i32> = self.assignments(&self.training_programs()?)?.into_keys().collect();
-        let staff: Vec<i32> = self.coaches_of()?.into_iter().map(|c| c.0.id).collect();
+        let staff: Vec<i32> = self.coaches_of()?.into_iter().map(|c| c.id).collect();
         for c in plan.coaches.iter().flatten() {
             if !staff.contains(&c.person) {
                 return Err(Error::Invalid("Esse treinador não é do clube.".into()));

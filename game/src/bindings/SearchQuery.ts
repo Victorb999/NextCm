@@ -34,4 +34,13 @@ attributesNeeded?: number,
 /**
  * Sem os jogadores deste clube ("Incluir Plantel: Não").
  */
-excludeClub?: number, sort?: SearchSort, limit?: number, offset?: number, };
+excludeClub?: number, 
+/**
+ * Só os deste cargo (`jobs.id`: 5 treinador, 6 auxiliar, 8 preparador, 9 olheiro...); quem está
+ * sem clube guarda o último.
+ */
+job?: number, 
+/**
+ * Só os sem clube (a Pesquisa Staff; nos jogadores é o "Livres" do Vêr).
+ */
+noClub?: boolean, sort?: SearchSort, limit?: number, offset?: number, };

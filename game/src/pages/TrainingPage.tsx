@@ -6,7 +6,9 @@ import type { TrainingProgram } from '../bindings/TrainingProgram'
 import type { TrainingView } from '../bindings/TrainingView'
 import { Link, BottomBar, Empty, ErrorBox, PurpleMenu, ScreenHeader, Tabs, type MenuOption } from '../components/Screen'
 import { InfBadge } from '../components/SquadTable'
-import { CoachesDialog, ProgramDialog } from '../components/TrainingDialogs'
+import CoachesPanel from '../components/CoachesPanel'
+import { ProgramDialog } from '../components/TrainingDialogs'
+import type { AreaStrength } from '../bindings/AreaStrength'
 import { money } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
@@ -14,14 +16,14 @@ import { ATTRIBUTE_GROUPS, FILTER_OPTIONS, NO_FILTER, nameClass, passes, squadNa
 
 // "<Clube> - Treinos", como no CM: uma aba com todos e uma por programa (com quantos
 // jogadores tem); Programa (ou o programa na linha do jogador) muda o programa do jogador,
-// Editar abre o diálogo do programa e Preparadores escolhe o que cada treinador treina. Como no
+// Editar abre o diálogo do programa e a aba Preparadores mostra o que cada um treina. Como no
 // CM, arrastar um jogador para a aba de um programa muda-o para esse programa. Cancelar / Ok, como nas Tácticas: o core valida e
 // grava tudo no Ok.
 
 /** Abas por linha (as restantes vão para a de baixo, como no CLZ). */
 const TABS_PER_ROW = 5
 
-type Dialog = { kind: 'program'; program: TrainingProgram } | { kind: 'coaches' } | null
+type Dialog = { kind: 'program'; program: TrainingProgram } | null
 
 const blank = (id: number): TrainingProgram => ({
   id,
@@ -42,6 +44,7 @@ export default function TrainingPage() {
   const [programs, setPrograms] = useState<TrainingProgram[]>([])
   const [assign, setAssign] = useState<Map<number, number>>(new Map())
   const [coachAreas, setCoachAreas] = useState<Map<number, boolean[]>>(new Map())
+  const [strength, setStrength] = useState<AreaStrength[]>([])
   const [tab, setTab] = useState('all')
   const [filter, setFilter] = useState<Filter>(NO_FILTER)
   const [selected, setSelected] = useState(0)
@@ -55,6 +58,7 @@ export default function TrainingPage() {
     setPrograms(v.programs)
     setAssign(new Map(v.assign.map((a) => [a.person, a.program])))
     setCoachAreas(new Map(v.coaches.map((c) => [c.id, c.areas])))
+    setStrength(v.strength)
   }
   useEffect(() => {
     api.trainingView().then(load, (e) => setError(String(e)))
@@ -77,7 +81,22 @@ export default function TrainingPage() {
     if (key === 'all' || !Number.isFinite(player) || !programs.some((p) => String(p.id) === key)) return
     setAssign((m) => new Map(m).set(player, Number(key)))
   }
-  const tabs = [{ key: 'all', label: 'Programa' }, ...programs.map((p) => ({ key: String(p.id), label: `${p.name} (${count(p.id)})` }))]
+  const tabs = [
+    { key: 'all', label: 'Programa' },
+    ...programs.map((p) => ({ key: String(p.id), label: `${p.name} (${count(p.id)})` })),
+    { key: 'coaches', label: 'Preparadores' },
+  ]
+  const coaching = tab === 'coaches'
+  // Dar ou tirar uma área a um preparador: o core recalcula a força das áreas
+  const toggleArea = (coach: number, area: number) => {
+    const base = coachAreas.get(coach) ?? view?.coaches.find((c) => c.id === coach)?.areas ?? []
+    const next = new Map(coachAreas).set(
+      coach,
+      [0, 1, 2, 3, 4].map((i) => (i === area ? !base[i] : !!base[i])),
+    )
+    setCoachAreas(next)
+    api.trainingStrength([...next].map(([person, areas]) => ({ person, areas }))).then(setStrength, (e) => setError(String(e)))
+  }
 
   const giveProgram = (key: string, player = current) => {
     if (key === 'new') {
@@ -162,63 +181,64 @@ export default function TrainingPage() {
           <Tabs tabs={tabs.slice(TABS_PER_ROW)} active={tab} onChange={(k) => (setTab(k), setSelected(0))} onDrop={dropOnTab} />
         </div>
       )}
-      <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-cm-headdeep px-2 py-1.5">
-        <div title={current ? `Mudar o programa de ${squadName(current)}` : undefined}>
+      {!coaching && (
+        <div className="mx-2 mt-2 flex shrink-0 items-center gap-1.5 rounded-md bg-cm-headdeep px-2 py-1.5">
+          <div title={current ? `Mudar o programa de ${squadName(current)}` : undefined}>
+            <PurpleMenu
+              label="Programa"
+              options={programMenu}
+              value={String(assign.get(current?.id ?? -1) ?? '')}
+              onChange={(k) => giveProgram(k)}
+              disabled={!current}
+            />
+          </div>
+          <button
+            className="cm-purple h-6 w-40"
+            disabled={!editing}
+            onClick={() => editing && setDialog({ kind: 'program', program: editing })}
+          >
+            Editar Programa
+          </button>
           <PurpleMenu
-            label="Programa"
-            options={programMenu}
-            value={String(assign.get(current?.id ?? -1) ?? '')}
-            onChange={(k) => giveProgram(k)}
-            disabled={!current}
+            label="Ver"
+            options={[
+              { key: 'general', label: 'Geral' },
+              { key: 'attributes', label: 'Atributos' },
+            ]}
+            value={columns}
+            onChange={setColumns}
+          />
+          {columns === 'attributes' && <PurpleMenu label="Atributos" options={ATTRIBUTE_GROUPS} value={group} onChange={setGroup} />}
+          <div className="flex-1" />
+          <PurpleMenu
+            label={filter.line || filter.side || filter.avail ? 'Filtrar ✓' : 'Filtrar'}
+            options={FILTER_OPTIONS}
+            checked={(key) => {
+              const [group, value = ''] = key.split(':')
+              return group === 'line' ? filter.line === value : group === 'side' ? filter.side === value : filter.avail === value
+            }}
+            onChange={(key) => {
+              const [group, value = ''] = key.split(':')
+              setFilter((f) =>
+                group === 'line'
+                  ? { ...f, line: value }
+                  : group === 'side'
+                    ? { ...f, side: value }
+                    : { ...f, avail: f.avail === value ? '' : (value as Filter['avail']) },
+              )
+              setSelected(0)
+            }}
+            align="right"
           />
         </div>
-        <button
-          className="cm-purple h-6 w-40"
-          disabled={!editing}
-          onClick={() => editing && setDialog({ kind: 'program', program: editing })}
-        >
-          Editar Programa
-        </button>
-        <PurpleMenu
-          label="Ver"
-          options={[
-            { key: 'general', label: 'Geral' },
-            { key: 'attributes', label: 'Atributos' },
-          ]}
-          value={columns}
-          onChange={setColumns}
-        />
-        {columns === 'attributes' && <PurpleMenu label="Atributos" options={ATTRIBUTE_GROUPS} value={group} onChange={setGroup} />}
-        <button className="cm-purple h-6 w-40" disabled={!view} onClick={() => setDialog({ kind: 'coaches' })}>
-          Preparadores
-        </button>
-        <div className="flex-1" />
-        <PurpleMenu
-          label={filter.line || filter.side || filter.avail ? 'Filtrar ✓' : 'Filtrar'}
-          options={FILTER_OPTIONS}
-          checked={(key) => {
-            const [group, value = ''] = key.split(':')
-            return group === 'line' ? filter.line === value : group === 'side' ? filter.side === value : filter.avail === value
-          }}
-          onChange={(key) => {
-            const [group, value = ''] = key.split(':')
-            setFilter((f) =>
-              group === 'line'
-                ? { ...f, line: value }
-                : group === 'side'
-                  ? { ...f, side: value }
-                  : { ...f, avail: f.avail === value ? '' : (value as Filter['avail']) },
-            )
-            setSelected(0)
-          }}
-          align="right"
-        />
-      </div>
+      )}
 
       <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col">
         <ErrorBox className="mb-2">{error}</ErrorBox>
         <div className="min-h-0 flex-1 overflow-auto">
-          {rows.length ? (
+          {coaching && view ? (
+            <CoachesPanel coaches={view.coaches} areas={coachAreas} strength={strength} onToggle={toggleArea} />
+          ) : rows.length ? (
             <div className="rounded-md bg-cm-surface">
               <div className={`flex h-7 items-center gap-2 border-b border-cm-line bg-black/30 px-2 ${head}`}>
                 <span className="w-24">Programa</span>
@@ -311,17 +331,6 @@ export default function TrainingPage() {
           onCancel={() => setDialog(null)}
           onOk={saveProgram}
           onDelete={() => deleteProgram(dialog.program.id)}
-        />
-      )}
-      {dialog?.kind === 'coaches' && view && (
-        <CoachesDialog
-          coaches={view.coaches}
-          areas={coachAreas}
-          onCancel={() => setDialog(null)}
-          onOk={(a) => {
-            setCoachAreas(a)
-            setDialog(null)
-          }}
         />
       )}
     </div>

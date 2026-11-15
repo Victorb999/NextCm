@@ -47,6 +47,7 @@ pub use game::NewsLink;
 pub use game::SquadRoleView;
 pub use game::StatusBar;
 pub use game::WorldTransfers;
+pub use game::{AreaStrength, CoachAreas, TrainingPlan, TrainingView};
 pub use game::{
     BoardConfidence, BoardRequest, BoardView, ContractReply, ContractTerms, DisciplineOptions, DivisionStats, Game, GameInfo, GroupTable,
     JobNation, JobRow, JobsView, KoRoundView, MatchPreview, MatchRecord, NewGame, NewsItem, NumberAssign, NumberEntry, OfferAction,
@@ -65,7 +66,6 @@ pub use game::{PressQuestion, PressView};
 pub use game::{ReserveLineup, ReserveSpot};
 pub use game::{StaffHireView, StaffJobOption};
 pub use game::{TalkLine, TalkOption, TalkReaction, TalkView};
-pub use game::{TrainingPlan, TrainingView};
 pub use league::{
     CHAMPIONS_LEAGUE, COPA_DO_BRASIL, EUROPA_LEAGUE, Fixture, LIBERTADORES, PREMIER_LEAGUE, SERIE_A, SERIE_B, SERIE_C, SERIE_D,
     SUL_AMERICANA, StandingRow,
