@@ -23,7 +23,7 @@ export default function TopBar({ onContinue, busy, label = 'Continuar Jogo' }: {
         <img src="/favicon.svg?v=2" alt="NextCM" className="size-8" />
       </div>
       <span className="font-bold text-cm-yellow">
-        {barDate(info?.date ?? START_DATE)} {partLabel(info?.part ?? 0)}
+        {barDate(info?.date ?? (game.mode === 'newGame' ? game.startDate : null) ?? START_DATE)} {partLabel(info?.part ?? 0)}
       </span>
       {info && (
         <>

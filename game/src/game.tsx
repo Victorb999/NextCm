@@ -16,6 +16,9 @@ type GameCtx = {
   update: (info: GameInfo) => void
   /** Fecha o jogo (sem gravar) e volta ao menu inicial. */
   close: () => Promise<void>
+  /** Sem jogo aberto, a data da barra do topo (a temporada escolhida no Novo Jogo). */
+  startDate: string | null
+  setStartDate: (d: string | null) => void
 }
 
 const Ctx = createContext<GameCtx | null>(null)
@@ -23,6 +26,7 @@ const Ctx = createContext<GameCtx | null>(null)
 export function GameProvider({ children }: { children: ReactNode }) {
   const [info, setInfo] = useState<GameInfo | null>(null)
   const [mode, setMode] = useState<Mode>('loading')
+  const [startDate, setStartDate] = useState<string | null>(null)
 
   // Ao abrir (ou recarregar a página em dev), retoma o jogo que o backend tiver aberto
   useEffect(() => {
@@ -47,7 +51,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setMode('start')
   }, [])
 
-  const value = useMemo(() => ({ info, mode, setMode, update, close }), [info, mode, update, close])
+  const value = useMemo(() => ({ info, mode, setMode, update, close, startDate, setStartDate }), [info, mode, update, close, startDate])
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 

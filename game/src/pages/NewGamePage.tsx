@@ -12,6 +12,7 @@ import { ErrorBox } from '../components/Screen'
 import { useGame } from '../game'
 import { useNav, type Screen } from '../nav'
 import { selectionOf } from '../selection'
+import { SEASON_START } from '../shell/types'
 import LeaguesStep, { type GameOptions } from './LeaguesStep'
 import ManagerStep, { type ManagerForm } from './newgame/ManagerStep'
 
@@ -39,6 +40,12 @@ export default function NewGamePage() {
   const nav = useNav()
   const [step, setStep] = useState(0)
   const [season, setSeason] = useState<StartSeason>('europe')
+  // A barra do topo mostra o primeiro dia da temporada escolhida
+  const { setStartDate } = game
+  useEffect(() => {
+    setStartDate(SEASON_START[season])
+    return () => setStartDate(null)
+  }, [season, setStartDate])
   const [saveName, setSaveName] = useState('Jogo 1')
   // "Escolher Campeonato(s)": por omissão o Brasil e a Inglaterra escolhidos, o resto de fundo
   const [leagueNations, setLeagueNations] = useState<LeagueNation[]>([])
