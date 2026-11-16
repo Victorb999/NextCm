@@ -24,7 +24,7 @@ use nextcm_core::{
     SaveSummary, ScoutList, SearchQuery, SearchResult, Selection, Session, SquadNumbers, StageView, StandingRow, TransferItem,
     TransferView, World,
 };
-use nextcm_core::{CareerClub, ContinueStep, ManagerStats};
+use nextcm_core::{CareerClub, ContinueStep, HonoursBoard, ManagerStats, ManagersTable};
 use nextcm_core::{DealTerms, LoanTerms};
 use nextcm_core::{EditorClub, EditorHit, EditorPlayer, EditorProfileView};
 use nextcm_core::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
@@ -194,6 +194,8 @@ session_command!(holiday_view() -> nextcm_core::HolidayView);
 session_command!(end_holiday() -> GameInfo);
 session_command!(manager_career() -> Vec<CareerClub>);
 session_command!(manager_stats() -> ManagerStats);
+session_command!(honours_board(group: Option<i32>, year: Option<i32>) -> HonoursBoard);
+session_command!(managers_table(view: String, nation: Option<i32>, page: Option<i32>) -> ManagersTable);
 session_command!(last_lineup(id: i32) -> Option<nextcm_core::LastLineup>);
 session_command!(squad_attributes(id: i32) -> Vec<nextcm_core::SquadAttributes>);
 session_command!(save_as(name: String, overwrite: bool) -> GameInfo);
@@ -454,6 +456,8 @@ pub fn run() {
             end_holiday,
             manager_career,
             manager_stats,
+            honours_board,
+            managers_table,
             last_lineup,
             squad_more,
             squad_attributes,

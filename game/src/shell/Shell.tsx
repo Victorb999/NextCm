@@ -31,7 +31,8 @@ export default function Shell() {
   const game = useGame()
   const nav = useNav()
   const [options, setOptions] = useState(false)
-  const [exiting, setExiting] = useState(false)
+  // Sair para o Menu ou Reiniciar Jogo (sair e ir ao Novo Jogo)
+  const [exiting, setExiting] = useState<'exit' | 'restart' | null>(null)
   const [processing, setProcessing] = useState(false)
   // Os resultados do dia que passa, na barra de baixo do "Processando"
   const [ticker, setTicker] = useState<string[]>([])
@@ -60,7 +61,8 @@ export default function Shell() {
         <SideBar
           locked={matchDay.locked}
           onOptions={() => setOptions((o) => !o)}
-          onExit={() => setExiting(true)}
+          onExit={() => setExiting('exit')}
+          onRestart={() => setExiting('restart')}
           onDialog={setDialog}
           onFind={() => setFinding(true)}
         />
@@ -88,7 +90,7 @@ export default function Shell() {
               }}
             />
           )}
-          {exiting && <ExitDialog onCancel={() => setExiting(false)} notify={notify} />}
+          {exiting && <ExitDialog restart={exiting === 'restart'} onCancel={() => setExiting(null)} notify={notify} />}
           {options && <OptionsDialog onClose={() => setOptions(false)} />}
           {/* Botão direito num jogador das listas (data-person): as acções do perfil */}
           {game.mode === 'game' && browsing && <PlayerContextMenu />}

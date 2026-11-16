@@ -57,7 +57,7 @@ pub struct ManagerStats {
 }
 
 /// O nível de uma reputação (0–10 000), como o CM a descreve.
-fn rep_level(rep: i32) -> &'static str {
+pub(super) fn rep_level(rep: i32) -> &'static str {
     match rep {
         8000.. => "Mundial",
         6500.. => "Continental",

@@ -409,6 +409,14 @@ impl Session {
         self.game()?.last_lineup(id)
     }
 
+    pub fn honours_board(&self, group: Option<i32>, year: Option<i32>) -> Result<crate::HonoursBoard> {
+        self.game()?.honours_board(group, year)
+    }
+
+    pub fn managers_table(&self, view: String, nation: Option<i32>, page: Option<i32>) -> Result<crate::ManagersTable> {
+        self.game()?.managers_table(&view, nation, page)
+    }
+
     pub fn manager_stats(&self) -> Result<crate::ManagerStats> {
         self.game()?.manager_stats()
     }

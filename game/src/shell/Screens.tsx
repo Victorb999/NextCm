@@ -15,6 +15,8 @@ import PressPage from '../pages/PressPage'
 import ComparePage from '../pages/ComparePage'
 import WorldTransfersPage from '../pages/WorldTransfersPage'
 import CareerPage from '../pages/CareerPage'
+import HonoursPage from '../pages/HonoursPage'
+import ManagersPage from '../pages/ManagersPage'
 import SearchPage from '../pages/SearchPage'
 import SquadNumbersPage from '../pages/SquadNumbersPage'
 import TacticsPage from '../pages/TacticsPage'
@@ -44,6 +46,8 @@ export default function Screens() {
       {current.kind === 'press' && <PressPage key={current.id} id={current.id} />}
       {current.kind === 'worldTransfers' && <WorldTransfersPage />}
       {current.kind === 'career' && <CareerPage />}
+      {current.kind === 'managers' && <ManagersPage />}
+      {current.kind === 'honours' && <HonoursPage />}
       {current.kind === 'compare' && <ComparePage key={`${current.a}-${current.b}`} a={current.a} b={current.b} />}
       {current.kind === 'club' && (
         <ClubPage

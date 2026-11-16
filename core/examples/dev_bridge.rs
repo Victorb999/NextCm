@@ -320,6 +320,17 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         "end_holiday" => out(serde_json::to_value(session.end_holiday().map_err(e)?)),
         "manager_career" => out(serde_json::to_value(session.manager_career().map_err(e)?)),
         "manager_stats" => out(serde_json::to_value(session.manager_stats().map_err(e)?)),
+        "honours_board" => {
+            let group = args.get("group").and_then(|v| v.as_i64()).map(|v| v as i32);
+            let year = args.get("year").and_then(|v| v.as_i64()).map(|v| v as i32);
+            out(serde_json::to_value(session.honours_board(group, year).map_err(e)?))
+        }
+        "managers_table" => {
+            let view = args.get("view").and_then(|v| v.as_str()).unwrap_or("nation").to_string();
+            let nation = args.get("nation").and_then(|v| v.as_i64()).map(|v| v as i32);
+            let page = args.get("page").and_then(|v| v.as_i64()).map(|v| v as i32);
+            out(serde_json::to_value(session.managers_table(view, nation, page).map_err(e)?))
+        }
         "last_lineup" => out(serde_json::to_value(session.last_lineup(id()?).map_err(e)?)),
         "squad_more" => out(serde_json::to_value(session.squad_more(id()?, args["kind"].as_str().unwrap_or("")).map_err(e)?)),
         "squad_attributes" => out(serde_json::to_value(session.squad_attributes(id()?).map_err(e)?)),

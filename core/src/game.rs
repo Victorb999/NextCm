@@ -36,6 +36,7 @@ mod fair_play;
 mod finances;
 mod friendlies;
 mod holiday;
+mod honours;
 mod hosts;
 mod internationals;
 mod jobs;
@@ -43,6 +44,7 @@ mod league_meeting;
 mod leagues;
 mod lineup_check;
 mod manager_career;
+mod manager_table;
 mod market;
 mod market_view;
 mod match_analysis;
@@ -67,6 +69,7 @@ mod scout_reports;
 mod scout_tasks;
 mod scouting;
 mod season;
+mod season_review;
 mod shortlist;
 mod squad_view;
 mod staff_fill;
@@ -96,10 +99,12 @@ pub use deals::{ContractReply, ContractTerms, ExchangeCandidate, OfferAction, Of
 pub use discipline::DisciplineOptions;
 pub use friendlies::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
 pub use holiday::{HolidayGame, HolidayPlan, HolidaySales, HolidayView};
+pub use honours::{HonourAward, HonourRow, HonoursBoard};
 pub use jobs::{JobNation, JobRow, JobsView};
 pub use leagues::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use lineup_check::LineupCheck;
 pub use manager_career::{CareerClub, ManagerStats};
+pub use manager_table::{ManagerRow, ManagersTable};
 pub use market::TransferItem;
 pub use market_view::WorldTransfers;
 pub use match_analysis::{KeyMan, MatchAnalysis, MatchReview, Milestone};
@@ -175,7 +180,8 @@ pub use training::{AreaStrength, CoachAreas, TrainingPlan, TrainingView};
 /// 71: os favoritos e detestados de cada clube (`club_preferences`, do `club.dat`), editor.
 /// 72: a opção do ritmo nas reservas (`game.reserve_rhythm`), marco 4.1.
 /// 74: as partidas jogadas guardadas para a ficha como a do CM (`match_reports`).
-pub const SAVE_VERSION: i32 = 74;
+/// 75: a reputação do treinador no começo da temporada (`manager_info.season_rep`), para o resumo.
+pub const SAVE_VERSION: i32 = 75;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -898,6 +904,7 @@ impl Game {
             tx.execute_batch(awards::AWARDS_SCHEMA)?;
             tx.execute_batch(staff_hire::STAFF_HIRE_SCHEMA)?;
             tx.execute_batch(match_reports::REPORTS_SCHEMA)?;
+            tx.execute_batch(season_review::SEASON_REP_SCHEMA)?;
             tx.execute_batch(board::SHIFT_SCHEMA)?;
             // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
             let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
@@ -1025,6 +1032,7 @@ impl Game {
             game.career_join(new.club_id)?;
             game.set_license(new.license)?;
             game.set_experience(new.experience)?;
+            game.mark_season_rep()?;
             game.set_favourite_club(new.favourite_club)?;
             game.world.conn.execute("UPDATE game SET masking = ?", [new.masking])?;
             if !new.real_players {
@@ -1509,6 +1517,12 @@ impl Game {
             world.conn.execute_batch(match_reports::REPORTS_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 74", [])?;
             version = 74;
+        }
+        // Save 75: a reputação do começo da temporada, para o resumo do treinador (4.0 item 27)
+        if version == 74 {
+            world.conn.execute_batch(season_review::SEASON_REP_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 75", [])?;
+            version = 75;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
@@ -2239,6 +2253,8 @@ impl Game {
             }
             // O título do treinador: a festa da torcida e os parabéns da Diretoria
             self.title_party(comp, &mut fresh, &mut next_id)?;
+            // O fim da liga do treinador: o resumo da temporada
+            self.season_review(comp, &mut fresh, &mut next_id)?;
         }
         self.fresh_ids(&mut fresh);
         for n in &fresh {

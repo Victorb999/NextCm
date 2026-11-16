@@ -92,6 +92,8 @@ function sectionOf(s: Screen, club: number | undefined, manager: number | undefi
     case 'jobs':
     case 'worldTransfers':
     case 'career':
+    case 'managers':
+    case 'honours':
     case 'squadNumbers':
     case 'training':
     case 'friendly':
@@ -111,6 +113,7 @@ function sectionOf(s: Screen, club: number | undefined, manager: number | undefi
 export default function SideBar({
   onOptions,
   onExit,
+  onRestart,
   onDialog,
   onFind,
   locked = false,
@@ -119,6 +122,8 @@ export default function SideBar({
   locked?: boolean
   onOptions: () => void
   onExit: () => void
+  /** Reiniciar Jogo: sair deste jogo para o Novo Jogo. */
+  onRestart: () => void
   /** O Procurar do CM (o diálogo com o nome). */
   onFind: () => void
   /** Os diálogos do menu do treinador (Gravar, Férias, Rescindir, Retirar-se). */
@@ -218,6 +223,10 @@ export default function SideBar({
             { label: 'Opções...', onSelect: onOptions },
             'separator',
             { label: 'Salvar Jogo', onSelect: () => onDialog('save') },
+            { label: 'Estatísticas dos Técnicos', onSelect: () => nav.go({ kind: 'managers' }) },
+            { label: 'Quadro de Honra', onSelect: () => nav.go({ kind: 'honours' }) },
+            'separator',
+            { label: 'Reiniciar Jogo', onSelect: onRestart },
             { label: 'Sair para o Menu', onSelect: onExit },
           ]}
         />

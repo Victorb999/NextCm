@@ -22,6 +22,8 @@ import type { ContinueStep } from './bindings/ContinueStep'
 import type { CreationProgress } from './bindings/CreationProgress'
 import type { LastLineup } from './bindings/LastLineup'
 import type { ManagerStats } from './bindings/ManagerStats'
+import type { HonoursBoard } from './bindings/HonoursBoard'
+import type { ManagersTable } from './bindings/ManagersTable'
 import type { SquadAttributes } from './bindings/SquadAttributes'
 import type { SquadMore } from './bindings/SquadMore'
 import type { LeagueNation } from './bindings/LeagueNation'
@@ -173,6 +175,9 @@ export const api = {
   endHoliday: () => call<GameInfo>('end_holiday'),
   managerCareer: () => call<CareerClub[]>('manager_career'),
   managerStats: () => call<ManagerStats>('manager_stats'),
+  honoursBoard: (group: number | null, year: number | null) => call<HonoursBoard>('honours_board', { group, year }),
+  managersTable: (view: string, nation: number | null, page: number | null) =>
+    call<ManagersTable>('managers_table', { view, nation, page }),
   /** O Último Jogo das Tácticas: a escalação do último jogo do clube (`null` sem jogos). */
   lastLineup: (id: number) => call<LastLineup | null>('last_lineup', { id }),
   /** O Vêr Mais Dados do plantel (`kind`: '' jogos oficiais, 'Liga', 'Taça', 'Continentais'). */

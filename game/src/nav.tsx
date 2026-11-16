@@ -19,6 +19,9 @@ export type Screen =
   | { kind: 'compare'; a: number; b: number }
   | { kind: 'worldTransfers' }
   | { kind: 'career' }
+  /** Opções Jogo: Estatísticas dos Técnicos e Quadro de Honra. */
+  | { kind: 'managers' }
+  | { kind: 'honours' }
   | { kind: 'club'; id: number; reserves?: boolean; tab?: string }
   | { kind: 'tactics'; id: number }
   | { kind: 'clubHistory'; id: number }
