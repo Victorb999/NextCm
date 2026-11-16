@@ -84,7 +84,9 @@ Antes de dar uma tarefa por acabada, corra `scripts/check.ps1`.
 - **Nenhuma regra de jogo no front.** O React só mostra e envia comandos; validações e números ficam no core.
 - **Determinismo:** todo o acaso usa `ChaCha8Rng` com a seed do jogo (`engine::match_rng`). Mesma seed =
   mesmo resultado. Coisas só visuais (relato, estatísticas de enchimento) usam um RNG à parte e nunca
-  mudam o resultado. Depois de mexer no motor, confira na CLI `sim` que as médias continuam
+  mudam o resultado. No app (`Session`), cada dia de jogo mistura um sorteio novo na seed das partidas
+  (`Game::match_seed`, `set_fresh_draws`): recarregar o save dá outra partida. A CLI e os testes não ligam
+  isso e continuam reproduzíveis. Depois de mexer no motor, confira na CLI `sim` que as médias continuam
   (~2,6 golos por jogo, ~48% vitórias em casa).
 - **Comando novo** = método em `Game` → `Session` → `game/src-tauri/src/lib.rs` (macro `session_command!`,
   e registar em `generate_handler!`) → `core/examples/dev_bridge.rs` → `game/src/api.ts`.

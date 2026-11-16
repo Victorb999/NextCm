@@ -126,13 +126,15 @@ impl TeamStrength {
         s.with(instructions)
     }
 
-    /// Ajustes pequenos das Instruções à Equipa (Desarme e Pressão também mexem nos
-    /// cartões e no cansaço, em `live.rs`).
+    /// O que as Instruções à Equipa fazem sozinhas (Desarme e Pressão também mexem nos
+    /// cartões e no cansaço, em `live.rs`; o que rendem contra o adversário está em
+    /// [`matchup`]). A mentalidade troca defesa por ataque: atacar dá ~16% mais golos e
+    /// ~18% mais sofridos.
     pub fn with(mut self, i: &Instructions) -> TeamStrength {
         let (att, mid, def) = match i.mentality {
-            Mentality::Defensive => (0.95, 1.0, 1.05),
+            Mentality::Defensive => (0.90, 1.0, 1.10),
             Mentality::Normal => (1.0, 1.0, 1.0),
-            Mentality::Attacking => (1.05, 1.0, 0.95),
+            Mentality::Attacking => (1.10, 1.0, 0.90),
         };
         self.attack *= att;
         self.midfield *= mid;
@@ -140,33 +142,41 @@ impl TeamStrength {
         match i.passing {
             Passing::Mixed => {}
             Passing::Short => {
-                self.midfield *= 1.03;
-                self.attack *= 0.98;
+                self.midfield *= 1.05;
+                self.attack *= 0.97;
             }
             Passing::Direct | Passing::Long => {
-                self.attack *= 1.03;
-                self.midfield *= 0.97;
+                self.attack *= 1.05;
+                self.midfield *= 0.95;
             }
         }
         match i.tackling {
             Tackling::Normal => {}
-            Tackling::Soft => self.defence *= 0.98,
-            Tackling::Hard => self.defence *= 1.02,
+            Tackling::Soft => self.defence *= 0.96,
+            Tackling::Hard => self.defence *= 1.04,
         }
         if i.pressing {
-            self.midfield *= 1.04;
+            self.midfield *= 1.05;
         }
         if i.offside_trap {
-            self.defence *= 1.02;
+            self.defence *= 1.03;
         }
         if i.counter_attack {
-            self.attack *= 1.03;
-            self.midfield *= 0.98;
+            self.attack *= 1.04;
+            self.midfield *= 0.97;
         }
         if i.tight_marking {
-            self.defence *= 1.03;
-            self.midfield *= 0.98;
+            self.defence *= 1.05;
+            self.midfield *= 0.97;
         }
+        self
+    }
+
+    /// A força com o que as instruções rendem contra as do adversário.
+    pub(crate) fn against(mut self, m: [f64; 3]) -> TeamStrength {
+        self.attack *= m[0];
+        self.midfield *= m[1];
+        self.defence *= m[2];
         self
     }
 
@@ -177,6 +187,32 @@ impl TeamStrength {
     fn defending(&self) -> f64 {
         0.7 * self.defence + 0.3 * self.gk
     }
+}
+
+/// O que as instruções de uma equipa rendem contra as do adversário: (ataque, meio, defesa).
+/// O contra-ataque precisa de espaço (um adversário que ataca), a pressão rende contra quem
+/// sai a jogar curto e é saltada pelo passe longo, e a linha de impedimento sofre com
+/// avançados rápidos. `opp_speed`: Velocidade + Aceleração médias dos avançados do outro (1–20).
+pub(crate) fn matchup(own: &Instructions, opp: &Instructions, opp_speed: f64) -> [f64; 3] {
+    let mut m = [1.0; 3];
+    if own.counter_attack {
+        m[0] *= match opp.mentality {
+            Mentality::Attacking => 1.08,
+            Mentality::Normal => 1.0,
+            Mentality::Defensive => 0.95,
+        };
+    }
+    if own.pressing {
+        m[1] *= match opp.passing {
+            Passing::Short => 1.05,
+            Passing::Mixed => 1.0,
+            Passing::Direct | Passing::Long => 0.95,
+        };
+    }
+    if own.offside_trap {
+        m[2] *= (1.0 + 0.01 * (12.0 - opp_speed)).clamp(0.94, 1.04);
+    }
+    m
 }
 
 /// Golos esperados em campo neutro: as duas equipas com a média das bases de casa e fora.
@@ -266,5 +302,26 @@ mod tests {
         // Equipas muito desiguais: o teto segura os golos esperados
         let (h, a) = expected_goals(&team(150.0), &team(50.0));
         assert!(h > 3.5 && h < BASE_HOME * MAX_EDGE.exp() && a > 0.3, "{h:.2} x {a:.2}");
+    }
+
+    #[test]
+    fn instructions_depend_on_the_opponent() {
+        let normal = Instructions::default();
+        let counter = Instructions { counter_attack: true, ..normal };
+        let attacking = Instructions { mentality: Mentality::Attacking, ..normal };
+        let defensive = Instructions { mentality: Mentality::Defensive, ..normal };
+        assert!(matchup(&counter, &attacking, 10.0)[0] > matchup(&counter, &defensive, 10.0)[0]);
+        let press = Instructions { pressing: true, ..normal };
+        let short = Instructions { passing: Passing::Short, ..normal };
+        let long = Instructions { passing: Passing::Long, ..normal };
+        assert!(matchup(&press, &short, 10.0)[1] > 1.0 && matchup(&press, &long, 10.0)[1] < 1.0);
+        let trap = Instructions { offside_trap: true, ..normal };
+        assert!(matchup(&trap, &normal, 18.0)[2] < 1.0 && matchup(&trap, &normal, 8.0)[2] > 1.0);
+        assert_eq!(matchup(&normal, &attacking, 18.0), [1.0; 3], "sem instruções, nada muda");
+
+        // Ir ao ataque: marca mais e sofre mais
+        let (h0, a0) = expected_goals(&team(120.0), &team(120.0));
+        let (h1, a1) = expected_goals(&team(120.0).with(&attacking), &team(120.0));
+        assert!(h1 > h0 * 1.1 && a1 > a0 * 1.1, "{h1:.2} {a1:.2}");
     }
 }

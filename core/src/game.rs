@@ -20,6 +20,7 @@ mod awards;
 mod board;
 mod board_meeting;
 mod career_marks;
+mod celebrations;
 mod city;
 mod clinch;
 mod club_moves;
@@ -729,6 +730,11 @@ pub struct Game {
     unsaved: bool,
     /// O treinador vê os jogos dele ao vivo (o app); sem isso (CLI, testes) jogam-se de seguida.
     watch: bool,
+    /// Um sorteio novo a cada dia de jogo (o app): recarregar o save dá outra partida. Sem
+    /// isso (CLI, testes), a seed do jogo decide tudo.
+    fresh_draws: bool,
+    /// O sorteio do dia de jogo, misturado na seed das partidas (0 sem `fresh_draws`).
+    draw: i64,
     /// O dia de jogo à espera de o treinador acabar a partida dele.
     live: Option<LiveDay>,
     /// Estatísticas dos jogos desde que o jogo foi aberto (para a CLI).
@@ -771,6 +777,16 @@ pub struct MatchRecord {
     pub stats: [TeamStats; 2],
     pub subs: [i32; 2],
     pub injuries: usize,
+}
+
+/// Um número que muda a cada chamada (relógio e o hash aleatório do processo): o sorteio do
+/// dia de jogo no app. Nunca entra na CLI nem nos testes.
+fn fresh_draw() -> i64 {
+    use std::hash::{BuildHasher, Hasher};
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos() as u64);
+    let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+    h.write_u64(nanos);
+    (h.finish() & i64::MAX as u64) as i64 | 1
 }
 
 /// "Nome do save" → nome de arquivo seguro (letras, números, espaço, - e _).
@@ -948,6 +964,8 @@ impl Game {
                 selection: None,
                 unsaved: true,
                 watch: false,
+                fresh_draws: false,
+                draw: 0,
                 live: None,
                 records: Vec::new(),
                 first_year: year,
@@ -1595,6 +1613,8 @@ impl Game {
             selection,
             unsaved: false,
             watch: false,
+            fresh_draws: false,
+            draw: 0,
             live: None,
             records: Vec::new(),
             first_year: season_of(&created),
@@ -1651,7 +1671,7 @@ impl Game {
     pub fn save(&mut self) -> Result<()> {
         // No dia de jogo grava-se antes do apito (ao carregar, os jogos do dia voltam a ser
         // preparados com a mesma seed); a meio da partida não
-        let pending: Vec<NewsItem> = match &self.live {
+        let mut pending: Vec<NewsItem> = match &self.live {
             Some(day) if day.games.get(day.user).is_some_and(|(_, l)| !l.started()) => day.news.clone(),
             Some(_) => return Err(Error::Invalid("Não é possível salvar durante um jogo.".into())),
             None => Vec::new(),
@@ -1659,6 +1679,17 @@ impl Game {
         // O save vive numa transação aberta (ver `create`): aqui grava a memória e faz o commit
         let tx = &self.world.conn;
         tx.execute("UPDATE game SET date = ?, part = ?, seed = ?, club_id = ?", params![self.date, self.part, self.seed, self.club_id])?;
+        // Ids repetidos (de uma versão antiga a meio de um dia) ganham ids novos antes de gravar
+        let mut seen = HashSet::new();
+        let mut next = self.news.iter().chain(&pending).map(|n| n.id).max().unwrap_or(0) + 1;
+        for n in self.news.iter_mut().chain(pending.iter_mut()) {
+            if !seen.insert(n.id) {
+                n.id = next;
+                seen.insert(next);
+                next += 1;
+            }
+        }
+        let tx = &self.world.conn;
         tx.execute("DELETE FROM news", [])?;
         {
             let mut stmt = tx
@@ -1933,6 +1964,8 @@ impl Game {
     /// espera em `live`). `quiet` não repete as notícias das trocas do adjunto (ao retomar
     /// um dia de jogo gravado, elas já estão nas notícias).
     fn start_day_matches(&mut self, mut fresh: Vec<NewsItem>, mut next_id: i32, quiet: bool) -> Result<Vec<NewsItem>> {
+        // No app, cada dia de jogo tem o seu sorteio: o mesmo jogo recarregado não se repete
+        self.draw = if self.fresh_draws { fresh_draw() } else { 0 };
         // Os jogos desta parte do dia (e os de antes que ficaram por jogar)
         let today: Vec<usize> = (0..self.matches.len())
             .filter(|&i| {
@@ -1961,7 +1994,7 @@ impl Game {
             }
             if side.is_some() && self.watch {
                 user = Some(games.len());
-                live = live.detailed(engine::match_rng(self.seed ^ 0x0F1A_7E55, self.matches[i].id));
+                live = live.detailed(engine::match_rng(self.match_seed() ^ 0x0F1A_7E55, self.matches[i].id));
             } else {
                 live.play_until(90);
             }
@@ -1986,7 +2019,7 @@ impl Game {
     fn quick_result(&self, i: usize) -> Result<(u8, u8)> {
         let m = &self.matches[i];
         let (xh, xa) = self.pre_match_expected(m)?;
-        let mut rng = engine::match_rng(self.seed ^ 0x0FA5_7000, m.id);
+        let mut rng = engine::match_rng(self.match_seed() ^ 0x0FA5_7000, m.id);
         Ok((engine::poisson(xh, &mut rng), engine::poisson(xa, &mut rng)))
     }
 
@@ -2024,7 +2057,7 @@ impl Game {
             None
         };
         let user_ai = self.selection.as_ref().is_none_or(|s| s.auto);
-        let rng = engine::match_rng(self.seed, self.matches[i].id);
+        let rng = engine::match_rng(self.match_seed(), self.matches[i].id);
         let occasion = self.occasion(&self.matches[i])?;
         let mut live =
             LiveMatch::new(&self.world, self.fixture(&self.matches[i]), home_t, away_t, side, user_ai, rng)?.with_occasion(occasion);
@@ -2047,7 +2080,7 @@ impl Game {
         }
         let i = *i;
         let (live, ..) = self.prepare_match(i)?;
-        let live = live.detailed(engine::match_rng(self.seed ^ 0x0F1A_7E55, self.matches[i].id));
+        let live = live.detailed(engine::match_rng(self.match_seed() ^ 0x0F1A_7E55, self.matches[i].id));
         let day = self.live.as_mut().expect("dia de jogo");
         day.games[day.user].1 = live;
         Ok(())
@@ -2077,7 +2110,7 @@ impl Game {
             let injuries = sides[0].injured.len() + sides[1].injured.len();
             self.records.push(MatchRecord { fixture_id: live.fixture.id, stats: live.stats(), subs: live.subs_made(), injuries });
             // As durações das lesões continuam o sorteio da partida
-            let mut rng = engine::match_rng(self.seed ^ 0x1E5A_0C0D, live.fixture.id);
+            let mut rng = engine::match_rng(self.match_seed() ^ 0x1E5A_0C0D, live.fixture.id);
             let comp = live.fixture.competition_id;
             let events = if comp == friendlies::CLUB_FRIENDLY {
                 self.squads.after_friendly(sides, &date, comp, &mut rng)
@@ -2086,7 +2119,7 @@ impl Game {
             };
             if self.comp_mode(comp) == leagues::LeagueMode::Play {
                 self.log_events(&events, comp)?;
-                live.quiet_stats(&mut engine::match_rng(self.seed ^ 0x57A7_5000, live.fixture.id));
+                live.quiet_stats(&mut engine::match_rng(self.match_seed() ^ 0x57A7_5000, live.fixture.id));
             }
             if national {
                 let unemployed = self.sacked();
@@ -2195,7 +2228,10 @@ impl Game {
                 fresh.push(n);
                 next_id += 1;
             }
+            // O título do treinador: a festa da torcida e os parabéns da Diretoria
+            self.title_party(comp, &mut fresh, &mut next_id)?;
         }
+        self.fresh_ids(&mut fresh);
         for n in &fresh {
             self.news.insert(0, n.clone());
         }
@@ -2428,6 +2464,22 @@ impl Game {
             [id],
             |r| r.get(0),
         )?)
+    }
+
+    /// Ids novos para as notícias de `fresh` que coincidem com as já guardadas: há funções que
+    /// gravam direto em `self.news` a meio do dia (o "firma acordo com" de uma transferência
+    /// que se consuma na abertura da janela), com ids que as de `fresh` também usaram. Dois
+    /// itens com o mesmo id abriam a notícia errada e não deixavam salvar.
+    pub(super) fn fresh_ids(&self, fresh: &mut [NewsItem]) {
+        let mut used: HashSet<i32> = self.news.iter().map(|n| n.id).collect();
+        let mut next = used.iter().chain(fresh.iter().map(|n| &n.id)).copied().max().unwrap_or(0) + 1;
+        for n in fresh {
+            if !used.insert(n.id) {
+                n.id = next;
+                used.insert(next);
+                next += 1;
+            }
+        }
     }
 
     fn news_item(&self, id: i32, kind: &str, title: String, body: String) -> NewsItem {
@@ -2771,7 +2823,11 @@ impl Game {
                 let mut b =
                     format!("O {champion} se sagrou campeão {} {label} com {} pontos", self.of_competition(competition_id), first.points);
                 if let Some(s) = table.get(1) {
-                    b += &format!(", {} à frente do {}", first.points - s.points, s.club.short_name);
+                    b += &match first.points - s.points {
+                        0 => format!(", empatado em pontos com o {} e à frente nos critérios de desempate", s.club.short_name),
+                        1 => format!(", um ponto à frente do {}", s.club.short_name),
+                        d => format!(", {d} pontos à frente do {}", s.club.short_name),
+                    };
                 }
                 b + "."
             }
@@ -2784,6 +2840,9 @@ impl Game {
                 None => format!("O {champion} venceu {} {label}.", self.the_competition(competition_id)),
             },
         };
+        if winner != self.club_id {
+            body += &self.party_line(competition_id, year, winner)?;
+        }
         if winner != self.club_id
             && let Some(fate) = self.club_fate(competition_id, year, self.club_id)
         {
@@ -2951,8 +3010,18 @@ impl Game {
         self.watch = watch;
     }
 
+    /// Liga o sorteio novo a cada dia de jogo (o app liga; a CLI e os testes não).
+    pub fn set_fresh_draws(&mut self, on: bool) {
+        self.fresh_draws = on;
+    }
+
+    /// A seed das partidas de hoje: a do jogo com o sorteio do dia.
+    fn match_seed(&self) -> i64 {
+        self.seed ^ self.draw
+    }
+
     /// Um save gravado no dia de jogo (antes do apito) tem jogos de hoje por jogar: prepara-os
-    /// outra vez (com a mesma seed saem iguais) e volta ao dia de jogo.
+    /// outra vez (no app, com um sorteio novo) e volta ao dia de jogo.
     pub fn resume_match_day(&mut self) -> Result<()> {
         if self.live.is_some()
             || !self.matches.iter().any(|m| m.date == self.date && m.result.is_none() && Self::match_part(m) <= self.part)
@@ -2960,7 +3029,8 @@ impl Game {
             return Ok(());
         }
         let next_id = self.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
-        let news = self.start_day_matches(Vec::new(), next_id, true)?;
+        let mut news = self.start_day_matches(Vec::new(), next_id, true)?;
+        self.fresh_ids(&mut news);
         for n in news.into_iter().rev() {
             self.news.insert(0, n);
         }
@@ -3660,15 +3730,11 @@ mod tests {
         // (as propostas dos outros clubes pelos jogadores também param)
         while date::add_days(g.date(), 1).unwrap() < first.date {
             let news = g.advance_to_next_event().unwrap();
-            // (e os orçamentos da direcção na noite de 1/7, o dia em que o jogo começa)
+            // (e os orçamentos, convites, reformas...: tudo menos resultados de jogos)
             assert!(
-                news.iter().all(|n| n.offer_id.is_some()
-                    || n.kind == "transfer"
-                    || n.title == "Orçamentos da Diretoria"
-                    || n.title.starts_with("Reservas:")
-                    || n.title.starts_with("Relatório: ")),
-                "{}",
-                news[0].title
+                news.iter().all(|n| n.kind != "competition" || n.title.starts_with("Reservas:")),
+                "{:?}",
+                news.iter().map(|n| (&n.kind, &n.title)).collect::<Vec<_>>()
             );
         }
         assert_eq!(date::add_days(g.date(), 1).unwrap(), first.date);
@@ -3697,7 +3763,19 @@ mod tests {
         let results = g.fixtures(SERIE_A).iter().map(|f| (f.id, f.home_goals, f.away_goals)).collect();
         let table = g.table(SERIE_A);
         // O campeão da A e o da B saem no mesmo dia
-        assert!(g.news().iter().take(3).any(|n| n.title.ends_with("campeão da Série A")), "{}", g.news()[0].title);
+        // (mais a festa da torcida e os parabéns da Diretoria se o campeão for o Palmeiras)
+        let recent: Vec<&NewsItem> = g.news().iter().take(5).collect();
+        let champion = recent.iter().find(|n| n.title.ends_with("campeão da Série A"));
+        assert!(champion.is_some(), "{}", g.news()[0].title);
+        if table[0].club.id == 7568 {
+            assert!(
+                recent.iter().any(|n| n.title.starts_with("Diretoria ") && n.body.contains("temporada")),
+                "{:?}",
+                recent.iter().map(|n| &n.title).collect::<Vec<_>>()
+            );
+        } else {
+            assert!(champion.unwrap().body.contains("torcida"), "{}", champion.unwrap().body);
+        }
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
         (results, table)
@@ -3982,6 +4060,34 @@ mod tests {
         drop(seen);
         let _ = std::fs::remove_dir_all(&d1);
         let _ = std::fs::remove_dir_all(&d2);
+    }
+
+    #[test]
+    fn news_ids_stay_unique() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("news-ids");
+        let mut g = Game::create(&world, &dir, &new_game(7568), 3).unwrap();
+        // Uma notícia do dia (com o id calculado no início) e outra gravada direto a meio do dia
+        let next = g.news.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+        let mut fresh = vec![g.news_item(next, "deal", "X chega ao clube".into(), String::new())];
+        g.post_news_as("deal", "Palmeiras firma acordo com Y".into(), String::new());
+        g.fresh_ids(&mut fresh);
+        assert!(g.news.iter().all(|n| n.id != fresh[0].id), "a notícia do dia ganhou um id novo");
+        // E um save com ids repetidos (de antes da correção) grava na mesma
+        let dup = g.news[0].clone();
+        g.news.push(dup);
+        g.save().unwrap();
+        let ids: HashSet<i32> = g.news.iter().map(|n| n.id).collect();
+        assert_eq!(ids.len(), g.news.len());
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fresh_draws_change_every_match_day() {
+        // O sorteio do app nunca se repete (e nunca é 0, o da CLI)
+        let (a, b) = (fresh_draw(), fresh_draw());
+        assert!(a != b && a != 0 && b != 0);
     }
 
     #[test]

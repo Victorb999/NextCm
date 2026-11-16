@@ -568,6 +568,7 @@ As palavras do treinador caíram mal no adversário, que promete dar uma respost
             body = format!("{body}\n\n{r}");
         }
         fresh.push(self.news_item(next_id, "press", format!("O treinador do {club} fala à imprensa"), body.clone()));
+        self.fresh_ids(&mut fresh);
         for n in fresh {
             self.news.insert(0, n);
         }

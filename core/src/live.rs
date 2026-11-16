@@ -16,7 +16,9 @@ use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::engine::{SlotRating, TeamStrength, condition_factor, expected_goals, expected_goals_neutral, morale_factor, sector, uniform};
+use crate::engine::{
+    SlotRating, TeamStrength, condition_factor, expected_goals, expected_goals_neutral, matchup, morale_factor, sector, uniform,
+};
 use crate::league::Fixture;
 use crate::person::ClubRef;
 use crate::personality;
@@ -61,6 +63,8 @@ struct Profile {
     injury_proneness: f64,
     tackling: f64,
     jumping: f64,
+    /// Velocidade + Aceleração (média): contra a linha de impedimento.
+    speed: f64,
     /// Só para as estatísticas (dribles), nunca para o resultado.
     dribbling: f64,
     /// Agressividade + Maldade.
@@ -91,7 +95,7 @@ fn load_profile(world: &World, id: i32, date: &str) -> Result<Profile> {
                 -- Estrangeiro que chegou ao clube durante o jogo (o banco traz datas de entrada fictícias)
                 p.nation_id <> c.nation_id AND COALESCE(p.second_nation_id, 0) <> c.nation_id
                   AND EXISTS (SELECT 1 FROM transfers t WHERE t.date = p.club_joined AND t.person_id = p.id AND t.to_club = p.club_id),
-                pl.dribbling
+                pl.dribbling, pl.pace, pl.acceleration
          FROM people p JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id WHERE p.id = ?",
     )?;
     let today = date::parse(date).unwrap_or(0);
@@ -121,6 +125,7 @@ fn load_profile(world: &World, id: i32, date: &str) -> Result<Profile> {
             temper: (v(20)? + v(21)?) * personality::sportsmanship_factor(v(29)?),
             tackling: v(22)?,
             jumping: v(23)?,
+            speed: (v(35)? + v(36)?) / 2.0,
             dribbling: v(34)?,
             // Vazios no patch (o CM gera-os ao começar): contam como 10
             consistency: v(24)?,
@@ -393,6 +398,17 @@ impl Team {
             .collect();
         let missing = self.tactics.starters.len().saturating_sub(on.len());
         TeamStrength::from_slots(&slots, missing, &self.tactics.instructions)
+    }
+
+    /// A velocidade média dos avançados em campo (10 sem nenhum).
+    fn attack_speed(&self) -> f64 {
+        let fast: Vec<f64> = self
+            .on_pitch()
+            .into_iter()
+            .filter(|&i| self.players[i].slot.is_some_and(|s| sector(self.role(s)) == 3))
+            .map(|i| self.players[i].prof.speed)
+            .collect();
+        if fast.is_empty() { 10.0 } else { fast.iter().sum::<f64>() / fast.len() as f64 }
     }
 
     fn goalkeeper(&self) -> Option<usize> {
@@ -770,10 +786,17 @@ impl LiveMatch {
     /// Golos esperados de agora (casa, fora) num jogo inteiro, com o que está em campo, o
     /// estádio e o peso da camisa: as odds do Pré-Jogo (só para mostrar).
     pub fn expected_now(&self) -> (f64, f64) {
-        let st = [self.teams[0].strength(), self.teams[1].strength()];
+        let st = self.strengths();
         let (xh, xa) = if self.fixture.neutral { expected_goals_neutral(&st[0], &st[1]) } else { expected_goals(&st[0], &st[1]) };
         let o = self.occasion;
         (xh * o.crowd * (1.0 + 0.03 * o.shirt), xa * (1.0 - 0.03 * o.shirt))
+    }
+
+    /// A força das duas equipas agora, com o que as instruções rendem uma contra a outra.
+    fn strengths(&self) -> [TeamStrength; 2] {
+        let t = &self.teams;
+        let m = |a: usize| matchup(&t[a].tactics.instructions, &t[1 - a].tactics.instructions, t[1 - a].attack_speed());
+        [t[0].strength().against(m(0)), t[1].strength().against(m(1))]
     }
 
     pub fn score(&self) -> (u8, u8) {
@@ -840,7 +863,7 @@ impl LiveMatch {
             }
         }
 
-        let st = [self.teams[0].strength(), self.teams[1].strength()];
+        let st = self.strengths();
         let (xh, xa) = if self.fixture.neutral { expected_goals_neutral(&st[0], &st[1]) } else { expected_goals(&st[0], &st[1]) };
         let mid = st[0].midfield / (st[0].midfield + st[1].midfield);
         let home_ball = (0.5 + (mid - 0.5) * 1.5).clamp(0.3, 0.7);

@@ -237,17 +237,26 @@ function Tie({ tie, own }: { tie: TieView; own?: number }) {
       {c.shortName}
     </Link>
   )
-  // Golos de cada mão do ponto de vista do primeiro clube
-  const legs = tie.games.map((g) =>
-    g.homeGoals === null ? 'v' : g.home.id === tie.first.id ? `${g.homeGoals}-${g.awayGoals}` : `${g.awayGoals}-${g.homeGoals}`,
-  )
+  // Golos de cada mão do ponto de vista do primeiro clube; cada resultado abre a ficha do jogo
+  const legs = tie.games.map((g, i) => (
+    <span key={g.id}>
+      {i > 0 && ' · '}
+      {g.homeGoals === null ? (
+        'v'
+      ) : (
+        <button className="tabular-nums hover:text-cm-yellow" title="Ver o jogo" onClick={() => nav.go({ kind: 'match', id: g.id })}>
+          {g.home.id === tie.first.id ? `${g.homeGoals}-${g.awayGoals}` : `${g.awayGoals}-${g.homeGoals}`}
+        </button>
+      )}
+    </span>
+  ))
   const extra = [tie.aggregate ? `total ${tie.aggregate[0]}-${tie.aggregate[1]}` : '', tie.pens ? `${tie.pens[0]}-${tie.pens[1]} g.p.` : '']
     .filter(Boolean)
     .join(', ')
   return (
     <div className="flex h-[30px] items-center gap-2 px-3">
       <div className="min-w-0 flex-1">{name(tie.first, 'text-right')}</div>
-      <span className="w-28 shrink-0 text-center font-bold tabular-nums text-cm-magenta">{legs.join(' · ')}</span>
+      <span className="w-28 shrink-0 text-center font-bold tabular-nums text-cm-magenta">{legs}</span>
       <div className="min-w-0 flex-1">{name(tie.second, 'text-left')}</div>
       <span className="w-36 shrink-0 text-right text-[13px] text-cm-orange">{extra}</span>
     </div>
@@ -316,9 +325,17 @@ function RoundPanel({ fixtures, own }: { fixtures: Fixture[]; own?: number }) {
         {(rounds[i]?.[1] ?? []).map((f) => (
           <div key={f.id} className="flex h-[30px] items-center gap-2 px-3 text-[14px]">
             <div className="min-w-0 flex-1">{name(f.home, 'text-right')}</div>
-            <span className="w-12 shrink-0 text-center font-bold tabular-nums text-cm-magenta">
-              {f.homeGoals === null ? 'v' : `${f.homeGoals}:${f.awayGoals}`}
-            </span>
+            {f.homeGoals === null ? (
+              <span className="w-12 shrink-0 text-center font-bold tabular-nums text-cm-magenta">v</span>
+            ) : (
+              <button
+                className="w-12 shrink-0 text-center font-bold tabular-nums text-cm-magenta hover:text-cm-yellow"
+                title="Ver o jogo"
+                onClick={() => nav.go({ kind: 'match', id: f.id })}
+              >
+                {`${f.homeGoals}:${f.awayGoals}`}
+              </button>
+            )}
             <div className="min-w-0 flex-1">{name(f.away, 'text-left')}</div>
           </div>
         ))}

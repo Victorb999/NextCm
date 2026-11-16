@@ -278,6 +278,7 @@ impl Session {
         let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.as_nanos() as i64 & i64::MAX);
         let mut game = Game::create(&self.world_path, &self.saves_dir, new, seed)?;
         game.set_watch(true);
+        game.set_fresh_draws(true);
         let info = game.info()?;
         self.game = Some(game);
         Ok(info)
@@ -288,6 +289,7 @@ impl Session {
         let name = Path::new(file).file_name().ok_or_else(|| Error::Invalid("Arquivo inválido.".into()))?;
         let mut game = Game::load(&self.saves_dir.join(name))?;
         game.set_watch(true);
+        game.set_fresh_draws(true);
         game.resume_match_day()?;
         let info = game.info()?;
         self.game = Some(game);
@@ -415,6 +417,7 @@ impl Session {
             self.game = None;
             let mut game = Game::load(&target)?;
             game.set_watch(true);
+            game.set_fresh_draws(true);
             game.resume_match_day()?;
             self.game = Some(game);
         }

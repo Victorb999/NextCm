@@ -825,7 +825,7 @@ impl Game {
         let games = self.tie_games(m.competition_id, year, m.stage as usize, m.round, tie);
         let Some((gx, gy)) = Self::aggregate(&games, m.home_id) else { return };
         if gx == gy {
-            let pens = engine::shootout(&mut engine::match_rng(self.seed ^ 0x9E7A_17E5, m.id));
+            let pens = engine::shootout(&mut engine::match_rng(self.match_seed() ^ 0x9E7A_17E5, m.id));
             self.matches[index].pens = Some(pens);
         }
     }
