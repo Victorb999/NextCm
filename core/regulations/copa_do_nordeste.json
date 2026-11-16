@@ -1,0 +1,59 @@
+{
+  "competition": 272,
+  "name": "Copa do Nordeste",
+  "order": 2,
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "Fase de grupos",
+      "legs": 1,
+      "group_size": 8,
+      "entrants": {
+        "estaduais": {
+          "competitions": [
+            256,
+            258,
+            264
+          ],
+          "count": 16
+        }
+      },
+      "dates": "m11 m13 m22 m23 m25 m28 m29"
+    },
+    {
+      "kind": "knockout",
+      "name": "Mata-mata",
+      "pairing": "bracket",
+      "entrants": {
+        "previous": {
+          "group_top": 4
+        }
+      },
+      "rounds": [
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "m30"
+        },
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "m34"
+        },
+        {
+          "name": "Final",
+          "legs": 2,
+          "dates": "m41 m43"
+        }
+      ]
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2025,
+      "club": 1193
+    }
+  ],
+  "prize": 0.03,
+  "cup": true
+}

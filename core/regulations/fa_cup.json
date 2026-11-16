@@ -1,0 +1,60 @@
+{
+  "competition": 351,
+  "name": "Copa da Inglaterra",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "open",
+      "entrants": {
+        "divisions": [
+          7,
+          8
+        ]
+      },
+      "rounds": [
+        {
+          "name": "3ª fase",
+          "legs": 1,
+          "dates": "w1"
+        },
+        {
+          "name": "4ª fase",
+          "legs": 1,
+          "dates": "w7"
+        },
+        {
+          "name": "5ª fase",
+          "legs": 1,
+          "dates": "m12"
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "w14"
+        },
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "w17",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w20",
+          "neutral": true
+        }
+      ],
+      "fill": true
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 2633
+    }
+  ]
+}

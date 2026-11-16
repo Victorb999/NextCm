@@ -1,0 +1,69 @@
+{
+  "competition": 88,
+  "name": "Copa Argentina",
+  "order": 2,
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "open",
+      "entrants": {
+        "divisions": [
+          63
+        ],
+        "best_of": {
+          "division": 64,
+          "count": 34
+        }
+      },
+      "rounds": [
+        {
+          "name": "32-avos de final",
+          "legs": 1,
+          "dates": "m9",
+          "neutral": true
+        },
+        {
+          "name": "16-avos de final",
+          "legs": 1,
+          "dates": "m18",
+          "neutral": true
+        },
+        {
+          "name": "Oitavas de final",
+          "legs": 1,
+          "dates": "m30",
+          "neutral": true
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "m34",
+          "neutral": true
+        },
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "m38",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "m44",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 2149
+    },
+    {
+      "season": 2025,
+      "club": 4826
+    }
+  ]
+}

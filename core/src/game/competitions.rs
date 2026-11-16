@@ -13,7 +13,7 @@ use ts_rs::TS;
 
 use super::{Game, NewsItem, cm_date};
 use crate::engine::{self, uniform};
-use crate::league::{self, Fixture, Match, SERIE_A, SERIE_B, SERIE_C, SERIE_D, StandingRow};
+use crate::league::{self, Fixture, Match, StandingRow};
 use crate::person::ClubRef;
 use crate::regulation::{self, ContinentPick, GroupDraw, Pairing, Pick, Regulation, SeasonKind, SingleHome, StageKind};
 use crate::{Error, Result};
@@ -126,15 +126,48 @@ fn group_name(g: u8) -> String {
     format!("Grupo {}", (b'A' + g) as char)
 }
 
-/// Divisão de um clube para "o mais fraco joga em casa": A = 0 ... D = 3, outras 4.
+/// Divisão de um clube para "o mais fraco joga em casa": o escalão (A = 0, B = 1...), 9 sem divisão.
 fn division_rank(division: Option<i32>) -> i32 {
-    match division {
-        Some(SERIE_A) => 0,
-        Some(SERIE_B) => 1,
-        Some(SERIE_C) => 2,
-        Some(SERIE_D) => 3,
-        _ => 4,
+    regulation::tier(division)
+}
+
+/// A maior potência de 2 que cabe em `n`.
+fn power_below(n: usize) -> usize {
+    if n == 0 { 0 } else { 1usize << (usize::BITS - 1 - n.leading_zeros()) }
+}
+
+/// Os pares da 1ª ronda de uma eliminatória (`entrants` do mais forte para o mais fraco).
+fn pair_up(entrants: &[i32], pairing: Pairing, rng: &mut impl RngCore) -> Vec<(i32, i32)> {
+    let n = entrants.len();
+    match pairing {
+        Pairing::Bracket => bracket_order(power_below(n)).chunks(2).map(|c| (entrants[c[0] - 1], entrants[c[1] - 1])).collect(),
+        Pairing::Cross => {
+            let (firsts, seconds) = entrants.split_at(n / 2);
+            let g = firsts.len();
+            // 1º A - 2º B, 1º C - 2º D... e depois 1º B - 2º A, 1º D - 2º C...: os dois de um grupo em metades diferentes do quadro
+            let even = (0..g).step_by(2).filter(|&i| i + 1 < g).map(|i| (firsts[i], seconds[i + 1]));
+            let odd = (1..g).step_by(2).map(|i| (firsts[i], seconds[i - 1]));
+            even.chain(odd).collect()
+        }
+        Pairing::Pots => {
+            let (top, bottom) = entrants.split_at(n / 2);
+            let mut bottom = bottom.to_vec();
+            shuffle(&mut bottom, rng);
+            top.iter().copied().zip(bottom).collect()
+        }
+        Pairing::Open => {
+            let mut all = entrants.to_vec();
+            shuffle(&mut all, rng);
+            all.chunks(2).filter(|c| c.len() == 2).map(|c| (c[0], c[1])).collect()
+        }
     }
+}
+
+/// A preliminar de uma fase com `fill`: quantos entram direto na 2ª ronda (todos, se já for
+/// uma potência de 2).
+fn fill_byes(n: usize) -> usize {
+    let p = power_below(n);
+    if p == n { n } else { 2 * p - n }
 }
 
 impl Game {
@@ -212,8 +245,23 @@ impl Game {
         if e.estadual {
             add(&mut out, self.clubs_where("reserve_division_id = ? AND is_national_team = 0", reg.competition)?);
         }
-        if let Some(p) = &e.previous {
-            add(&mut out, self.pick(reg.competition, p, stage.saturating_sub(1), year)?);
+        // Copas regionais: os mais fortes dos estaduais da região que jogam uma divisão viva
+        if let Some(p) = &e.estaduais {
+            let mut pool: Vec<(i32, i32)> = Vec::new();
+            for &c in &p.competitions {
+                let rows: Vec<(i32, i32, Option<i32>)> = self
+                    .world
+                    .conn
+                    .prepare_cached(
+                        "SELECT id, COALESCE(reputation, 0), division_id FROM clubs
+                         WHERE reserve_division_id = ? AND is_national_team = 0",
+                    )?
+                    .query_map([c], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+                    .collect::<rusqlite::Result<_>>()?;
+                pool.extend(rows.into_iter().filter(|r| r.2.is_some_and(|d| regulation::get(d).is_some())).map(|r| (r.0, r.1)));
+            }
+            pool.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+            add(&mut out, pool.into_iter().map(|r| r.0).take(p.count).collect());
         }
         // Selecções: os anfitriões, os apurados de outras competições e as de mais reputação.
         // Cada anfitrião ocupa uma das vagas do seu continente.
@@ -247,7 +295,11 @@ impl Game {
                 .collect();
             add(&mut out, ids);
         }
-        let excluded: HashSet<i32> = e.exclude.iter().flat_map(|&c| self.clubs_in(c, year)).collect();
+        let mut excluded: HashSet<i32> = e.exclude.iter().flat_map(|&c| self.clubs_in(c, year)).collect();
+        // As equipas B não jogam as copas nacionais
+        let b_teams = if reg.is_cup() { self.b_teams()? } else { HashSet::new() };
+        excluded.extend(&b_teams);
+        out.retain(|c| !b_teams.contains(c));
         if let Some(l) = &e.league {
             let order = self.final_order(l.competition, year - 1)?;
             let mut pos = l.from.saturating_sub(1);
@@ -261,8 +313,9 @@ impl Game {
                     taken += 1;
                 }
             }
-            if let Some(cup) = e.cup_winner {
-                match self.podium(cup, year - 1).map(|p| p.0) {
+            let cups = [e.cup_winner.map(|c| self.winner_of(c, year - 1)), e.cup_runner_up.map(|c| self.runner_up_of(c, year - 1))];
+            for cand in cups.into_iter().flatten() {
+                match cand {
                     Some(w) if free(&w, &out) => out.push(w),
                     // Campeão já dentro (ou sem Copa): entra o seguinte da tabela
                     _ => {
@@ -289,6 +342,31 @@ impl Game {
                 .collect();
             add(&mut out, picked);
         }
+        // O campeão de cada copa; se já tiver vaga, o seguinte da liga dele
+        for slot in &e.cup_winners {
+            let free = |id: &i32, out: &Vec<i32>| !excluded.contains(id) && !out.contains(id);
+            match self.winner_of(slot.cup, year - 1) {
+                Some(w) if free(&w, &out) => out.push(w),
+                _ => {
+                    let order = self.final_order(slot.league, year - 1)?;
+                    if let Some(id) = order.into_iter().skip(slot.from.saturating_sub(1)).find(|id| free(id, &out)) {
+                        out.push(id);
+                    }
+                }
+            }
+        }
+        for &c in &e.winners {
+            if let Some(w) = self.winner_of(c, year - 1).filter(|w| !excluded.contains(w)) {
+                add(&mut out, vec![w]);
+            }
+        }
+        for c in &e.champions {
+            let picked = self.champions_pick(c, year, &out, &excluded)?;
+            add(&mut out, picked);
+        }
+        if let Some(p) = &e.previous {
+            add(&mut out, self.pick(reg.competition, p, stage.saturating_sub(1), year)?);
+        }
         for (k, q) in e.foreign.iter().enumerate() {
             let drawn = self.foreign_draw(reg.competition, year, k as u64, &q.nation, q.count, &out, &excluded)?;
             add(&mut out, drawn);
@@ -296,6 +374,89 @@ impl Game {
         if let Some(c) = &e.continent {
             let drawn = self.continent_draw(reg.competition, year, c, &out, &excluded)?;
             add(&mut out, drawn);
+        }
+        // Os que entram mais tarde, noutra fase
+        if let Some(x) = &e.except {
+            let order = self.final_order(x.competition, year - 1)?;
+            let skip: HashSet<i32> = order.into_iter().skip(x.from.saturating_sub(1)).take(x.count).collect();
+            out.retain(|c| !skip.contains(c));
+        }
+        Ok(out)
+    }
+
+    /// As equipas B, II e Jong (pelo nome, como em `World::b_team`).
+    fn b_teams(&self) -> Result<HashSet<i32>> {
+        let rows: Vec<(i32, String)> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT c.id, c.short_name FROM clubs c
+                 WHERE c.division_id IS NOT NULL AND c.is_national_team = 0
+                   AND (c.short_name LIKE '% B' OR c.short_name LIKE 'Jong %'
+                        OR (c.short_name LIKE '% II' AND EXISTS (SELECT 1 FROM clubs p
+                            WHERE p.short_name = substr(c.short_name, 1, length(c.short_name) - 3) AND p.nation_id = c.nation_id)))",
+            )?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(rows.into_iter().map(|r| r.0).collect())
+    }
+
+    /// O campeão de uma competição numa época: o do jogo ou, antes dele, o real do regulamento.
+    pub(super) fn winner_of(&self, comp: i32, year: i32) -> Option<i32> {
+        self.podium(comp, year).map(|p| p.0).or_else(|| regulation::get(comp)?.known_winner(year))
+    }
+
+    /// O vice de uma competição numa época (só as jogadas).
+    fn runner_up_of(&self, comp: i32, year: i32) -> Option<i32> {
+        self.podium(comp, year).and_then(|p| p.1)
+    }
+
+    /// Os campeões recentes de uma competição e os mais fortes de um continente (Mundial de Clubes).
+    fn champions_pick(&self, c: &regulation::ChampionsPick, year: i32, taken: &[i32], excluded: &HashSet<i32>) -> Result<Vec<i32>> {
+        let mut out: Vec<i32> = Vec::new();
+        if let Some(comp) = c.competition {
+            // As últimas `seasons` épocas com campeão (a da época em curso, se já acabou)
+            let mut seasons = 0;
+            for y in (year - c.seasons - 1..=year).rev() {
+                if seasons == c.seasons || out.len() >= c.count {
+                    break;
+                }
+                if let Some(w) = self.winner_of(comp, y) {
+                    seasons += 1;
+                    if !out.contains(&w) && !taken.contains(&w) && !excluded.contains(&w) {
+                        out.push(w);
+                    }
+                }
+            }
+        }
+        let rows: Vec<(i32, i32)> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT c.id, c.nation_id FROM clubs c JOIN nations n ON n.id = c.nation_id
+                 WHERE n.continent_id = ? AND c.is_national_team = 0
+                   AND (SELECT COUNT(*) FROM people p WHERE p.club_id = c.id AND p.is_player = 1) >= 11
+                 ORDER BY c.reputation DESC, c.id",
+            )?
+            .query_map([c.continent], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let nation_of: HashMap<i32, i32> = rows.iter().copied().collect();
+        let mut per_nation: HashMap<i32, usize> = HashMap::new();
+        for id in &out {
+            if let Some(&n) = nation_of.get(id) {
+                *per_nation.entry(n).or_default() += 1;
+            }
+        }
+        for (id, nation) in rows {
+            if out.len() >= c.count {
+                break;
+            }
+            let n = per_nation.entry(nation).or_default();
+            if *n >= c.per_nation || out.contains(&id) || taken.contains(&id) || excluded.contains(&id) {
+                continue;
+            }
+            *n += 1;
+            out.push(id);
         }
         Ok(out)
     }
@@ -589,6 +750,7 @@ impl Game {
         if entrants.len() < 2 {
             return Ok(());
         }
+        let start = self.matches.len();
         let mut rng = self.comp_rng(comp, year, stage as u64 + 1);
         let spec = match (&reg.transition_dates, &st.world_cup_dates) {
             (Some(t), _) if stage == 0 && year == self.first_year => t.as_str(),
@@ -672,33 +834,25 @@ impl Game {
                 }
             }
             StageKind::Knockout => {
-                // Os primeiros `byes` só entram na 2ª ronda
-                let entrants = &entrants[st.byes.min(entrants.len())..];
-                let n = entrants.len();
-                let pairs: Vec<(i32, i32)> = match st.pairing {
-                    Pairing::Bracket => {
-                        let size = 1usize << (usize::BITS - 1 - n.leading_zeros());
-                        bracket_order(size).chunks(2).map(|c| (entrants[c[0] - 1], entrants[c[1] - 1])).collect()
+                if st.fill {
+                    // Preliminar só com os últimos; já potência de 2, todos na 2ª ronda
+                    let byes = fill_byes(entrants.len());
+                    if byes == entrants.len() {
+                        let pairs = pair_up(&entrants, st.pairing, &mut rng);
+                        self.create_ko_round(reg, stage, 1, &pairs, year, fresh, next_id)?;
+                    } else {
+                        let pairs = pair_up(&entrants[byes..], Pairing::Open, &mut rng);
+                        self.create_ko_round(reg, stage, 0, &pairs, year, fresh, next_id)?;
                     }
-                    Pairing::Cross => {
-                        let (firsts, seconds) = entrants.split_at(n / 2);
-                        let g = firsts.len();
-                        // 1º A - 2º B, 1º C - 2º D... e depois 1º B - 2º A, 1º D - 2º C...: os dois de um grupo em metades diferentes do quadro
-                        let even = (0..g).step_by(2).filter(|&i| i + 1 < g).map(|i| (firsts[i], seconds[i + 1]));
-                        let odd = (1..g).step_by(2).map(|i| (firsts[i], seconds[i - 1]));
-                        even.chain(odd).collect()
-                    }
-                    Pairing::Pots => {
-                        let (top, bottom) = entrants.split_at(n / 2);
-                        let mut bottom = bottom.to_vec();
-                        shuffle(&mut bottom, &mut rng);
-                        top.iter().copied().zip(bottom).collect()
-                    }
-                };
-                self.create_ko_round(reg, stage, 0, &pairs, year, fresh, next_id)?;
+                } else {
+                    // Os primeiros `byes` só entram na 2ª ronda
+                    let pairs = pair_up(&entrants[st.byes.min(entrants.len())..], st.pairing, &mut rng);
+                    self.create_ko_round(reg, stage, 0, &pairs, year, fresh, next_id)?;
+                }
+                return Ok(());
             }
         }
-        Ok(())
+        self.settle_clashes(start, fresh, next_id)
     }
 
     /// O mais fraco de dois clubes: divisão mais baixa, senão menos reputação.
@@ -706,6 +860,12 @@ impl Game {
         let f = self.club_facts(&[a, b])?;
         let key = |c: i32| (division_rank(f[&c].2), Reverse(f[&c].0), c);
         Ok(if key(a) >= key(b) { a } else { b })
+    }
+
+    /// O de divisão mais baixa; da mesma divisão, `a` (o primeiro sorteado).
+    fn lower(&self, a: i32, b: i32) -> Result<i32> {
+        let f = self.club_facts(&[a, b])?;
+        Ok(if division_rank(f[&b].2) > division_rank(f[&a].2) { b } else { a })
     }
 
     /// Cria uma ronda de eliminatórias. Em cada par `(a, b)`, `a` é o mais bem colocado:
@@ -729,6 +889,7 @@ impl Game {
         };
         let dates = regulation::dates_in(year, spec, reg.season);
         let comp = reg.competition;
+        let start = self.matches.len();
         let mut id = self.next_match_id();
         for (t, &(a, b)) in pairs.iter().enumerate() {
             let base = Match {
@@ -745,7 +906,12 @@ impl Game {
                 id += 2;
                 (b, a)
             } else {
-                let home = if !r.neutral && st.single_home == SingleHome::Weaker { self.weaker(a, b)? } else { a };
+                let home = match st.single_home {
+                    _ if r.neutral => a,
+                    SingleHome::Weaker => self.weaker(a, b)?,
+                    SingleHome::Lower => self.lower(a, b)?,
+                    SingleHome::Better => a,
+                };
                 let away = if home == a { b } else { a };
                 self.matches.push(Match { id, leg: 0, date: dates[0].clone(), home_id: home, away_id: away, ..base });
                 id += 1;
@@ -776,7 +942,7 @@ impl Game {
                 *next_id += 1;
             }
         }
-        Ok(())
+        self.settle_clashes(start, fresh, next_id)
     }
 
     /// Os jogos de uma eliminatória, por mão.
@@ -847,8 +1013,18 @@ impl Game {
                 let round = ms.iter().filter(|m| m.stage as usize == stage).map(|m| m.round).max().unwrap_or(1);
                 if (round as usize) < st.rounds.len() {
                     let winners = self.round_winners(comp, year, stage, round).unwrap_or_default();
+                    let mut rng = self.comp_rng(comp, year, 0x5EED_0000 + ((stage as u64) << 8) + round as u64);
                     let pairs: Vec<(i32, i32)> = if round == 1 && st.byes > 0 {
                         self.bye_pairs(reg, stage, year, &winners)?
+                    } else if round == 1 && st.fill {
+                        // Depois da preliminar: os que entraram direto e os vencedores
+                        let entrants = self.entrants(reg, stage, year)?;
+                        let mut list: Vec<i32> = entrants[..fill_byes(entrants.len()).min(entrants.len())].to_vec();
+                        let extra: Vec<i32> = winners.iter().copied().filter(|w| !list.contains(w)).collect();
+                        list.extend(extra);
+                        pair_up(&list, st.pairing, &mut rng)
+                    } else if st.pairing == Pairing::Open {
+                        pair_up(&winners, Pairing::Open, &mut rng)
                     } else {
                         winners.chunks(2).filter(|c| c.len() == 2).map(|c| (c[0], c[1])).collect()
                     };
@@ -1036,6 +1212,8 @@ impl Game {
                                     .collect(),
                             }
                         })
+                        // Sem a preliminar quando não foi precisa
+                        .filter(|r| !r.ties.is_empty())
                         .collect();
                     StageView { name, kind: "knockout".into(), tables: Vec::new(), rounds }
                 }

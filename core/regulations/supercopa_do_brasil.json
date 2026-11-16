@@ -1,0 +1,29 @@
+{
+  "competition": 270,
+  "name": "Supercopa do Brasil",
+  "order": 2,
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "league": {
+          "competition": 65,
+          "from": 1,
+          "count": 1
+        },
+        "cup_winner": 68
+      },
+      "rounds": [
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w5",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.01
+}

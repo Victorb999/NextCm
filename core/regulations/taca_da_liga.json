@@ -1,0 +1,53 @@
+{
+  "competition": 371,
+  "name": "Taça da Liga",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "league": {
+          "competition": 46,
+          "from": 1,
+          "count": 6
+        },
+        "leagues": [
+          {
+            "competition": 47,
+            "from": 1,
+            "count": 2
+          }
+        ]
+      },
+      "rounds": [
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "m49"
+        },
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "m2",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w2",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 1427
+    }
+  ],
+  "prize": 0.015
+}

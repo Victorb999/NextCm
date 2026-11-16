@@ -1221,4 +1221,44 @@ mod tests {
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn national_cups_have_champions_without_clashes() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("copas");
+        let mut g = Game::create(&world, &dir, &new_game(7568), 23).unwrap();
+        until(&mut g, "2026-06-01");
+        // Cada copa europeia (e a Saudita) tem campeão; as supertaças de agosto também
+        for comp in [351, 352, 348, 339, 337, 335, 347, 371, 338, 377, 353, 91, 96, 99, 102, 349, 341, 397, 329] {
+            assert!(g.podium(comp, 2025).is_some(), "copa {comp} sem campeão");
+        }
+        // A Conference, as duas da Ásia e a Intercontinental de dezembro; o Troféu dos Campeões de janeiro
+        for (comp, year) in [(327, 2025), (110, 2025), (62, 2025), (325, 2025), (181, 2026)] {
+            assert!(g.podium(comp, year).is_some(), "competição {comp} sem campeão");
+        }
+        assert_eq!(g.year_matches(325, 2025).count(), 4, "Intercontinental: 2 da 1ª fase, a Challenge e a final");
+        // Na FA Cup, a Premier League só entra na 2ª ronda (a 3ª fase é da Championship)
+        let premier: Vec<i32> = g
+            .world
+            .conn
+            .prepare("SELECT id FROM clubs WHERE division_id = 7")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        let fa: Vec<&crate::league::Match> = g.year_matches(351, 2025).collect();
+        assert_eq!(fa.iter().filter(|m| m.round == 1).count(), 12);
+        assert!(fa.iter().filter(|m| m.round == 1).all(|m| !premier.contains(&m.home_id) && !premier.contains(&m.away_id)));
+        assert_eq!(fa.iter().filter(|m| m.round == 2).count(), 16);
+        // Na Coppa Italia os 8 primeiros só entram nas oitavas
+        assert_eq!(g.year_matches(339, 2025).filter(|m| m.stage == 1 && m.round == 1).count(), 8);
+        // Nenhum clube com dois jogos a menos de 3 dias, e houve jogos da liga adiados
+        let clashes = g.fixture_clashes();
+        assert!(clashes.is_empty(), "{clashes:#?}");
+        let premier_days: std::collections::HashSet<u32> = g.year_matches(7, 2025).filter_map(|m| date::weekday(&m.date)).collect();
+        assert!(premier_days.contains(&3) || premier_days.contains(&2), "jogos da Premier adiados para o meio da semana");
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

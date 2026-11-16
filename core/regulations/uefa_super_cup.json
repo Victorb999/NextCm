@@ -1,0 +1,28 @@
+{
+  "competition": 329,
+  "name": "Supercopa da UEFA",
+  "order": 7,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "winners": [
+          326,
+          328
+        ]
+      },
+      "rounds": [
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "m33",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.02
+}

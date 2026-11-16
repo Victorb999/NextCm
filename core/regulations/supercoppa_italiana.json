@@ -1,0 +1,37 @@
+{
+  "competition": 341,
+  "name": "Supercopa da Itália",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "league": {
+          "competition": 24,
+          "from": 1,
+          "count": 2
+        },
+        "cup_winner": 339,
+        "cup_runner_up": 339
+      },
+      "rounds": [
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "m51",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w51",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.01
+}

@@ -1,0 +1,60 @@
+{
+  "competition": 335,
+  "name": "Copa da França",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "open",
+      "entrants": {
+        "divisions": [
+          11,
+          12
+        ]
+      },
+      "rounds": [
+        {
+          "name": "Fase preliminar",
+          "legs": 1,
+          "dates": "m44"
+        },
+        {
+          "name": "16-avos de final",
+          "legs": 1,
+          "dates": "m2"
+        },
+        {
+          "name": "Oitavas de final",
+          "legs": 1,
+          "dates": "m6"
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "m9"
+        },
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "m16"
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w21",
+          "neutral": true
+        }
+      ],
+      "single_home": "lower",
+      "fill": true
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 8117
+    }
+  ]
+}

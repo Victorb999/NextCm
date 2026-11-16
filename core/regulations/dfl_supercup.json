@@ -1,0 +1,30 @@
+{
+  "competition": 91,
+  "name": "Supercopa da Alemanha",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "league": {
+          "competition": 16,
+          "from": 1,
+          "count": 1
+        },
+        "cup_winner": 337
+      },
+      "rounds": [
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w32",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.01
+}

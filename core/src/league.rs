@@ -20,6 +20,9 @@ pub const SUL_AMERICANA: i32 = 92;
 pub const PREMIER_LEAGUE: i32 = 7;
 pub const CHAMPIONS_LEAGUE: i32 = 326;
 pub const EUROPA_LEAGUE: i32 = 328;
+pub const CONFERENCE_LEAGUE: i32 = 327;
+pub const AFC_ELITE: i32 = 110;
+pub const AFC_TWO: i32 = 62;
 
 /// Uma partida do calendário, como fica na memória e na tabela `fixtures` do save.
 #[derive(Debug, Clone, PartialEq, Default)]

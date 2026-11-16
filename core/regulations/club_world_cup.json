@@ -1,0 +1,95 @@
+{
+  "competition": 104,
+  "name": "Mundial de Clubes",
+  "order": 8,
+  "stages": [
+    {
+      "kind": "groups",
+      "name": "Fase de grupos",
+      "legs": 1,
+      "group_size": 4,
+      "neutral": true,
+      "entrants": {
+        "champions": [
+          {
+            "competition": 326,
+            "seasons": 4,
+            "continent": 2,
+            "count": 12,
+            "per_nation": 2
+          },
+          {
+            "competition": 58,
+            "seasons": 4,
+            "continent": 5,
+            "count": 6,
+            "per_nation": 2
+          },
+          {
+            "continent": 1,
+            "count": 4,
+            "per_nation": 2
+          },
+          {
+            "continent": 0,
+            "count": 4,
+            "per_nation": 2
+          },
+          {
+            "continent": 3,
+            "count": 5,
+            "per_nation": 2
+          },
+          {
+            "continent": 4,
+            "count": 1,
+            "per_nation": 1
+          }
+        ]
+      },
+      "dates": "w24 m25 w25"
+    },
+    {
+      "kind": "knockout",
+      "name": "Mata-mata",
+      "pairing": "cross",
+      "entrants": {
+        "previous": {
+          "group_top": 2
+        }
+      },
+      "rounds": [
+        {
+          "name": "Oitavas de final",
+          "legs": 1,
+          "dates": "m26",
+          "neutral": true
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "w26",
+          "neutral": true
+        },
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "m27",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w28",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.25,
+  "cycle": {
+    "every": 4,
+    "from": 2029
+  },
+  "draw": "m3"
+}

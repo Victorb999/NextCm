@@ -16,10 +16,17 @@
           "count": 5
         },
         "cup_winner": 68,
+        "cup_winners": [
+          {
+            "cup": 88,
+            "league": 63,
+            "from": 1
+          }
+        ],
         "foreign": [
           {
             "nation": "Argentina",
-            "count": 6
+            "count": 5
           },
           {
             "nation": "Uruguay",
@@ -89,6 +96,28 @@
           "neutral": true
         }
       ]
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2021,
+      "club": 7568
+    },
+    {
+      "season": 2022,
+      "club": 3675
+    },
+    {
+      "season": 2023,
+      "club": 3710
+    },
+    {
+      "season": 2024,
+      "club": 1669
+    },
+    {
+      "season": 2025,
+      "club": 3675
     }
   ]
 }

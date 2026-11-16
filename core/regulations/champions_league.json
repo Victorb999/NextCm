@@ -102,5 +102,27 @@
         }
       ]
     }
+  ],
+  "known_winners": [
+    {
+      "season": 2020,
+      "club": 2254
+    },
+    {
+      "season": 2021,
+      "club": 8383
+    },
+    {
+      "season": 2022,
+      "club": 6269
+    },
+    {
+      "season": 2023,
+      "club": 8383
+    },
+    {
+      "season": 2024,
+      "club": 8117
+    }
   ]
 }

@@ -1,0 +1,29 @@
+{
+  "competition": 243,
+  "name": "Supercopa Argentina",
+  "order": 2,
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "league": {
+          "competition": 63,
+          "from": 1,
+          "count": 1
+        },
+        "cup_winner": 88
+      },
+      "rounds": [
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w4",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.01
+}

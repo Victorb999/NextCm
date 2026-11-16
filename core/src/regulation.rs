@@ -61,6 +61,8 @@ pub enum Pairing {
     Cross,
     /// Metade de cima contra a metade de baixo, sorteado (Copa do Brasil).
     Pots,
+    /// Sorteio aberto, de novo a cada ronda (FA Cup, Copa del Rey...).
+    Open,
 }
 
 /// Quem joga em casa nas eliminatórias de jogo único.
@@ -72,6 +74,8 @@ pub enum SingleHome {
     Better,
     /// O de divisão mais baixa (ou menos reputação), como na Copa do Brasil.
     Weaker,
+    /// O de divisão mais baixa; da mesma divisão, o primeiro sorteado (Copa del Rey, DFB-Pokal).
+    Lower,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -185,6 +189,47 @@ pub struct Quota {
     pub count: usize,
 }
 
+/// A vaga do campeão de uma copa da época anterior; se já estiver dentro (ou sem campeão),
+/// o seguinte da classificação final de `league` a partir de `from`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CupSlot {
+    pub cup: i32,
+    pub league: i32,
+    #[serde(default = "one")]
+    pub from: usize,
+}
+
+fn one() -> usize {
+    1
+}
+
+/// Os campeões de `competition` nas `seasons` épocas anteriores (sem repetir) e, até `count`, os
+/// de mais reputação de `continent` (no máximo `per_nation` por nação além dos campeões). Sem
+/// `competition`, só pela reputação (Mundial de Clubes).
+#[derive(Debug, Clone, Deserialize)]
+pub struct ChampionsPick {
+    #[serde(default)]
+    pub competition: Option<i32>,
+    #[serde(default)]
+    pub seasons: i32,
+    pub continent: i32,
+    pub count: usize,
+    pub per_nation: usize,
+}
+
+/// O campeão real de uma época que o jogo não jogou (as supertaças e as vagas da 1ª época).
+#[derive(Debug, Clone, Deserialize)]
+pub struct KnownWinner {
+    pub season: i32,
+    pub club: i32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct EstaduaisPick {
+    pub competitions: Vec<i32>,
+    pub count: usize,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct BestOf {
     pub division: i32,
@@ -228,6 +273,26 @@ pub struct Entrants {
     /// O campeão da época anterior desta competição; se já estiver dentro, entra o seguinte de `league`.
     #[serde(default)]
     pub cup_winner: Option<i32>,
+    /// Como `cup_winner`, o vice (as supertaças de quatro).
+    #[serde(default)]
+    pub cup_runner_up: Option<i32>,
+    /// Os campeões de copas da época anterior, cada um com a liga que dá a vaga se ele já tiver uma.
+    #[serde(default)]
+    pub cup_winners: Vec<CupSlot>,
+    /// Os campeões destas competições na época anterior (as supertaças continentais).
+    #[serde(default)]
+    pub winners: Vec<i32>,
+    /// Campeões recentes e os mais fortes de cada continente (Mundial de Clubes).
+    #[serde(default)]
+    pub champions: Vec<ChampionsPick>,
+    /// Sem estes lugares da classificação final de uma liga na época anterior (os que entram
+    /// mais tarde, noutra fase).
+    #[serde(default)]
+    pub except: Option<LeagueSlots>,
+    /// Os N com mais reputação dos clubes destes estaduais que jogam uma divisão viva (as copas
+    /// regionais do Brasil).
+    #[serde(default)]
+    pub estaduais: Option<EstaduaisPick>,
     /// Clubes de outras nações: sorteio pesado pela reputação entre os mais fortes.
     #[serde(default)]
     pub foreign: Vec<Quota>,
@@ -275,6 +340,10 @@ pub struct Stage {
     /// Eliminatórias: os N primeiros só entram na 2ª ronda (os outros jogam a 1ª).
     #[serde(default)]
     pub byes: usize,
+    /// Eliminatórias: a 1ª ronda é uma preliminar só com os últimos, os precisos para a 2ª ser
+    /// uma potência de 2 (os outros entram nela); sem preliminar se já for.
+    #[serde(default)]
+    pub fill: bool,
     /// Fase de liga: quantas jornadas.
     #[serde(default)]
     pub matchdays: usize,
@@ -344,6 +413,16 @@ pub struct Regulation {
     /// Fase final com anfitriões escolhidos anos antes.
     #[serde(default)]
     pub hosts: Option<Hosts>,
+    /// Os campeões reais das épocas antes do jogo.
+    #[serde(default)]
+    pub known_winners: Vec<KnownWinner>,
+    /// A parte das receitas de referência que a competição paga em prémios (por omissão, a das
+    /// copas ou das ligas).
+    #[serde(default)]
+    pub prize: Option<f64>,
+    /// Copa (mesmo com grupos): cede às continentais e passa à frente das ligas nos choques.
+    #[serde(default)]
+    pub cup: bool,
 }
 
 impl Regulation {
@@ -356,9 +435,19 @@ impl Regulation {
     pub fn is_national(&self) -> bool {
         self.season == SeasonKind::International
     }
+
+    /// Só eliminatórias (copas e supertaças).
+    pub fn is_cup(&self) -> bool {
+        self.cup || self.stages.iter().all(|s| s.kind == StageKind::Knockout)
+    }
+
+    /// O campeão real de uma época antes do jogo.
+    pub fn known_winner(&self, season: i32) -> Option<i32> {
+        self.known_winners.iter().find(|k| k.season == season).map(|k| k.club)
+    }
 }
 
-const FILES: [&str; 57] = [
+const FILES: [&str; 88] = [
     include_str!("../regulations/serie_a.json"),
     include_str!("../regulations/serie_b.json"),
     include_str!("../regulations/serie_c.json"),
@@ -416,6 +505,37 @@ const FILES: [&str; 57] = [
     include_str!("../regulations/asian_cup.json"),
     include_str!("../regulations/gold_cup.json"),
     include_str!("../regulations/oceania_cup.json"),
+    include_str!("../regulations/fa_cup.json"),
+    include_str!("../regulations/efl_cup.json"),
+    include_str!("../regulations/copa_del_rey.json"),
+    include_str!("../regulations/coppa_italia.json"),
+    include_str!("../regulations/dfb_pokal.json"),
+    include_str!("../regulations/coupe_de_france.json"),
+    include_str!("../regulations/taca_de_portugal.json"),
+    include_str!("../regulations/taca_da_liga.json"),
+    include_str!("../regulations/knvb_beker.json"),
+    include_str!("../regulations/copa_argentina.json"),
+    include_str!("../regulations/kings_cup.json"),
+    include_str!("../regulations/community_shield.json"),
+    include_str!("../regulations/dfl_supercup.json"),
+    include_str!("../regulations/trophee_des_champions.json"),
+    include_str!("../regulations/supertaca.json"),
+    include_str!("../regulations/johan_cruijff_schaal.json"),
+    include_str!("../regulations/supercopa_do_brasil.json"),
+    include_str!("../regulations/supercopa_argentina.json"),
+    include_str!("../regulations/supercopa_espana.json"),
+    include_str!("../regulations/supercoppa_italiana.json"),
+    include_str!("../regulations/saudi_super_cup.json"),
+    include_str!("../regulations/uefa_super_cup.json"),
+    include_str!("../regulations/recopa.json"),
+    include_str!("../regulations/club_world_cup.json"),
+    include_str!("../regulations/conference_league.json"),
+    include_str!("../regulations/afc_champions_elite.json"),
+    include_str!("../regulations/afc_champions_two.json"),
+    include_str!("../regulations/copa_do_nordeste.json"),
+    include_str!("../regulations/copa_verde.json"),
+    include_str!("../regulations/trofeo_de_campeones.json"),
+    include_str!("../regulations/intercontinental.json"),
 ];
 
 /// Uma faixa da classificação, como as linhas do CM: as vagas noutra competição (pela
@@ -438,6 +558,10 @@ pub struct Zone {
 pub fn zones(competition: i32) -> Vec<Zone> {
     let mut slots: Vec<(usize, usize, i32)> = Vec::new();
     for r in all() {
+        // As copas (Taça da Liga, supertaças) não dão faixa na tabela
+        if r.is_cup() {
+            continue;
+        }
         for stage in &r.stages {
             for l in stage.entrants.leagues.iter().chain(&stage.entrants.league) {
                 if l.competition == competition && l.count > 0 && !slots.iter().any(|s| s.2 == r.competition) {
@@ -507,6 +631,24 @@ pub fn get(competition: i32) -> Option<&'static Regulation> {
     all().iter().find(|r| r.competition == competition)
 }
 
+/// O escalão de uma divisão no seu país: 0 a de cima, 1 a que sobe para ela... (pelas subidas
+/// dos regulamentos); 9 sem regulamento.
+pub fn tier(division: Option<i32>) -> i32 {
+    let mut d = match division.and_then(get) {
+        Some(r) => r,
+        None => return 9,
+    };
+    let mut t = 0;
+    while let Some(up) = d.promotion.as_ref().and_then(|m| get(m.to)) {
+        t += 1;
+        d = up;
+        if t > 8 {
+            break;
+        }
+    }
+    t
+}
+
 /// O Mundial (competição 448), que se joga em junho e julho do ano seguinte ao da época.
 pub const WORLD_CUP: i32 = 448;
 
@@ -554,7 +696,7 @@ pub fn season_of(competition: i32, day: &str) -> i32 {
 pub fn season_label(competition: i32, season: i32) -> String {
     match season_kind(competition) {
         SeasonKind::Calendar => season.to_string(),
-        SeasonKind::International if get(competition).is_some_and(|r| r.draw.is_some()) => (season + 1).to_string(),
+        SeasonKind::International | SeasonKind::European if get(competition).is_some_and(|r| r.draw.is_some()) => (season + 1).to_string(),
         SeasonKind::European | SeasonKind::International => format!("{season}/{:02}", (season + 1) % 100),
     }
 }

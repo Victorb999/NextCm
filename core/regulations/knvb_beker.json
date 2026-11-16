@@ -1,0 +1,59 @@
+{
+  "competition": 338,
+  "name": "Copa da Holanda",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "open",
+      "entrants": {
+        "divisions": [
+          22,
+          23
+        ]
+      },
+      "rounds": [
+        {
+          "name": "Fase preliminar",
+          "legs": 1,
+          "dates": "m39"
+        },
+        {
+          "name": "16-avos de final",
+          "legs": 1,
+          "dates": "m44"
+        },
+        {
+          "name": "Oitavas de final",
+          "legs": 1,
+          "dates": "m51"
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "m6"
+        },
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "m9"
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w16",
+          "neutral": true
+        }
+      ],
+      "fill": true
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 4053
+    }
+  ]
+}

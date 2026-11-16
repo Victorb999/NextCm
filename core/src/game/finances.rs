@@ -16,12 +16,13 @@ use rusqlite::{OptionalExtension, params};
 use super::Game;
 use crate::engine;
 use crate::finance::{self, ClubFinances, FinanceRow};
-use crate::league::{CHAMPIONS_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, Match, SUL_AMERICANA};
+use crate::league::{AFC_ELITE, AFC_TWO, CHAMPIONS_LEAGUE, CONFERENCE_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, Match, SUL_AMERICANA};
 use crate::regulation::{self, StageKind};
 use crate::{Result, date};
 
 /// Competições continentais (prémios maiores).
-pub(super) const CONTINENTAL: [i32; 4] = [LIBERTADORES, SUL_AMERICANA, CHAMPIONS_LEAGUE, EUROPA_LEAGUE];
+pub(super) const CONTINENTAL: [i32; 7] =
+    [LIBERTADORES, SUL_AMERICANA, CHAMPIONS_LEAGUE, EUROPA_LEAGUE, CONFERENCE_LEAGUE, AFC_ELITE, AFC_TWO];
 
 impl Game {
     /// Jogo novo: nos salários do patch × `WAGE_SCALE` os jovens das grandes equipas ganham como
@@ -281,8 +282,10 @@ impl Game {
     /// reputação). Em campo neutro, metade para cada um. Nas continentais, o prémio do jogo.
     pub(super) fn gate(&self, m: &Match) -> Result<()> {
         if CONTINENTAL.contains(&m.competition_id) {
+            // O peso do regulamento (a Conference e a AFC Two pagam menos)
+            let rate = regulation::get(m.competition_id).and_then(|r| r.prize).unwrap_or(finance::CONTINENTAL_PRIZES);
             for club in [m.home_id, m.away_id] {
-                let prize = finance::CONTINENTAL_PRIZES * finance::CONTINENTAL_MATCH * self.club_base(club)?;
+                let prize = rate * finance::CONTINENTAL_MATCH * self.club_base(club)?;
                 self.book(club, "prizes", prize.round() as i64)?;
             }
         }
@@ -318,7 +321,9 @@ impl Game {
             return Ok(());
         }
         let league = reg.stages[0].kind == StageKind::League && !reg.stages[0].entrants.divisions.is_empty();
-        let rate = if CONTINENTAL.contains(&comp) {
+        let rate = if let Some(rate) = reg.prize {
+            rate
+        } else if CONTINENTAL.contains(&comp) {
             finance::CONTINENTAL_PRIZES
         } else if league {
             finance::LEAGUE_PRIZES

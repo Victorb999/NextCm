@@ -22,6 +22,7 @@ mod board_meeting;
 mod career_marks;
 mod celebrations;
 mod city;
+mod clashes;
 mod clinch;
 mod club_moves;
 mod competition_stats;
@@ -3393,7 +3394,7 @@ fn competition_names(world: &World, matches: &[Match]) -> Result<HashMap<i32, St
 
 /// A preposição com o artigo antes do nome de uma competição: "do", "da" ou "das".
 fn article(name: &str) -> &'static str {
-    if ["Campeonato", "Mundial"].iter().any(|p| name.starts_with(p)) {
+    if ["Campeonato", "Mundial", "Troféu"].iter().any(|p| name.starts_with(p)) {
         "do"
     } else if name.starts_with("Eliminatórias") {
         "das"

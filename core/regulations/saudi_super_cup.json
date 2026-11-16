@@ -1,0 +1,37 @@
+{
+  "competition": 397,
+  "name": "Supercopa Saudita",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "league": {
+          "competition": 196,
+          "from": 1,
+          "count": 2
+        },
+        "cup_winner": 377,
+        "cup_runner_up": 377
+      },
+      "rounds": [
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "m34",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w34",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.01
+}

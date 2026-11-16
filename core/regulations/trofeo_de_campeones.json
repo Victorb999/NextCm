@@ -1,0 +1,28 @@
+{
+  "competition": 181,
+  "name": "Troféu dos Campeões",
+  "order": 2,
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "league": {
+          "competition": 63,
+          "from": 1,
+          "count": 2
+        }
+      },
+      "rounds": [
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w3",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.01
+}

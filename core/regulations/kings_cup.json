@@ -1,0 +1,56 @@
+{
+  "competition": 377,
+  "name": "Copa do Rei Saudita",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "open",
+      "entrants": {
+        "divisions": [
+          196
+        ],
+        "best_of": {
+          "division": 396,
+          "count": 14
+        }
+      },
+      "rounds": [
+        {
+          "name": "16-avos de final",
+          "legs": 1,
+          "dates": "m39"
+        },
+        {
+          "name": "Oitavas de final",
+          "legs": 1,
+          "dates": "m44"
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "m51"
+        },
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "m6"
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w21",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 403
+    }
+  ]
+}

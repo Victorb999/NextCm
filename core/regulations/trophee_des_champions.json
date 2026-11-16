@@ -1,0 +1,30 @@
+{
+  "competition": 96,
+  "name": "Supercopa da França",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "league": {
+          "competition": 11,
+          "from": 1,
+          "count": 1
+        },
+        "cup_winner": 335
+      },
+      "rounds": [
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w31",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.01
+}

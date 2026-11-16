@@ -13,37 +13,74 @@
           {
             "competition": 7,
             "from": 5,
-            "count": 2
+            "count": 1
           },
           {
             "competition": 52,
             "from": 5,
-            "count": 2
+            "count": 1
           },
           {
             "competition": 24,
             "from": 5,
-            "count": 2
+            "count": 1
           },
           {
             "competition": 16,
             "from": 5,
-            "count": 2
+            "count": 1
           },
           {
             "competition": 11,
             "from": 4,
-            "count": 2
+            "count": 1
           },
           {
             "competition": 46,
             "from": 3,
-            "count": 2
+            "count": 1
           },
           {
             "competition": 22,
             "from": 3,
-            "count": 2
+            "count": 1
+          }
+        ],
+        "cup_winners": [
+          {
+            "cup": 351,
+            "league": 7,
+            "from": 5
+          },
+          {
+            "cup": 348,
+            "league": 52,
+            "from": 5
+          },
+          {
+            "cup": 339,
+            "league": 24,
+            "from": 5
+          },
+          {
+            "cup": 337,
+            "league": 16,
+            "from": 5
+          },
+          {
+            "cup": 335,
+            "league": 11,
+            "from": 4
+          },
+          {
+            "cup": 347,
+            "league": 46,
+            "from": 3
+          },
+          {
+            "cup": 338,
+            "league": 22,
+            "from": 3
           }
         ],
         "continent": {
@@ -104,6 +141,12 @@
           "neutral": true
         }
       ]
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 10270
     }
   ]
 }

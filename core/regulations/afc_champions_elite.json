@@ -1,0 +1,72 @@
+{
+  "competition": 110,
+  "name": "Liga dos Campeões da Ásia",
+  "order": 6,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "league_phase",
+      "name": "Fase de liga",
+      "matchdays": 8,
+      "entrants": {
+        "league": {
+          "competition": 196,
+          "from": 1,
+          "count": 3
+        },
+        "cup_winner": 377,
+        "continent": {
+          "continent": 1,
+          "count": 20,
+          "per_nation": 3,
+          "exclude_nations": [
+            "Saudi Arabia"
+          ]
+        }
+      },
+      "dates": "m38 m40 m43 m45 m47 m50 m6 m7"
+    },
+    {
+      "kind": "knockout",
+      "name": "Eliminatórias",
+      "pairing": "bracket",
+      "entrants": {
+        "previous": {
+          "top": 16
+        }
+      },
+      "rounds": [
+        {
+          "name": "Oitavas de final",
+          "legs": 2,
+          "dates": "m9 m10"
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "m17",
+          "neutral": true
+        },
+        {
+          "name": "Semifinais",
+          "legs": 1,
+          "dates": "w17",
+          "neutral": true
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "m18",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 269
+    }
+  ],
+  "prize": 0.15
+}

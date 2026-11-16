@@ -92,5 +92,11 @@
         }
       ]
     }
+  ],
+  "known_winners": [
+    {
+      "season": 2025,
+      "club": 5688
+    }
   ]
 }

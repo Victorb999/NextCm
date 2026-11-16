@@ -145,6 +145,11 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
         let b = game.board_view().expect("diretoria");
         println!("  diretoria: confiança {} ({}), objetivo {} ({}º)", b.confidence, b.confidence_label, b.goal, b.target);
         println!("  gols por jogo: {}", goals_report.join(", "));
+        let clashes = game.fixture_clashes();
+        println!("  jogos a menos de 3 dias um do outro: {}", clashes.len());
+        for c in clashes.iter().take(30) {
+            println!("    {c}");
+        }
         let (sold, free, loans, released, fees) =
             game.market_totals(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("mercado");
         println!("  mercado: {sold} transferências (€{:.0}M), {free} livres, {loans} empréstimos, {released} dispensas", fees as f64 / 1e6);

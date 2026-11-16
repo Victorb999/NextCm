@@ -1,0 +1,60 @@
+{
+  "competition": 348,
+  "name": "Copa do Rei",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "open",
+      "entrants": {
+        "divisions": [
+          52,
+          53
+        ]
+      },
+      "rounds": [
+        {
+          "name": "1ª fase",
+          "legs": 1,
+          "dates": "m44"
+        },
+        {
+          "name": "16-avos de final",
+          "legs": 1,
+          "dates": "m51"
+        },
+        {
+          "name": "Oitavas de final",
+          "legs": 1,
+          "dates": "m3"
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "m6"
+        },
+        {
+          "name": "Semifinais",
+          "legs": 2,
+          "dates": "m9 m12"
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w17",
+          "neutral": true
+        }
+      ],
+      "single_home": "lower",
+      "fill": true
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 1283
+    }
+  ]
+}

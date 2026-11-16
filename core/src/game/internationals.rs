@@ -277,11 +277,15 @@ impl Game {
 
     /// Os sorteios das fases finais marcados para hoje, com uma notícia dos grupos.
     fn international_draws(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
-        let year = regulation::season_of(ANY_NATIONAL, &self.date);
         let mut drawn = false;
-        for reg in regulation::all().iter().filter(|r| r.is_national() && r.in_cycle(year)) {
+        // As fases finais de selecções e as de clubes sorteadas mais tarde (o Mundial de Clubes)
+        for reg in regulation::all().iter().filter(|r| r.draw.is_some()) {
+            let year = regulation::season_of(reg.competition, &self.date);
+            if !reg.in_cycle(year) || self.comp_mode(reg.competition) == super::leagues::LeagueMode::Off {
+                continue;
+            }
             let Some(spec) = &reg.draw else { continue };
-            let on = regulation::dates_in(year, spec, SeasonKind::International);
+            let on = regulation::dates_in(year, spec, reg.season);
             if on.first().map(String::as_str) != Some(self.date.as_str()) || self.year_matches(reg.competition, year).next().is_some() {
                 continue;
             }
@@ -296,7 +300,8 @@ impl Game {
                     }
                 }
             }
-            if groups.is_empty() {
+            // Sem grupos (a Copa Intercontinental), o quadro vê-se na competição
+            if groups.is_empty() || reg.stages[0].kind == regulation::StageKind::Knockout {
                 continue;
             }
             let label = regulation::season_label(reg.competition, year);

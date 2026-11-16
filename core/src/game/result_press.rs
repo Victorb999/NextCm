@@ -3,11 +3,11 @@
 //! o líder folgado que vira favorito ao título e a goleada sofrida.
 
 use super::{Game, NewsItem};
-use crate::league::{CHAMPIONS_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, Match, SUL_AMERICANA};
+use crate::league::{AFC_ELITE, AFC_TWO, CHAMPIONS_LEAGUE, CONFERENCE_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, Match, SUL_AMERICANA};
 use crate::{Result, date};
 
 /// As competições continentais de clubes.
-const CONTINENTAL: [i32; 4] = [CHAMPIONS_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, SUL_AMERICANA];
+const CONTINENTAL: [i32; 7] = [CHAMPIONS_LEAGUE, EUROPA_LEAGUE, CONFERENCE_LEAGUE, LIBERTADORES, SUL_AMERICANA, AFC_ELITE, AFC_TWO];
 /// A diferença de gols que faz de um jogo uma goleada (e a do agregado de um mata-mata).
 const ROUT: i32 = 4;
 const ROUT_AGGREGATE: i32 = 5;

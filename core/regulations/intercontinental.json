@@ -1,0 +1,83 @@
+{
+  "competition": 325,
+  "name": "Copa Intercontinental",
+  "order": 8,
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "Fase inicial",
+      "pairing": "bracket",
+      "entrants": {
+        "champions": [
+          {
+            "competition": 58,
+            "seasons": 1,
+            "continent": 5,
+            "count": 1,
+            "per_nation": 1
+          },
+          {
+            "competition": 110,
+            "seasons": 1,
+            "continent": 1,
+            "count": 1,
+            "per_nation": 1
+          },
+          {
+            "continent": 0,
+            "count": 1,
+            "per_nation": 1
+          },
+          {
+            "continent": 3,
+            "count": 1,
+            "per_nation": 1
+          }
+        ]
+      },
+      "rounds": [
+        {
+          "name": "Primeira fase",
+          "legs": 1,
+          "dates": "m50",
+          "neutral": true
+        },
+        {
+          "name": "Copa Challenge",
+          "legs": 1,
+          "dates": "w50",
+          "neutral": true
+        }
+      ]
+    },
+    {
+      "kind": "knockout",
+      "name": "Final",
+      "pairing": "bracket",
+      "entrants": {
+        "champions": [
+          {
+            "competition": 326,
+            "seasons": 1,
+            "continent": 2,
+            "count": 1,
+            "per_nation": 1
+          }
+        ],
+        "previous": {
+          "round_winners": 1
+        }
+      },
+      "rounds": [
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "m51",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.08,
+  "draw": "m49"
+}

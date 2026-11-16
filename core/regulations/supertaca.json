@@ -1,0 +1,30 @@
+{
+  "competition": 99,
+  "name": "Supertaça de Portugal",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "league": {
+          "competition": 46,
+          "from": 1,
+          "count": 1
+        },
+        "cup_winner": 347
+      },
+      "rounds": [
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "w31",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "prize": 0.01
+}

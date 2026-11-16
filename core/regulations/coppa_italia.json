@@ -1,0 +1,80 @@
+{
+  "competition": 339,
+  "name": "Copa da Itália",
+  "order": 2,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "Fases preliminares",
+      "pairing": "open",
+      "entrants": {
+        "divisions": [
+          24,
+          25
+        ],
+        "except": {
+          "competition": 24,
+          "from": 1,
+          "count": 8
+        }
+      },
+      "rounds": [
+        {
+          "name": "1ª fase",
+          "legs": 1,
+          "dates": "m33"
+        },
+        {
+          "name": "2ª fase",
+          "legs": 1,
+          "dates": "m39"
+        }
+      ]
+    },
+    {
+      "kind": "knockout",
+      "name": "Fase final",
+      "pairing": "pots",
+      "entrants": {
+        "league": {
+          "competition": 24,
+          "from": 1,
+          "count": 8
+        },
+        "previous": {
+          "round_winners": 1
+        }
+      },
+      "rounds": [
+        {
+          "name": "Oitavas de final",
+          "legs": 1,
+          "dates": "m49"
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "m6"
+        },
+        {
+          "name": "Semifinais",
+          "legs": 2,
+          "dates": "m9 m16"
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "m20",
+          "neutral": true
+        }
+      ]
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 1634
+    }
+  ]
+}

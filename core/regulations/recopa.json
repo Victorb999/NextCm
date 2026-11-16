@@ -1,0 +1,26 @@
+{
+  "competition": 61,
+  "name": "Recopa Sul-Americana",
+  "order": 7,
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "bracket",
+      "entrants": {
+        "winners": [
+          58,
+          92
+        ]
+      },
+      "rounds": [
+        {
+          "name": "Final",
+          "legs": 2,
+          "dates": "m8 m10"
+        }
+      ]
+    }
+  ],
+  "prize": 0.02
+}

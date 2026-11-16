@@ -1,0 +1,52 @@
+{
+  "competition": 271,
+  "name": "Copa Verde",
+  "order": 2,
+  "stages": [
+    {
+      "kind": "knockout",
+      "name": "",
+      "pairing": "pots",
+      "entrants": {
+        "estaduais": {
+          "competitions": [
+            73,
+            74,
+            260
+          ],
+          "count": 16
+        }
+      },
+      "rounds": [
+        {
+          "name": "Oitavas de final",
+          "legs": 1,
+          "dates": "m13"
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 1,
+          "dates": "m22"
+        },
+        {
+          "name": "Semifinais",
+          "legs": 2,
+          "dates": "m23 m25"
+        },
+        {
+          "name": "Final",
+          "legs": 2,
+          "dates": "m28 m29"
+        }
+      ],
+      "single_home": "weaker"
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2025,
+      "club": 7694
+    }
+  ],
+  "prize": 0.01
+}

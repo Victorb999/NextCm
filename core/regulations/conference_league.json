@@ -1,0 +1,119 @@
+{
+  "competition": 327,
+  "name": "Liga Conferência",
+  "order": 7,
+  "season": "european",
+  "stages": [
+    {
+      "kind": "league_phase",
+      "name": "Fase de liga",
+      "matchdays": 6,
+      "entrants": {
+        "leagues": [
+          {
+            "competition": 52,
+            "from": 6,
+            "count": 1
+          },
+          {
+            "competition": 24,
+            "from": 6,
+            "count": 1
+          },
+          {
+            "competition": 16,
+            "from": 6,
+            "count": 1
+          },
+          {
+            "competition": 11,
+            "from": 5,
+            "count": 1
+          },
+          {
+            "competition": 46,
+            "from": 4,
+            "count": 1
+          },
+          {
+            "competition": 22,
+            "from": 4,
+            "count": 1
+          }
+        ],
+        "cup_winners": [
+          {
+            "cup": 352,
+            "league": 7,
+            "from": 6
+          }
+        ],
+        "continent": {
+          "continent": 2,
+          "count": 29,
+          "per_nation": 2,
+          "exclude_nations": [
+            "England",
+            "Spain",
+            "Italy",
+            "Germany",
+            "France",
+            "Portugal",
+            "Netherlands"
+          ]
+        },
+        "exclude": [
+          326,
+          328
+        ]
+      },
+      "dates": "m40 m43 m45 m48 m50 m51"
+    },
+    {
+      "kind": "knockout",
+      "name": "Eliminatórias",
+      "pairing": "bracket",
+      "entrants": {
+        "previous": {
+          "top": 24
+        }
+      },
+      "rounds": [
+        {
+          "name": "Play-off",
+          "legs": 2,
+          "dates": "m7 m8"
+        },
+        {
+          "name": "Oitavas de final",
+          "legs": 2,
+          "dates": "m10 m11"
+        },
+        {
+          "name": "Quartas de final",
+          "legs": 2,
+          "dates": "m14 m15"
+        },
+        {
+          "name": "Semifinais",
+          "legs": 2,
+          "dates": "m17 m18"
+        },
+        {
+          "name": "Final",
+          "legs": 1,
+          "dates": "m22",
+          "neutral": true
+        }
+      ],
+      "byes": 8
+    }
+  ],
+  "known_winners": [
+    {
+      "season": 2024,
+      "club": 2254
+    }
+  ],
+  "prize": 0.08
+}
