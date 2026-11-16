@@ -16,6 +16,7 @@ export function DialogFrame({
   okLabel = 'Ok',
   width = 660,
   full,
+  footer,
 }: {
   title: ReactNode
   children: ReactNode
@@ -27,6 +28,8 @@ export function DialogFrame({
   width?: number
   /** Ocupa toda a área (editor). */
   full?: boolean
+  /** Botões próprios no lugar de Cancelar / Ok. */
+  footer?: ReactNode
 }) {
   return (
     <div
@@ -42,7 +45,8 @@ export function DialogFrame({
       </div>
       {header}
       <div className="mt-1.5 min-h-0 flex-1 overflow-auto  px-3 py-2  bg-[#013220ff] rounded">{children}</div>
-      {(onCancel || onOk) && (
+      {footer && <div className="mt-2 flex shrink-0 gap-1">{footer}</div>}
+      {!footer && (onCancel || onOk) && (
         <div className="mt-2 flex shrink-0 gap-1">
           <button className="cm-purple h-9 flex-[2] font-title text-xl" disabled={!onCancel} onClick={onCancel}>
             {cancelLabel}
@@ -68,4 +72,51 @@ export function DialogRow({ label, children, wide }: { label: string; children: 
 /** Fundo escurecido que centra um diálogo sobre a área principal (por cima do dia de jogo, z-50). */
 export function Overlay({ children }: { children: ReactNode }) {
   return <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">{children}</div>
+}
+
+/** Uma opção do CM que se liga e desliga com um clique: branca ligada, roxa desligada (as
+ * Configurações do "Ir de Férias"). `radio` = uma de um grupo (clicar na ligada não a tira). */
+export function OptionLine({
+  label,
+  on,
+  onToggle,
+  radio,
+  disabled,
+  children,
+}: {
+  label: ReactNode
+  on: boolean
+  onToggle: () => void
+  radio?: boolean
+  disabled?: boolean
+  children?: ReactNode
+}) {
+  return (
+    <div className="flex min-h-[28px] items-center gap-3 px-3">
+      <button
+        role={radio ? 'radio' : 'checkbox'}
+        aria-checked={on}
+        disabled={disabled}
+        onClick={onToggle}
+        className={`text-left font-title text-[17px] leading-tight ${on ? 'text-white' : 'text-cm-purplelight'}
+          enabled:hover:underline disabled:opacity-50`}
+      >
+        {label}
+      </button>
+      {children}
+    </div>
+  )
+}
+
+/** O título de um grupo de opções ("Empregos", "Partidas"). */
+export function OptionGroup({ title, radio, children }: { title: string; radio?: boolean; children: ReactNode }) {
+  return (
+    <div className="pb-2">
+      <div className="pb-0.5 font-title text-[18px] font-bold text-cm-yellow">{title}</div>
+      {/* As linhas às riscas, como as listas do CM */}
+      <div role={radio ? 'radiogroup' : 'group'} aria-label={title} className="cm-zebra overflow-hidden rounded bg-black/40">
+        {children}
+      </div>
+    </div>
+  )
 }

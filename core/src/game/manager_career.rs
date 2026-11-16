@@ -1,17 +1,14 @@
-//! O treinador (marco 3.13, passo 4): Rescindir com Clube, Retirar-se, Ir de Férias (o
-//! adjunto trata de tudo durante uns dias) e o Currículo com os clubes por onde passou
+//! O treinador (marco 3.13, passo 4): Rescindir com Clube, Retirar-se (as férias estão em
+//! `holiday.rs`) e o Currículo com os clubes por onde passou
 //! (`manager_history`), as compras, as vendas e os títulos de cada um.
 
 use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use ts_rs::TS;
 
-use super::{Game, GameInfo};
+use super::Game;
 use crate::person::ClubRef;
 use crate::{Error, Result, date};
-
-/// Dias máximos de férias de uma vez.
-const MAX_HOLIDAY: i32 = 180;
 
 /// Um clube no currículo do treinador.
 #[derive(Debug, Clone, Serialize, TS)]
@@ -150,41 +147,6 @@ impl Game {
         Ok(format!("{name} se aposentou do futebol."))
     }
 
-    /// "Ir de Férias": o adjunto escolhe a equipa e os dias passam sem ver os jogos, até
-    /// `days` dias ou até o treinador ser despedido. As propostas e as conferências ficam
-    /// sem resposta (expiram como se ele não estivesse).
-    pub fn holiday(&mut self, days: i32) -> Result<GameInfo> {
-        if !(1..=MAX_HOLIDAY).contains(&days) {
-            return Err(Error::Invalid(format!("Férias de 1 a {MAX_HOLIDAY} dias.")));
-        }
-        if self.live.is_some() {
-            return Err(Error::Invalid("Não pode ir de férias no dia de um jogo.".into()));
-        }
-        let watch = self.watch;
-        let selection = self.selection.clone();
-        self.watch = false;
-        if let Some(sel) = &mut self.selection {
-            sel.auto = true;
-        }
-        let back = date::add_days(&self.date, days).unwrap_or_default();
-        let result: Result<()> = (|| {
-            while self.date.as_str() < back.as_str() && !self.sacked() {
-                self.advance_day()?;
-            }
-            Ok(())
-        })();
-        self.watch = watch;
-        // A escolha do treinador volta (sem os que saíram entretanto)
-        if !self.sacked() {
-            self.selection = selection;
-            self.clean_selection()?;
-        }
-        result?;
-        self.post_news_as("message", "De volta das férias".into(), format!("Voltou das férias em {}.", super::cm_date(&self.date)));
-        self.unsaved = true;
-        self.info()
-    }
-
     /// "Currículo": os clubes do treinador, com os negócios e os títulos de cada passagem.
     pub fn manager_career(&self) -> Result<Vec<CareerClub>> {
         let rows: Vec<(i32, String, Option<String>)> = self
@@ -261,7 +223,7 @@ mod tests {
         g.set_license(4).unwrap();
         assert_eq!(g.manager_stats().unwrap().license, "Licença Pro");
         g.set_license(0).unwrap();
-        let info = g.holiday(14).unwrap();
+        let info = g.holiday(&super::super::HolidayPlan { days: Some(14), ..Default::default() }).unwrap();
         assert_eq!(info.date, date::add_days(&start, 14).unwrap());
         assert!(!info.live, "volta fora de um jogo");
         let career = g.manager_career().unwrap();

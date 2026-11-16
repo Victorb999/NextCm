@@ -60,6 +60,7 @@ pub use game::{ClubPreview, club_preview};
 pub use game::{CompetitionStats, PlayerStatRow, RecentXg, TeamStatRow};
 pub use game::{DealTerms, LoanTerms};
 pub use game::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
+pub use game::{HolidayGame, HolidayPlan, HolidaySales, HolidayView};
 pub use game::{KeyMan, MatchAnalysis, MatchReview, Milestone};
 pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use game::{PressQuestion, PressView};

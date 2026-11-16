@@ -7,17 +7,11 @@ import { cmDate } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import type { ManagerDialog } from './managerMenu'
+import HolidayDialog from './HolidayDialog'
 import { Empty } from '../components/Screen'
 
 // Os diálogos do menu do treinador: Gravar Jogo (com a lista de ficheiros e "Ficheiro Existe
 // — Substituir?"), Ir de Férias, Rescindir com Clube e Retirar-se.
-
-const HOLIDAYS: [number, string][] = [
-  [7, '1 Semana'],
-  [14, '2 Semanas'],
-  [30, '1 Mês'],
-  [90, '3 Meses'],
-]
 
 const TEXT = 'py-3 text-center font-title text-[19px] text-white'
 
@@ -124,26 +118,7 @@ export default function ManagerDialogs({
         {busy && <Loading title="Salvar Jogo" detail="Salvando o jogo, por favor aguarde…" delay={150} />}
       </Overlay>
     )
-  if (dialog === 'holiday')
-    return (
-      <Overlay>
-        <DialogFrame title="Ir de Férias" width={520} onCancel={onClose}>
-          <div className={TEXT}>Durante as férias o auxiliar escolhe o time e os dias passam sem parar.</div>
-          <div className="grid grid-cols-2 gap-1 pb-1">
-            {HOLIDAYS.map(([days, label]) => (
-              <button
-                key={days}
-                disabled={busy}
-                className="cm-purple h-9 font-title text-lg"
-                onClick={() => void run(async () => game.update(await api.holiday(days)))}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </DialogFrame>
-      </Overlay>
-    )
+  if (dialog === 'holiday') return <HolidayDialog onClose={onClose} notify={notify} />
   const resign = dialog === 'resign'
   return (
     <Overlay>

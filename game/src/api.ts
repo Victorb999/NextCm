@@ -47,6 +47,8 @@ import type { FriendlyDay } from './bindings/FriendlyDay'
 import type { FriendlyGame } from './bindings/FriendlyGame'
 import type { FriendlyInvite } from './bindings/FriendlyInvite'
 import type { TourNation } from './bindings/TourNation'
+import type { HolidayPlan } from './bindings/HolidayPlan'
+import type { HolidayView } from './bindings/HolidayView'
 import type { GameInfo } from './bindings/GameInfo'
 import type { ContractReply } from './bindings/ContractReply'
 import type { ContractTerms } from './bindings/ContractTerms'
@@ -165,7 +167,10 @@ export const api = {
   giveTalk: (key: string, tone: string, person: number | null) => call<TalkReaction[]>('give_talk', { key, tone, person }),
   giveTalks: (tone: string, lines: TalkLine[]) => call<TalkReaction[]>('give_talks', { tone, lines }),
   retireManager: () => call<string>('retire_manager'),
-  holiday: (days: number) => call<GameInfo>('holiday', { days }),
+  startHoliday: (plan: HolidayPlan) => call<HolidayView>('start_holiday', { plan }),
+  holidayDay: () => call<HolidayView>('holiday_day'),
+  holidayView: () => call<HolidayView>('holiday_view'),
+  endHoliday: () => call<GameInfo>('end_holiday'),
   managerCareer: () => call<CareerClub[]>('manager_career'),
   managerStats: () => call<ManagerStats>('manager_stats'),
   /** O Último Jogo das Tácticas: a escalação do último jogo do clube (`null` sem jogos). */

@@ -189,7 +189,9 @@ session_command!(talk_view() -> TalkView);
 session_command!(give_talk(key: String, tone: String, person: Option<i32>) -> Vec<TalkReaction>);
 session_command!(give_talks(tone: String, lines: Vec<TalkLine>) -> Vec<TalkReaction>);
 session_command!(retire_manager() -> String);
-session_command!(holiday(days: i32) -> GameInfo);
+session_command!(holiday_day() -> nextcm_core::HolidayView);
+session_command!(holiday_view() -> nextcm_core::HolidayView);
+session_command!(end_holiday() -> GameInfo);
 session_command!(manager_career() -> Vec<CareerClub>);
 session_command!(manager_stats() -> ManagerStats);
 session_command!(last_lineup(id: i32) -> Option<nextcm_core::LastLineup>);
@@ -240,6 +242,12 @@ async fn live_set_tactics(state: State<'_, AppState>, selection: Selection) -> R
 async fn new_game(state: State<'_, AppState>, game: NewGame) -> Result<GameInfo, String> {
     let mut session = state.session.lock().map_err(|e| e.to_string())?;
     session.new_game(&game).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn start_holiday(state: State<'_, AppState>, plan: nextcm_core::HolidayPlan) -> Result<nextcm_core::HolidayView, String> {
+    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    session.start_holiday(&plan).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -440,7 +448,10 @@ pub fn run() {
             give_talk,
             give_talks,
             retire_manager,
-            holiday,
+            start_holiday,
+            holiday_day,
+            holiday_view,
+            end_holiday,
             manager_career,
             manager_stats,
             last_lineup,

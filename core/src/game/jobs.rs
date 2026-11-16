@@ -139,7 +139,7 @@ impl Game {
         Ok(())
     }
 
-    fn club_rep_of(&self, club: i32) -> Result<i32> {
+    pub(super) fn club_rep_of(&self, club: i32) -> Result<i32> {
         Ok(self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0))?)
     }
 

@@ -35,6 +35,7 @@ mod discipline;
 mod fair_play;
 mod finances;
 mod friendlies;
+mod holiday;
 mod hosts;
 mod internationals;
 mod jobs;
@@ -94,6 +95,7 @@ pub use contract_extras::ContractExtras;
 pub use deals::{ContractReply, ContractTerms, ExchangeCandidate, OfferAction, OfferView, RoleOption, SquadRoleView, TransferView};
 pub use discipline::DisciplineOptions;
 pub use friendlies::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
+pub use holiday::{HolidayGame, HolidayPlan, HolidaySales, HolidayView};
 pub use jobs::{JobNation, JobRow, JobsView};
 pub use leagues::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
 pub use lineup_check::LineupCheck;
@@ -654,6 +656,8 @@ pub struct GameInfo {
     /// O ecrã das reservas no menu do treinador ("Reservas Manchester United", ou o nome da
     /// II); `None` com uma equipa B à parte, sem reservas.
     pub reserves_name: Option<String>,
+    /// De férias: o app mostra o diálogo "De Férias".
+    pub holiday: bool,
 }
 
 /// Uma linha da lista "Carregar Jogo".
@@ -740,6 +744,8 @@ pub struct Game {
     live: Option<LiveDay>,
     /// Estatísticas dos jogos desde que o jogo foi aberto (para a CLI).
     records: Vec<MatchRecord>,
+    /// As férias em curso ("Ir de Férias").
+    holiday: Option<holiday::Holiday>,
     /// Ano em que o jogo começou: a época de transição das ligas do ano civil.
     first_year: i32,
     /// A jogar o semestre antes do "Brasil 2026": a direção ainda não conta.
@@ -968,6 +974,7 @@ impl Game {
                 fresh_draws: false,
                 draw: 0,
                 live: None,
+                holiday: None,
                 records: Vec::new(),
                 first_year: year,
                 prestart: false,
@@ -1617,6 +1624,7 @@ impl Game {
             fresh_draws: false,
             draw: 0,
             live: None,
+            holiday: None,
             records: Vec::new(),
             first_year: season_of(&created),
             prestart: false,
@@ -2943,6 +2951,7 @@ impl Game {
             needs_numbers: self.live.is_none() && !self.unnumbered_for_next_match()?.is_empty(),
             numbers_open: self.numbers_open()?,
             reserves_name: self.reserves_name()?,
+            holiday: self.holiday.is_some(),
         })
     }
 

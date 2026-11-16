@@ -1,5 +1,6 @@
 import PlayerContextMenu from '../components/PlayerContextMenu'
 import ManagerDialogs from './ManagerDialogs'
+import HolidayDialog from './HolidayDialog'
 import type { ManagerDialog } from './managerMenu'
 import type { LineupCheck } from '../bindings/LineupCheck'
 import LineupDialog from './LineupDialog'
@@ -143,6 +144,8 @@ export default function Shell() {
             />
           )}
           {dialog && game.info && <ManagerDialogs dialog={dialog} onClose={() => setDialog(null)} notify={notify} />}
+          {/* Férias a meio (o app recarregado): o "De Férias" volta sozinho */}
+          {!dialog && game.info?.holiday && <HolidayDialog onClose={() => {}} notify={notify} />}
           {notice && <Notice text={notice} />}
         </main>
       </div>

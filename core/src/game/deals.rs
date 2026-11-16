@@ -729,7 +729,7 @@ impl Game {
     /// Quanto o clube pede por um jogador: o preço da lista de transferências, se lá estiver;
     /// senão o valor, +40% se for dos 11 melhores, +25% se chegou há pouco, até +20% se for
     /// leal, e um acerto de −5% a +15% fixo por jogador e época.
-    fn asking_price(&self, person: i32, f: &Facts, club: i32) -> Result<i64> {
+    pub(super) fn asking_price(&self, person: i32, f: &Facts, club: i32) -> Result<i64> {
         // Na lista de transferências: o preço da lista
         let listed: Option<Option<i64>> = self
             .world

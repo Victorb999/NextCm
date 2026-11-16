@@ -311,10 +311,13 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             out(serde_json::to_value(session.give_talk(key, tone, person).map_err(e)?))
         }
         "retire_manager" => out(serde_json::to_value(session.retire_manager().map_err(e)?)),
-        "holiday" => {
-            let days = args["days"].as_i64().ok_or("falta days")? as i32;
-            out(serde_json::to_value(session.holiday(days).map_err(e)?))
+        "start_holiday" => {
+            let plan: nextcm_core::HolidayPlan = serde_json::from_value(args["plan"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.start_holiday(&plan).map_err(e)?))
         }
+        "holiday_day" => out(serde_json::to_value(session.holiday_day().map_err(e)?)),
+        "holiday_view" => out(serde_json::to_value(session.holiday_view().map_err(e)?)),
+        "end_holiday" => out(serde_json::to_value(session.end_holiday().map_err(e)?)),
         "manager_career" => out(serde_json::to_value(session.manager_career().map_err(e)?)),
         "manager_stats" => out(serde_json::to_value(session.manager_stats().map_err(e)?)),
         "last_lineup" => out(serde_json::to_value(session.last_lineup(id()?).map_err(e)?)),

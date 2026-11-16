@@ -369,9 +369,24 @@ impl Session {
         Ok(text)
     }
 
-    /// "Ir de Férias" durante `days` dias.
-    pub fn holiday(&mut self, days: i32) -> Result<GameInfo> {
-        self.game_mut()?.holiday(days)
+    /// "Ir de Férias" com as opções do diálogo.
+    pub fn start_holiday(&mut self, plan: &crate::HolidayPlan) -> Result<crate::HolidayView> {
+        self.game_mut()?.start_holiday(plan)
+    }
+
+    /// Um dia de férias.
+    pub fn holiday_day(&mut self) -> Result<crate::HolidayView> {
+        self.game_mut()?.holiday_day()
+    }
+
+    /// As férias em curso (o app reaberto a meio).
+    pub fn holiday_view(&self) -> Result<crate::HolidayView> {
+        self.game()?.holiday_view()
+    }
+
+    /// "Voltar das Férias".
+    pub fn end_holiday(&mut self) -> Result<GameInfo> {
+        self.game_mut()?.end_holiday()
     }
 
     /// O Currículo do treinador.
