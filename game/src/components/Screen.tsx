@@ -2,7 +2,7 @@ import { ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ClubRef } from '../bindings/ClubRef'
-import { initials, localText } from '../format'
+import { initials } from '../format'
 import StatusStrip from './StatusStrip'
 
 /** As cores de um clube, com o cinzento de sempre quando o patch não as tem. */
@@ -92,8 +92,8 @@ export function ErrorBox({ children, className = '' }: { children: ReactNode; cl
   if (!children) return null
   return (
     <div className={`rounded bg-red-900 px-2 py-1 text-white ${className}`}>
-      {/* Os erros do core vêm em euros e por semana */}
-      {typeof children === 'string' ? localText(children) : children}
+      {/* Os erros do core já chegam na moeda e no período das Definições (`api.call`) */}
+      {children}
     </div>
   )
 }

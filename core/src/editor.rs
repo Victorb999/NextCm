@@ -1282,6 +1282,14 @@ fn apply_club(world: &World, c: &EditorClub) -> Result<()> {
             return Err(Error::Invalid("Folha permitida: o valor vai de 0 a 10 mil milhões.".into()));
         }
     }
+    if let Some(v) = c.max_wage {
+        if before.max_wage.is_none() {
+            return Err(Error::Invalid("Só o clube do treinador tem salário máximo da diretoria.".into()));
+        }
+        if !(0..=100_000_000).contains(&v) {
+            return Err(Error::Invalid("Salário máximo: o valor vai de 0 a 100 milhões por semana.".into()));
+        }
+    }
     let norm = |v: &Option<String>| v.as_deref().filter(|s| !s.is_empty()).map(str::to_lowercase);
     let rival = |i: usize| c.rivals.get(i).map(|r| r.id);
     let tx = &world.conn;
@@ -1328,6 +1336,18 @@ fn apply_club(world: &World, c: &EditorClub) -> Result<()> {
         && new != old
     {
         tx.execute("UPDATE board SET wage_budget = ?1, wage_shift = wage_shift + ?2 WHERE id = 1", rusqlite::params![new, new - old])?;
+    }
+    // O salário máximo por jogador: o escrito à mão ou, sem ele, o que acompanha a folha e os
+    // salários mudados (a conta da direção, que o refaz no começo de cada janela)
+    if let (Some(new), Some(old)) = (c.max_wage, before.max_wage)
+        && new != old
+    {
+        tx.execute("UPDATE board SET max_wage = ? WHERE id = 1", [new])?;
+    } else if before.wage_budget.is_some() && (c.wage_budget != before.wage_budget || c.wages != before.wages) {
+        let top: i64 =
+            tx.query_row("SELECT COALESCE(MAX(wage), 0) FROM people WHERE club_id = ? AND is_player = 1", [c.id], |r| r.get(0))?;
+        let budget: i64 = tx.query_row("SELECT wage_budget FROM board WHERE id = 1", [], |r| r.get(0))?;
+        tx.execute("UPDATE board SET max_wage = ? WHERE id = 1", [crate::game::max_wage_for(top, budget)])?;
     }
     Ok(())
 }
@@ -1526,6 +1546,18 @@ mod tests {
         let again = club(&dir, &file, c.id).unwrap();
         assert_eq!((again.cash, again.reputation, again.capacity, again.seating), (987_654_321, 8000, 50_000, 40_000));
         assert_eq!(again.home_bg.as_deref(), Some("#aa0000"));
+        // A folha permitida do clube do treinador: o salário máximo acompanha (10% da folha)
+        let mut c = again.clone();
+        c.wage_budget = Some(c.wage_budget.unwrap() * 10);
+        set_club(&dir, &file, &c).unwrap();
+        let again = club(&dir, &file, c.id).unwrap();
+        assert_eq!(again.wage_budget, c.wage_budget);
+        assert!(again.max_wage.unwrap() >= c.wage_budget.unwrap() / 10 - 1000, "{:?}", again.max_wage);
+        // Ou escrito à mão
+        let mut c = again.clone();
+        c.max_wage = Some(1_234_000);
+        set_club(&dir, &file, &c).unwrap();
+        assert_eq!(club(&dir, &file, c.id).unwrap().max_wage, Some(1_234_000));
 
         // Comandos em massa (o "Custom Command" do CM): no plantel todo e só num jogador
         let ids: Vec<i32> = all.iter().map(|h| h.id).collect();

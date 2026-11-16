@@ -164,6 +164,17 @@ fn start_funds(cash: i64) -> i64 {
     cash / step * step
 }
 
+/// Um salário arredondado para baixo (às centenas até €10K, aos milhares depois).
+fn round_wage(v: i64) -> i64 {
+    if v < 10_000 { v / 100 * 100 } else { v / 1000 * 1000 }
+}
+
+/// O salário máximo por jogador que a direção autoriza: o maior salário do plantel +25% ou uma
+/// parte da folha permitida (também o editor de jogos salvos, ao mudar a folha).
+pub(crate) fn max_wage_for(top: i64, wage_budget: i64) -> i64 {
+    round_wage((top as f64 * MAX_WAGE_OVER_TOP).max(wage_budget as f64 * MAX_WAGE_SHARE) as i64)
+}
+
 fn confidence_label(c: i32) -> &'static str {
     match c {
         80.. => "Excelente",
@@ -269,11 +280,11 @@ impl Game {
             [self.club_id],
             |r| r.get(0),
         )?;
-        let round = |v: i64| if v < 10_000 { v / 100 * 100 } else { v / 1000 * 1000 };
         // Arredondada para baixo, mas nunca abaixo da folha de hoje
-        let wage_budget = round(self.wage_allowed(bill)? + self.wage_shift()?).max(bill);
-        let max_wage = ((top as f64 * MAX_WAGE_OVER_TOP).max(wage_budget as f64 * MAX_WAGE_SHARE)) as i64;
-        self.world.conn.execute("UPDATE board SET wage_budget = ?, max_wage = ? WHERE id = 1", params![wage_budget, round(max_wage)])?;
+        let wage_budget = round_wage(self.wage_allowed(bill)? + self.wage_shift()?).max(bill);
+        self.world
+            .conn
+            .execute("UPDATE board SET wage_budget = ?, max_wage = ? WHERE id = 1", params![wage_budget, max_wage_for(top, wage_budget)])?;
         Ok(())
     }
 
@@ -524,7 +535,7 @@ impl Game {
             self.refresh_budgets()?;
             let b = self.board_view()?;
             let body = format!(
-                "A Diretoria autoriza transferências até {} nesta janela e uma folha salarial até {} por semana (salário máximo de {} por jogador).",
+                "A Diretoria autoriza transferências até {} nesta janela e uma folha salarial até {} por semana (salário máximo de {} por semana para cada jogador).",
                 super::market::money_text(b.transfer_budget),
                 super::market::money_text(b.wage_budget),
                 super::market::money_text(b.max_wage)

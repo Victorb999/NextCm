@@ -4,12 +4,16 @@ import type { EditorClub } from '../../bindings/EditorClub'
 import { DialogFrame, Overlay } from '../../components/Dialog'
 import Loading from '../../components/Loading'
 import { ErrorBox } from '../../components/Screen'
+import { wagePeriod } from '../../format'
 import { clubDirty, type ClubEdit } from './editorEdits'
 import { BOX, ROW, STATUS, TAB } from './editorText'
 import { ColorField, Header, NumField, RefList } from './Fields'
 import PickDialog from './PickDialog'
 
 type Pick = 'liked' | 'disliked' | 'rival'
+
+/** "semanal", "mensal", "anual": o período dos salários das Definições (o banco guarda o semanal). */
+const PERIOD_WORD: Record<string, string> = { week: 'semanal', month: 'mensal', year: 'anual' }
 
 /** Diálogo "Editar Clube" (como o Edit Club do editor do CM) com |< << >> >| entre os clubes da
  * lista. As mudanças ficam por gravar no editor (o "Gravar Alterações" grava tudo de uma vez). */
@@ -34,6 +38,10 @@ export default function ClubDialog({
   onSwitch: (id: number) => void
 }) {
   const [error, setError] = useState<string | null>(null)
+  // Os salários no período escolhido: mostrados × fator, gravados de volta por semana
+  const period = wagePeriod()
+  const shown = (weekly: number) => Math.round(weekly * period.factor)
+  const weekly = (v: number) => Math.round(v / period.factor)
   const [tab, setTab] = useState<'club' | 'wages'>('club')
   const [pick, setPick] = useState<Pick | null>(null)
 
@@ -110,17 +118,19 @@ export default function ClubDialog({
                     <NumField label="Saldo bancário" value={draft.cash} onChange={(v) => set({ cash: v })} width="w-32" />
                     {draft.wageBudget != null && (
                       <NumField
-                        label="Folha permitida (semanal)"
-                        value={draft.wageBudget}
-                        onChange={(v) => set({ wageBudget: v })}
+                        label={`Folha permitida (${PERIOD_WORD[period.key]})`}
+                        value={shown(draft.wageBudget)}
+                        onChange={(v) => set({ wageBudget: weekly(v) })}
                         width="w-32"
                       />
                     )}
                     {draft.maxWage != null && (
-                      <div className={ROW}>
-                        <span className="flex-1">Salário máximo atual</span>
-                        <span className="w-32 pr-2 text-right font-mono text-cm-yellow">{draft.maxWage}</span>
-                      </div>
+                      <NumField
+                        label={`Salário máximo permitido (${PERIOD_WORD[period.key]})`}
+                        value={shown(draft.maxWage)}
+                        onChange={(v) => set({ maxWage: weekly(v) })}
+                        width="w-32"
+                      />
                     )}
                   </div>
                   <div className={`${BOX} min-w-0 flex-1`}>
@@ -182,7 +192,7 @@ export default function ClubDialog({
 
             {tab === 'wages' && (
               <div className={BOX}>
-                <Header>Folha salarial (por semana)</Header>
+                <Header>Folha salarial ({period.long})</Header>
                 <div className="cm-zebra h-[400px] overflow-auto">
                   {draft.wages.map((w, i) => (
                     <label key={w.id} className="flex h-7 items-center gap-2 px-2 text-[14px]">
@@ -191,9 +201,9 @@ export default function ClubDialog({
                       <input
                         type="number"
                         min={0}
-                        value={w.wage}
+                        value={shown(w.wage)}
                         onChange={(e) =>
-                          set({ wages: draft.wages.map((x, j) => (j === i ? { ...x, wage: Number(e.target.value) || 0 } : x)) })
+                          set({ wages: draft.wages.map((x, j) => (j === i ? { ...x, wage: weekly(Number(e.target.value) || 0) } : x)) })
                         }
                         className={`cm-field h-6 w-32 text-right text-[14px] ${w.wage !== edit.saved.wages[i]?.wage ? '!text-cm-yellow' : ''}`}
                       />
@@ -202,7 +212,7 @@ export default function ClubDialog({
                 </div>
                 <div className="mt-2 flex items-center gap-1">
                   <span className="text-[14px]">
-                    Total: <span className="font-mono text-cm-yellow">{bill}</span>
+                    Total: <span className="font-mono text-cm-yellow">{shown(bill)}</span>
                   </span>
                   <span className="flex-1" />
                   <button className="cm-purple h-7 w-28 text-[13px]" onClick={() => scaleWages(-10)}>

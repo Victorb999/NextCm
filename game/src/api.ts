@@ -1,4 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
+import { localText } from './format'
 import type { BoardConfidence } from './bindings/BoardConfidence'
 import type { ContractExtras } from './bindings/ContractExtras'
 import type { FindResult } from './bindings/FindResult'
@@ -98,11 +99,16 @@ export const inTauri = isTauri()
 export const hasBackend = inTauri || import.meta.env.DEV
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (inTauri) return invoke<T>(cmd, args)
-  const res = await fetch(`/invoke/${cmd}`, { method: 'POST', body: JSON.stringify(args ?? {}) })
-  const data = await res.json()
-  if (!res.ok) throw data
-  return data as T
+  try {
+    if (inTauri) return await invoke<T>(cmd, args)
+    const res = await fetch(`/invoke/${cmd}`, { method: 'POST', body: JSON.stringify(args ?? {}) })
+    const data = await res.json()
+    if (!res.ok) throw data
+    return data as T
+  } catch (e) {
+    // Os erros do core vêm em euros e por semana: na moeda e no período das Definições
+    throw typeof e === 'string' ? localText(e) : e
+  }
 }
 
 /** Listas que não mudam na Fase 2: carregadas uma vez, voltar à tela fica instantâneo. */

@@ -480,7 +480,15 @@ impl Game {
     fn finalize_contract(&mut self, o: &Offer) -> Result<()> {
         let t = self.talk(o.person)?.ok_or_else(|| Error::Invalid("Não há contrato para fechar.".into()))?;
         let (f, name, party) = self.contract_party(o.person)?;
-        self.check_contract(&party, Self::role_index(&t.role)?, f.wage, t.wage, t.bonus)?;
+        // Os termos que o jogador aceitou já passaram pela diretoria quando foram propostos: até
+        // ao prazo valem, mesmo que a temporada nova tenha baixado a folha ou o salário máximo
+        // (só o dinheiro da transferência e do prémio volta a contar). A contraproposta dele é nova.
+        if o.status == "agreed" {
+            let fee = if let Party::Transfer(d) = &party { d.deal_terms().budget_cost() } else { 0 };
+            self.check_budget(fee + t.bonus)?;
+        } else {
+            self.check_contract(&party, Self::role_index(&t.role)?, f.wage, t.wage, t.bonus)?;
+        }
         let fee = if let Party::Transfer(d) = &party { d.deal_terms().budget_cost() } else { 0 };
         let kind = self.kind_of(self.club_id)?;
         let from_expiry = matches!(party, Party::Renewal | Party::Precontract);
@@ -682,5 +690,74 @@ impl Game {
             .prepare_cached("SELECT person_id FROM offers WHERE kind = 'contract' AND status = 'signed'")?
             .query_map([], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::Game;
+
+    /// O contrato que o jogador aceitou vale até ao prazo, mesmo que a direção baixe a folha e o
+    /// salário máximo (a temporada nova); a contraproposta dele volta a passar pelos limites.
+    #[test]
+    fn agreed_contract_survives_a_lower_wage_cap() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-acordado-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Acordado".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 7568,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        let mut g = Game::create(&path, &dir, &new, 5).unwrap();
+        let squad: Vec<i32> = g
+            .world
+            .conn
+            .prepare(
+                "SELECT id FROM people WHERE club_id = 7568 AND is_player = 1 AND contract_expires IS NOT NULL
+                 AND id NOT IN (SELECT person_id FROM loans) ORDER BY wage DESC",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        let mut proposed = Vec::new();
+        for &id in &squad {
+            let t = g.contract_terms(id, None).unwrap();
+            if g.negotiate(id, &t.role, t.wage, 0, 2, &Default::default()).is_ok() && g.open_contract(id).unwrap().is_some() {
+                proposed.push((id, t.wage));
+            }
+            if proposed.len() == 2 {
+                break;
+            }
+        }
+        assert_eq!(proposed.len(), 2, "duas renovações propostas");
+        let deadline = crate::date::add_days(&g.date, 7).unwrap();
+        let (agreed, countered) = (proposed[0], proposed[1]);
+        let o = g.open_contract(agreed.0).unwrap().unwrap();
+        g.set_status(o.id, "agreed", Some(&deadline)).unwrap();
+        let o2 = g.open_contract(countered.0).unwrap().unwrap();
+        g.set_status(o2.id, "countered", Some(&deadline)).unwrap();
+        // A temporada vira: a direção baixa tudo
+        g.world.conn.execute("UPDATE board SET wage_budget = 0, max_wage = 1000 WHERE id = 1", []).unwrap();
+        let o = g.open_contract(agreed.0).unwrap().unwrap();
+        g.answer_contract(&o, "confirm").expect("o acordo vale");
+        let wage: i64 = g.world.conn.query_row("SELECT wage FROM people WHERE id = ?", [agreed.0], |r| r.get(0)).unwrap();
+        assert_eq!(wage, agreed.1);
+        let o2 = g.open_contract(countered.0).unwrap().unwrap();
+        let err = g.answer_contract(&o2, "accept").unwrap_err().to_string();
+        assert!(err.contains("diretoria"), "{err}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

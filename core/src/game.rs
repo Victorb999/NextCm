@@ -89,6 +89,7 @@ use crate::squad::{Event, PlayerState, PlayerStatus, Squads};
 use crate::tactics::{ClubTactics, Instructions, Mentality, Passing, PlayerOrder, PlayerOrders, Selection, SquadState, Tackling, Takers};
 use crate::{Error, Result, World, date};
 pub use awards::AwardLine;
+pub(crate) use board::max_wage_for;
 pub use board::{BoardConfidence, BoardView};
 pub use board_meeting::BoardRequest;
 pub use club_moves::{ClubMoves, MoveRow};
