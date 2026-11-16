@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { ClubListItem } from '../bindings/ClubListItem'
 import type { NationOption } from '../bindings/NationOption'
+import type { ScoutFind } from '../bindings/ScoutFind'
 import type { ScoutList } from '../bindings/ScoutList'
 import { money } from '../format'
 import { useNav } from '../nav'
@@ -29,6 +30,31 @@ const REGIONS = [
   { id: 1, name: 'Ásia' },
   { id: 4, name: 'Oceânia' },
 ]
+
+// Ordenar pelas colunas, como na Pesquisa: cada uma na sua direção (estrelas e valor do maior
+// para o menor, a idade dos mais novos, o resto por ordem alfabética ou do campo)
+type SortKey = 'rec' | 'name' | 'club' | 'base' | 'position' | 'age' | 'value'
+const COLUMNS: { label: string; key?: SortKey; left?: boolean }[] = [
+  { label: 'Rec', key: 'rec' },
+  { label: 'Inf' },
+  { label: 'Nome', key: 'name', left: true },
+  { label: 'Clube', key: 'club', left: true },
+  { label: 'Base', key: 'base', left: true },
+  { label: 'Posição', key: 'position', left: true },
+  { label: 'Idade', key: 'age' },
+  { label: 'Valor', key: 'value' },
+]
+const text = (a: string | null | undefined, b: string | null | undefined) =>
+  (a ?? '￿').localeCompare(b ?? '￿', 'pt-BR', { sensitivity: 'base' })
+const ORDER: Record<SortKey, (a: ScoutFind, b: ScoutFind) => number> = {
+  rec: (a, b) => b.stars - a.stars,
+  name: (a, b) => text(a.listName, b.listName),
+  club: (a, b) => text(a.club?.shortName, b.club?.shortName),
+  base: (a, b) => text(a.base, b.base),
+  position: (a, b) => a.positionRank - b.positionRank,
+  age: (a, b) => a.age - b.age,
+  value: (a, b) => (b.value ?? -1) - (a.value ?? -1),
+}
 
 /** Escolher o alvo de uma tarefa: um clube (pelo nome), um país ou uma região. */
 function TargetDialog({
@@ -94,6 +120,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [filter, setFilter] = useState(NO_SCOUT_FILTER)
+  const [sort, setSort] = useState<SortKey>('rec')
 
   const reload = () =>
     api.scoutList(slot).then(
@@ -123,7 +150,8 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
     else setPicking(kind)
   }
   const noScout = !!list && !list.scout
-  const shown = list?.finds.filter((f) => scoutPasses(f, filter)) ?? []
+  // Empates: a ordem do olheiro (estrelas e qualidade), que é a da lista
+  const shown = (list?.finds.filter((f) => scoutPasses(f, filter)) ?? []).sort(ORDER[sort])
   const filtered = filter.line || filter.side || filter.stars
 
   return (
@@ -170,16 +198,21 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
               <col className="w-[18%]" />
               <col className="w-[16%]" />
               <col className="w-[13%]" />
+              <col className="w-14" />
               <col className="w-24" />
             </colgroup>
             <thead className="sticky top-0 z-10">
               <tr className="h-6">
-                {['Rec', 'Inf', 'Nome', 'Clube', 'Base', 'Posição', 'Valor'].map((h) => (
+                {COLUMNS.map((c) => (
                   <th
-                    key={h}
-                    className={`bg-cm-headdeep px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-cm-yellow ${['Nome', 'Clube', 'Base', 'Posição'].includes(h) ? 'text-left' : ''}`}
+                    key={c.label}
+                    onClick={c.key ? () => setSort(c.key!) : undefined}
+                    className={`bg-cm-headdeep px-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] ${c.left ? 'text-left' : ''} ${
+                      c.key ? 'cursor-pointer hover:text-white' : ''
+                    } ${c.key === sort ? 'text-cm-yellow' : 'text-cm-dim'}`}
                   >
-                    {h}
+                    {c.label}
+                    {c.key === sort && ' ▾'}
                   </th>
                 ))}
               </tr>
@@ -210,6 +243,7 @@ export default function ScoutPanel({ slot, nations }: { slot: number; nations: N
                   </td>
                   <td className="truncate px-2 text-cm-yellow">{f.base ?? '-'}</td>
                   <td className="truncate px-2 text-cm-orange">{f.position}</td>
+                  <td className="px-2 text-center tabular-nums text-white">{f.age}</td>
                   <td className="px-2 text-right tabular-nums text-white">{f.value === null ? '-' : money(f.value)}</td>
                 </tr>
               ))}

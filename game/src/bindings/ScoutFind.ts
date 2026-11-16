@@ -8,7 +8,11 @@ export type ScoutFind = { id: number, listName: string, club: ClubRef | null,
 /**
  * Onde joga: a divisão do clube (ou a nação, sem clube).
  */
-base: string | null, position: string, value: number | null, 
+base: string | null, position: string, 
+/**
+ * A ordem da posição (0 = GR ... 7 = A), para ordenar a lista pela coluna.
+ */
+positionRank: number, age: number, value: number | null, 
 /**
  * Recomendação do olheiro, 1 a 5 estrelas.
  */

@@ -1531,12 +1531,58 @@ impl Game {
                 _ => format!("{}: {from} → {to} por {}", d.name, money_text(d.fee)),
             });
         }
-        if lines.is_empty() {
-            return Ok(());
+        if !lines.is_empty() {
+            let body = format!("Transferências de {}:\n\n{}", cm_date(&self.date), lines.join("\n"));
+            fresh.push(self.news_item(*next_id, "transfer", "Transferências do dia".into(), body));
+            *next_id += 1;
         }
-        let body = format!("Transferências de {}:\n\n{}", cm_date(&self.date), lines.join("\n"));
-        fresh.push(self.news_item(*next_id, "transfer", "Transferências do dia".into(), body));
-        *next_id += 1;
+        self.shortlist_news(deals, fresh, next_id)
+    }
+
+    /// Um jogador da Lista Preferencial recebe uma proposta (o acordo da IA, que só se assina
+    /// dias depois) ou muda de clube: uma mensagem só dele, para o treinador não o perder.
+    fn shortlist_news(&self, deals: &[TransferItem], fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        for d in deals {
+            if d.kind == "return" || !self.in_shortlist(d.person_id)? {
+                continue;
+            }
+            let from = d.from.as_ref().map_or("sem clube".to_string(), |c| c.short_name.clone());
+            let to = d.to.as_ref().map_or("sem clube".to_string(), |c| c.short_name.clone());
+            let name = &d.name;
+            let (title, body) = match d.kind.as_str() {
+                "agreement" => {
+                    let on: Option<String> = self
+                        .world
+                        .conn
+                        .query_row("SELECT complete_on FROM ai_agreements WHERE person_id = ?", [d.person_id], |r| r.get(0))
+                        .optional()?;
+                    let when = on
+                        .map(|o| format!(" A transferência só é assinada a {}: até lá ainda pode fazer uma proposta.", cm_date(&o)))
+                        .unwrap_or_default();
+                    (
+                        format!("Proposta por {name}"),
+                        format!(
+                            "{name}, da sua Lista Preferencial, recebeu uma proposta: o {to} chegou a acordo com o {from} por {}.{when}",
+                            money_text(d.fee)
+                        ),
+                    )
+                }
+                "loan" => (format!("{name} emprestado"), format!("{name}, da sua Lista Preferencial, foi emprestado pelo {from} ao {to}.")),
+                "release" => (
+                    format!("{name} dispensado"),
+                    format!("{name}, da sua Lista Preferencial, foi dispensado pelo {from} e está sem clube."),
+                ),
+                "free" => {
+                    (format!("{name} assina pelo {to}"), format!("{name}, da sua Lista Preferencial, assinou pelo {to} a custo zero."))
+                }
+                _ => (
+                    format!("{name} vendido ao {to}"),
+                    format!("{name}, da sua Lista Preferencial, foi vendido pelo {from} ao {to} por {}.", money_text(d.fee)),
+                ),
+            };
+            fresh.push(self.news_item(*next_id, "message", title, body));
+            *next_id += 1;
+        }
         Ok(())
     }
 
@@ -1902,5 +1948,70 @@ mod tests {
         assert!(g.club_transfers(to.unwrap()).unwrap().iter().any(|t| t.person_id == id));
         drop(g);
         let _ = std::fs::remove_dir_all(&base);
+    }
+}
+
+#[cfg(test)]
+mod shortlist_tests {
+    use super::*;
+
+    /// Um jogador da Lista Preferencial com uma proposta da IA (o acordo à espera da assinatura)
+    /// ou vendido: uma mensagem só dele; um de fora da lista, só a linha das transferências do dia.
+    #[test]
+    fn shortlist_players_get_their_own_message() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = std::env::temp_dir().join(format!("nextcm-lista-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Lista".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 7568,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        let mut g = Game::create(&path, &dir, &new, 9).unwrap();
+        let ids: Vec<(i32, i32)> = g
+            .world
+            .conn
+            .prepare("SELECT id, club_id FROM people WHERE club_id = 3675 AND is_player = 1 ORDER BY id LIMIT 2")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        let (followed, other) = (ids[0].0, ids[1].0);
+        g.set_shortlist(followed, true).unwrap();
+        let on = date::add_days(&g.date, 5).unwrap();
+        g.world
+            .conn
+            .execute(
+                "INSERT INTO ai_agreements (person_id, from_club, to_club, fee, wage, years, complete_on) VALUES (?, 3675, 1193, 9000000, 50000, 3, ?)",
+                params![followed, on],
+            )
+            .unwrap();
+        let deals = vec![
+            g.transfer_item(followed, Some(3675), Some(1193), 9_000_000, "agreement").unwrap(),
+            g.transfer_item(other, Some(3675), Some(1193), 1_000_000, "transfer").unwrap(),
+        ];
+        let (mut fresh, mut next_id) = (Vec::new(), 1_000_000);
+        g.transfer_news(&deals, &mut fresh, &mut next_id).unwrap();
+        let mine: Vec<&NewsItem> = fresh.iter().filter(|n| n.kind == "message").collect();
+        assert_eq!(mine.len(), 1, "{fresh:?}");
+        assert!(mine[0].title.starts_with("Proposta por"), "{}", mine[0].title);
+        assert!(mine[0].body.contains("ainda pode fazer uma proposta"), "{}", mine[0].body);
+        // Vendido: outra mensagem
+        let sold = vec![g.transfer_item(followed, Some(3675), Some(1193), 9_000_000, "transfer").unwrap()];
+        let mut fresh = Vec::new();
+        g.transfer_news(&sold, &mut fresh, &mut next_id).unwrap();
+        assert!(fresh.iter().any(|n| n.kind == "message" && n.title.contains("vendido")), "{fresh:?}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

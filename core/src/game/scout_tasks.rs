@@ -34,6 +34,9 @@ pub struct ScoutFind {
     /// Onde joga: a divisão do clube (ou a nação, sem clube).
     pub base: Option<String>,
     pub position: String,
+    /// A ordem da posição (0 = GR ... 7 = A), para ordenar a lista pela coluna.
+    pub position_rank: i32,
+    pub age: i32,
     #[ts(type = "number | null")]
     pub value: Option<i64>,
     /// Recomendação do olheiro, 1 a 5 estrelas.
@@ -140,7 +143,7 @@ impl Game {
             (Some(t), Some(name)) => Some(self.task_text(name, &t)?),
             _ => None,
         };
-        type Row = (i32, String, Option<i32>, Option<String>, Option<String>, i32, [Option<i32>; 12]);
+        type Row = (i32, String, Option<i32>, Option<String>, Option<String>, i32, [Option<i32>; 12], (Option<String>, Option<i32>));
         let rows: Vec<Row> = self
             .world
             .conn
@@ -148,22 +151,24 @@ impl Game {
                 "SELECT p.id, p.list_name, p.club_id, COALESCE(k.short_name, k.name), n.name, f.stars,
                         pl.pos_goalkeeper, pl.pos_sweeper, pl.pos_defender, pl.pos_defensive_midfielder,
                         pl.pos_midfielder, pl.pos_attacking_midfielder, pl.pos_attacker, pl.pos_wing_back,
-                        pl.pos_right_side, pl.pos_left_side, pl.pos_central, pl.pos_free_role
+                        pl.pos_right_side, pl.pos_left_side, pl.pos_central, pl.pos_free_role, p.birth_date, p.birth_year
                  FROM scout_finds f JOIN people p ON p.id = f.person_id JOIN players pl ON pl.person_id = p.id
                  LEFT JOIN clubs c ON c.id = p.club_id LEFT JOIN competitions k ON k.id = c.division_id
                  LEFT JOIN nations n ON n.id = p.nation_id
-                 WHERE f.slot = ? ORDER BY f.stars DESC, pl.current_ability DESC, p.id",
+                 WHERE f.slot = ? AND p.id NOT IN (SELECT person_id FROM ghosts)
+                 ORDER BY f.stars DESC, pl.current_ability DESC, p.id",
             )?
             .query_map([slot], |r| {
                 let mut pos = [None; 12];
                 for (i, v) in pos.iter_mut().enumerate() {
                     *v = r.get(6 + i)?;
                 }
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, pos))
+                let birth: (Option<String>, Option<i32>) = (r.get(18)?, r.get(19)?);
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, pos, birth))
             })?
             .collect::<rusqlite::Result<_>>()?;
         let mut finds = Vec::with_capacity(rows.len());
-        for (id, list_name, club, division, nation, stars, pos) in rows {
+        for (id, list_name, club, division, nation, stars, pos, (born, born_year)) in rows {
             let (lines, sides) = crate::club::lines_and_sides(&pos);
             finds.push(ScoutFind {
                 id,
@@ -171,6 +176,8 @@ impl Game {
                 club: club.map(|c| self.club(c)),
                 base: if club.is_some() { division } else { nation },
                 position: position_label(&pos),
+                position_rank: crate::search::position_rank(&pos),
+                age: super::season::age_on(born.as_deref(), born_year, &self.date),
                 value: self.world.market_value_of(id, &self.date)?,
                 stars,
                 injured: self.player_status(id).is_some_and(|s| s.injury.is_some()),
@@ -287,6 +294,8 @@ impl Game {
                  WHERE {filter} AND p.is_player = 1 AND COALESCE(p.club_id, 0) <> {mine}
                    AND p.id NOT IN (SELECT person_id FROM scout_finds WHERE slot = {slot})
                    AND p.id NOT IN (SELECT person_id FROM retired)
+                   -- Os de enchimento (plantéis das selecções e dos clubes pequenos) não se observam
+                   AND p.id NOT IN (SELECT person_id FROM ghosts)
                  ORDER BY (p.id * 2654435761 + {salt}) % 1000003 LIMIT {per_day}",
                 mine = self.club_id,
                 slot = t.slot,
@@ -348,6 +357,13 @@ mod tests {
         g.assign_scout(2, "youth", None).unwrap();
         let brazil: i32 = g.world.conn.query_row("SELECT id FROM nations WHERE name IN ('Brasil', 'Brazil')", [], |r| r.get(0)).unwrap();
         g.assign_scout(3, "nation", Some(brazil)).unwrap();
+        // Um de enchimento no Flamengo: os olheiros não o recomendam
+        let ghost: i32 = g
+            .world
+            .conn
+            .query_row("SELECT id FROM people WHERE club_id = ? AND is_player = 1 ORDER BY id LIMIT 1", [FLAMENGO], |r| r.get(0))
+            .unwrap();
+        g.world.conn.execute("INSERT OR IGNORE INTO ghosts (person_id) VALUES (?)", [ghost]).unwrap();
         for _ in 0..10 {
             g.scout_tasks_day().unwrap();
             g.date = date::add_days(&g.date, 1).unwrap();
@@ -356,6 +372,8 @@ mod tests {
         assert!(flamengo.finds.len() >= 20, "{}", flamengo.finds.len());
         assert!(flamengo.finds.iter().all(|f| f.club.as_ref().is_some_and(|c| c.id == FLAMENGO) && (1..=5).contains(&f.stars)));
         assert_eq!(g.knowledge(flamengo.finds[0].id).unwrap(), crate::person::Knowledge::Known);
+        assert!(flamengo.finds.iter().all(|f| f.id != ghost), "o fantasma na lista");
+        assert!(flamengo.finds.iter().all(|f| (15..=45).contains(&f.age) && (0..=8).contains(&f.position_rank)));
         let youth = g.scout_list(2).unwrap();
         assert!(!youth.finds.is_empty());
         assert!(!g.scout_list(3).unwrap().finds.is_empty());

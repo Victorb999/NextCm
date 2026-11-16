@@ -1810,11 +1810,10 @@ impl Game {
                 self.offer_news(fresh, next_id, format!("Negócio por {name} caiu"), body, o.id);
                 continue;
             }
-            // Um ambicioso não desce para um clube mais pequeno (quase nunca)
-            let ambition: i32 =
-                self.world.conn.query_row("SELECT COALESCE(ambition, 10) FROM people WHERE id = ?", [o.person], |r| r.get(0))?;
-            let smaller = self.club_pull(o.buyer)? < self.club_pull(self.club_id)?;
-            let refuses = smaller && ambition >= personality::AMBITIOUS && self.deal_rng(o.person, 0x5E11).next_u32() % 10 < 7;
+            // Não desce demais (pela Ambição), como quando é o treinador a comprar: quem passa a
+            // jogar aceita um clube menor, e o jovem no banco ainda mais (4.0, item 20)
+            let f = self.facts(o.person)?.ok_or_else(|| Error::Invalid("Jogador desconhecido.".into()))?;
+            let refuses = personality::move_steps_down(&self.player_move(o.person, f.ca, f.age, f.ambition, self.club_id, o.buyer)?);
             if refuses {
                 self.set_status(o.id, "collapsed", None)?;
                 let body = format!(

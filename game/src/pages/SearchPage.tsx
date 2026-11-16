@@ -499,7 +499,7 @@ export default function SearchPage({ active }: { active: boolean }) {
                     <Th label="Nação" sort="nation" current={sort} onSort={setSort} className="text-left" />
                     <Th
                       label={players ? 'Posição' : 'Cargo'}
-                      sort={players ? undefined : 'job'}
+                      sort={players ? 'position' : 'job'}
                       current={sort}
                       onSort={setSort}
                       className="text-left"

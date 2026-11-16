@@ -89,6 +89,8 @@ pub enum SearchSort {
     Club,
     Nation,
     Job,
+    /// Pela posição natural, da baliza para a frente (GR, L, D, AL, MD, M, MA, A).
+    Position,
 }
 
 /// Situação no mercado (o "Vêr" da pesquisa do CM).
@@ -289,6 +291,31 @@ pub(crate) fn position_label(p: &[Option<i32>; 12]) -> String {
     }
 }
 
+/// As colunas das posições na ordem do campo, da baliza para a frente: GR, L, D, AL, MD, M, MA, A
+/// (os índices de `position_label`).
+const FIELD_ORDER: [(usize, &str); 8] = [
+    (0, "pos_goalkeeper"),
+    (1, "pos_sweeper"),
+    (2, "pos_defender"),
+    (7, "pos_wing_back"),
+    (3, "pos_defensive_midfielder"),
+    (4, "pos_midfielder"),
+    (5, "pos_attacking_midfielder"),
+    (6, "pos_attacker"),
+];
+
+/// A ordem da posição natural mais recuada (0 = GR ... 7 = A; 8 sem nenhuma), para ordenar listas.
+pub(crate) fn position_rank(p: &[Option<i32>; 12]) -> i32 {
+    FIELD_ORDER.iter().position(|&(i, _)| p[i].unwrap_or(0) >= NATURAL_POSITION).unwrap_or(FIELD_ORDER.len()) as i32
+}
+
+/// O mesmo em SQL, sobre a tabela `players` com o nome `pl`.
+fn position_rank_sql() -> String {
+    let whens: String =
+        FIELD_ORDER.iter().enumerate().map(|(k, (_, col))| format!(" WHEN pl.{col} >= {NATURAL_POSITION} THEN {k}")).collect();
+    format!("CASE{whens} ELSE {} END", FIELD_ORDER.len())
+}
+
 /// Uma posição com lado ("MAD", "AC", "GR") para as etiquetas do perfil.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[ts(export)]
@@ -436,7 +463,10 @@ impl World {
 
         // Ordenação pelas colunas pré-calculadas (com índice); os joins de
         // exibição são feitos só nas linhas da página.
+        let by_position =
+            format!("(SELECT {} FROM players pl WHERE pl.person_id = p.id) NULLS LAST, p.list_name COLLATE NOCASE", position_rank_sql());
         let order = match q.sort.unwrap_or_default() {
+            SearchSort::Position => by_position.as_str(),
             SearchSort::Ability => "p.ability DESC NULLS LAST, p.display_name",
             SearchSort::Name => "p.list_name COLLATE NOCASE",
             SearchSort::Age => "p.birth_sort DESC NULLS LAST, p.display_name",
@@ -748,6 +778,27 @@ mod tests {
             .search_people(&SearchQuery { kind: Some(PersonKind::Staff), job: Some(9), sort: Some(SearchSort::Club), ..Default::default() })
             .unwrap();
         assert!(by_club.items.iter().all(|p| p.job.as_deref() == Some("Olheiro")));
+        // Pela posição: os goleiros primeiro, na ordem do campo (nos jogadores do Brasil)
+        let q = SearchQuery {
+            kind: Some(PersonKind::Players),
+            text: Some("silva".into()),
+            sort: Some(SearchSort::Position),
+            limit: Some(200),
+            ..Default::default()
+        };
+        let squad = w.search_people(&q).unwrap();
+        assert_eq!(squad.items.first().map(|p| p.position.as_str()), Some("GR"));
+        let ranks: Vec<usize> = squad
+            .items
+            .iter()
+            .map(|p| {
+                ["GR", "L", "D", "AL", "MD", "M", "MA", "A"]
+                    .iter()
+                    .position(|r| p.position.split([' ', '/']).next() == Some(*r))
+                    .unwrap_or(8)
+            })
+            .collect();
+        assert!(ranks.windows(2).all(|w| w[0] <= w[1]), "{ranks:?}");
         // Os atributos de treino da aba Preparadores também filtram (Ataque, Treinar Técnica)
         for key in ["attacking", "coaching_technique"] {
             let mins = vec![AttributeMin { key: key.into(), min: 18 }];
@@ -852,6 +903,7 @@ mod bench {
             ("jogadores", SearchQuery { kind: Some(PersonKind::Players), ..Default::default() }),
             ("idade", SearchQuery { sort: Some(SearchSort::Age), ..Default::default() }),
             ("nome", SearchQuery { sort: Some(SearchSort::Name), ..Default::default() }),
+            ("posição", SearchQuery { sort: Some(SearchSort::Position), ..Default::default() }),
             ("goleiros sub-21", SearchQuery { positions: Some(vec![Position::GK]), max_age: Some(21), ..Default::default() }),
             (
                 "meias esquerda",
