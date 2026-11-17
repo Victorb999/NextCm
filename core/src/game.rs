@@ -3731,8 +3731,10 @@ mod tests {
         assert_eq!(mine.len(), 38);
         assert_eq!(mine.iter().filter(|f| f.home_goals.is_some()).count(), 9);
         // 2 iniciais + 9 resultados (+ lesões/suspensões do Palmeiras, que variam com a seed)
-        let results =
-            g.news().iter().filter(|n| n.kind == "competition" && n.title.contains('-') && !n.title.starts_with("Reservas:")).count();
+        // Um placar no título ("Palmeiras 2-1 Corinthians"; não o hífen de "Al-Ittihad campeão")
+        let score =
+            |t: &str| t.split(' ').any(|w| w.split_once('-').is_some_and(|(a, b)| a.parse::<u8>().is_ok() && b.parse::<u8>().is_ok()));
+        let results = g.news().iter().filter(|n| n.kind == "competition" && score(&n.title) && !n.title.starts_with("Reservas:")).count();
         assert_eq!(results, 9);
         assert!(g.info().unwrap().unread_news >= 11);
         let ids: Vec<i32> = g.news().iter().map(|n| n.id).collect();
