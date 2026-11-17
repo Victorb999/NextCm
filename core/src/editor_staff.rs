@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::attributes::{STAFF_RELATIVE, show_staff_attributes};
-use crate::editor::{EditorAttribute, EditorHit, EditorValue, MENTAL, check_range, open_save};
+use crate::editor::{EditorAttribute, EditorValue, MENTAL, check_range, open_save};
+use crate::editor_search::{EditorHit, like_of};
 use crate::person::Attributes;
 use crate::{Error, Result, World};
 
@@ -86,18 +87,35 @@ pub struct EditorStaffData {
     pub contract_expires: Option<String>,
 }
 
-/// Procura staff pelo nome num save fechado (até 40, os melhores primeiro).
+/// Procura staff pelo nome num save fechado (os melhores primeiro).
 pub fn search(saves: &Path, file: &str, query: &str) -> Result<Vec<EditorHit>> {
     let world = open_save(saves, file)?;
-    let text = crate::search::fold(query.trim());
-    let like = format!("%{}%", text.replace('!', "!!").replace('%', "!%").replace('_', "!_"));
+    let today: String = world.conn.query_row("SELECT date FROM game", [], |r| r.get(0))?;
     let mut st = world.conn.prepare(
-        "SELECT p.id, p.display_name, c.name, np.current_ability, np.potential_ability FROM people p
-         JOIN non_players np ON np.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id
-         WHERE p.is_player = 0 AND p.search_name LIKE ? ESCAPE '!' ORDER BY np.current_ability DESC, p.display_name LIMIT 40",
+        "SELECT p.id, p.display_name, c.name, np.current_ability, np.potential_ability, n.name, j.name, p.birth_date,
+                p.birth_year, p.wage, p.contract_expires, np.current_reputation
+         FROM people p JOIN non_players np ON np.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id
+         LEFT JOIN nations n ON n.id = p.nation_id LEFT JOIN jobs j ON j.id = p.club_job
+         WHERE p.is_player = 0 AND p.search_name LIKE ? ESCAPE '!' ORDER BY np.current_ability DESC, p.display_name LIMIT 500",
     )?;
     let rows = st
-        .query_map([like], |r| Ok(EditorHit { id: r.get(0)?, name: r.get(1)?, club: r.get(2)?, ability: r.get(3)?, potential: r.get(4)? }))?
+        .query_map([like_of(query)], |r| {
+            let (birth, year): (Option<String>, Option<i32>) = (r.get(7)?, r.get(8)?);
+            Ok(EditorHit {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                club: r.get(2)?,
+                ability: r.get(3)?,
+                potential: r.get(4)?,
+                nation: r.get(5)?,
+                position: r.get(6)?,
+                age: (birth.is_some() || year.is_some()).then(|| crate::game::age_on(birth.as_deref(), year, &today)),
+                wage: r.get(9)?,
+                expires: r.get(10)?,
+                reputation: r.get(11)?,
+                ..Default::default()
+            })
+        })?
         .collect::<rusqlite::Result<_>>()?;
     Ok(rows)
 }

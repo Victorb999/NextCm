@@ -14,7 +14,7 @@ use crate::person::Attributes;
 use crate::{Error, Result, World};
 
 /// Atributos de jogador por grupo, na ordem do editor do CM: técnicos, físicos e os ocultos.
-const TECHNICAL: [&str; 17] = [
+pub(crate) const TECHNICAL: [&str; 17] = [
     "corners",
     "crossing",
     "dribbling",
@@ -33,7 +33,7 @@ const TECHNICAL: [&str; 17] = [
     "positioning",
     "reflexes",
 ];
-const OTHER: [&str; 17] = [
+pub(crate) const OTHER: [&str; 17] = [
     "acceleration",
     "agility",
     "balance",
@@ -66,61 +66,11 @@ const HIDDEN: [&str; 11] = [
     "throw_ins",
     "one_on_ones",
 ];
-const EXTRA: [&str; 6] = ["consistency", "dirtiness", "important_matches", "injury_proneness", "versatility", "penalties"];
-const GOALKEEPING: [&str; 2] = ["throw_ins", "one_on_ones"];
+pub(crate) const EXTRA: [&str; 6] = ["consistency", "dirtiness", "important_matches", "injury_proneness", "versatility", "penalties"];
+pub(crate) const GOALKEEPING: [&str; 2] = ["throw_ins", "one_on_ones"];
 /// Os 8 atributos mentais, guardados na pessoa e não no jogador.
 pub(crate) const MENTAL: [&str; 8] =
     ["adaptability", "ambition", "determination", "loyalty", "pressure", "professionalism", "sportsmanship", "temperament"];
-
-/// Um resultado da procura.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct EditorHit {
-    pub id: i32,
-    pub name: String,
-    pub club: Option<String>,
-    /// CA (nos clubes, a reputação).
-    pub ability: Option<i32>,
-    /// PA (nos clubes, nada).
-    pub potential: Option<i32>,
-}
-
-/// Os filtros da procura de jogadores (como o Player Search do editor do CM); `None` = sem filtro.
-#[derive(Debug, Clone, Default, Deserialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase", default)]
-pub struct EditorFilter {
-    pub query: String,
-    pub min_age: Option<i32>,
-    pub max_age: Option<i32>,
-    pub min_ability: Option<i32>,
-    pub max_ability: Option<i32>,
-    pub min_potential: Option<i32>,
-    pub max_potential: Option<i32>,
-    /// Reputação actual.
-    pub min_reputation: Option<i32>,
-    pub max_reputation: Option<i32>,
-    /// Chave de [`POSITIONS`]: joga lá com 15 ou mais.
-    pub position: Option<String>,
-    pub nation_id: Option<i32>,
-    /// País do clube (o "Based" do CM).
-    pub based_id: Option<i32>,
-    pub division_id: Option<i32>,
-}
-
-/// As listas dos filtros: nações e divisões.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct EditorOptions {
-    pub nations: Vec<EditorNation>,
-    pub divisions: Vec<EditorNation>,
-    pub position_keys: Vec<String>,
-}
-
-/// Máximo de resultados de uma procura.
-const SEARCH_LIMIT: i64 = 250;
 
 /// Um atributo na tela do editor.
 #[derive(Debug, Clone, Serialize, TS)]
@@ -201,79 +151,6 @@ fn hit_name(world: &World, id: i32) -> Result<(String, Option<String>, Option<i3
         [id],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     )?)
-}
-
-fn like_of(query: &str) -> String {
-    let text = crate::search::fold(query.trim());
-    format!("%{}%", text.replace('!', "!!").replace('%', "!%").replace('_', "!_"))
-}
-
-fn hit_row(r: &rusqlite::Row) -> rusqlite::Result<EditorHit> {
-    Ok(EditorHit { id: r.get(0)?, name: r.get(1)?, club: r.get(2)?, ability: r.get(3)?, potential: r.get(4)? })
-}
-
-/// Procura jogadores num save fechado pelo nome e pelos filtros (os melhores primeiro).
-pub fn search(saves: &Path, file: &str, f: &EditorFilter) -> Result<Vec<EditorHit>> {
-    use rusqlite::types::Value;
-    let world = open_save(saves, file)?;
-    let mut sql = String::from(
-        "SELECT p.id, p.display_name, c.name, pl.current_ability, pl.potential_ability FROM people p
-         JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id
-         WHERE p.search_name LIKE ? ESCAPE '!'",
-    );
-    let mut args: Vec<Value> = vec![like_of(&f.query).into()];
-    let mut range = |expr: &str, min: Option<i32>, max: Option<i32>| {
-        if let Some(v) = min {
-            sql.push_str(&format!(" AND {expr} >= ?"));
-            args.push(i64::from(v).into());
-        }
-        if let Some(v) = max {
-            sql.push_str(&format!(" AND {expr} <= ?"));
-            args.push(i64::from(v).into());
-        }
-    };
-    range("COALESCE(pl.current_ability, 0)", f.min_ability, f.max_ability);
-    range("COALESCE(pl.potential_ability, 0)", f.min_potential, f.max_potential);
-    range("COALESCE(pl.current_reputation, 0)", f.min_reputation, f.max_reputation);
-    // A idade no dia do jogo (sem data de nascimento, fica de fora)
-    range("CAST((julianday((SELECT date FROM game)) - julianday(p.birth_sort)) / 365.25 AS INTEGER)", f.min_age, f.max_age);
-    if let Some(pos) = &f.position {
-        if !POSITIONS.contains(&pos.as_str()) {
-            return Err(Error::Invalid(format!("Posição desconhecida: {pos}.")));
-        }
-        sql.push_str(&format!(" AND COALESCE(pl.pos_{pos}, 1) >= 15"));
-    }
-    for (expr, v) in [("p.nation_id", f.nation_id), ("c.nation_id", f.based_id), ("c.division_id", f.division_id)] {
-        if let Some(v) = v {
-            sql.push_str(&format!(" AND {expr} = ?"));
-            args.push(i64::from(v).into());
-        }
-    }
-    sql.push_str(&format!(" ORDER BY pl.current_ability DESC, p.display_name LIMIT {SEARCH_LIMIT}"));
-    let mut st = world.conn.prepare(&sql)?;
-    let rows = st.query_map(rusqlite::params_from_iter(args), hit_row)?.collect::<rusqlite::Result<_>>()?;
-    Ok(rows)
-}
-
-/// As listas dos filtros da procura.
-pub fn options(saves: &Path, file: &str) -> Result<EditorOptions> {
-    let world = open_save(saves, file)?;
-    let list = |sql: &str| -> Result<Vec<EditorNation>> {
-        Ok(world
-            .conn
-            .prepare(sql)?
-            .query_map([], |r| Ok(EditorNation { id: r.get(0)?, name: r.get(1)? }))?
-            .collect::<rusqlite::Result<_>>()?)
-    };
-    Ok(EditorOptions {
-        nations: list("SELECT id, name FROM nations WHERE name IS NOT NULL ORDER BY name")?,
-        divisions: list(
-            "SELECT d.id, d.name || COALESCE(' (' || n.name || ')', '') FROM competitions d LEFT JOIN nations n ON n.id = d.nation_id
-             WHERE d.id IN (SELECT division_id FROM clubs WHERE is_national_team = 0) AND d.name IS NOT NULL
-             ORDER BY n.name, d.reputation DESC, d.name",
-        )?,
-        position_keys: POSITIONS.iter().map(|p| p.to_string()).collect(),
-    })
 }
 
 fn build(world: &World, id: i32) -> Result<EditorPlayer> {
@@ -565,7 +442,7 @@ pub fn commands() -> Vec<EditorCommand> {
 
 // ---------------------------------------------------------------- ficha do jogador
 
-const POSITIONS: [&str; 12] = [
+pub(crate) const POSITIONS: [&str; 12] = [
     "goalkeeper",
     "sweeper",
     "defender",
@@ -1187,31 +1064,6 @@ fn club_view(world: &World, id: i32) -> Result<EditorClub> {
     Ok(club)
 }
 
-/// Procura clubes pelo nome num save fechado (os de maior reputação primeiro).
-pub fn search_clubs(saves: &Path, file: &str, query: &str) -> Result<Vec<EditorHit>> {
-    let world = open_save(saves, file)?;
-    let text = query.trim().to_lowercase();
-    let mut st = world.conn.prepare(&format!(
-        "SELECT c.id, c.name, n.name, c.reputation, NULL FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id
-         WHERE c.is_national_team = 0 AND LOWER(c.name) LIKE ? ESCAPE '!' ORDER BY c.reputation DESC, c.name LIMIT {SEARCH_LIMIT}"
-    ))?;
-    let like = format!("%{}%", text.replace('!', "!!").replace('%', "!%").replace('_', "!_"));
-    let rows = st.query_map([like], hit_row)?.collect::<rusqlite::Result<_>>()?;
-    Ok(rows)
-}
-
-/// Todos os jogadores de um clube (o plantel completo, melhores primeiro).
-pub fn squad(saves: &Path, file: &str, club_id: i32) -> Result<Vec<EditorHit>> {
-    let world = open_save(saves, file)?;
-    let mut st = world.conn.prepare(
-        "SELECT p.id, p.display_name, c.name, pl.current_ability, pl.potential_ability FROM people p
-         JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id
-         WHERE p.club_id = ? ORDER BY pl.current_ability DESC, p.display_name",
-    )?;
-    let rows = st.query_map([club_id], hit_row)?.collect::<rusqlite::Result<_>>()?;
-    Ok(rows)
-}
-
 /// Um clube de um save fechado.
 pub fn club(saves: &Path, file: &str, id: i32) -> Result<EditorClub> {
     club_view(&open_save(saves, file)?, id)
@@ -1438,6 +1290,7 @@ pub fn save_changes(saves: &Path, file: &str, ch: &EditorChanges) -> Result<usiz
 mod tests {
     use super::*;
     use crate::Game;
+    use crate::editor_search::{EditorFilter, SEARCH_LIMIT, options, search, search_clubs, squad};
 
     #[test]
     fn edit_attributes_by_shown_value() {
@@ -1464,7 +1317,7 @@ mod tests {
         drop(g);
 
         let hits = search(&dir, &file, &EditorFilter { query: "gabriel".into(), ..Default::default() }).unwrap();
-        assert!(!hits.is_empty() && hits.len() as i64 <= SEARCH_LIMIT);
+        assert!(!hits.is_empty() && hits.len() <= SEARCH_LIMIT);
         let id = hits[0].id;
         let before = player(&dir, &file, id).unwrap();
         assert!(before.attributes.iter().any(|a| a.key == "finishing" && a.relative));
@@ -1609,10 +1462,25 @@ mod tests {
         drop(w);
 
         // Filtros: CA, idade e posição; todos os resultados cumprem
-        let f = EditorFilter { min_ability: Some(140), max_age: Some(30), position: Some("attacker".into()), ..Default::default() };
+        let f = EditorFilter { min_ability: Some(140), max_age: Some(30), positions: vec!["attacker".into()], ..Default::default() };
         let found = search(&dir, &file, &f).unwrap();
-        assert!(!found.is_empty() && found.iter().all(|h| h.ability.unwrap_or(0) >= 140 && h.potential.is_some()));
-        assert!(search(&dir, &file, &EditorFilter { position: Some("nada".into()), ..Default::default() }).is_err());
+        assert!(!found.is_empty() && found.iter().all(|h| h.ability.unwrap_or(0) >= 140 && h.age.is_some_and(|a| a <= 30)));
+        assert!(found.iter().all(|h| h.position.as_deref().is_some_and(|p| p.contains('A')) && h.value.is_some()));
+        assert!(search(&dir, &file, &EditorFilter { positions: vec!["nada".into()], ..Default::default() }).is_err());
+        // Contrato, valor e atributos mostrados (calculados no core)
+        let rich = EditorFilter { min_value: Some(20_000_000), min_wage: Some(1), ..Default::default() };
+        let found = search(&dir, &file, &rich).unwrap();
+        assert!(!found.is_empty() && found.iter().all(|h| h.value.unwrap_or(0) >= 20_000_000));
+        let fast = EditorFilter {
+            attributes: vec![crate::search::AttributeMin { key: "pace".into(), min: 18 }],
+            club_status: Some("club".into()),
+            ..Default::default()
+        };
+        let found = search(&dir, &file, &fast).unwrap();
+        assert!(!found.is_empty() && found.iter().all(|h| h.club.is_some()));
+        let pace = player(&dir, &file, found[0].id).unwrap();
+        assert!(pace.attributes.iter().any(|a| a.key == "pace" && a.shown >= 18));
+        assert!(search(&dir, &file, &EditorFilter { listing: Some("nada".into()), ..Default::default() }).is_err());
         let opts = options(&dir, &file).unwrap();
         assert!(!opts.divisions.is_empty() && !opts.nations.is_empty());
 

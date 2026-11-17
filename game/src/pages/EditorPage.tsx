@@ -31,6 +31,7 @@ import { BOX, LABELS, POS_LEFT, POS_RIGHT, POSITION_LABELS, ROW, TAB } from './e
 import { AttributeRow, DateField, Header, NationSelect, NumField } from './editor/Fields'
 import FilterBox from './editor/FilterBox'
 import PrefsTab from './editor/PrefsTab'
+import ScoutTab from './editor/ScoutTab'
 import StaffPanel from './editor/StaffPanel'
 
 // Editor de jogos salvos (marco 3.20): procura jogadores, staff e clubes num save fechado e
@@ -51,6 +52,8 @@ export default function EditorPage() {
   const [tab, setTab] = useState<Tab>('data')
   const [filter, setFilter] = useState<EditorFilter>(EMPTY_FILTER)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  // Editor (a tela de sempre) ou Busca (só procurar, como o CM Scout)
+  const [screen, setScreen] = useState<'editor' | 'scout'>('editor')
   const [hits, setHits] = useState<EditorHit[]>([])
   const [edits, setEdits] = useState<Edits>(NO_EDITS)
   const [selected, setSelected] = useState<number | null>(null)
@@ -281,10 +284,28 @@ export default function EditorPage() {
 
   return (
     <Overlay>
-      <DialogFrame title="Editor de Jogos Salvos" full>
+      <DialogFrame
+        title="Editor de Jogos Salvos"
+        full
+        onClose={() => guard(() => game.setMode('start'))}
+        header={
+          saves.length > 0 && (
+            <div className="mt-1.5 flex shrink-0 gap-1">
+              <button className={TAB(screen === 'editor')} onClick={() => setScreen('editor')}>
+                Editor
+              </button>
+              <button className={TAB(screen === 'scout')} onClick={() => setScreen('scout')}>
+                Busca
+              </button>
+            </div>
+          )
+        }
+      >
         <ErrorBox className="mb-2">{error}</ErrorBox>
         {saves.length === 0 ? (
           <div className="p-6 text-center text-cm-yellow">Nenhum jogo salvo para editar.</div>
+        ) : screen === 'scout' ? (
+          <ScoutTab file={file} options={options} />
         ) : (
           <div className="flex h-full gap-3">
             <div className="flex min-h-0 w-80 shrink-0 flex-col gap-1.5 overflow-y-auto pr-1 [&>*]:shrink-0">

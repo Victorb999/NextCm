@@ -606,7 +606,7 @@ impl World {
 
     /// Os ids de quem cumpre pelo menos `needed` dos mínimos, com os atributos como o perfil
     /// os mostra. Só jogadores ou só staff.
-    fn match_attributes(
+    pub(crate) fn match_attributes(
         &self,
         kind: PersonKind,
         mins: &[&AttributeMin],

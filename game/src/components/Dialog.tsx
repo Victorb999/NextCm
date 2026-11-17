@@ -17,6 +17,7 @@ export function DialogFrame({
   width = 660,
   full,
   footer,
+  onClose,
 }: {
   title: ReactNode
   children: ReactNode
@@ -30,6 +31,8 @@ export function DialogFrame({
   full?: boolean
   /** Botões próprios no lugar de Cancelar / Ok. */
   footer?: ReactNode
+  /** Mostra um X no canto da faixa do título. */
+  onClose?: () => void
 }) {
   return (
     <div
@@ -38,10 +41,20 @@ export function DialogFrame({
       style={full ? { width: '100%', height: '100%' } : { width }}
     >
       <div
-        className="flex h-12 shrink-0 items-center justify-center rounded
+        className="relative flex h-12 shrink-0 items-center justify-center rounded
       bg-[#01010166] font-sans font-bold text-2xl text-white uppercase "
       >
         {title}
+        {onClose && (
+          <button
+            className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded text-xl leading-none text-cm-lilac hover:bg-white/10 hover:text-white"
+            title="Fechar"
+            aria-label="Fechar"
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        )}
       </div>
       {header}
       <div className="mt-1.5 min-h-0 flex-1 overflow-auto  px-3 py-2  bg-[#013220ff] rounded">{children}</div>

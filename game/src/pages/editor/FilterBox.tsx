@@ -66,9 +66,9 @@ export default function FilterBox({
       ))}
       {select(
         'Posição',
-        filter.position,
+        filter.positions[0] ?? null,
         (options?.positionKeys ?? []).map((k) => ({ id: k, name: POSITION_LABELS[k] ?? k })),
-        (v) => set({ position: v || null }),
+        (v) => set({ positions: v ? [v] : [] }),
       )}
       {select('Nação', filter.nationId, options?.nations ?? [], (v) => set({ nationId: v ? Number(v) : null }))}
       {select('Joga em', filter.basedId, options?.nations ?? [], (v) => set({ basedId: v ? Number(v) : null }))}
