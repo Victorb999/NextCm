@@ -46,6 +46,8 @@ pub(super) const COOLDOWN_DAYS: i32 = 30;
 const LISTED_BID: f64 = 0.35;
 const LOAN_BID: f64 = 0.3;
 const UNLISTED_BID: f64 = 0.12;
+/// Dias depois de chegar ao clube do treinador sem propostas da IA (uma janela inteira).
+const NEW_ARRIVAL_DAYS: i32 = 120;
 /// Oferecer a Clubes: até quantos clubes respondem e em quantos dias chegam as respostas.
 const SHOP_MAX: usize = 3;
 const SHOP_DAYS: (u64, u64) = (2, 5);
@@ -2495,6 +2497,9 @@ Confirme até {}.",
     /// Propostas dos clubes da IA pelos jogadores do treinador (dias de mercado).
     fn ai_bids(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         type Mine = (i32, i32, Option<i32>, Option<i32>, Option<i64>);
+        // Quem acabou de chegar não recebe propostas (nem as que pagam a cláusula) nesta janela,
+        // a não ser que o treinador o ponha numa lista
+        let settled = date::add_days(&self.date, -NEW_ARRIVAL_DAYS).unwrap_or_default();
         // Os do plantel (não os emprestados por outros clubes nem os de enchimento), com a lista
         let mine: Vec<Mine> = self
             .world
@@ -2503,9 +2508,10 @@ Confirme até {}.",
                 "SELECT p.id, COALESCE(pl.current_ability, 1), t.transfer, t.loan, t.asking
                  FROM people p JOIN players pl ON pl.person_id = p.id LEFT JOIN transfer_list t ON t.person_id = p.id
                  WHERE p.club_id = ? AND p.is_player = 1 AND p.id NOT IN (SELECT person_id FROM loans)
-                   AND p.id NOT IN (SELECT person_id FROM ghosts) ORDER BY p.id",
+                   AND p.id NOT IN (SELECT person_id FROM ghosts)
+                   AND (p.club_joined IS NULL OR p.club_joined <= ? OR t.person_id IS NOT NULL) ORDER BY p.id",
             )?
-            .query_map([self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+            .query_map(params![self.club_id, settled], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
             .collect::<rusqlite::Result<_>>()?;
         if mine.is_empty() {
             return Ok(());

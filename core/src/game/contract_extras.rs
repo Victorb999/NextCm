@@ -159,7 +159,27 @@ impl ContractExtras {
     }
 }
 
+/// Anos de contrato para o valor de quem assina (a base da cláusula de venda).
+const CLAUSE_YEARS: f64 = 3.0;
+
 impl Game {
+    /// O valor do jogador já com o contrato novo no clube do treinador: a base da cláusula de
+    /// venda. Sem isto, quem chega livre (sem contrato vale €0) pedia uma cláusula de €200K.
+    fn value_signed(&self, person: i32, f: &Facts) -> Result<i64> {
+        let (ca, pa, rep): (i32, i32, i32) = self.world.conn.query_row(
+            "SELECT COALESCE(current_ability, 1), COALESCE(potential_ability, 0), COALESCE(current_reputation, 0)
+             FROM players WHERE person_id = ?",
+            [person],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )?;
+        let league: i32 = self.world.conn.query_row(
+            "SELECT COALESCE(k.reputation, 5) FROM clubs c LEFT JOIN competitions k ON k.id = c.division_id WHERE c.id = ?",
+            [self.club_id],
+            |r| r.get(0),
+        )?;
+        Ok(finance::market_value(ca, pa, f.age, rep, league, CLAUSE_YEARS).max(f.value))
+    }
+
     /// O que o jogador exige e os valores que o jogo sugere para o resto, para um salário.
     pub(super) fn extras_demand(&self, person: i32, f: &Facts, wage: i64) -> Result<(ContractExtras, ContractExtras)> {
         let (finishing, passing): (i32, i32) = self.world.conn.query_row(
@@ -168,6 +188,7 @@ impl Game {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
         let keeper = self.is_keeper(person)?;
+        let value = self.value_signed(person, f)?;
         let mut rng = self.deal_rng(person, 0xC1A5);
         let mut roll = |p: f64| (rng.next_u32() % 1000) as f64 / 1000.0 < p;
         let bonus = |share: f64| round_wage(wage as f64 * share).max(100);
@@ -176,7 +197,7 @@ impl Game {
             assist_bonus: bonus(ASSIST_BONUS),
             // O prémio por jogo sem sofrer golos é só dos guarda-redes (0 = não aparece na proposta)
             clean_sheet_bonus: if keeper { bonus(CLEAN_SHEET_BONUS) } else { 0 },
-            min_fee: Some(finance::round_money(f.value.max(100_000) as f64 * MIN_FEE_SUGGESTED)),
+            min_fee: Some(finance::round_money(value.max(100_000) as f64 * MIN_FEE_SUGGESTED)),
             relegation: false,
             non_promotion: false,
             manager_job: false,
@@ -196,7 +217,7 @@ impl Game {
             goal_bonus: if !keeper && finishing >= SCORER && roll(0.6) { suggested.goal_bonus } else { 0 },
             assist_bonus: if !keeper && passing >= PROVIDER && roll(0.5) { suggested.assist_bonus } else { 0 },
             clean_sheet_bonus: if keeper && roll(0.4) { suggested.clean_sheet_bonus } else { 0 },
-            min_fee: (f.ambition >= 14.0 && roll(0.5)).then(|| finance::round_money(f.value.max(100_000) as f64 * MIN_FEE_ASKED)),
+            min_fee: (f.ambition >= 14.0 && roll(0.5)).then(|| finance::round_money(value.max(100_000) as f64 * MIN_FEE_ASKED)),
             relegation: f.ambition >= 12.0 && !lower_division && roll(0.35),
             non_promotion: ambitious && lower_division && roll(0.5),
             manager_job: f.age >= 30 && roll(0.25),
@@ -387,6 +408,22 @@ mod tests {
             .unwrap()
             .collect::<rusqlite::Result<_>>()
             .unwrap();
+        // Um livre (sem contrato vale €0): a cláusula de venda sai do valor com o contrato novo
+        let best: i32 = g
+            .world
+            .conn
+            .query_row(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ? AND p.is_player = 1
+                 ORDER BY pl.current_ability DESC LIMIT 1",
+                [PALMEIRAS],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut f = g.facts(best).unwrap().unwrap();
+        let contracted = f.value;
+        f.value = 0;
+        let (_, suggested) = g.extras_demand(best, &f, f.wage).unwrap();
+        assert!(suggested.min_fee.unwrap() >= contracted, "{:?} < {contracted}", suggested.min_fee);
         // Um que exige alguma coisa na renovação
         let (p, t) = squad
             .iter()

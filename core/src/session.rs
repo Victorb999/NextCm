@@ -425,15 +425,16 @@ impl Session {
     /// Com um ficheiro desse nome já gravado, só substitui com `overwrite`.
     pub fn save_as(&mut self, name: String, overwrite: bool) -> Result<GameInfo> {
         let stem = crate::game::file_stem(&name)?;
-        let game = self.game_mut()?;
-        game.save()?;
         let target = self.saves_dir.join(format!("{stem}.sqlite"));
         let current = self.game()?.path().to_path_buf();
-        if target != current {
+        if target == current {
+            self.game_mut()?.save()?;
+        } else {
             if target.exists() && !overwrite {
                 return Err(Error::Invalid("Arquivo Existe".into()));
             }
-            std::fs::copy(&current, &target)?;
+            // O save aberto fica como estava (o Salvar Como do CM): só a cópia leva o jogo de agora
+            self.game_mut()?.save_copy(&target)?;
             let copy = rusqlite::Connection::open(&target)?;
             copy.execute("UPDATE game SET name = ?", [name.trim()])?;
             drop(copy);
@@ -932,10 +933,23 @@ mod tests {
             experience: 0,
             favourite_club: None,
         };
-        s.new_game(&new).unwrap();
+        let start = s.new_game(&new).unwrap().date;
+        s.save_game().unwrap();
+        // Um dia depois, Salvar Como: só a cópia leva o dia novo, o Original fica como estava
+        let mut later = start.clone();
+        for _ in 0..6 {
+            later = s.advance_day().unwrap().date;
+            if later != start {
+                break;
+            }
+        }
+        assert_ne!(later, start);
         s.save_as("Cópia".into(), false).unwrap();
         let saves = s.list_saves().unwrap();
-        assert!(saves.iter().any(|x| x.name == "Cópia") && saves.iter().any(|x| x.name == "Original"));
+        let date_of = |n: &str| saves.iter().find(|x| x.name == n).map(|x| x.date.clone());
+        assert_eq!(date_of("Original"), Some(start.clone()), "o Original não muda");
+        assert_eq!(date_of("Cópia"), Some(later.clone()));
+        assert_eq!(s.game_info().unwrap().unwrap().date, later, "continua na cópia");
         // O mesmo nome outra vez: pergunta antes de substituir
         s.save_as("Original".into(), false).unwrap_err();
         s.save_as("Original".into(), true).unwrap();

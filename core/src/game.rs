@@ -1693,6 +1693,23 @@ impl Game {
 
     /// Grava o estado em memória no arquivo do save.
     pub fn save(&mut self) -> Result<()> {
+        self.write_state()?;
+        self.world.conn.execute_batch("COMMIT; BEGIN")?;
+        self.unsaved = false;
+        Ok(())
+    }
+
+    /// Salvar Como: o jogo de agora num ficheiro novo, sem tocar no save aberto (o que se
+    /// grava fica na transacção por fechar; quem o chama troca logo para a cópia).
+    pub fn save_copy(&mut self, target: &Path) -> Result<()> {
+        self.write_state()?;
+        let image = self.world.conn.serialize(rusqlite::MAIN_DB)?;
+        std::fs::write(target, &*image)?;
+        Ok(())
+    }
+
+    /// Escreve a memória do jogo (notícias, jogos, escolhas...) no banco, sem fechar a transacção.
+    fn write_state(&mut self) -> Result<()> {
         // No dia de jogo grava-se antes do apito (ao carregar, os jogos do dia voltam a ser
         // preparados com a mesma seed); a meio da partida não
         let mut pending: Vec<NewsItem> = match &self.live {
@@ -1838,8 +1855,6 @@ impl Game {
                 stmt.execute(params![self.club_id, 100 + i as i32, pid, None::<i32>, None::<i32>, None::<i32>, None::<i32>])?;
             }
         }
-        tx.execute_batch("COMMIT; BEGIN")?;
-        self.unsaved = false;
         Ok(())
     }
 
