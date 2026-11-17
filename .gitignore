@@ -21,6 +21,7 @@ docs/videos/
 
 # Tácticas gravadas no jogo (Gravar Táctica)
 data/saves/tactics/
+data/saves/exports/
 
 # Skills instaladas localmente (não vão para o repositório)
 .agents/
