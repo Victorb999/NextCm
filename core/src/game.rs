@@ -3214,8 +3214,12 @@ impl Game {
             v.attendance = x.attendance;
         }
         // Classificação com os jogos do dia no minuto em que vai o do treinador
-        let comp = self.matches[*index].competition_id;
-        let mut matches: Vec<Match> = self.matches.iter().filter(|m| m.competition_id == comp).cloned().collect();
+        // (só a temporada, a fase e o grupo deste jogo: sem isso a tabela somava as temporadas)
+        let fx = &self.matches[*index];
+        let comp = fx.competition_id;
+        let year = crate::regulation::season_of(comp, &fx.date);
+        let mut matches: Vec<Match> =
+            self.year_matches(comp, year).filter(|m| m.stage == fx.stage && m.group == fx.group && m.tie.is_none()).cloned().collect();
         if v.minute > 0 {
             for (i, g) in &day.games {
                 let (h, a) = g.score_at(v.minute as u8);
@@ -4344,6 +4348,9 @@ mod tests {
 
         let v = g.live_view().unwrap();
         assert_eq!((v.minute, v.home.players.len(), v.away.players.len()), (0, 11, 11));
+        // A classificação é só a da temporada: 20 clubes, ninguém com mais jogos que a rodada
+        assert_eq!(v.table.len(), 20);
+        assert!(v.table.iter().all(|r| r.played < 38), "a tabela somou temporadas");
         assert_eq!(v.others.len(), g.fixtures(SERIE_A).iter().filter(|f| f.date == today).count() - 1);
         let half = g.live_step(45).unwrap();
         assert!(half.half_time && !half.finished);
