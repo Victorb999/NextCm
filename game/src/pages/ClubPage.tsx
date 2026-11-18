@@ -1,3 +1,4 @@
+import { ClipboardList, Dumbbell, History, ScrollText, Shield, Trophy } from 'lucide-react'
 import { useLoad } from '../useLoad'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
@@ -703,19 +704,20 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
       <div className="mt-2">
         <Tabs
           tabs={[
-            { key: 'tactics', label: 'Táticas' },
-            { key: 'training', label: 'Treino', disabled: !mine },
-            { key: 'last', label: 'Último Jogo', disabled: !lastMatch },
+            { key: 'tactics', label: 'Táticas', icon: ClipboardList },
+            { key: 'training', label: 'Treino', disabled: !mine, icon: Dumbbell },
+            { key: 'last', label: 'Último Jogo', disabled: !lastMatch, icon: History },
             // Num clube de reservas ou juniores, o atalho leva à Equipa Principal
             club?.parent
-              ? { key: 'parent', label: 'Time Principal' }
+              ? { key: 'parent', label: 'Time Principal', icon: Shield }
               : {
                   key: 'division',
+                  icon: Trophy,
                   // Com o lugar na liga, como o "4º A" do CM
                   label: division ? `${club?.leaguePosition != null ? `${club.leaguePosition}º ` : ''}${division.shortName}` : '-',
                   disabled: !division,
                 },
-            { key: 'history', label: 'Histórico' },
+            { key: 'history', label: 'Histórico', icon: ScrollText },
           ]}
           active={tab === 'last' ? 'last' : ''}
           onChange={(k) => {

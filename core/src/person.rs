@@ -148,6 +148,10 @@ pub struct PersonProfile {
     pub honours: Vec<HonourLine>,
     /// Jogador de enchimento: só joga pelo clube dele (nome a roxo, sem acções de mercado).
     pub ghost: bool,
+    /// Num jogo em curso: a data em que se aposentou (fica no jogo só para ser visto).
+    pub retired: Option<String>,
+    /// Num jogo em curso: o último relatório completo do olheiro (aba Relatórios).
+    pub scout_card: Option<crate::game::ScoutCard>,
     /// Condição, moral, lesão e castigos num jogo em curso (só jogadores de clubes vivos).
     pub status: Option<crate::squad::PlayerStatus>,
     /// Num jogo em curso: o que o clube do treinador sabe dele (os atributos que não sabe vêm
@@ -400,6 +404,8 @@ impl World {
                         suspensions: Vec::new(),
                         honours: Vec::new(),
                         ghost: false,
+                        retired: None,
+                        scout_card: None,
                         status: None,
                         knowledge: None,
                         report_on: None,

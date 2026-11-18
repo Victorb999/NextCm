@@ -2,6 +2,7 @@ import { Trophy } from 'lucide-react'
 import type { ClubRef } from '../../bindings/ClubRef'
 import type { Fixture } from '../../bindings/Fixture'
 import type { StandingRow } from '../../bindings/StandingRow'
+import { pensText } from '../../format'
 import { useNav } from '../../nav'
 import { BottomBar, Link, Panel, ScreenHeader } from '../Screen'
 
@@ -59,9 +60,15 @@ export function DayList({
                 <button
                   onClick={() => nav.go({ kind: 'match', id: f.id })}
                   title="Ver a ficha da partida"
-                  className="w-16 shrink-0 rounded bg-black/40 text-center font-mono text-[17px] font-bold leading-[26px] text-cm-magenta hover:bg-cm-sel hover:text-white"
+                  className={`w-16 shrink-0 rounded bg-black/40 text-center font-mono text-[17px] font-bold text-cm-magenta hover:bg-cm-sel hover:text-white ${pensText(f) ? 'leading-[18px]' : 'leading-[26px]'}`}
                 >
                   {f.homeGoals}:{f.awayGoals}
+                  {/* Os pênaltis ou a prorrogação do mata-mata, por baixo do placar */}
+                  {pensText(f) && (
+                    <span className="block pb-0.5 font-sans text-[10px] font-normal leading-none text-cm-orange">
+                      {pensText(f).trim().slice(1, -1)}
+                    </span>
+                  )}
                 </button>
               ) : (
                 <span className="w-16 shrink-0 rounded bg-black/40 text-center font-mono text-[17px] font-bold leading-[26px] text-cm-magenta">

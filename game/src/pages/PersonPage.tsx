@@ -4,7 +4,8 @@ import Injuries from './person/Injuries'
 import PersonalPanel from './person/PersonalPanel'
 import PersonHeader from './person/PersonHeader'
 import Profile from './person/Profile'
-import { ChevronDown } from 'lucide-react'
+import ScoutReport from './person/ScoutReport'
+import { Binoculars, ChevronDown, FileSignature, HeartPulse, History, Medal, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { PersonProfile } from '../bindings/PersonProfile'
@@ -28,11 +29,12 @@ import { useNav } from '../nav'
 import { money } from '../format'
 
 const TABS = [
-  { key: 'profile', label: 'Perfil Geral' },
-  { key: 'contract', label: 'Contrato & Transferência' },
-  { key: 'history', label: 'Histórico / Carreira' },
-  { key: 'injuries', label: 'Lesões & Suspensões' },
-  { key: 'records', label: 'Marcos & Recordes' },
+  { key: 'profile', label: 'Perfil Geral', icon: User },
+  { key: 'contract', label: 'Contrato & Transferência', icon: FileSignature },
+  { key: 'history', label: 'Histórico / Carreira', icon: History },
+  { key: 'injuries', label: 'Lesões & Suspensões', icon: HeartPulse },
+  { key: 'scout', label: 'Relatórios', icon: Binoculars },
+  { key: 'records', label: 'Marcos & Recordes', icon: Medal },
 ]
 
 export default function PersonPage({ id, tab: startTab }: { id: number; tab?: string }) {
@@ -266,8 +268,9 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
           ) : (
             game.mode === 'game' &&
             person?.player &&
-            // O jogador de enchimento só tem os atributos, como no CM
-            !person.ghost && (
+            // O jogador de enchimento só tem os atributos, como no CM; o aposentado só se vê
+            !person.ghost &&
+            !person.retired && (
               <PurpleMenu
                 label="Ação"
                 align="right"
@@ -285,16 +288,20 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
         }
         tabs={
           <Tabs
-            tabs={(person?.player && game.mode === 'game' ? TABS : TABS.filter((t) => t.key !== 'injuries' && t.key !== 'records')).map(
-              (t) =>
-                person?.ghost && t.key !== 'profile'
-                  ? { ...t, disabled: true }
-                  : t.key === 'injuries'
-                    ? {
-                        ...t,
-                        label: person?.status?.injury || person?.status?.suspended ? `${t.label} •` : t.label,
-                        disabled: !person?.status,
-                      }
+            tabs={(person?.player && game.mode === 'game'
+              ? TABS
+              : TABS.filter((t) => t.key !== 'injuries' && t.key !== 'records' && t.key !== 'scout')
+            ).map((t) =>
+              person?.ghost && t.key !== 'profile'
+                ? { ...t, disabled: true }
+                : t.key === 'injuries'
+                  ? {
+                      ...t,
+                      label: person?.status?.injury || person?.status?.suspended ? `${t.label} •` : t.label,
+                      disabled: !person?.status,
+                    }
+                  : t.key === 'scout'
+                    ? { ...t, disabled: !person?.scoutCard }
                     : t.key === 'contract' && !person?.player
                       ? { ...t, label: 'Contrato' }
                       : t,
@@ -313,7 +320,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
             <div className="flex w-[42%] shrink-0 flex-col gap-2">
               <Panel title="Contrato">
                 <Contract p={person} />
-                {game.mode === 'game' && buttonRow(person.player ? contractButtons : staffOptions)}
+                {game.mode === 'game' && !person.retired && buttonRow(person.player ? contractButtons : staffOptions)}
               </Panel>
               {hire?.blocked && <div className="px-1 text-[14px] text-cm-muted">{hire.blocked}</div>}
               {hire?.offer && (
@@ -332,7 +339,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
               )}
               {person.personal && <PersonalPanel p={person} />}
             </div>
-            {game.mode === 'game' && person.player && (
+            {game.mode === 'game' && person.player && !person.retired && (
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <Panel title="Mercado">
                   <TransferTab personId={id} version={version} onChanged={() => void reload()} />
@@ -367,6 +374,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
         {person && !person.ghost && tab === 'injuries' && <Injuries p={person} />}
         {person && !person.ghost && tab === 'history' && <PlayerHistory p={person} />}
         {person && !person.ghost && tab === 'records' && <PersonRecords p={person} />}
+        {person && !person.ghost && tab === 'scout' && <ScoutReport p={person} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
       {deal && market && person && (

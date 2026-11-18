@@ -22,7 +22,7 @@ use crate::{Error, Result};
 pub(super) const REPORTS_SCHEMA: &str = "CREATE TABLE match_reports (fixture INTEGER PRIMARY KEY, data BLOB NOT NULL);";
 
 /// Os lances que ficam no Relatório da partida (o resto do relato não se guarda).
-const KEY_EVENTS: [&str; 8] = ["start", "goal", "yellow", "red", "injury", "sub", "half", "end"];
+const KEY_EVENTS: [&str; 11] = ["start", "goal", "yellow", "red", "injury", "sub", "half", "shootout", "pen", "penmiss", "end"];
 
 impl Game {
     /// Guarda a partida acabada (os jogos das reservas com o id negativo, como na ficha).
@@ -123,6 +123,11 @@ impl Game {
             fixture,
             minute: 90,
             half_time: false,
+            extra_time: false,
+            home_pens: None,
+            away_pens: None,
+            shootout_pending: false,
+            penalty_order: Vec::new(),
             finished: true,
             home_goals: goals[0],
             away_goals: goals[1],

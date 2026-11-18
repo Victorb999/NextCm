@@ -9,6 +9,7 @@ import type { PersonalInfo } from "./PersonalInfo";
 import type { PlayerDetails } from "./PlayerDetails";
 import type { PlayerStatus } from "./PlayerStatus";
 import type { RecordLine } from "./RecordLine";
+import type { ScoutCard } from "./ScoutCard";
 import type { SeasonLine } from "./SeasonLine";
 import type { SeasonRecord } from "./SeasonRecord";
 import type { SquadMove } from "./SquadMove";
@@ -29,6 +30,14 @@ injuries: Array<InjuryLine>, suspensions: Array<SuspensionLine>, honours: Array<
  * Jogador de enchimento: só joga pelo clube dele (nome a roxo, sem acções de mercado).
  */
 ghost: boolean, 
+/**
+ * Num jogo em curso: a data em que se aposentou (fica no jogo só para ser visto).
+ */
+retired: string | null, 
+/**
+ * Num jogo em curso: o último relatório completo do olheiro (aba Relatórios).
+ */
+scoutCard: ScoutCard | null, 
 /**
  * Condição, moral, lesão e castigos num jogo em curso (só jogadores de clubes vivos).
  */

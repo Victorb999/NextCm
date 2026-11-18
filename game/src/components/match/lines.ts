@@ -29,8 +29,22 @@ export const isStoppage = (l: Line) =>
 /** A frase do golo em si ("GOLO! ..."), a última de cada lance de golo. */
 export const isGoalLine = (l: Line) => l.kind === 'goal' && l.text.startsWith('GOL')
 
+/** Um pênalti convertido na disputa de pênaltis (a frase "X marcou!"). */
+export const isPenGoal = (l: Line) => l.kind === 'pen' && l.last
+
+/** A disputa de pênaltis até onde o relato já a contou: [casa, fora]; `null` sem disputa. */
+export function pensSaid(said: Line[]): [number, number] | null {
+  if (!said.some((l) => l.kind === 'shootout' || l.kind === 'pen' || l.kind === 'penmiss')) return null
+  const n = (side: number) => said.filter((l) => isPenGoal(l) && l.side === side).length
+  return [n(0), n(1)]
+}
+
 /** O nome do lance na caixa do relato; os de perigo só dizem o que foi na última frase. */
 export function lineLabel(l: Line): string {
+  if (l.kind === 'half' && !l.text.startsWith('Intervalo')) return 'Fim de Tempo'
+  if (l.kind === 'pen' && l.last) return 'Pênalti Convertido'
+  if (l.kind === 'penmiss' && l.last) return 'Pênalti Perdido'
+  if (l.kind === 'pen' || l.kind === 'penmiss' || l.kind === 'shootout') return 'Disputa de Pênaltis'
   if (l.kind === 'goal') return isGoalLine(l) ? 'Gol' : 'Lance Perigoso'
   if (l.kind === 'save' || l.kind === 'miss') return l.last ? (l.kind === 'save' ? 'Defesa' : 'Chute Falhado') : 'Lance Perigoso'
   const labels: Record<string, string> = {

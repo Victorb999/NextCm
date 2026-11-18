@@ -223,6 +223,7 @@ session_command!(match_analysis() -> MatchAnalysis);
 session_command!(match_review() -> MatchReview);
 session_command!(live_step(minute: i32) -> LiveView);
 session_command!(live_substitute(out: i32, inn: i32) -> LiveView);
+session_command!(live_shootout_order(order: Vec<i32>) -> LiveView);
 session_command!(live_swap(a: i32, b: i32) -> LiveView);
 session_command!(live_instructions(instructions: Instructions) -> LiveView);
 session_command!(live_finish() -> GameInfo);
@@ -497,6 +498,7 @@ pub fn run() {
             match_review,
             live_step,
             live_substitute,
+            live_shootout_order,
             live_swap,
             live_instructions,
             live_finish,

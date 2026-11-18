@@ -29,6 +29,7 @@
     },
     {
       "kind": "knockout",
+      "extra_time": false,
       "name": "Final",
       "pairing": "bracket",
       "entrants": {

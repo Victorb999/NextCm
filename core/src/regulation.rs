@@ -89,6 +89,10 @@ pub struct KoRound {
     /// As datas num ano de Mundial (a liga pára durante o Mundial).
     #[serde(default)]
     pub world_cup_dates: Option<String>,
+    /// Prorrogação nesta ronda, quando difere da fase (a final da Libertadores tem, as
+    /// outras rondas não).
+    #[serde(default)]
+    pub extra_time: Option<bool>,
 }
 
 /// Uma escolha de clubes a partir dos resultados de uma fase.
@@ -353,10 +357,25 @@ pub struct Stage {
     /// Pontos corridos e grupos: as datas num ano de Mundial (sem jogos durante o Mundial).
     #[serde(default)]
     pub world_cup_dates: Option<String>,
+    /// Eliminatórias: empatado no total, há prorrogação antes dos penáltis (sem ela, como na
+    /// Copa do Brasil, vai direto aos penáltis).
+    #[serde(default = "yes")]
+    pub extra_time: bool,
 }
 
 fn two() -> u8 {
     2
+}
+
+fn yes() -> bool {
+    true
+}
+
+/// Se a ronda `round` (a partir de 1) da fase `stage` tem prorrogação.
+pub fn extra_time(competition: i32, stage: usize, round: i32) -> bool {
+    let Some(st) = get(competition).and_then(|r| r.stages.get(stage)) else { return true };
+    let ko = usize::try_from(round - 1).ok().and_then(|r| st.rounds.get(r));
+    ko.and_then(|k| k.extra_time).unwrap_or(st.extra_time)
 }
 
 /// Subida ou descida no fim da época.

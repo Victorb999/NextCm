@@ -32,6 +32,7 @@
     },
     {
       "kind": "knockout",
+      "extra_time": false,
       "name": "Fase final",
       "pairing": "cross",
       "entrants": {
@@ -54,6 +55,7 @@
         },
         {
           "name": "Final",
+          "extra_time": true,
           "legs": 1,
           "dates": "w27",
           "neutral": true

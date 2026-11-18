@@ -946,7 +946,7 @@ impl Game {
     }
 
     /// Os jogos de uma eliminatória, por mão.
-    fn tie_games(&self, comp: i32, year: i32, stage: usize, round: i32, tie: u16) -> Vec<&Match> {
+    pub(super) fn tie_games(&self, comp: i32, year: i32, stage: usize, round: i32, tie: u16) -> Vec<&Match> {
         let mut out: Vec<&Match> =
             self.year_matches(comp, year).filter(|m| m.stage as usize == stage && m.round == round && m.tie == Some(tie)).collect();
         out.sort_by_key(|m| m.leg);
@@ -986,6 +986,10 @@ impl Game {
     /// Depois de um jogo de eliminatória: se acabou a eliminatória empatada, penáltis.
     pub(super) fn settle_tie(&mut self, index: usize) {
         let m = &self.matches[index];
+        // A partida jogada pelo motor por lances já trouxe os penáltis dela
+        if m.pens.is_some() {
+            return;
+        }
         let (Some(tie), true) = (m.tie, m.leg != 1) else { return };
         let year = regulation::season_of(m.competition_id, &m.date);
         let games = self.tie_games(m.competition_id, year, m.stage as usize, m.round, tie);

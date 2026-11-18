@@ -513,6 +513,10 @@ impl Session {
         self.game_mut()?.live_step(minute)
     }
 
+    pub fn live_shootout_order(&mut self, order: Vec<i32>) -> Result<LiveView> {
+        self.game_mut()?.live_shootout_order(&order)
+    }
+
     pub fn live_substitute(&mut self, out: i32, inn: i32) -> Result<LiveView> {
         self.game_mut()?.live_substitute(out, inn)
     }

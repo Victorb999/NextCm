@@ -10,9 +10,25 @@ import type { StandingRow } from "./StandingRow";
  */
 export type LiveView = { fixture: Fixture, minute: number, 
 /**
- * No intervalo (45' jogados, segunda parte por começar).
+ * No intervalo (45' jogados, segunda parte por começar) ou antes da prorrogação.
  */
-halfTime: boolean, finished: boolean, homeGoals: number, awayGoals: number, 
+halfTime: boolean, 
+/**
+ * O jogo foi (ou vai) a prorrogação.
+ */
+extraTime: boolean, 
+/**
+ * A disputa de penáltis, se a houve.
+ */
+homePens: number | null, awayPens: number | null, 
+/**
+ * Acabou empatado e espera pelos penáltis: o treinador escolhe os batedores.
+ */
+shootoutPending: boolean, 
+/**
+ * A ordem dos batedores do treinador (ids), na disputa de penáltis.
+ */
+penaltyOrder: Array<number>, finished: boolean, homeGoals: number, awayGoals: number, 
 /**
  * Lado do treinador (0 casa, 1 fora).
  */

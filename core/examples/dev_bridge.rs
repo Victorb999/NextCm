@@ -430,6 +430,10 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let (o, i) = (args["out"].as_i64().ok_or("falta out")?, args["inn"].as_i64().ok_or("falta inn")?);
             out(serde_json::to_value(session.live_substitute(o as i32, i as i32).map_err(e)?))
         }
+        "live_shootout_order" => {
+            let order: Vec<i32> = serde_json::from_value(args["order"].clone()).map_err(|e| e.to_string())?;
+            out(serde_json::to_value(session.live_shootout_order(order).map_err(e)?))
+        }
         "live_swap" => {
             let (a, b) = (args["a"].as_i64().ok_or("falta a")?, args["b"].as_i64().ok_or("falta b")?);
             out(serde_json::to_value(session.live_swap(a as i32, b as i32).map_err(e)?))

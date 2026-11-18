@@ -13,6 +13,7 @@
     },
     {
       "kind": "knockout",
+      "extra_time": false,
       "name": "Fase final",
       "pairing": "bracket",
       "entrants": {

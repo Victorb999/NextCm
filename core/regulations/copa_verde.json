@@ -5,6 +5,7 @@
   "stages": [
     {
       "kind": "knockout",
+      "extra_time": false,
       "name": "",
       "pairing": "pots",
       "entrants": {

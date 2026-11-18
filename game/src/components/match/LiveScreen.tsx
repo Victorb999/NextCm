@@ -9,7 +9,7 @@ import { MATCH_SPEEDS, getSettings, saveSettings, useSettings } from '../../sett
 import LiveTactics from '../LiveTactics'
 import { AnalysisPane, PostMatchPane } from '../PreMatch'
 import TalkPanel from '../TalkPanel'
-import { clubBand, isStoppage, isGoalLine, manOfTheMatch, matchTab } from './lines'
+import { clubBand, isStoppage, isGoalLine, isPenGoal, manOfTheMatch, matchTab, pensSaid } from './lines'
 import type { Line, Pane } from './lines'
 import { ScoreBand } from './ScoreBand'
 import { Panorama } from './Panorama'
@@ -184,7 +184,8 @@ export function LiveScreen({
           .then(
             (v) => {
               accept(v)
-              if (v.halfTime || v.finished) setRunning(false)
+              // Antes dos pênaltis o jogo pára para o treinador escolher os batedores
+              if (v.halfTime || v.finished || (v.shootoutPending && v.userSide !== null)) setRunning(false)
               // Tácticas pedidas: o intervalo abre-as (sem retomar ao sair); o fim cancela-as
               if (waiting && v.finished) setWaiting(null)
               else if (waiting && v.halfTime) {
@@ -227,9 +228,22 @@ export function LiveScreen({
     else if (l.kind === 'start') sound.whistleShort()
     else if (l.kind === 'half') sound.whistleShort()
     else if (l.kind === 'end' && l.playerId === null) sound.whistleEnd()
-    else if (l.kind === 'goal' || l.kind === 'save' || l.kind === 'miss') sound.crowdSurge()
+    else if (isPenGoal(l)) sound.goal(l.side === 0)
+    else if (l.kind === 'shootout' && l.side === null) sound.whistleShort()
+    else if (l.kind === 'goal' || l.kind === 'save' || l.kind === 'miss' || l.kind === 'penmiss') sound.crowdSurge()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown])
+
+  // Empatado no fim, com o relato dito: as Táticas abrem para a ordem dos batedores e, ao
+  // sair delas, a disputa começa (como no CM)
+  const atShootout = !!view?.shootoutPending && view.userSide !== null && shown >= lines.length
+  useEffect(() => {
+    if (!atShootout || tactics !== null || !view) return
+    resumeAfter.current = true
+    setWaiting(null)
+    setTactics(view.userSide as 0 | 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [atShootout])
 
   // Ao intervalo, com o relato dito, a palestra abre sozinha (uma vez; depois das Tácticas,
   // se o intervalo as abriu)
@@ -298,6 +312,8 @@ export function LiveScreen({
   const said = lines.slice(0, shown)
   // O placar só muda quando o relato chega ao golo
   const goalsSaid = (side: number) => said.filter((l) => isGoalLine(l) && l.side === side).length
+  // A disputa de pênaltis, também só até onde o relato chegou
+  const pens = pensSaid(said)
   const locked = running || tactics !== null
   /** Tácticas a qualquer momento: parado abre já; a correr, espera que a bola saia. */
   const openTactics = (side: 0 | 1) => {
@@ -323,15 +339,21 @@ export function LiveScreen({
     ['awayData', `Dados ${view.away.club.shortName}`],
   ]
 
-  const period = view.finished
-    ? 'Final'
-    : view.halfTime
-      ? 'Intervalo'
-      : !started
-        ? 'Antes do Jogo'
-        : view.minute <= 45
-          ? '1º Tempo'
-          : '2º Tempo'
+  const period = pens
+    ? `Pênaltis ${pens[0]}-${pens[1]}`
+    : view.finished
+      ? 'Final'
+      : view.halfTime
+        ? view.minute === 90
+          ? 'Vai à Prorrogação'
+          : 'Intervalo'
+        : !started
+          ? 'Antes do Jogo'
+          : view.minute <= 45
+            ? '1º Tempo'
+            : view.minute <= 90
+              ? '2º Tempo'
+              : 'Prorrogação'
 
   // Por baixo da barra do topo (h-11), que continua à vista com o Continuar Jogo. Vai para o
   // palco por portal: cobre a coluna sem sair das barras pretas (o `fixed` media-se pela
@@ -407,14 +429,14 @@ export function LiveScreen({
                 club={view.home.club}
                 goals={goalsSaid(0)}
                 side="home"
-                detail={['Casa', view.venue].filter(Boolean).join(' · ')}
+                detail={['Casa', view.venue, pens && `Pênaltis ${pens[0]}`].filter(Boolean).join(' · ')}
                 onClick={view.finished ? undefined : () => openTactics(0)}
               />
               <ScoreBand
                 club={view.away.club}
                 goals={goalsSaid(1)}
                 side="away"
-                detail="Fora"
+                detail={['Fora', pens && `Pênaltis ${pens[1]}`].filter(Boolean).join(' · ')}
                 onClick={view.finished ? undefined : () => openTactics(1)}
               />
             </div>
@@ -440,7 +462,7 @@ export function LiveScreen({
               ))}
             </div>
             <div className="min-h-0 flex-1 overflow-auto rounded bg-cm-surface">
-              {pane === 'panorama' && <Panorama view={view} line={current} said={said} started={started} />}
+              {pane === 'panorama' && <Panorama view={view} line={current} said={said} started={started} unsaid={lines.length - shown} />}
               {pane === 'stats' && <Stats view={view} />}
               {pane === 'zones' && <Zones view={view} />}
               {pane === 'report' && <Report lines={said} />}

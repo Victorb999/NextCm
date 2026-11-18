@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ClubRef } from '../bindings/ClubRef'
@@ -103,7 +103,8 @@ export function Empty({ children, className = 'p-6' }: { children: ReactNode; cl
   return <div className={`text-center text-cm-magenta ${className}`}>{children}</div>
 }
 
-export type Tab = { key: string; label: string; disabled?: boolean }
+/** `icon`: um ícone do lucide antes do nome (opcional). */
+export type Tab = { key: string; label: string; disabled?: boolean; icon?: LucideIcon }
 
 /** Linha de abas do CM: escuras, a selecionada com borda amarela. */
 export function Tabs({
@@ -146,6 +147,7 @@ export function Tabs({
           }
           className={`cm-tab ${over === t.key ? '!border-cm-yellow !text-cm-yellow' : ''}`}
         >
+          {t.icon && <t.icon size={15} className="mr-1.5 shrink-0" />}
           {t.label}
         </button>
       ))}

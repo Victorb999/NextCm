@@ -478,9 +478,10 @@ export function Highlights({ team }: { team: LiveTeam }) {
 
 /** Os últimos lances que contam (golos, defesas, cartões, substituições), o mais recente em cima. */
 export function History({ said }: { said: Line[] }) {
-  const kinds = ['save', 'miss', 'yellow', 'red', 'injury', 'sub']
+  const kinds = ['save', 'miss', 'yellow', 'red', 'injury', 'sub', 'pen']
+  // Na disputa de pênaltis, o pênalti perdido pela primeira frase ("X perdeu a cobrança")
   const recent = said
-    .filter((l) => isGoalLine(l) || (l.last && kinds.includes(l.kind)))
+    .filter((l) => isGoalLine(l) || (l.last && kinds.includes(l.kind)) || (l.kind === 'penmiss' && !l.last))
     .slice(-3)
     .reverse()
   return (
@@ -490,7 +491,9 @@ export function History({ said }: { said: Line[] }) {
       {recent.map((l, i) => (
         <div key={i} className="flex h-6 items-center gap-2 text-[13px]">
           <span className="w-8 shrink-0 font-bold text-cm-orange">{l.minute}'</span>
-          <span className={`truncate ${isGoalLine(l) ? 'font-bold text-cm-yellow' : l.kind === 'red' ? 'text-cm-red' : 'text-cm-text'}`}>
+          <span
+            className={`truncate ${isGoalLine(l) ? 'font-bold text-cm-yellow' : l.kind === 'red' ? 'text-cm-red' : l.kind === 'penmiss' ? 'text-cm-mint' : 'text-cm-text'}`}
+          >
             {l.text}
           </span>
         </div>

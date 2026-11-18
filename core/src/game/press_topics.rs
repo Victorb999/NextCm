@@ -309,6 +309,7 @@ mod tests {
             away_id: rival,
             result: None,
             pens: None,
+            extra_time: false,
         };
         // No clássico pergunta-se pelo clássico
         let mut rng = g.press_rng(1, 1);

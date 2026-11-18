@@ -54,6 +54,7 @@ mod new_game;
 mod news_links;
 mod numbers;
 mod offer_comments;
+mod open_contracts;
 mod personal_info;
 mod player_record;
 mod player_setup;
@@ -65,6 +66,7 @@ mod reserve_report;
 mod reserves;
 mod result_press;
 mod retirement;
+mod scout_card;
 mod scout_reports;
 mod scout_tasks;
 mod scouting;
@@ -81,7 +83,7 @@ mod team_talk;
 mod training;
 pub(crate) mod unhappy;
 use crate::league::{self, Fixture, Match, StandingRow};
-use crate::live::{LiveMatch, LiveView, Occasion, TeamStats};
+use crate::live::{Decider, LiveMatch, LiveView, Occasion, TeamStats};
 use crate::person::ClubRef;
 use crate::regulation::{self, SeasonKind};
 use crate::search::fold;
@@ -117,6 +119,7 @@ pub use personal_info::PersonalInfo;
 pub use player_record::MatchSheet;
 pub use press::{PressQuestion, PressView};
 pub use reserve_matches::{ReserveLineup, ReserveSpot};
+pub use scout_card::ScoutCard;
 pub use scout_tasks::{ScoutFind, ScoutList};
 pub use season::DivisionStats;
 pub(crate) use season::age_on;
@@ -182,7 +185,8 @@ pub use training::{AreaStrength, CoachAreas, TrainingPlan, TrainingView};
 /// 72: a opção do ritmo nas reservas (`game.reserve_rhythm`), marco 4.1.
 /// 74: as partidas jogadas guardadas para a ficha como a do CM (`match_reports`).
 /// 75: a reputação do treinador no começo da temporada (`manager_info.season_rep`), para o resumo.
-pub const SAVE_VERSION: i32 = 75;
+/// 76: o relatório completo do olheiro (`scout_cards`), na aba Relatórios do perfil.
+pub const SAVE_VERSION: i32 = 77;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -473,7 +477,8 @@ CREATE TABLE fixtures (
     leg INTEGER NOT NULL DEFAULT 0,
     neutral INTEGER NOT NULL DEFAULT 0,
     home_pens INTEGER,
-    away_pens INTEGER
+    away_pens INTEGER,
+    extra_time INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX fixtures_date ON fixtures (date);
 CREATE TABLE player_state (
@@ -764,7 +769,7 @@ struct LiveDay {
     /// (índice em `matches`, partida)
     games: Vec<(usize, LiveMatch)>,
     /// Os jogos das ligas de fundo, pelo motor rápido: (índice em `matches`, resultado).
-    quick: Vec<(usize, (u8, u8))>,
+    quick: Vec<(usize, (u8, u8, bool))>,
     /// Posição do jogo do treinador em `games`.
     user: usize,
     /// Notícias do início do dia (recuperações, alterações do adjunto).
@@ -795,6 +800,15 @@ pub struct MatchRecord {
 
 /// Um número que muda a cada chamada (relógio e o hash aleatório do processo): o sorteio do
 /// dia de jogo no app. Nunca entra na CLI nem nos testes.
+/// O que se junta ao placar de um mata-mata: " (4-3 pên.)" ou " (prorr.)".
+fn score_suffix(m: &Match) -> String {
+    match m.pens {
+        Some((h, a)) => format!(" ({h}-{a} pên.)"),
+        None if m.extra_time => " (prorr.)".into(),
+        None => String::new(),
+    }
+}
+
 fn fresh_draw() -> i64 {
     use std::hash::{BuildHasher, Hasher};
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos() as u64);
@@ -906,6 +920,7 @@ impl Game {
             tx.execute_batch(staff_hire::STAFF_HIRE_SCHEMA)?;
             tx.execute_batch(match_reports::REPORTS_SCHEMA)?;
             tx.execute_batch(season_review::SEASON_REP_SCHEMA)?;
+            tx.execute_batch(scout_card::SCOUT_CARDS_SCHEMA)?;
             tx.execute_batch(board::SHIFT_SCHEMA)?;
             // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
             let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
@@ -1026,6 +1041,7 @@ impl Game {
             for n in fresh {
                 game.news.insert(0, n);
             }
+            game.date_open_contracts()?;
             game.fit_start_wages()?;
             game.fill_staff_attributes()?;
             crate::progress::set("Apresentando o treinador à Diretoria…", 0.7);
@@ -1525,6 +1541,18 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 75", [])?;
             version = 75;
         }
+        // Save 76: o relatório completo do olheiro
+        if version == 75 {
+            world.conn.execute_batch(scout_card::SCOUT_CARDS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 76", [])?;
+            version = 76;
+        }
+        // Save 77: a prorrogação dos mata-matas
+        if version == 76 {
+            world.conn.execute("ALTER TABLE fixtures ADD COLUMN extra_time INTEGER NOT NULL DEFAULT 0", [])?;
+            world.conn.execute("UPDATE game SET version = 77", [])?;
+            version = 77;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo salvo numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1559,7 +1587,7 @@ impl Game {
             .conn
             .prepare(
                 "SELECT id, competition_id, round, date, home_id, away_id, home_goals, away_goals,
-                        stage, grp, tie, leg, neutral, home_pens, away_pens
+                        stage, grp, tie, leg, neutral, home_pens, away_pens, extra_time
                  FROM fixtures ORDER BY id",
             )?
             .query_map([], |r| {
@@ -1579,6 +1607,7 @@ impl Game {
                     leg: r.get(11)?,
                     neutral: r.get::<_, i32>(12)? != 0,
                     pens: pens.0.zip(pens.1),
+                    extra_time: r.get::<_, i32>(15)? != 0,
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -1688,6 +1717,8 @@ impl Game {
             }
             game.unsaved = true;
         }
+        // Os contratos com salário e sem data de fim ganham uma (os saves de antes de 17/11)
+        game.date_open_contracts()?;
         Ok(game)
     }
 
@@ -1743,8 +1774,8 @@ impl Game {
         {
             let mut stmt = tx.prepare(
                 "INSERT INTO fixtures (id, competition_id, round, date, home_id, away_id, home_goals, away_goals,
-                                       stage, grp, tie, leg, neutral, home_pens, away_pens)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                       stage, grp, tie, leg, neutral, home_pens, away_pens, extra_time)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )?;
             for m in &self.matches {
                 let (hg, ag) = (m.result.map(|r| r.0), m.result.map(|r| r.1));
@@ -1764,7 +1795,8 @@ impl Game {
                     m.leg,
                     m.neutral as i32,
                     hp,
-                    ap
+                    ap,
+                    m.extra_time as i32
                 ])?;
             }
         }
@@ -2035,7 +2067,7 @@ impl Game {
                 user = Some(games.len());
                 live = live.detailed(engine::match_rng(self.match_seed() ^ 0x0F1A_7E55, self.matches[i].id));
             } else {
-                live.play_until(90);
+                live.play_out();
             }
             games.push((i, live));
         }
@@ -2055,11 +2087,38 @@ impl Game {
     /// escolheria hoje dá os golos esperados (com a torcida e o peso da camisa, como no motor
     /// por lances) e o resultado sai de um Poisson. Sem lances, notas nem lesões: só o
     /// resultado, para os dias passarem depressa.
-    fn quick_result(&self, i: usize) -> Result<(u8, u8)> {
+    /// Empatado no total de um jogo que decide uma eliminatória, há prorrogação: mais um
+    /// terço dos golos esperados (`true` no fim se a houve).
+    fn quick_result(&self, i: usize) -> Result<(u8, u8, bool)> {
         let m = &self.matches[i];
         let (xh, xa) = self.pre_match_expected(m)?;
         let mut rng = engine::match_rng(self.match_seed() ^ 0x0FA5_7000, m.id);
-        Ok((engine::poisson(xh, &mut rng), engine::poisson(xa, &mut rng)))
+        let (h, a) = (engine::poisson(xh, &mut rng), engine::poisson(xa, &mut rng));
+        match self.decider(i) {
+            Some(d) if d.extra_time && d.before[0] + h == d.before[1] + a => {
+                Ok((h + engine::poisson(xh / 3.0, &mut rng), a + engine::poisson(xa / 3.0, &mut rng), true))
+            }
+            _ => Ok((h, a, false)),
+        }
+    }
+
+    /// Se a partida `i` decide uma eliminatória (o jogo único ou a volta): os golos da ida, do
+    /// lado de quem joga em casa, e se o regulamento tem prorrogação nessa ronda.
+    pub(crate) fn decider(&self, i: usize) -> Option<Decider> {
+        let m = &self.matches[i];
+        let tie = m.tie?;
+        if m.leg == 1 {
+            return None;
+        }
+        let year = regulation::season_of(m.competition_id, &m.date);
+        let mut before = [0u8; 2];
+        for g in self.tie_games(m.competition_id, year, m.stage as usize, m.round, tie) {
+            let Some((h, a)) = g.result.filter(|_| g.id != m.id) else { continue };
+            let (x, y) = if g.home_id == m.home_id { (h, a) } else { (a, h) };
+            before[0] += x;
+            before[1] += y;
+        }
+        Some(Decider { before, extra_time: regulation::extra_time(m.competition_id, m.stage as usize, m.round) })
     }
 
     /// Golos esperados de uma partida com os onzes que o adjunto escolheria hoje, a torcida e
@@ -2100,6 +2159,9 @@ impl Game {
         let occasion = self.occasion(&self.matches[i])?;
         let mut live =
             LiveMatch::new(&self.world, self.fixture(&self.matches[i]), home_t, away_t, side, user_ai, rng)?.with_occasion(occasion);
+        if let Some(d) = self.decider(i) {
+            live = live.deciding(d);
+        }
         // O treinador provocou-os na conferência antes do jogo: o adversário vem mais motivado
         if let Some(s) = side
             && self.provoked(self.matches[i].id)?
@@ -2137,8 +2199,10 @@ impl Game {
             if !live.finished() {
                 live.hand_over();
             }
-            live.play_until(90);
+            live.play_out();
             self.matches[*i].result = Some(live.score());
+            self.matches[*i].extra_time = live.extra_time();
+            self.matches[*i].pens = live.pens();
             self.settle_tie(*i);
             let played = self.matches[*i].clone();
             let national = internationals::is_national_comp(played.competition_id);
@@ -2240,8 +2304,9 @@ impl Game {
             }
         }
         // As ligas de fundo: só o resultado
-        for &(i, score) in &day.quick {
-            self.matches[i].result = Some(score);
+        for &(i, (h, a, extra)) in &day.quick {
+            self.matches[i].result = Some((h, a));
+            self.matches[i].extra_time = extra;
             self.settle_tie(i);
             let played = self.matches[i].clone();
             self.gate(&played)?;
@@ -2666,6 +2731,7 @@ impl Game {
             neutral: m.neutral,
             home_pens: m.pens.map(|r| r.0 as i32),
             away_pens: m.pens.map(|r| r.1 as i32),
+            extra_time: m.extra_time,
             knockout: m.tie.is_some(),
             home_tag: m.tie.and_then(|_| self.knockout_tag(m.competition_id, m.home_id)),
             away_tag: m.tie.and_then(|_| self.knockout_tag(m.competition_id, m.away_id)),
@@ -2814,6 +2880,7 @@ impl Game {
             .find(|r| r.club.id == self.club_id)
             .map(|r| format!("\n\nCom este resultado, o {} é {}º classificado com {} pontos.", ours.short_name, r.position, r.points))
             .unwrap_or_default();
+        let extra = if m.extra_time { " O jogo foi para a prorrogação." } else { "" };
         let pens = m
             .pens
             .map(|(h, a)| {
@@ -2837,17 +2904,37 @@ impl Game {
             id,
             date: self.date.clone(),
             kind: "competition".into(),
-            title: format!("{} {hg}-{ag} {}", home.short_name, away.short_name),
+            title: format!("{} {hg}-{ag} {}{}", home.short_name, away.short_name, score_suffix(m)),
             body: {
                 let (comp, label) = (self.fixture(m).competition, self.match_label(m));
                 let head = if comp == label { comp } else { format!("{comp}, {label}") };
-                format!("{head}.\n\n{what}{pens}{scorers}{standing}")
+                format!("{head}.\n\n{what}{extra}{pens}{scorers}{standing}")
             },
             read: false,
             offer_id: None,
             link: None,
             awaiting: false,
             part: self.part,
+        }
+    }
+
+    /// Como se decidiu a final entre `winner` e `second`: " nos pênaltis (4-3)", " na
+    /// prorrogação" ou nada.
+    fn final_decided(&self, comp: i32, year: i32, winner: i32, second: i32) -> String {
+        let last = self
+            .year_matches(comp, year)
+            .filter(|m| m.tie.is_some() && [m.home_id, m.away_id].contains(&winner) && [m.home_id, m.away_id].contains(&second))
+            .max_by(|a, b| a.date.cmp(&b.date).then(a.leg.cmp(&b.leg)));
+        match last {
+            Some(m) => match m.pens {
+                Some((h, a)) => {
+                    let (w, l) = if m.home_id == winner { (h, a) } else { (a, h) };
+                    format!(" nos pênaltis ({w}-{l})")
+                }
+                None if m.extra_time => " na prorrogação".into(),
+                None => String::new(),
+            },
+            None => String::new(),
         }
     }
 
@@ -2874,9 +2961,10 @@ impl Game {
             }
             _ => match second {
                 Some(s) => format!(
-                    "O {champion} venceu {} {label}: na final bateu o {}.",
+                    "O {champion} venceu {} {label}: na final bateu o {}{}.",
                     self.the_competition(competition_id),
-                    self.club(s).short_name
+                    self.club(s).short_name,
+                    self.final_decided(competition_id, year, winner, s)
                 ),
                 None => format!("O {champion} venceu {} {label}.", self.the_competition(competition_id)),
             },
@@ -3165,13 +3253,19 @@ impl Game {
         Ok(MatchExtras { venue, city, weather, referee, attendance })
     }
 
-    /// Joga até ao minuto `minute` (no máximo 90).
+    /// Joga até ao minuto `minute` (no máximo o fim do jogo: 90 ou 120 com prorrogação).
     pub fn live_step(&mut self, minute: i32) -> Result<LiveView> {
-        self.live_match_mut()?.play_until(minute.clamp(0, 90) as u8);
+        self.live_match_mut()?.play_until(minute.clamp(0, 121) as u8);
         self.live_view()
     }
 
     /// Substituição na equipa do treinador.
+    /// A ordem dos batedores do treinador na disputa de penáltis (ids de quem está em campo).
+    pub fn live_shootout_order(&mut self, order: &[i32]) -> Result<LiveView> {
+        self.live_match_mut()?.set_shootout_order(order.to_vec())?;
+        self.live_view()
+    }
+
     pub fn live_substitute(&mut self, out: i32, inn: i32) -> Result<LiveView> {
         self.live_match_mut()?.substitute(out, inn)?;
         self.live_view()
@@ -3652,6 +3746,7 @@ mod tests {
             leg: 0,
             neutral: false,
             pens: None,
+            extra_time: false,
         };
         // Sábado à tarde, às 15h; o "Jogo da Noite" do fim de semana e os da semana às 20h45
         assert_eq!(Game::kickoff(&m(1, "2025-08-02")), "15:00");
@@ -4132,6 +4227,91 @@ mod tests {
         // O sorteio do app nunca se repete (e nunca é 0, o da CLI)
         let (a, b) = (fresh_draw(), fresh_draw());
         assert!(a != b && a != 0 && b != 0);
+    }
+
+    #[test]
+    fn deciding_match_goes_to_extra_time_and_penalties() {
+        let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let g = Game::create(&path, &temp_dir("prorrogacao"), &new_game(7568), 1).unwrap();
+        let w = &g.world;
+        // Dortmund x Roma, como na Supercopa
+        let (home, away) = (w.get_club(3025).unwrap().club, w.get_club(8609).unwrap().club);
+        let fixture = Fixture {
+            id: 1,
+            competition_id: 0,
+            competition: String::new(),
+            round: 1,
+            date: "2026-08-12".into(),
+            time: "20:00".into(),
+            home: home.clone(),
+            away: away.clone(),
+            home_goals: None,
+            away_goals: None,
+            label: String::new(),
+            season: String::new(),
+            neutral: true,
+            home_pens: None,
+            away_pens: None,
+            extra_time: false,
+            knockout: true,
+            home_tag: None,
+            away_tag: None,
+        };
+        let tactics = |id: i32| w.auto_tactics(id, None, Instructions::default()).unwrap();
+        let play = |seed: u64, decider: Decider| {
+            let rng = engine::match_rng(seed as i64, 1);
+            let mut m = LiveMatch::new(w, fixture.clone(), tactics(home.id), tactics(away.id), None, true, rng).unwrap().deciding(decider);
+            m.play_out();
+            m
+        };
+        let (mut extra, mut shootouts) = (0, 0);
+        for seed in 0..60 {
+            let m = play(seed, Decider { before: [0, 0], extra_time: true });
+            assert!(m.finished());
+            let (h, a) = m.score();
+            // Ninguém sai empatado: ou alguém ganhou, ou houve penáltis com vencedor
+            match m.pens() {
+                Some((ph, pa)) => {
+                    shootouts += 1;
+                    assert_eq!(h, a);
+                    assert_ne!(ph, pa);
+                    assert!(m.extra_time() && m.minute() == 121);
+                    assert!(m.view(&[]).events.iter().any(|e| e.kind == "pen" || e.kind == "penmiss"));
+                    assert!(
+                        m.view(&[])
+                            .events
+                            .iter()
+                            .rev()
+                            .find(|e| e.kind == "end" && e.player_id.is_none())
+                            .unwrap()
+                            .text
+                            .contains("pênaltis")
+                    );
+                }
+                None => assert_ne!(h, a),
+            }
+            if m.extra_time() {
+                extra += 1;
+                assert_eq!(m.minute(), if m.pens().is_some() { 121 } else { 120 });
+                assert!(m.view(&[]).events.iter().any(|e| e.text == "Começa a prorrogação."));
+            } else {
+                assert_eq!(m.minute(), 90);
+            }
+            // Sem prorrogação no regulamento, empatado vai direto aos penáltis
+            let m = play(seed, Decider { before: [0, 0], extra_time: false });
+            assert_eq!(m.minute(), if m.pens().is_some() { 91 } else { 90 });
+            assert!(!m.extra_time());
+            assert_eq!(m.pens().is_some(), m.score().0 == m.score().1);
+            // Na volta conta o total: 2-0 na ida, a casa perde por 2-0 e empata a eliminatória
+            let m = play(seed, Decider { before: [1, 1], extra_time: false });
+            assert_eq!(m.pens().is_some(), m.score().0 == m.score().1);
+        }
+        assert!(extra > 5 && shootouts > 0, "prorrogações {extra}, penáltis {shootouts}");
+        // Um jogo sem decisão acaba empatado aos 90
+        let rng = engine::match_rng(3, 1);
+        let mut m = LiveMatch::new(w, fixture.clone(), tactics(home.id), tactics(away.id), None, true, rng).unwrap();
+        m.play_out();
+        assert!(m.minute() == 90 && m.pens().is_none());
     }
 
     #[test]

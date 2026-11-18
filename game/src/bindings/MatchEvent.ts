@@ -5,7 +5,7 @@
  */
 export type MatchEvent = { minute: number, 
 /**
- * "start", "goal", "save", "miss", "yellow", "red", "injury", "sub", "tactics", "half", "end"
+ * "start", "goal", "save", "miss", "yellow", "red", "injury", "sub", "tactics", "half", "shootout", "pen", "penmiss", "end"
  */
 kind: string, 
 /**

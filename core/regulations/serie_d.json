@@ -17,6 +17,7 @@
     },
     {
       "kind": "knockout",
+      "extra_time": false,
       "name": "Eliminatórias",
       "pairing": "cross",
       "entrants": {

@@ -7,6 +7,7 @@ import type { Selection } from '../bindings/Selection'
 import type { TacticPlayer } from '../bindings/TacticPlayer'
 import { selectionOf, swap, useDragSwap, type Spot } from '../selection'
 import InstructionsDialog from './InstructionsDialog'
+import { ShootoutTakers } from './match/ShootoutTakers'
 import PlayerOrdersDialog from './PlayerOrdersDialog'
 import { BottomBar, ErrorBox, Link, PanelTitle, PurpleMenu, ScreenHeader } from './Screen'
 import { InstructionsSummary, Pitch, Row, RowHeader } from './TacticsBoard'
@@ -79,6 +80,9 @@ export default function LiveTactics({
     return m !== null && m !== undefined ? <span className="text-cm-orange">ent {m}'</span> : undefined
   }
   const editable = !!t?.editable
+  // Antes dos pênaltis: só a ordem dos batedores (do lado do treinador)
+  const shootout = view.shootoutPending && view.userSide === side
+  const [takers, setTakers] = useState<number[]>(view.penaltyOrder)
 
   useEffect(() => {
     api.liveTactics(side).then(
@@ -117,6 +121,18 @@ export default function LiveTactics({
   const subsLeft = view.minute === 0 ? team.subsLeft : team.subsLeft - entering
 
   const ok = async () => {
+    if (shootout) {
+      if (busy) return
+      setBusy(true)
+      try {
+        if (JSON.stringify(takers) !== JSON.stringify(view.penaltyOrder)) onApplied(await api.liveShootoutOrder(takers))
+        onClose()
+      } catch (e) {
+        setError(String(e))
+        setBusy(false)
+      }
+      return
+    }
     if (!t || busy) return
     const sel = selectionOf(t)
     if (!editable || JSON.stringify(sel) === JSON.stringify(original?.sel)) return onClose()
@@ -206,6 +222,11 @@ export default function LiveTactics({
           }}
         />
       </div>
+      {shootout && (
+        <div className="mx-2 mt-2 rounded bg-cm-dlgdeep px-2 py-1 text-center font-bold text-cm-yellow">
+          Empate no fim do jogo: escolha a ordem dos batedores para a disputa de pênaltis.
+        </div>
+      )}
       {notice && <div className="mx-2 mt-2 rounded bg-[#5a1414] px-2 py-1 text-center font-bold text-white">{notice}</div>}
       <ErrorBox className="mx-2 mt-2">{error}</ErrorBox>
       {t ? (
@@ -294,20 +315,24 @@ export default function LiveTactics({
               </div>
             )}
           </div>
-          <div className="flex min-h-0 flex-1 gap-2">
-            <div className="flex min-h-0 flex-1 flex-col">
+          {shootout ? (
+            <ShootoutTakers players={team.players} order={takers} onChange={setTakers} />
+          ) : (
+            <div className="flex min-h-0 flex-1 gap-2">
               <div className="flex min-h-0 flex-1 flex-col">
-                <Pitch t={t} colours={colours} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <Pitch t={t} colours={colours} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
+                </div>
+                <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
+                  {editable
+                    ? 'Arraste para trocar (titular com suplente = substituição) ou para um lugar vazio · botão direito e arrastar faz a seta'
+                    : 'Só pode mexer no seu time.'}
+                </div>
               </div>
-              <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
-                {editable
-                  ? 'Arraste para trocar (titular com suplente = substituição) ou para um lugar vazio · botão direito e arrastar faz a seta'
-                  : 'Só pode mexer no seu time.'}
-              </div>
+              {/* As Instruções à Equipa à vista, como na tela de Tácticas; Editar abre o diálogo */}
+              <InstructionsSummary t={t} onEdit={editable ? () => setInstructions(true) : undefined} />
             </div>
-            {/* As Instruções à Equipa à vista, como na tela de Tácticas; Editar abre o diálogo */}
-            <InstructionsSummary t={t} onEdit={editable ? () => setInstructions(true) : undefined} />
-          </div>
+          )}
         </div>
       ) : (
         <div className="flex-1" />

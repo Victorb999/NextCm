@@ -22,6 +22,7 @@
     },
     {
       "kind": "knockout",
+      "extra_time": false,
       "name": "Mata-mata",
       "pairing": "bracket",
       "entrants": {

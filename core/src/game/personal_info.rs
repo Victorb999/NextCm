@@ -39,7 +39,7 @@ pub struct PersonalInfo {
 }
 
 /// A personalidade em palavras, pelos atributos mentais (o mais marcante primeiro).
-fn personality_label(
+pub(super) fn personality_label(
     determination: i32,
     professionalism: i32,
     ambition: i32,

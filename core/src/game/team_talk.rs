@@ -50,7 +50,7 @@ pub struct TalkPlayer {
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct TalkView {
-    /// "pre", "half", "full" ou "sub" (a palavra ao suplente que entrou).
+    /// "pre", "half", "extra" (antes da prorrogação), "full" ou "sub" (a palavra ao suplente que entrou).
     pub moment: String,
     pub title: String,
     pub options: Vec<TalkOption>,
@@ -246,6 +246,9 @@ impl Game {
             "pre"
         } else if live.minute() == 45 {
             "half"
+        } else if live.at_break() {
+            // Antes da prorrogação: como no intervalo, mas é outra palestra
+            "extra"
         } else if !self.waiting_subs()?.is_empty() {
             "sub"
         } else {
@@ -287,11 +290,12 @@ impl Game {
         let (title, options): (&str, &[(&str, &str)]) = match moment {
             "pre" => ("Palestra antes do jogo", &PRE),
             "half" => ("Palestra no intervalo", &HALF),
+            "extra" => ("Palestra antes da prorrogação", &HALF),
             "sub" => ("Uma palavra a quem entra", &SUB),
             _ => ("Palestra no fim do jogo", &FULL),
         };
         // O adjunto sugere uma frase, pela situação
-        let suggested = match (moment, s.favourite, s.lead) {
+        let suggested = match (if moment == "extra" { "half" } else { moment }, s.favourite, s.lead) {
             ("sub", _, l) if l < 0 => "change_game",
             ("sub", _, _) => "stay_calm",
             ("pre", 1, _) => "expect_win",
@@ -348,7 +352,7 @@ impl Game {
         let moment = self.talk_moment()?;
         let options: &[(&str, &str)] = match moment {
             "pre" => &PRE,
-            "half" => &HALF,
+            "half" | "extra" => &HALF,
             "sub" => &SUB,
             _ => &FULL,
         };
@@ -389,7 +393,7 @@ impl Game {
                     })
                 },
             )?;
-            let (v, nervous) = react(key, moment, &m, s);
+            let (v, nervous) = react(key, if moment == "extra" { "half" } else { moment }, &m, s);
             let (v, nervous) = tone(v, nervous, tone_key, &m);
             if moment == "full" {
                 self.change_morale(id, v);

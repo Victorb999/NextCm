@@ -2,8 +2,9 @@ import type { ClubRef } from '../../bindings/ClubRef'
 import type { LiveView } from '../../bindings/LiveView'
 import { initials, longDate } from '../../format'
 import { surname } from '../../tactics'
-import { clubStyle, clubBand, isGoalLine, lineLabel, manOfTheMatch } from './lines'
+import { clubStyle, clubBand, isGoalLine, lineLabel, manOfTheMatch, pensSaid } from './lines'
 import type { Line } from './lines'
+import { ShootoutList } from './ShootoutList'
 
 /** Barra de posse no caixilho roxo, com as cores dos clubes e os nomes por cima. */
 export function PossessionBar({ view, home, label }: { view: LiveView; home: number; label: string }) {
@@ -119,24 +120,49 @@ function Scorers({ view, said, side, small }: { view: LiveView; said: Line[]; si
   )
 }
 
-export function Panorama({ view, line, said, started }: { view: LiveView; line: Line | null; said: Line[]; started: boolean }) {
+export function Panorama({
+  view,
+  line,
+  said,
+  started,
+  unsaid,
+}: {
+  view: LiveView
+  line: Line | null
+  said: Line[]
+  started: boolean
+  /** Frases ainda por dizer: no fim, a disputa de pênaltis conta-se lance a lance antes do resumo. */
+  unsaid: number
+}) {
+  // Os pênaltis só até onde o relato os contou
+  const shootout = pensSaid(said)
+  const summary = view.halfTime || (view.finished && (unsaid === 0 || !shootout))
   // Golos ou lesões: o bloco dos acontecimentos em cima
   const anyGoal = said.some((l) => isGoalLine(l) || ((l.kind === 'injury' || l.kind === 'red') && l.last))
   const motm = view.finished ? manOfTheMatch(view, said) : null
   const title = !started
     ? 'Saída de Bola'
-    : view.finished
-      ? 'Final'
-      : view.halfTime
-        ? 'Intervalo'
-        : view.minute < 45
-          ? 'Primeiro Tempo'
-          : 'Segundo Tempo'
-  const score = view.halfTime
-    ? ` · INT ${view.homeGoals}-${view.awayGoals}`
-    : view.finished
-      ? ` · FIN ${view.homeGoals}-${view.awayGoals}`
-      : ''
+    : shootout && !summary
+      ? 'Disputa de Pênaltis'
+      : view.finished
+        ? 'Final'
+        : view.halfTime
+          ? view.minute === 90
+            ? 'Fim do Tempo Normal'
+            : 'Intervalo'
+          : view.minute < 45
+            ? 'Primeiro Tempo'
+            : view.minute <= 90
+              ? 'Segundo Tempo'
+              : 'Prorrogação'
+  const pens = shootout ? ` (${shootout[0]}-${shootout[1]} g.p.)` : ''
+  const score = !summary
+    ? ''
+    : view.halfTime
+      ? ` · ${view.minute === 90 ? '90' : 'INT'} ${view.homeGoals}-${view.awayGoals}`
+      : view.finished
+        ? ` · FIN ${view.homeGoals}-${view.awayGoals}${pens || (view.extraTime ? ' (prorr.)' : '')}`
+        : ''
   // Os cartões que o relato já mostrou
   const cards = (kind: string) => said.filter((l) => l.kind === kind && l.last).length
   const [yellows, reds] = [cards('yellow'), cards('red')]
@@ -157,19 +183,20 @@ export function Panorama({ view, line, said, started }: { view: LiveView; line: 
         </span>
       </div>
       {/* Durante o jogo, os marcadores ficam em cima, longe da caixa do relato */}
-      {!(view.halfTime || view.finished) && anyGoal && (
+      {!summary && anyGoal && (
         <div className="relative flex shrink-0 py-1.5">
           <Scorers view={view} said={said} side={0} small />
           <Scorers view={view} said={said} side={1} small />
         </div>
       )}
-      <div className="relative flex min-h-0 flex-1 items-center justify-center px-8">
-        {view.halfTime || view.finished ? (
-          <div className="flex w-full flex-col items-center gap-5">
+      <div className="relative flex min-h-0 flex-1 overflow-y-auto px-8">
+        {summary ? (
+          <div className="m-auto flex w-full flex-col items-center gap-3 py-2">
             <div className="flex w-full">
               <Scorers view={view} said={said} side={0} />
               <Scorers view={view} said={said} side={1} />
             </div>
+            <ShootoutList view={view} kicks={said.filter((l) => (l.kind === 'pen' || l.kind === 'penmiss') && l.last)} small />
             {motm && (
               <div className="flex min-w-[360px] flex-col items-center rounded-lg border-2 border-cm-yellow bg-black/70 px-8 py-2">
                 <span className="text-[13px] font-bold font-mono uppercase tracking-wider text-cm-yellow">Melhor em Campo</span>
@@ -187,7 +214,11 @@ export function Panorama({ view, line, said, started }: { view: LiveView; line: 
           </div>
         ) : (
           // Uma frase nova é um cartão novo (entra com a animação)
-          line && <LineCard key={said.length} view={view} line={line} />
+          line && (
+            <div className="m-auto flex w-full justify-center">
+              <LineCard key={said.length} view={view} line={line} />
+            </div>
+          )
         )}
       </div>
       <div className="relative mx-3 mb-2 shrink-0">

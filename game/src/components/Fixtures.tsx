@@ -92,8 +92,8 @@ export function RoundGames({ fixtures, table, own }: { fixtures: Fixture[]; tabl
           <div className="min-w-0 flex-1">{name(f.home, 'text-right')}</div>
           <span className="w-16 shrink-0 text-center font-mono text-[15px] font-bold leading-none text-cm-magenta">
             {played(f) ? <span className="text-cm-yellow">{`${f.homeGoals} - ${f.awayGoals}`}</span> : 'v'}
-            {played(f) && f.homePens !== null && (
-              <span className="block font-sans text-[10px] font-normal text-cm-orange">{`${f.homePens}-${f.awayPens} g.p.`}</span>
+            {played(f) && pensText(f) && (
+              <span className="block font-sans text-[10px] font-normal text-cm-orange">{pensText(f).trim().slice(1, -1)}</span>
             )}
           </span>
           <div className="min-w-0 flex-1">{name(f.away, 'text-left')}</div>

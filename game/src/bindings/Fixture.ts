@@ -18,6 +18,10 @@ label: string,
  */
 season: string, neutral: boolean, homePens: number | null, awayPens: number | null, 
 /**
+ * Decidido na prorrogação (o placar já a inclui).
+ */
+extraTime: boolean, 
+/**
  * Jogo de mata-mata (a classificação de uma fase anterior já não conta).
  */
 knockout: boolean, 

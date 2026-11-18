@@ -47,6 +47,8 @@ pub struct Match {
     pub result: Option<(u8, u8)>,
     /// Penáltis no fim de uma eliminatória empatada.
     pub pens: Option<(u8, u8)>,
+    /// Houve prorrogação (os golos dela estão em `result`).
+    pub extra_time: bool,
 }
 
 /// Uma partida para a interface (com os clubes por extenso).
@@ -72,6 +74,9 @@ pub struct Fixture {
     pub neutral: bool,
     pub home_pens: Option<i32>,
     pub away_pens: Option<i32>,
+    /// Decidido na prorrogação (o placar já a inclui).
+    #[serde(default)]
+    pub extra_time: bool,
     /// Jogo de mata-mata (a classificação de uma fase anterior já não conta).
     #[serde(default)]
     pub knockout: bool,

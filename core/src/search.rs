@@ -398,14 +398,13 @@ impl World {
                 .query_row("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", [table], |r| r.get::<_, i64>(0))?
                 > 0)
         };
+        // Os aposentados só se veem no perfil (pelos links do Historial, das notícias...)
+        if has("retired")? {
+            wheres.push("p.id NOT IN (SELECT person_id FROM retired)".into());
+        }
         match q.status {
             None => {}
-            Some(MarketStatus::Free) => {
-                wheres.push("p.is_player = 1 AND p.club_id IS NULL".into());
-                if has("retired")? {
-                    wheres.push("p.id NOT IN (SELECT person_id FROM retired)".into());
-                }
-            }
+            Some(MarketStatus::Free) => wheres.push("p.is_player = 1 AND p.club_id IS NULL".into()),
             Some(MarketStatus::Shortlist) if has("shortlist")? => {
                 wheres.push("p.id IN (SELECT person_id FROM shortlist)".into());
             }
@@ -440,9 +439,6 @@ impl World {
         }
         if q.no_club == Some(true) {
             wheres.push("p.club_id IS NULL".into());
-            if has("retired")? {
-                wheres.push("p.id NOT IN (SELECT person_id FROM retired)".into());
-            }
         }
         if let Some(club) = q.exclude_club {
             wheres.push("(p.club_id IS NULL OR p.club_id <> ?)".into());

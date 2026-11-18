@@ -162,6 +162,7 @@ mod tests {
             away_id: FLAMENGO,
             result: Some(result),
             pens: None,
+            extra_time: false,
         };
         let title = |m: Match| g.result_press(1, &m).unwrap().map(|n| n.title);
         assert_eq!(title(game(LIBERTADORES, (5, 0))).as_deref(), Some("Palmeiras atropela o Flamengo na Copa Libertadores"));

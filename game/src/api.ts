@@ -337,9 +337,11 @@ export const api = {
   matchAnalysis: () => call<MatchAnalysis>('match_analysis'),
   /** O Pós-Jogo: o jornal a comparar com a previsão, os homens-chave e os marcos cumpridos. */
   matchReview: () => call<MatchReview>('match_review'),
-  /** Joga até ao minuto dado (no máximo 90). */
+  /** Joga até ao minuto dado (no máximo o fim: 90, ou 120 com prorrogação). */
   liveStep: (minute: number) => call<LiveView>('live_step', { minute }),
   liveSubstitute: (out: number, inn: number) => call<LiveView>('live_substitute', { out, inn }),
+  /** A ordem dos batedores do treinador na disputa de pênaltis (ids de quem está em campo). */
+  liveShootoutOrder: (order: number[]) => call<LiveView>('live_shootout_order', { order }),
   liveSwap: (a: number, b: number) => call<LiveView>('live_swap', { a, b }),
   liveInstructions: (instructions: Instructions) => call<LiveView>('live_instructions', { instructions }),
   /** Tácticas de um lado do jogo (0 casa, 1 fora), como a tela as mostra. */

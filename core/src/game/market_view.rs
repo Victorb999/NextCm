@@ -237,6 +237,27 @@ mod tests {
         // As transferências do mês
         let w = g.world_transfers(&g.date[0..7], 0, None).unwrap();
         assert!(w.total > 0 && w.items.len() as i32 <= w.total);
+        // Ninguém com salário fica sem data de fim do contrato (o Andrey do Vasco U21)
+        let open: i64 = g
+            .world
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM people WHERE is_player = 1 AND club_id IS NOT NULL AND contract_expires IS NULL AND COALESCE(wage, 0) > 0
+                 AND id NOT IN (SELECT person_id FROM retired) AND id NOT IN (SELECT person_id FROM ghosts)",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(open, 0);
+        // O aposentado sai da Busca e o perfil mostra quando se aposentou
+        let mbappe = SearchQuery { text: Some("Mbappe".into()), kind: Some(PersonKind::Players), ..Default::default() };
+        let id = g.world.search_people_on(&mbappe, &g.date).unwrap().items[0].id;
+        g.world.conn.execute("INSERT INTO retired (person_id, date) VALUES (?, ?)", rusqlite::params![id, g.date]).unwrap();
+        assert!(g.world.search_people_on(&mbappe, &g.date).unwrap().items.iter().all(|p| p.id != id));
+        let mut p = g.world.get_person(id).unwrap();
+        g.mask_profile(&mut p).unwrap();
+        assert_eq!(p.retired.as_deref(), Some(g.date.as_str()));
+        assert!(!p.can_contract);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

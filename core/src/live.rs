@@ -43,8 +43,9 @@ const CORNERS_PER_90: f64 = 1.5;
 /// Quem ganha por 3 ou mais tira o pé: os seus golos esperados caem para 65%. Segura as
 /// goleadas de 6+ entre equipas desiguais e quase não mexe na média de golos.
 const LEAD_EASE: (u8, f64) = (3, 0.65);
-/// Minutos em que o adjunto pensa numa substituição (46 = ao intervalo).
-const AI_SUB_MINUTES: [u8; 5] = [46, 58, 66, 74, 82];
+/// Minutos em que o adjunto pensa numa substituição (46 = ao intervalo; 91 e 106 só na
+/// prorrogação).
+const AI_SUB_MINUTES: [u8; 7] = [46, 58, 66, 74, 82, 91, 106];
 /// Substituições tácticas do adjunto (as outras ficam para lesões).
 const AI_TACTICAL_SUBS: i32 = 3;
 
@@ -77,6 +78,10 @@ struct Profile {
     versatility: f64,
     /// Peso nos vermelhos directos (Temperamento).
     hothead: f64,
+    /// Penáltis (o atributo) e, no GR, Reflexos e 1x1: a disputa de penáltis.
+    penalties: f64,
+    reflexes: f64,
+    one_on_ones: f64,
     /// Adaptação de um estrangeiro acabado de chegar ao clube (1 = adaptado).
     settle: f64,
 }
@@ -95,7 +100,7 @@ fn load_profile(world: &World, id: i32, date: &str) -> Result<Profile> {
                 -- Estrangeiro que chegou ao clube durante o jogo (o banco traz datas de entrada fictícias)
                 p.nation_id <> c.nation_id AND COALESCE(p.second_nation_id, 0) <> c.nation_id
                   AND EXISTS (SELECT 1 FROM transfers t WHERE t.date = p.club_joined AND t.person_id = p.id AND t.to_club = p.club_id),
-                pl.dribbling, pl.pace, pl.acceleration
+                pl.dribbling, pl.pace, pl.acceleration, pl.penalties, pl.reflexes, pl.one_on_ones
          FROM people p JOIN players pl ON pl.person_id = p.id LEFT JOIN clubs c ON c.id = p.club_id WHERE p.id = ?",
     )?;
     let today = date::parse(date).unwrap_or(0);
@@ -133,6 +138,9 @@ fn load_profile(world: &World, id: i32, date: &str) -> Result<Profile> {
             determination: v(27)?,
             versatility: v(28)?,
             hothead: personality::temperament_red_factor(v(30)?),
+            penalties: v(37)?,
+            reflexes: v(38)?,
+            one_on_ones: v(39)?,
             settle,
         })
     })?)
@@ -140,8 +148,12 @@ fn load_profile(world: &World, id: i32, date: &str) -> Result<Profile> {
 
 /// Jeito para bater penáltis, como o adjunto escolhe no jogo (`Team::taker`).
 pub(crate) fn penalty_skill(world: &World, id: i32, date: &str) -> Result<f64> {
-    let p = load_profile(world, id, date)?;
-    Ok(p.finishing + p.nerve)
+    Ok(pen_skill(&load_profile(world, id, date)?))
+}
+
+/// O batedor de penáltis: o atributo Penáltis, a Finalização e o sangue-frio (1–20).
+fn pen_skill(p: &Profile) -> f64 {
+    0.6 * p.penalties + 0.2 * p.finishing + 0.2 * p.nerve
 }
 
 #[derive(Debug, Clone)]
@@ -492,7 +504,7 @@ impl Team {
 #[serde(rename_all = "camelCase")]
 pub struct MatchEvent {
     pub minute: i32,
-    /// "start", "goal", "save", "miss", "yellow", "red", "injury", "sub", "tactics", "half", "end"
+    /// "start", "goal", "save", "miss", "yellow", "red", "injury", "sub", "tactics", "half", "shootout", "pen", "penmiss", "end"
     pub kind: String,
     /// 0 = casa, 1 = fora; `None` nos avisos do árbitro.
     pub side: Option<i32>,
@@ -567,8 +579,22 @@ pub struct ScoreLine {
 pub struct LiveView {
     pub fixture: Fixture,
     pub minute: i32,
-    /// No intervalo (45' jogados, segunda parte por começar).
+    /// No intervalo (45' jogados, segunda parte por começar) ou antes da prorrogação.
     pub half_time: bool,
+    /// O jogo foi (ou vai) a prorrogação.
+    #[serde(default)]
+    pub extra_time: bool,
+    /// A disputa de penáltis, se a houve.
+    #[serde(default)]
+    pub home_pens: Option<i32>,
+    #[serde(default)]
+    pub away_pens: Option<i32>,
+    /// Acabou empatado e espera pelos penáltis: o treinador escolhe os batedores.
+    #[serde(default)]
+    pub shootout_pending: bool,
+    /// A ordem dos batedores do treinador (ids), na disputa de penáltis.
+    #[serde(default)]
+    pub penalty_order: Vec<i32>,
     pub finished: bool,
     pub home_goals: i32,
     pub away_goals: i32,
@@ -596,6 +622,15 @@ pub struct LiveView {
     pub table: Vec<crate::league::StandingRow>,
 }
 
+/// O jogo que decide uma eliminatória (o jogo único ou a volta): empatado no total ao
+/// minuto 90, vai a prorrogação (se o regulamento a tiver) e depois a penáltis.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Decider {
+    /// Golos dos jogos de antes (a ida), do lado de quem joga em casa hoje e do outro.
+    pub before: [u8; 2],
+    pub extra_time: bool,
+}
+
 /// Uma partida a decorrer.
 #[derive(Debug, Clone)]
 pub struct LiveMatch {
@@ -616,6 +651,15 @@ pub struct LiveMatch {
     zone_home: [f64; 3],
     useful: f64,
     occasion: Occasion,
+    decider: Option<Decider>,
+    /// Vai haver (ou houve) prorrogação: o jogo acaba ao minuto 120.
+    extra: bool,
+    /// O resultado da disputa de penáltis.
+    pens: Option<(u8, u8)>,
+    /// Acabou empatado: o jogo pára antes dos penáltis (o treinador escolhe os batedores).
+    awaiting: bool,
+    /// A ordem dos batedores escolhida pelo treinador (ids), de cada lado.
+    pen_order: [Vec<i32>; 2],
 }
 
 /// Escolhe uma variante do texto sem gastar o RNG (o relato não muda o jogo).
@@ -686,6 +730,11 @@ impl LiveMatch {
             zone_home: [0.0; 3],
             useful: 0.0,
             occasion: Occasion::default(),
+            decider: None,
+            extra: false,
+            pens: None,
+            awaiting: false,
+            pen_order: [Vec::new(), Vec::new()],
         };
         // Forma do dia de cada titular: a nota parte de 6 ± 0,4
         for side in 0..2 {
@@ -715,6 +764,12 @@ impl LiveMatch {
             }
         }
         self.occasion = occasion;
+        self
+    }
+
+    /// Este jogo decide uma eliminatória: não acaba empatado no total.
+    pub fn deciding(mut self, decider: Decider) -> LiveMatch {
+        self.decider = Some(decider);
         self
     }
 
@@ -776,7 +831,32 @@ impl LiveMatch {
     }
 
     pub fn finished(&self) -> bool {
-        self.minute >= 90
+        self.minute >= self.length() && !self.awaiting
+    }
+
+    /// Os minutos do jogo: 90, ou 120 com prorrogação.
+    fn length(&self) -> u8 {
+        if self.extra { 120 } else { 90 }
+    }
+
+    /// Uma paragem para a palestra: o intervalo e o fim do tempo regulamentar antes da prorrogação.
+    pub fn at_break(&self) -> bool {
+        self.minute == 45 || (self.minute == 90 && self.extra)
+    }
+
+    /// Houve prorrogação.
+    pub fn extra_time(&self) -> bool {
+        self.extra
+    }
+
+    /// O resultado da disputa de penáltis, se a houve.
+    pub fn pens(&self) -> Option<(u8, u8)> {
+        self.pens
+    }
+
+    /// Empatado no total da eliminatória (num jogo que a decide).
+    fn level(&self) -> bool {
+        self.decider.is_some_and(|d| d.before[0] + self.score[0] == d.before[1] + self.score[1])
     }
 
     pub fn user_side(&self) -> Option<usize> {
@@ -840,11 +920,56 @@ impl LiveMatch {
         self.name(side, on[variant(on.len(), self.minute, self.teams[side].players[i].info.id + 3)])
     }
 
-    /// Joga até ao minuto `to` (no máximo 90).
+    /// Joga até ao minuto `to` (no máximo o fim do jogo: 90 ou, com prorrogação, 120). À espera
+    /// dos penáltis, um minuto a mais (o 121, como no CM) é a disputa.
     pub fn play_until(&mut self, to: u8) {
-        while self.minute < to.min(90) {
+        while self.minute < to.min(self.length()) {
             self.play_minute();
         }
+        if self.awaiting && to > self.length() {
+            self.minute += 1;
+            self.shootout();
+            self.awaiting = false;
+            self.full_time();
+        }
+    }
+
+    /// Joga até ao fim (com a prorrogação e os penáltis, se os houver).
+    pub fn play_out(&mut self) {
+        self.play_until(121);
+    }
+
+    /// A ordem dos batedores de um lado (ids): a do treinador (com quem ainda está em campo)
+    /// e depois a do adjunto: o batedor das Tácticas, os outros pelo jeito e o GR no fim.
+    pub fn shootout_order(&self, side: usize) -> Vec<i32> {
+        let t = &self.teams[side];
+        let on = t.on_pitch();
+        let id = |i: usize| t.players[i].info.id;
+        let mut out: Vec<i32> = self.pen_order[side].iter().copied().filter(|p| on.iter().any(|&i| id(i) == *p)).collect();
+        let first = t.taker(t.tactics.takers.penalty, pen_skill);
+        let gk = t.goalkeeper();
+        let mut rest: Vec<usize> = on.iter().copied().filter(|&i| Some(i) != first && Some(i) != gk).collect();
+        rest.sort_by(|&a, &b| pen_skill(&t.players[b].prof).total_cmp(&pen_skill(&t.players[a].prof)).then(a.cmp(&b)));
+        for i in first.into_iter().chain(rest).chain(gk) {
+            if !out.contains(&id(i)) {
+                out.push(id(i));
+            }
+        }
+        out
+    }
+
+    /// O treinador escolhe a ordem dos batedores (só à espera dos penáltis).
+    pub fn set_shootout_order(&mut self, ids: Vec<i32>) -> Result<()> {
+        let side = self.user.ok_or_else(|| Error::Invalid("Este jogo não é do seu time.".into()))?;
+        if !self.awaiting {
+            return Err(Error::Invalid("Não há disputa de pênaltis.".into()));
+        }
+        let on: Vec<i32> = self.teams[side].on_pitch().into_iter().map(|i| self.teams[side].players[i].info.id).collect();
+        if ids.iter().any(|id| !on.contains(id)) || (1..ids.len()).any(|k| ids[..k].contains(&ids[k])) {
+            return Err(Error::Invalid("Os batedores têm de ser jogadores em campo, cada um uma vez.".into()));
+        }
+        self.pen_order[side] = ids;
+        Ok(())
     }
 
     fn play_minute(&mut self) {
@@ -856,6 +981,12 @@ impl LiveMatch {
         }
         if m == 46 {
             self.push("start", None, None, "Começa a segundo tempo.".into());
+        }
+        if m == 91 {
+            self.push("start", None, None, "Começa a prorrogação.".into());
+        }
+        if m == 106 {
+            self.push("start", None, None, "Começa o segundo tempo da prorrogação.".into());
         }
         if AI_SUB_MINUTES.contains(&m) {
             for side in 0..2 {
@@ -900,9 +1031,121 @@ impl LiveMatch {
             let text = format!("Intervalo: {} {}-{} {}.", self.short(0), self.score[0], self.score[1], self.short(1));
             self.push("half", None, None, text);
         }
-        if m == 90 {
-            self.full_time();
+        if m == 105 {
+            let text =
+                format!("Fim do primeiro tempo da prorrogação: {} {}-{} {}.", self.short(0), self.score[0], self.score[1], self.short(1));
+            self.push("half", None, None, text);
         }
+        if m == 90 && self.level() && self.decider.is_some_and(|d| d.extra_time) {
+            self.extra = true;
+            let text = format!(
+                "Fim do tempo regulamentar: {} {}-{} {}. Vai ter prorrogação!",
+                self.short(0),
+                self.score[0],
+                self.score[1],
+                self.short(1)
+            );
+            self.push("half", None, None, text);
+        } else if m == self.length() {
+            if self.level() {
+                // Pára aqui: os penáltis são o minuto seguinte (o treinador escolhe os batedores)
+                self.awaiting = true;
+                let text = format!(
+                    "Fim de jogo: {} {}-{} {}. A decisão vai para os pênaltis!",
+                    self.short(0),
+                    self.score[0],
+                    self.score[1],
+                    self.short(1)
+                );
+                self.push("half", None, None, text);
+            } else {
+                self.full_time();
+            }
+        }
+    }
+
+    /// A disputa de penáltis: 5 para cada lado (acaba antes se um já não pode ser apanhado)
+    /// e, empatados, morte súbita. Batem pela ordem de `shootout_order`, e voltam ao primeiro
+    /// quando todos já bateram. Cada um marca conforme o jeito dele e o do GR.
+    fn shootout(&mut self) {
+        self.push("shootout", None, None, "O vencedor será definido nos pênaltis.".into());
+        let index =
+            |t: &Team, ids: &[i32]| -> Vec<usize> { ids.iter().filter_map(|id| t.players.iter().position(|p| p.info.id == *id)).collect() };
+        let orders = [index(&self.teams[0], &self.shootout_order(0)), index(&self.teams[1], &self.shootout_order(1))];
+        if orders.iter().any(|o| o.is_empty()) {
+            return;
+        }
+        let keeper = |t: &Team| t.goalkeeper().map_or(8.0, |g| (t.players[g].prof.reflexes + t.players[g].prof.one_on_ones) / 2.0);
+        let keepers = [keeper(&self.teams[0]), keeper(&self.teams[1])];
+        let mut goals = [0u8; 2];
+        let mut taken = [0u8; 2];
+        // Acabou: nas 5 de cada lado, um já não pode ser apanhado; depois, aos pares
+        let decided = |goals: [u8; 2], taken: [u8; 2]| {
+            if taken[0] <= 5 && taken[1] <= 5 && taken != [5, 5] {
+                let left = [5 - taken[0], 5 - taken[1]];
+                goals[0] > goals[1] + left[1] || goals[1] > goals[0] + left[0]
+            } else {
+                taken[0] == taken[1] && goals[0] != goals[1]
+            }
+        };
+        let mut kick = 0usize;
+        loop {
+            let side = kick % 2;
+            let other = 1 - side;
+            let i = orders[side][taken[side] as usize % orders[side].len()];
+            let name = self.name(side, i);
+            let id = self.teams[side].players[i].info.id;
+            let n = taken[side] as i32 + id;
+            // O penálti que dá a vitória
+            let mut win = goals;
+            win[side] += 1;
+            let mut next = taken;
+            next[side] += 1;
+            if decided(win, next) && !decided(goals, next) {
+                let text = format!("O {} vence se {name} marcar.", self.short(side));
+                self.push("shootout", Some(side), None, text);
+            }
+            taken[side] += 1;
+            let skill = pen_skill(&self.teams[side].players[i].prof);
+            let chance = (0.76 + 0.015 * (skill - 10.0) - 0.012 * (keepers[other] - 10.0)).clamp(0.55, 0.92);
+            let roll = uniform(&mut self.rng);
+            let gk = self.teams[other].goalkeeper();
+            let keeper_name = gk.map(|g| self.name(other, g)).unwrap_or_else(|| "o goleiro".into());
+            if roll < chance {
+                goals[side] += 1;
+                let run_up = match variant(3, self.minute, n) {
+                    0 => format!("{name} se preparou para bater o pênalti"),
+                    1 => format!("{name} ajeitou a bola na marca do pênalti"),
+                    _ => format!("{name} avançou e cobrou o pênalti..."),
+                };
+                let text = format!("{name} marcou!");
+                self.push_lines("pen", Some(side), Some(id), text.clone(), vec![run_up, text]);
+            } else {
+                let (text, how) = if roll < chance + (1.0 - chance) * 0.6 && gk.is_some() {
+                    if let Some(g) = gk {
+                        self.teams[other].players[g].rating += 0.2;
+                    }
+                    (format!("{name} desperdiçou a cobrança"), format!("{keeper_name} defendeu!"))
+                } else {
+                    let how = match variant(3, self.minute, n) {
+                        0 => format!("Mas {name} chutou por cima"),
+                        1 => format!("Mas {name} chutou ao lado!"),
+                        _ => format!("Mas {name} acertou a trave!"),
+                    };
+                    (format!("{name} perdeu a cobrança na disputa por pênaltis"), how)
+                };
+                self.teams[side].players[i].rating -= 0.2;
+                self.push_lines("penmiss", Some(side), Some(id), text.clone(), vec![text, how]);
+            }
+            kick += 1;
+            if decided(goals, taken) {
+                break;
+            }
+        }
+        let winner = usize::from(goals[1] > goals[0]);
+        let text = format!("O {} venceu na disputa por pênaltis!!", self.short(winner));
+        self.push("shootout", Some(winner), None, text);
+        self.pens = Some((goals[0], goals[1]));
     }
 
     /// Um minuto de ataque de um lado: talvez um remate, e o remate talvez golo.
@@ -964,7 +1207,7 @@ impl LiveMatch {
             let club_id = self.teams[side].club.id;
             let takers = self.teams[side].tactics.takers;
             let set_piece = match variant(14, m, club_id) {
-                0 => self.teams[side].taker(takers.penalty, |p| p.finishing + p.nerve).map(|t| (t, true)),
+                0 => self.teams[side].taker(takers.penalty, pen_skill).map(|t| (t, true)),
                 1 => self.teams[side].taker(takers.free_kick, |p| p.long_shots + p.finishing).map(|t| (t, false)),
                 _ => None,
             };
@@ -1297,7 +1540,13 @@ impl LiveMatch {
     }
 
     fn full_time(&mut self) {
-        let text = format!("Final do jogo: {} {}-{} {}.", self.short(0), self.score[0], self.score[1], self.short(1));
+        let mut text = format!("Final do jogo: {} {}-{} {}", self.short(0), self.score[0], self.score[1], self.short(1));
+        if let Some((h, a)) = self.pens {
+            text += &format!(", {h}-{a} nos pênaltis. O {} se classifica", self.short(usize::from(a > h)));
+        } else if self.extra {
+            text += " após a prorrogação";
+        }
+        text += ".";
         self.push("end", None, None, text);
         let best = (0..2)
             .flat_map(|s| (0..self.teams[s].players.len()).map(move |i| (s, i)))
@@ -1329,6 +1578,9 @@ impl LiveMatch {
     fn user_team(&self) -> Result<usize> {
         if self.finished() {
             return Err(Error::Invalid("O jogo já acabou.".into()));
+        }
+        if self.awaiting {
+            return Err(Error::Invalid("Na disputa de pênaltis só se escolhem os batedores.".into()));
         }
         self.user.ok_or_else(|| Error::Invalid("Este jogo não é do seu time.".into()))
     }
@@ -1493,7 +1745,7 @@ impl LiveMatch {
         }
         let mut t = world.tactics_from_selection(self.teams[side].club.id, sel, Some(&self.squad_state(side)))?;
         t.reserves.clear();
-        t.editable = self.user == Some(side) && !self.finished();
+        t.editable = self.user == Some(side) && !self.finished() && !self.awaiting;
         t.auto = false;
         Ok(t)
     }
@@ -1629,7 +1881,7 @@ impl LiveMatch {
             // Peso de cada um: minutos em campo × função (a de onde acabou ou a do onze) × atributo
             let minutes = |i: usize| {
                 let p = &t.players[i];
-                p.entered.map_or(0.0, |e| (p.left.unwrap_or(90).max(e) - e) as f64)
+                p.entered.map_or(0.0, |e| (p.left.unwrap_or(self.minute).max(e) - e) as f64)
             };
             let role = |i: usize, table: [f64; 8]| match t.players[i].slot {
                 Some(slot) => role_weight(t.role(slot), table),
@@ -1733,7 +1985,12 @@ impl LiveMatch {
         LiveView {
             fixture: self.fixture.clone(),
             minute: self.minute as i32,
-            half_time: self.minute == 45,
+            half_time: self.at_break(),
+            extra_time: self.extra,
+            home_pens: self.pens.map(|p| p.0 as i32),
+            away_pens: self.pens.map(|p| p.1 as i32),
+            shootout_pending: self.awaiting,
+            penalty_order: self.user.map(|s| self.shootout_order(s)).unwrap_or_default(),
             finished: self.finished(),
             home_goals: self.score[0] as i32,
             away_goals: self.score[1] as i32,

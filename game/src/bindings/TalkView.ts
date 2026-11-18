@@ -8,7 +8,7 @@ import type { TalkPlayer } from "./TalkPlayer";
  */
 export type TalkView = { 
 /**
- * "pre", "half", "full" ou "sub" (a palavra ao suplente que entrou).
+ * "pre", "half", "extra" (antes da prorrogação), "full" ou "sub" (a palavra ao suplente que entrou).
  */
 moment: string, title: string, options: Array<TalkOption>, tones: Array<TalkOption>, suggested: string, 
 /**

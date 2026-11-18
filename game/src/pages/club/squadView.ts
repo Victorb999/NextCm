@@ -1,3 +1,4 @@
+import { ArrowLeftRight, CalendarDays, Landmark, Swords, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { SquadPlayer } from '../../bindings/SquadPlayer'
 import { type FinanceView } from '../../components/FinancesPanel'
@@ -6,11 +7,11 @@ import { type Spot } from '../../selection'
 import { type SquadView } from '../../squad'
 
 export const TABS = [
-  { key: 'squad', label: 'Elenco' },
-  { key: 'transfers', label: 'Transferências' },
-  { key: 'next', label: 'Próximo Jogo' },
-  { key: 'fixtures', label: 'Calendário' },
-  { key: 'info', label: 'Finanças & Info' },
+  { key: 'squad', label: 'Elenco', icon: Users },
+  { key: 'transfers', label: 'Transferências', icon: ArrowLeftRight },
+  { key: 'next', label: 'Próximo Jogo', icon: Swords },
+  { key: 'fixtures', label: 'Calendário', icon: CalendarDays },
+  { key: 'info', label: 'Finanças & Info', icon: Landmark },
 ]
 
 export type View = SquadView | 'staff'

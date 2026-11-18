@@ -73,6 +73,8 @@ export default function PersonHeader({ p, action, tabs }: { p: PersonProfile | n
                   <Link onClick={() => nav.go({ kind: 'club', id: club.id, reserves: p.status?.reserve })}>
                     {p.status?.reserve ? `Reservas ${club.shortName}` : club.shortName}
                   </Link>
+                ) : p.retired ? (
+                  'Aposentado'
                 ) : (
                   'Sem clube'
                 )}
@@ -106,12 +108,12 @@ export default function PersonHeader({ p, action, tabs }: { p: PersonProfile | n
                   <b className="text-cm-yellow">{p.internationalGoals}</b> gols)
                 </>
               )}
-              {pl && !p.ghost && (
+              {pl && !p.ghost && !p.retired && (
                 <>
                   {dot}Valor: <b className="text-cm-mint">{money(pl.value) || '-'}</b>
                 </>
               )}
-              {!p.ghost && (
+              {!p.ghost && !p.retired && (
                 <>
                   {dot}Salário: <b className="text-white">{wage(p.wage) || '-'}</b>
                 </>

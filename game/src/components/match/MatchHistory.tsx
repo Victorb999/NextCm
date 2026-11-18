@@ -9,6 +9,7 @@ import { useLoad } from '../../useLoad'
 import MatchLineups from '../MatchLineups'
 import { Empty, Link, Tabs } from '../Screen'
 import { Report, Stats, TeamData, Zones } from './MatchPanes'
+import { ShootoutList } from './ShootoutList'
 import type { Line } from './lines'
 
 // Uma partida jogada como o CM a mostra depois (ao clicar num resultado, no Último Jogo do
@@ -18,10 +19,18 @@ import type { Line } from './lines'
 
 type Pane = 'overview' | 'stats' | 'zones' | 'report' | 'homeData' | 'ratings' | 'awayData'
 
-/** O placar ao intervalo, pelos minutos dos gols. */
-function halfTime(v: LiveView) {
-  const goals = (side: number) => v.events.filter((e) => e.kind === 'goal' && e.side === side && e.minute <= 45).length
-  return `${goals(0)}-${goals(1)}`
+/** O placar por tempos, como no CM: "INT 0-0", e num mata-mata decidido depois dos 90'
+ * "INT 0-0 FJ 1-1 Prorr 1-1 Pên 2-4" (FJ = fim do jogo). */
+function periods(v: LiveView) {
+  const at = (minute: number) => {
+    const goals = (side: number) => v.events.filter((e) => e.kind === 'goal' && e.side === side && e.minute <= minute).length
+    return `${goals(0)}-${goals(1)}`
+  }
+  let out = `INT ${at(45)}`
+  if (v.extraTime || v.homePens !== null) out += ` FJ ${at(90)}`
+  if (v.extraTime) out += ` Prorr ${at(120)}`
+  if (v.homePens !== null && v.awayPens !== null) out += ` Pên ${v.homePens}-${v.awayPens}`
+  return out
 }
 
 /** Os marcadores de um lado: com o minuto quando a partida está guardada, senão só o nome. */
@@ -55,7 +64,7 @@ function Overview({ sheet }: { sheet: MatchSheet }) {
         <span>{longDate(f.date)}</span>
         <span>
           <Link onClick={() => nav.go({ kind: 'competition', id: f.competitionId })}>{f.competition}</Link>
-          {v && ` · intervalo ${halfTime(v)}`}
+          {v && ` · ${periods(v)}`}
         </span>
       </div>
       <div className="mx-3 mt-3 flex gap-6">
@@ -70,7 +79,13 @@ function Overview({ sheet }: { sheet: MatchSheet }) {
           </div>
         ))}
       </div>
-      {pensText(f) && <div className="mt-2 text-center text-[14px] text-cm-yellow">{pensText(f)}</div>}
+      {v ? (
+        <div className="mt-3">
+          <ShootoutList view={v} kicks={v.events.filter((e) => e.kind === 'pen' || e.kind === 'penmiss')} />
+        </div>
+      ) : (
+        pensText(f) && <div className="mt-2 text-center text-[14px] text-cm-yellow">{pensText(f)}</div>
+      )}
       {v && (v.referee || v.attendance > 0 || v.weather) && (
         <div className="mx-3 mb-3 mt-auto flex justify-between text-[14px]">
           <span className="text-cm-yellow">{v.referee && `Árbitro: ${v.referee}`}</span>

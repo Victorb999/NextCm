@@ -134,8 +134,10 @@ impl Game {
         p.knowledge = Some(k);
         p.shortlisted = self.in_shortlist(p.id)?;
         p.ghost = self.is_ghost(p.id);
-        p.can_contract = p.player.is_some() && !p.ghost && !self.sacked() && self.contract_party(p.id).is_ok();
+        p.retired = self.world.conn.query_row("SELECT date FROM retired WHERE person_id = ?", [p.id], |r| r.get(0)).optional()?;
+        p.can_contract = p.player.is_some() && !p.ghost && p.retired.is_none() && !self.sacked() && self.contract_party(p.id).is_ok();
         p.squad_move = self.squad_move(p.id)?.map(|(key, label)| crate::person::SquadMove { key: key.into(), label: label.into() });
+        p.scout_card = self.scout_card(p.id)?;
         p.report_on = self.world.conn.query_row("SELECT ready_on FROM scouting WHERE person_id = ?", [p.id], |r| r.get(0)).optional()?;
         if let Some(pl) = &mut p.player {
             match k {
@@ -232,7 +234,9 @@ impl Game {
             self.world.conn.execute("DELETE FROM scouting WHERE person_id = ?", [person])?;
             self.world.conn.execute("INSERT OR REPLACE INTO knowledge (person_id, until) VALUES (?, ?)", params![person, until])?;
             let (title, body) = self.scout_report(person, scout)?;
-            fresh.push(self.news_item(*next_id, "message", title, body));
+            let mut item = self.news_item(*next_id, "message", title, body);
+            item.link = Some(format!("scout:{person}"));
+            fresh.push(item);
             *next_id += 1;
         }
         Ok(())
@@ -252,6 +256,11 @@ impl Game {
     /// quanto ainda pode crescer. O erro vai de ±15 de CA (Avaliar Jogadores 1) a ±2 (20), e o
     /// mesmo no potencial, fixo por jogador.
     pub(super) fn judge(&self, person: i32, judgement: i32, potential: i32, level: f64) -> Result<(usize, i32, f64)> {
+        self.judge_seen(person, judgement, potential, level).map(|(stars, age, room, _)| (stars, age, room))
+    }
+
+    /// O mesmo, com o CA que o olheiro vê.
+    pub(super) fn judge_seen(&self, person: i32, judgement: i32, potential: i32, level: f64) -> Result<(usize, i32, f64, f64)> {
         let (ca, pa, birth, birth_year): (i32, i32, Option<String>, Option<i32>) = self.world.conn.query_row(
             "SELECT COALESCE(pl.current_ability, 1), COALESCE(pl.potential_ability, 0), p.birth_date, p.birth_year
              FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.id = ?",
@@ -274,11 +283,10 @@ impl Game {
             d if d >= -20.0 => 2,
             _ => 1,
         };
-        Ok((stars, age, room))
+        Ok((stars, age, room, seen))
     }
 
-    /// O relatório: estrelas pelo nível que o olheiro acha que ele tem no plantel e uma frase
-    /// sobre o potencial.
+    /// O relatório: o cartão completo (aba Relatórios do perfil) e a mensagem com o resumo.
     fn scout_report(&self, person: i32, scout: Option<i32>) -> Result<(String, String)> {
         let (judgement, potential, scout_name): (i32, i32, String) = match scout {
             Some(s) => self.world.conn.query_row(
@@ -289,32 +297,31 @@ impl Game {
             )?,
             None => (10, 10, "O seu olheiro".into()),
         };
-        let club: Option<String> = self.world.conn.query_row(
-            "SELECT COALESCE(NULLIF(c.short_name, ''), c.name) FROM people p LEFT JOIN clubs c ON c.id = p.club_id WHERE p.id = ?",
-            [person],
-            |r| r.get(0),
-        )?;
-        let (stars, age, room) = self.judge(person, judgement, potential, self.squad_level()?)?;
-        let verdict = match stars {
-            5 => "Seria um dos melhores do elenco.",
-            4 => "Seria titular no time.",
-            3 => "Seria útil no elenco.",
-            2 => "Seria só um suplente.",
-            _ => "Não tem nível para o clube.",
-        };
-        let future = if age <= 23 && room >= 20.0 {
-            "Tem muito potencial para crescer."
-        } else if age <= 27 && room >= 8.0 {
-            "Ainda pode melhorar."
-        } else {
-            "Já não deve melhorar muito."
-        };
+        let card = self.write_scout_card(person, &scout_name, judgement, potential)?;
+        self.keep_scout_card(person, &card)?;
         let name = self.person_name(person)?;
-        let at = club.map_or("sem clube".to_string(), |c| format!("do {c}"));
-        let star_text = "★".repeat(stars) + &"☆".repeat(5 - stars);
+        let stars = |title: &str| {
+            card.sections.iter().find(|s| s.title == title).and_then(|s| s.stars).map(|n| {
+                let n = n as usize;
+                format!("{title}: {}{}", "★".repeat(n), "☆".repeat(5 - n))
+            })
+        };
+        let summary: Vec<String> = ["Habilidade", "Potencial", "Recomendação"].iter().filter_map(|t| stars(t)).collect();
+        let advice = card.sections.iter().find(|s| s.title == "Recomendação").and_then(|s| s.lines.first().cloned()).unwrap_or_default();
+        let short = scout_name.split_whitespace().last().unwrap_or(&scout_name).to_string();
         Ok((
-            format!("Relatório sobre {name}"),
-            format!("{scout_name} observou {name} ({at}, {age} anos).\n\nAvaliação: {star_text}\n{verdict} {future}"),
+            format!("{short} conclui relatório sobre {name}"),
+            format!(
+                "O seu olheiro {scout_name} conseguiu fazer um relatório completo sobre {name}, como pediu.
+
+{}
+
+{advice}",
+                summary.join(
+                    "
+"
+                )
+            ),
         ))
     }
 }
@@ -400,7 +407,19 @@ mod tests {
         let (mut fresh, mut id) = (Vec::new(), 1000);
         g.scouting_day(&mut fresh, &mut id).unwrap();
         assert_eq!(g.knowledge(far).unwrap(), Knowledge::Known);
-        assert!(fresh.iter().any(|n| n.title.starts_with("Relatório sobre") && n.body.contains('★')));
+        let news = fresh.iter().find(|n| n.link.as_deref() == Some(&format!("scout:{far}"))).expect("a mensagem do relatório");
+        assert!(news.title.contains("conclui relatório") && news.body.contains('★'), "{}", news.body);
+        // O cartão completo fica no perfil, com as partes do FM08
+        let mut p = g.world.get_person(far).unwrap();
+        g.mask_profile(&mut p).unwrap();
+        let card = p.scout_card.expect("o cartão");
+        let titles: Vec<&str> = card.sections.iter().map(|s| s.title.as_str()).collect();
+        for t in ["Melhor Posição", "Habilidade", "Potencial", "Caráter", "Pontos Fortes", "Pontos Fracos", "Transferência", "Recomendação"]
+        {
+            assert!(titles.contains(&t), "{t}: {titles:?}");
+        }
+        assert!(card.sections.iter().all(|s| !s.lines.is_empty()), "{card:?}");
+        assert!(card.sections.iter().filter_map(|s| s.stars).all(|n| (1..=5).contains(&n)));
         assert_eq!(g.budget_for(far).unwrap().1, None);
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);

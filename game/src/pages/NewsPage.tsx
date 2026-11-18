@@ -255,6 +255,16 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
                     </button>
                   </div>
                 )}
+                {current.link?.startsWith('scout:') && (
+                  <div className="mt-4 flex gap-1 border-t border-cm-line pt-3">
+                    <button
+                      className="cm-purple h-7 w-48"
+                      onClick={() => nav.go({ kind: 'person', id: Number(current.link!.slice(6)), tab: 'scout' })}
+                    >
+                      Ver Relatório
+                    </button>
+                  </div>
+                )}
                 {current.link?.startsWith('friendly:') && <InviteReply key={current.id} id={Number(current.link.slice(9))} />}
                 {current.link === 'squadNumbers' && (
                   <div className="mt-4 border-t border-cm-line pt-3">

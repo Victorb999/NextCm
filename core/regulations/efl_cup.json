@@ -6,6 +6,7 @@
   "stages": [
     {
       "kind": "knockout",
+      "extra_time": false,
       "name": "",
       "pairing": "open",
       "entrants": {
@@ -42,6 +43,7 @@
         },
         {
           "name": "Final",
+          "extra_time": true,
           "legs": 1,
           "dates": "w11",
           "neutral": true

@@ -26,6 +26,8 @@ export default function Contract({ p }: { p: PersonProfile }) {
         <Link key="club" onClick={() => nav.go({ kind: 'club', id: p.club!.id })}>
           {p.club.name}
         </Link>
+      ) : p.retired ? (
+        `Aposentado em ${cmDate(p.retired)}`
       ) : (
         'Sem clube'
       ),
