@@ -110,3 +110,11 @@ export const STATUS: [number, string][] = [
 export const ROW = 'flex h-7 items-center gap-2 px-2 text-[14px] text-white even:bg-black/20'
 export const TAB = (on: boolean) => `h-7 px-4 text-[13px] ${on ? 'cm-purple' : 'bg-black/40 text-cm-lilac hover:bg-black/60'}`
 export const BOX = 'rounded border border-white/15 bg-black/20 p-2'
+
+/** As cláusulas da transferência no editor e o que cada uma traz ao ser criada. */
+export type ClauseKey = 'sellOn' | 'appsBonus' | 'capsBonus'
+export const CLAUSE_DEFAULTS: Record<ClauseKey, { clubId: number; clubName: string | null; amount: number; needed: number }> = {
+  sellOn: { clubId: 0, clubName: null, amount: 15, needed: 0 },
+  appsBonus: { clubId: 0, clubName: null, amount: 1000000, needed: 10 },
+  capsBonus: { clubId: 0, clubName: null, amount: 500000, needed: 5 },
+}

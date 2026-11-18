@@ -13,6 +13,9 @@ use crate::game::SAVE_VERSION;
 use crate::person::Attributes;
 use crate::{Error, Result, World};
 
+mod clauses;
+pub use clauses::EditorClauses;
+
 /// Atributos de jogador por grupo, na ordem do editor do CM: técnicos, físicos e os ocultos.
 pub(crate) const TECHNICAL: [&str; 17] = [
     "corners",
@@ -540,6 +543,9 @@ pub struct EditorProfile {
     pub loan: Option<EditorLoan>,
     /// Clubes e pessoas favoritos e detestados (as Preferências do CM).
     pub favourites: Vec<EditorPreference>,
+    /// Os prêmios e cláusulas do contrato e da transferência.
+    #[serde(default)]
+    pub clauses: EditorClauses,
 }
 
 /// Um motivo de insatisfação (caixa de seleção).
@@ -577,8 +583,6 @@ pub struct EditorProfileView {
     /// Do plantel do treinador do jogo: só lá a insatisfação e a função contam (nos outros
     /// clubes o jogo apaga a insatisfação no dia seguinte).
     pub managed: bool,
-    /// As cláusulas e prémios do contrato, em palavras (só leitura).
-    pub clauses: Vec<String>,
 }
 
 /// Máximo de favoritos (ou de detestados) de cada tipo, como no CM.
@@ -635,6 +639,7 @@ fn profile_view(world: &World, id: i32) -> Result<EditorProfileView> {
             injury_until: None,
             loan: None,
             favourites: Vec::new(),
+            clauses: EditorClauses::default(),
         })
     })?;
     let conn = &world.conn;
@@ -677,6 +682,7 @@ fn profile_view(world: &World, id: i32) -> Result<EditorProfileView> {
         .into_iter()
         .map(|(kind, target_id, liked)| EditorPreference { name: person_or_club_name(world, &kind, target_id), kind, target_id, liked })
         .collect();
+    profile.clauses = clauses::read(conn, id)?;
     let reasons = crate::game::unhappy::REASONS
         .iter()
         .map(|(k, l)| EditorReason { key: k.to_string(), label: l.to_string(), club: false })
@@ -704,7 +710,6 @@ fn profile_view(world: &World, id: i32) -> Result<EditorProfileView> {
         nations,
         roles,
         managed,
-        clauses: crate::game::clause_labels(&world.conn, id)?,
     })
 }
 
@@ -837,6 +842,9 @@ fn apply_profile(world: &World, id: i32, p: &EditorProfile) -> Result<()> {
             return Err(Error::Invalid("Fim do empréstimo inválido (use AAAA-MM-DD).".into()));
         }
         check_range("Parte do salário", l.wage_share, 0, 100)?;
+    }
+    if p.clauses != before.clauses {
+        clauses::write(&world.conn, id, club, &p.clauses)?;
     }
     check_preferences(world, Some(id), &p.favourites, &["club", "person"])?;
     let tx = &world.conn;
@@ -1496,8 +1504,13 @@ mod tests {
         prof.unhappy = vec!["contract".into()];
         prof.loan = Some(EditorLoan { parent_id: other_club, parent_name: None, until: "2027-06-30".into(), wage_share: 50 });
         prof.favourites = vec![EditorPreference { kind: "club".into(), target_id: other_club, name: None, liked: true }];
-        let mut cl = club(&dir, &file, clubs[0].id).unwrap();
         let rival = search_clubs(&dir, &file, "corinthians").unwrap()[0].id;
+        prof.clauses.extras.goal_bonus = 5_000;
+        prof.clauses.extras.min_fee = Some(90_000_000);
+        prof.clauses.extras.relegation = true;
+        prof.clauses.sell_on = Some(clauses::EditorTransferClause { club_id: rival, club_name: None, amount: 20, needed: 0 });
+        prof.clauses.apps_bonus = Some(clauses::EditorTransferClause { club_id: rival, club_name: None, amount: 1_000_000, needed: 15 });
+        let mut cl = club(&dir, &file, clubs[0].id).unwrap();
         cl.rivals = vec![EditorRef { id: rival, name: None }];
         cl.favourites = vec![EditorPreference { kind: "person".into(), target_id: star, name: None, liked: false }];
         cl.wages[0].wage = 77_777;
@@ -1518,6 +1531,11 @@ mod tests {
         assert!(v.requested && v.listed && v.unhappy == ["contract"]);
         assert_eq!(v.loan.as_ref().map(|l| (l.parent_id, l.wage_share)), Some((other_club, 50)));
         assert_eq!(v.favourites.len(), 1);
+        let c = &v.clauses;
+        assert_eq!((c.extras.goal_bonus, c.extras.min_fee, c.extras.relegation), (5_000, Some(90_000_000), true));
+        assert_eq!(c.sell_on.as_ref().map(|s| (s.club_id, s.amount)), Some((rival, 20)));
+        assert_eq!(c.apps_bonus.as_ref().map(|b| (b.amount, b.needed)), Some((1_000_000, 15)));
+        assert!(c.caps_bonus.is_none());
         let again = club(&dir, &file, cl.id).unwrap();
         assert_eq!(again.rivals.iter().map(|r| r.id).collect::<Vec<_>>(), vec![rival]);
         assert_eq!(again.favourites.len(), 1);

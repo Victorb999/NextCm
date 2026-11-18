@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import type { EditorProfile } from '../../bindings/EditorProfile'
 import type { EditorProfileView } from '../../bindings/EditorProfileView'
-import { BOX, ROW, TAB } from './editorText'
+import { BOX, CLAUSE_DEFAULTS, type ClauseKey, ROW, TAB } from './editorText'
 import { DateField, Header, NumField } from './Fields'
+import ClausesBox from './ClausesBox'
 import PickDialog from './PickDialog'
 
 type Sub = 'details' | 'unhappy' | 'club' | 'loan'
@@ -22,6 +23,7 @@ export default function ContractTab({
 }) {
   const [sub, setSub] = useState<Sub>('details')
   const [picking, setPicking] = useState(false)
+  const [pickClause, setPickClause] = useState<ClauseKey | null>(null)
   const check = (label: string, on: boolean, change: (v: boolean) => void) => (
     <label className="flex h-7 items-center gap-2 px-2 text-[14px] text-white">
       <input type="checkbox" checked={on} onChange={(e) => change(e.target.checked)} />
@@ -92,7 +94,7 @@ export default function ContractTab({
       </div>
 
       {sub === 'details' && (
-        <div className="flex items-start gap-2">
+        <div className="flex flex-wrap items-start gap-2">
           <div className={`${BOX} w-[560px]`}>
             <Header>Detalhes do contrato</Header>
             <NumField label="Salário semanal" value={p.wage} max={100000000} width="w-36" onChange={(v) => setP({ wage: v })} />
@@ -122,19 +124,7 @@ export default function ContractTab({
               </select>
             </label>
           </div>
-          {/* As cláusulas e prémios do contrato (venda futura, rescisão, prémios), só para ver */}
-          <div className={`${BOX} w-72`}>
-            <Header>Cláusulas</Header>
-            {view.clauses.length ? (
-              view.clauses.map((c) => (
-                <div key={c} className={ROW}>
-                  {c}
-                </div>
-              ))
-            ) : (
-              <div className={ROW}>Nenhuma</div>
-            )}
-          </div>
+          <ClausesBox p={p} setP={setP} onPick={setPickClause} />
           {p.missed != null && (
             <div className={`${BOX} w-64`}>
               <Header>Diversos</Header>
@@ -205,6 +195,19 @@ export default function ContractTab({
                 wageShare: p.loan?.wageShare ?? 100,
               },
             })
+          }}
+        />
+      )}
+      {pickClause && (
+        <PickDialog
+          file={file}
+          kind="club"
+          title="Clube que recebe a cláusula"
+          onClose={() => setPickClause(null)}
+          onPick={(h) => {
+            const now = p.clauses[pickClause] ?? { ...CLAUSE_DEFAULTS[pickClause], clubId: h.id }
+            setPickClause(null)
+            setP({ clauses: { ...p.clauses, [pickClause]: { ...now, clubId: h.id, clubName: h.name } } })
           }}
         />
       )}
