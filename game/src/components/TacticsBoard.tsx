@@ -105,6 +105,8 @@ export function Row({
       onToggle()
     })
   const out = kind === 'starter' && outOfPosition(p)
+  // No time sem poder jogar (suspenso ou lesionado): a casa fica vermelha (também no banco)
+  const barred = kind !== 'reserve' && (p.injured || p.suspended)
   return (
     <div
       {...bind}
@@ -135,7 +137,7 @@ export function Row({
             onMouseDown={(e) => onToggle && e.stopPropagation()}
             onClick={toggle}
             className={`inline-block min-w-[38px] rounded-[3px] px-1 text-center text-[11px] font-bold leading-[18px] tracking-wide ${
-              out ? 'bg-[#7a3d00] text-cm-orange' : roleChip(place)
+              barred ? 'bg-[#e01010] text-white ring-1 ring-white/60' : out ? 'bg-[#7a3d00] text-cm-orange' : roleChip(place)
             } ${onToggle ? 'cursor-pointer' : ''}`}
             title={kind === 'starter' && p.fit !== null ? `Nota na função: ${p.fit}` : undefined}
           >
@@ -238,6 +240,7 @@ export function Pitch({
           {run && t.starters[run.index] && <Arrow from={[t.starters[run.index]!.x, t.starters[run.index]!.y]} to={[run.x, run.y]} live />}
         </svg>
         {t.starters.map((s, i) => {
+          const barred = s.player && (s.player.injured || s.player.suspended)
           const b = bind({ kind: 'starter', index: i }, s.player ? surname(s.player.listName) : s.role)
           return (
             <div
@@ -268,9 +271,17 @@ export function Pitch({
               >
                 {s.player?.squadNumber ?? ''}
               </span>
+              {barred && (
+                <span
+                  className="absolute -top-1.5 left-1/2 ml-2.5 rounded-[3px] bg-[#9c0000] px-1 text-[10px] font-bold leading-[14px] text-white shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
+                  title={s.player?.injured ? 'Lesionado' : 'Suspenso'}
+                >
+                  {s.player?.injured ? 'Les' : 'Sus'}
+                </span>
+              )}
               <span
                 className={`whitespace-nowrap rounded bg-black/75 px-1.5 text-[12px] font-bold leading-[18px] ${
-                  outOfPosition(s.player) ? 'text-cm-orange' : s.player ? 'text-white' : 'text-white/60'
+                  barred ? 'text-[#ff6b6b]' : outOfPosition(s.player) ? 'text-cm-orange' : s.player ? 'text-white' : 'text-white/60'
                 }`}
               >
                 {s.player ? surname(s.player.listName) : shortRole(s.role)}
