@@ -577,6 +577,8 @@ pub struct EditorProfileView {
     /// Do plantel do treinador do jogo: só lá a insatisfação e a função contam (nos outros
     /// clubes o jogo apaga a insatisfação no dia seguinte).
     pub managed: bool,
+    /// As cláusulas e prémios do contrato, em palavras (só leitura).
+    pub clauses: Vec<String>,
 }
 
 /// Máximo de favoritos (ou de detestados) de cada tipo, como no CM.
@@ -702,6 +704,7 @@ fn profile_view(world: &World, id: i32) -> Result<EditorProfileView> {
         nations,
         roles,
         managed,
+        clauses: crate::game::clause_labels(&world.conn, id)?,
     })
 }
 

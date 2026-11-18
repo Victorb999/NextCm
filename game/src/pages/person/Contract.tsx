@@ -42,14 +42,21 @@ export default function Contract({ p }: { p: PersonProfile }) {
       p.nation ? (
         <span key="nat">
           {[
-            [p.nationId, p.nation],
-            [p.secondNationId, p.secondNation],
+            [p.nationId, p.nation, p.nationalTeamId],
+            [p.secondNationId, p.secondNation, p.secondNationalTeamId],
           ]
             .filter(([, name]) => name)
-            .map(([id, name], i) => (
+            .map(([id, name, team], i) => (
               <span key={i}>
                 {i > 0 && ' / '}
-                {id !== null ? <Link onClick={() => nav.go({ kind: 'nation', id: id as number })}>{name}</Link> : name}
+                {/* A nacionalidade abre a seleção (ou a nação, se não houver) */}
+                {team != null ? (
+                  <Link onClick={() => nav.go({ kind: 'club', id: team as number })}>{name}</Link>
+                ) : id !== null ? (
+                  <Link onClick={() => nav.go({ kind: 'nation', id: id as number })}>{name}</Link>
+                ) : (
+                  name
+                )}
               </span>
             ))}
         </span>

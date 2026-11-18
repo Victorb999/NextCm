@@ -16,4 +16,8 @@ roles: Array<EditorChoice>,
  * Do plantel do treinador do jogo: só lá a insatisfação e a função contam (nos outros
  * clubes o jogo apaga a insatisfação no dia seguinte).
  */
-managed: boolean, };
+managed: boolean, 
+/**
+ * As cláusulas e prémios do contrato, em palavras (só leitura).
+ */
+clauses: Array<string>, };

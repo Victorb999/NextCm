@@ -129,6 +129,9 @@ pub struct PersonProfile {
     pub nationality: Option<String>,
     pub second_nation_id: Option<i32>,
     pub second_nation: Option<String>,
+    /// A selecção principal de cada nacionalidade (o link da nacionalidade abre-a).
+    pub national_team_id: Option<i32>,
+    pub second_national_team_id: Option<i32>,
     pub international_apps: i32,
     pub international_goals: i32,
     pub club: Option<ClubRef>,
@@ -368,7 +371,11 @@ impl World {
                         n.name, n.nationality, n2.name,
                         p.international_apps, p.international_goals,
                         p.club_id, j.name, p.club_joined, p.contract_expires, p.wage,
-                        n.id, n2.id
+                        n.id, n2.id,
+                        (SELECT c.id FROM clubs c WHERE c.nation_id = p.nation_id AND c.is_national_team = 1
+                         ORDER BY COALESCE(c.reputation, 0) DESC, c.id LIMIT 1),
+                        (SELECT c.id FROM clubs c WHERE c.nation_id = p.second_nation_id AND c.is_national_team = 1
+                         ORDER BY COALESCE(c.reputation, 0) DESC, c.id LIMIT 1)
                  FROM people p
                  LEFT JOIN nations n ON n.id = p.nation_id
                  LEFT JOIN nations n2 ON n2.id = p.second_nation_id
@@ -389,6 +396,8 @@ impl World {
                         nationality: r.get(6)?,
                         second_nation_id: r.get(16)?,
                         second_nation: r.get(7)?,
+                        national_team_id: r.get(17)?,
+                        second_national_team_id: r.get(18)?,
                         international_apps: r.get(8)?,
                         international_goals: r.get(9)?,
                         club: None,

@@ -16,7 +16,11 @@ import type { SquadMove } from "./SquadMove";
 import type { StaffDetails } from "./StaffDetails";
 import type { SuspensionLine } from "./SuspensionLine";
 
-export type PersonProfile = { id: number, name: string, listName: string, birthDate: string | null, birthYear: number | null, age: number | null, nationId: number | null, nation: string | null, nationality: string | null, secondNationId: number | null, secondNation: string | null, internationalApps: number, internationalGoals: number, club: ClubRef | null, job: string | null, clubJoined: string | null, contractExpires: string | null, wage: number | null, player: PlayerDetails | null, staff: StaffDetails | null, career: Array<CareerEntry>, 
+export type PersonProfile = { id: number, name: string, listName: string, birthDate: string | null, birthYear: number | null, age: number | null, nationId: number | null, nation: string | null, nationality: string | null, secondNationId: number | null, secondNation: string | null, 
+/**
+ * A selecção principal de cada nacionalidade (o link da nacionalidade abre-a).
+ */
+nationalTeamId: number | null, secondNationalTeamId: number | null, internationalApps: number, internationalGoals: number, club: ClubRef | null, job: string | null, clubJoined: string | null, contractExpires: string | null, wage: number | null, player: PlayerDetails | null, staff: StaffDetails | null, career: Array<CareerEntry>, 
 /**
  * Num jogo em curso: a carreira por época com as estatísticas (as épocas jogadas no jogo
  * e, antes, as do patch só com jogos e golos), da mais recente à mais antiga.

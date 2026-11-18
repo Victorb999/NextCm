@@ -67,7 +67,11 @@ free: boolean,
 /**
  * Num jogo em curso: o resto do Vêr (Situação, Moral, Forma, a época e o valor).
  */
-role: string | null, morale: string | null, form: Array<number>, clauses: Array<string>, value: number | null, apps: number, subs: number, goals: number, assists: number, mom: number, rating: number | null, 
+role: string | null, morale: string | null, form: Array<number>, clauses: Array<string>, 
+/**
+ * A cláusula de rescisão (o valor que obriga o clube a vender), quando há.
+ */
+releaseClause: number | null, value: number | null, apps: number, subs: number, goals: number, assists: number, mom: number, rating: number | null, 
 /**
  * Lugar na ordem dos batedores de penáltis (1 = o primeiro); `None` no guarda-redes.
  */

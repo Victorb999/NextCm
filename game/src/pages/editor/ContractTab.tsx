@@ -122,6 +122,19 @@ export default function ContractTab({
               </select>
             </label>
           </div>
+          {/* As cláusulas e prémios do contrato (venda futura, rescisão, prémios), só para ver */}
+          <div className={`${BOX} w-72`}>
+            <Header>Cláusulas</Header>
+            {view.clauses.length ? (
+              view.clauses.map((c) => (
+                <div key={c} className={ROW}>
+                  {c}
+                </div>
+              ))
+            ) : (
+              <div className={ROW}>Nenhuma</div>
+            )}
+          </div>
           {p.missed != null && (
             <div className={`${BOX} w-64`}>
               <Header>Diversos</Header>

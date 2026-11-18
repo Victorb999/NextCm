@@ -182,6 +182,9 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
             retired - last_retired
         );
         (last_id, last_retired) = (id, retired);
+        for line in game.reputation_report().expect("reputação") {
+            println!("  {line}");
+        }
         println!("  {}", game.retirement_report(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("aposentadorias"));
         println!("{}", game.awards_report(&format!("{year}-01-01"), &format!("{}-01-01", year + 1)).expect("prêmios"));
     }

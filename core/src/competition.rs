@@ -174,10 +174,12 @@ impl World {
             .query_row([id], |r| {
                 let name: String = r.get(1)?;
                 let short: String = r.get(2)?;
+                // O nome do regulamento, em português, quando o há ("Eliminatórias da Eurocopa")
+                let ours = crate::regulation::get(id).and_then(|g| g.name.clone());
                 Ok(CompetitionProfile {
                     id: r.get(0)?,
-                    short_name: if short.is_empty() { name.clone() } else { short },
-                    name,
+                    short_name: ours.clone().unwrap_or(if short.is_empty() { name.clone() } else { short }),
+                    name: ours.unwrap_or(name),
                     kind: r.get(3)?,
                     nation_id: r.get(4)?,
                     nation: r.get(5)?,

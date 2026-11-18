@@ -380,7 +380,8 @@ function Stages({ c, stages, fixtures, own }: { c: CompetitionProfile; stages: S
         </div>
       )}
       {stage.kind === 'groups' && (
-        <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2 overflow-auto">
+        // `auto-rows-max`: com muitos grupos (as Eliminatórias da Euro), as linhas não encolhem umas por cima das outras
+        <div className="grid min-h-0 flex-1 auto-rows-max grid-cols-2 content-start gap-2 overflow-auto">
           {stage.tables.map((t) => (
             <GroupBox key={t.name} name={t.name} rows={t.rows} own={own} />
           ))}

@@ -25,6 +25,7 @@ mod city;
 mod clashes;
 mod clinch;
 mod club_moves;
+mod club_reputation;
 mod competition_stats;
 mod competitions;
 mod contract_extras;
@@ -98,6 +99,7 @@ pub use club_moves::{ClubMoves, MoveRow};
 pub use competition_stats::{CompetitionStats, PlayerStatRow, RecentXg, TeamStatRow};
 pub use competitions::{GroupTable, KoRoundView, StageView, TieView};
 pub use contract_extras::ContractExtras;
+pub(crate) use contract_extras::clause_labels;
 pub use deals::{ContractReply, ContractTerms, ExchangeCandidate, OfferAction, OfferView, RoleOption, SquadRoleView, TransferView};
 pub use discipline::DisciplineOptions;
 pub use friendlies::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
@@ -186,7 +188,9 @@ pub use training::{AreaStrength, CoachAreas, TrainingPlan, TrainingView};
 /// 74: as partidas jogadas guardadas para a ficha como a do CM (`match_reports`).
 /// 75: a reputação do treinador no começo da temporada (`manager_info.season_rep`), para o resumo.
 /// 76: o relatório completo do olheiro (`scout_cards`), na aba Relatórios do perfil.
-pub const SAVE_VERSION: i32 = 77;
+/// 77: a prorrogação nos mata-matas (`fixtures.extra_time`).
+/// 78: a reputação de partida dos clubes (`clubs.base_reputation`); a de hoje muda no fim da temporada.
+pub const SAVE_VERSION: i32 = 78;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -852,6 +856,7 @@ impl Game {
         add_club_preferences(&rusqlite::Connection::open(&path)?, world_path)?;
         // Os nomes das nações em português
         crate::nation_names::translate_nations(&rusqlite::Connection::open(&path)?)?;
+        crate::nation_names::name_national_teams(&rusqlite::Connection::open(&path)?)?;
 
         let result = (|| {
             crate::progress::set("Preparando o jogo…", 0.08);
@@ -921,6 +926,7 @@ impl Game {
             tx.execute_batch(match_reports::REPORTS_SCHEMA)?;
             tx.execute_batch(season_review::SEASON_REP_SCHEMA)?;
             tx.execute_batch(scout_card::SCOUT_CARDS_SCHEMA)?;
+            tx.execute_batch(club_reputation::BASE_REP_SCHEMA)?;
             tx.execute_batch(board::SHIFT_SCHEMA)?;
             // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
             let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
@@ -1553,11 +1559,19 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 77", [])?;
             version = 77;
         }
+        // Save 78: a reputação de partida dos clubes (a de hoje passa a mudar com os resultados)
+        if version == 77 {
+            world.conn.execute_batch(club_reputation::BASE_REP_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 78", [])?;
+            version = 78;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo salvo numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
             )));
         }
+        // As selecções com o nome em português e a sub-21 à parte (saves de antes de 18/11)
+        crate::nation_names::name_national_teams(&world.conn)?;
         // Empréstimos esquecidos: o jogador foi depois comprado ou contratado a custo zero (a
         // contratação não os apagava e ele voltava ao clube dono no fim do empréstimo)
         world.conn.execute(

@@ -408,6 +408,11 @@ impl Game {
             let names: Vec<String> = clubs.iter().map(|&id| self.club_short(id)).collect();
             lines.push(format!("{label}: {}.", join_names(&names)));
         }
+        // A reputação dos clubes: o lugar, os títulos, o acesso e a queda
+        let moved =
+            |prefix: &str| -> Vec<i32> { moves.iter().filter(|m| m.2.starts_with(prefix)).flat_map(|m| m.0.iter().copied()).collect() };
+        let (went_up, went_down) = (moved("Sobem"), moved("Descem"));
+        self.club_reputations(&regs, year, &podiums, &went_up, &went_down, fresh, next_id)?;
         for &(id, _) in &bankrupt {
             self.world.conn.execute("UPDATE clubs SET cash = 0 WHERE id = ?", [id])?;
             let what = if relegated_for_debt.contains(&id) {

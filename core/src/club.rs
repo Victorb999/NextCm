@@ -76,6 +76,9 @@ pub struct SquadPlayer {
     pub morale: Option<String>,
     pub form: Vec<f64>,
     pub clauses: Vec<String>,
+    /// A cláusula de rescisão (o valor que obriga o clube a vender), quando há.
+    #[ts(type = "number | null")]
+    pub release_clause: Option<i64>,
     #[ts(type = "number | null")]
     pub value: Option<i64>,
     pub apps: i32,
@@ -316,6 +319,7 @@ impl World {
                     morale: None,
                     form: Vec::new(),
                     clauses: Vec::new(),
+                    release_clause: None,
                     value: None,
                     apps: 0,
                     subs: 0,
@@ -477,8 +481,26 @@ impl World {
         }
         honours.sort_by(|a, b| b.won.len().cmp(&a.won.len()).then(b.runner_up.len().cmp(&a.runner_up.len())));
 
-        let parent = if is_national { None } else { self.parent_club(&club, nation_id)? };
-        let affiliates = if is_national { Vec::new() } else { self.affiliates(&club, nation_id)? };
+        let (parent, affiliates) = if is_national {
+            // A outra selecção da nação: na sub-21 é a principal; na principal, a sub-21
+            let other: Option<(i32, bool)> = self
+                .conn
+                .query_row(
+                    "SELECT o.id, (COALESCE(o.reputation, 0), -o.id) > (COALESCE(c.reputation, 0), -c.id)
+                     FROM clubs c JOIN clubs o ON o.nation_id = c.nation_id AND o.id <> c.id AND o.is_national_team = 1
+                     WHERE c.id = ? ORDER BY o.reputation DESC LIMIT 1",
+                    [club.id],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?;
+            match other {
+                Some((id, true)) => (self.club_ref(Some(id))?, Vec::new()),
+                Some((id, false)) => (None, self.club_ref(Some(id))?.into_iter().collect()),
+                None => (None, Vec::new()),
+            }
+        } else {
+            (self.parent_club(&club, nation_id)?, self.affiliates(&club, nation_id)?)
+        };
         Ok(ClubProfile {
             club,
             is_national_team: is_national,

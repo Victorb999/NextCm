@@ -11,11 +11,14 @@ function Panel({
   x,
   y,
   back,
+  alignRight,
   onClose,
 }: {
   items: MenuNode[]
   x: number
   y: number
+  /** `x` é onde acaba o menu pela direita (um botão no canto direito). */
+  alignRight?: boolean
   /** Num submenu, onde acaba o menu de cima pela esquerda: sem espaço à direita, abre para lá. */
   back?: number
   onClose: () => void
@@ -32,8 +35,9 @@ function Panel({
     const w = ref.current?.offsetWidth ?? 0
     setTop(Math.max(0, Math.min(y, window.innerHeight - h)))
     const room = window.innerWidth - 4
-    setLeft(x + w <= room ? x : Math.max(0, back !== undefined ? back - w + 2 : room - w))
-  }, [x, y, back, items])
+    if (alignRight) setLeft(Math.max(0, Math.min(x, room) - w))
+    else setLeft(x + w <= room ? x : Math.max(0, back !== undefined ? back - w + 2 : room - w))
+  }, [x, y, back, alignRight, items])
 
   const sub = open && items[open.index]
   return (
@@ -75,7 +79,19 @@ function Panel({
 }
 
 /** Abre o menu na posição dada; fecha com clique fora ou Esc. */
-export default function CascadeMenu({ items, x, y, onClose }: { items: MenuNode[]; x: number; y: number; onClose: () => void }) {
+export default function CascadeMenu({
+  items,
+  x,
+  y,
+  alignRight,
+  onClose,
+}: {
+  items: MenuNode[]
+  x: number
+  y: number
+  alignRight?: boolean
+  onClose: () => void
+}) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -98,7 +114,7 @@ export default function CascadeMenu({ items, x, y, onClose }: { items: MenuNode[
   }, [onClose])
   return (
     <div ref={ref}>
-      <Panel items={items} x={x} y={y} onClose={onClose} />
+      <Panel items={items} x={x} y={y} alignRight={alignRight} onClose={onClose} />
     </div>
   )
 }

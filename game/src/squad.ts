@@ -168,6 +168,26 @@ export function saveFilter(f: Filter) {
   }
 }
 
+// A visualização (Ver) também fica gravada: voltar ao plantel abre na última escolhida
+const VIEW_KEY = 'nextcm.squadView'
+
+export function loadView<T extends string>(allowed: readonly T[], fallback: T): T {
+  try {
+    const raw = localStorage.getItem(VIEW_KEY) as T | null
+    return raw && allowed.includes(raw) ? raw : fallback
+  } catch {
+    return fallback
+  }
+}
+
+export function saveView(v: string) {
+  try {
+    localStorage.setItem(VIEW_KEY, v)
+  } catch {
+    // Sem localStorage: a visualização vale só nesta tela
+  }
+}
+
 export const FILTER_OPTIONS: MenuOption<string>[] = [
   { key: 'line:', label: 'Todas Posições' },
   { key: 'line:GR', label: 'Goleiros' },

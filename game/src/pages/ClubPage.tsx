@@ -23,7 +23,9 @@ import { BENCH, selectionOf, spotOf, swap, useDragSwap } from '../selection'
 import {
   FILTER_OPTIONS,
   loadFilter,
+  loadView,
   saveFilter,
+  saveView,
   VIEW_TITLE,
   ATTRIBUTE_GROUPS,
   MORE_COMPETITIONS,
@@ -50,7 +52,12 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState(initialTab ?? 'squad')
-  const [view, setView] = useState<View>('traditional')
+  const [view, setView] = useState<View>(() =>
+    loadView(
+      VIEWS.flatMap((o) => (o === 'separator' ? [] : [o.key])),
+      'traditional',
+    ),
+  )
   const [filter, setFilterState] = useState<Filter>(loadFilter)
   const setFilter = (update: (f: Filter) => Filter) =>
     setFilterState((f) => {
@@ -340,7 +347,8 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
   // Menu do clube, como o ▸ da faixa do CM: reservas/principal, os clubes ligados, a divisão e a nação
   const openClubMenu = (e: React.MouseEvent) => {
     const r = e.currentTarget.getBoundingClientRect()
-    setClubMenu(clubMenu ? null : { x: r.left, y: r.bottom + 2 })
+    // O botão fica no canto direito: o menu abre para a esquerda, alinhado pela direita
+    setClubMenu(clubMenu ? null : { x: r.right, y: r.bottom + 2 })
     if (division && !divisionClubs)
       api.getCompetition(division.id).then(
         (c) => setDivisionClubs(c.clubs),
@@ -360,6 +368,10 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
         label: 'Elenco Principal',
         onSelect: () => nav.go({ kind: 'club', id }),
       })
+    // Numa selecção, a outra da nação (a sub-21 ou a principal)
+    if (club.isNationalTeam)
+      for (const other of club.parent ? [club.parent] : club.affiliates)
+        items.push({ label: other.name, onSelect: () => nav.go({ kind: 'club', id: other.id }) })
     // As equipas B/II (Bayern Munich II...) são outros clubes: ficam na lista da divisão delas
     const others = (divisionClubs ?? [])
       .filter((c) => c.club.id !== id)
@@ -493,6 +505,7 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
             value={view}
             onChange={(v) => {
               setView(v)
+              saveView(v)
               setHeaderSort(null)
               setSelected(0)
             }}
@@ -732,7 +745,7 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
       {drag.ghost}
-      {clubMenu && <CascadeMenu x={clubMenu.x} y={clubMenu.y} items={clubMenuItems()} onClose={() => setClubMenu(null)} />}
+      {clubMenu && <CascadeMenu x={clubMenu.x} y={clubMenu.y} alignRight items={clubMenuItems()} onClose={() => setClubMenu(null)} />}
     </div>
   )
 }

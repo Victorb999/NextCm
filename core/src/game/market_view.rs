@@ -249,6 +249,23 @@ mod tests {
             )
             .unwrap();
         assert_eq!(open, 0);
+        // As seleções em português, com a sub-21 ligada à principal, e a nacionalidade abre a principal
+        let name = |id: i32| -> String { g.world.conn.query_row("SELECT name FROM clubs WHERE id = ?", [id], |r| r.get(0)).unwrap() };
+        assert_eq!(name(11663), "Itália");
+        assert_eq!(name(11894), "Itália Sub-21");
+        let senior = g.world.get_club(11663).unwrap();
+        assert_eq!(senior.affiliates.iter().map(|c| c.id).collect::<Vec<_>>(), vec![11894]);
+        assert_eq!(g.world.get_club(11894).unwrap().parent.map(|c| c.id), Some(11663));
+        // A sub-21 mostra os melhores até 21 anos, sem os da principal
+        let (mut u21, mut main) = (g.world.get_club(11894).unwrap(), senior);
+        g.fill_squad(&mut u21).unwrap();
+        g.fill_squad(&mut main).unwrap();
+        assert!(u21.players.len() >= 18, "{}", u21.players.len());
+        assert!(u21.players.iter().all(|p| p.age.is_none_or(|a| a <= 22)), "idades");
+        assert!(u21.players.iter().all(|p| main.players.iter().all(|m| m.id != p.id)));
+        let italian: i32 =
+            g.world.conn.query_row("SELECT id FROM people WHERE nation_id = 95 AND is_player = 1 LIMIT 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(g.world.get_person(italian).unwrap().national_team_id, Some(11663));
         // O aposentado sai da Busca e o perfil mostra quando se aposentou
         let mbappe = SearchQuery { text: Some("Mbappe".into()), kind: Some(PersonKind::Players), ..Default::default() };
         let id = g.world.search_people_on(&mbappe, &g.date).unwrap().items[0].id;

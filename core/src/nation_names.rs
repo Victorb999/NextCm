@@ -286,6 +286,22 @@ const PT_PT_NAMES: [(&str, &str); 37] = [
     ("São Marinho", "San Marino"),
 ];
 
+/// As selecções com o nome da nação no jogo (o banco tem-nas em inglês: "Italy"). Cada nação tem
+/// duas: a de mais reputação é a principal e a outra a sub-21 ("Itália Sub-21"). Corre ao criar o
+/// jogo e ao abrir um save (não muda nada da segunda vez).
+pub fn name_national_teams(conn: &rusqlite::Connection) -> crate::Result<()> {
+    conn.execute_batch(
+        "WITH r AS (
+             SELECT c.id, n.name AS nation,
+                    ROW_NUMBER() OVER (PARTITION BY c.nation_id ORDER BY COALESCE(c.reputation, 0) DESC, c.id) AS k
+             FROM clubs c JOIN nations n ON n.id = c.nation_id WHERE c.is_national_team = 1)
+         UPDATE clubs SET name = (SELECT nation || CASE WHEN k > 1 THEN ' Sub-21' ELSE '' END FROM r WHERE r.id = clubs.id),
+                          short_name = (SELECT nation || CASE WHEN k > 1 THEN ' Sub-21' ELSE '' END FROM r WHERE r.id = clubs.id)
+         WHERE id IN (SELECT id FROM r);",
+    )?;
+    Ok(())
+}
+
 /// Passa os nomes de um save antigo (em português de Portugal) para os do Brasil.
 pub fn brazilian_nations(conn: &rusqlite::Connection) -> crate::Result<()> {
     let mut stmt = conn.prepare("UPDATE nations SET name = ?2 WHERE name = ?1")?;

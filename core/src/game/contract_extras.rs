@@ -269,16 +269,7 @@ impl Game {
 
     /// Os prémios e cláusulas do contrato de um jogador (só valem no clube onde os assinou).
     pub fn contract_extras(&self, person: i32) -> Result<Option<ContractExtras>> {
-        let row: Option<(i32, String)> = self
-            .world
-            .conn
-            .prepare_cached(
-                "SELECT e.club_id, e.extras FROM contract_extras e JOIN people p ON p.id = e.person_id
-                 WHERE e.person_id = ? AND p.club_id = e.club_id",
-            )?
-            .query_row([person], |r| Ok((r.get(0)?, r.get(1)?)))
-            .optional()?;
-        Ok(row.and_then(|(_, t)| serde_json::from_str(&t).ok()))
+        extras_of(&self.world.conn, person)
     }
 
     /// Depois de um jogo do clube do treinador: os prémios por golo, assistência e jogo sem
@@ -369,6 +360,47 @@ impl Game {
         self.squad_changed()?;
         Ok(())
     }
+}
+
+/// Os prémios e cláusulas do contrato de um jogador num save (também o editor os lê).
+pub(crate) fn extras_of(conn: &rusqlite::Connection, person: i32) -> Result<Option<ContractExtras>> {
+    let has: bool =
+        conn.query_row("SELECT COUNT(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'contract_extras'", [], |r| r.get(0))?;
+    if !has {
+        return Ok(None);
+    }
+    let row: Option<String> = conn
+        .prepare_cached(
+            "SELECT e.extras FROM contract_extras e JOIN people p ON p.id = e.person_id
+             WHERE e.person_id = ? AND p.club_id = e.club_id",
+        )?
+        .query_row([person], |r| r.get(0))
+        .optional()?;
+    Ok(row.and_then(|t| serde_json::from_str(&t).ok()))
+}
+
+/// Tudo o que o contrato tem a mais, em palavras: a percentagem de venda futura, os prémios por
+/// jogos e as cláusulas e prémios do treinador (o plantel e o editor mostram isto).
+pub(crate) fn clause_labels(conn: &rusqlite::Connection, person: i32) -> Result<Vec<String>> {
+    let table = |name: &str| -> Result<bool> {
+        Ok(conn.query_row("SELECT COUNT(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = ?", [name], |r| r.get(0))?)
+    };
+    let mut out = Vec::new();
+    if table("sell_on")?
+        && let Some(pct) = conn.query_row("SELECT pct FROM sell_on WHERE person_id = ?", [person], |r| r.get::<_, i32>(0)).optional()?
+    {
+        out.push(format!("{pct}% venda futura"));
+    }
+    if table("apps_bonus")? && conn.query_row("SELECT 1 FROM apps_bonus WHERE person_id = ?", [person], |_| Ok(())).optional()?.is_some() {
+        out.push("Prêmio por jogos".into());
+    }
+    if table("caps_bonus")? && conn.query_row("SELECT 1 FROM caps_bonus WHERE person_id = ?", [person], |_| Ok(())).optional()?.is_some() {
+        out.push("Prêmio por jogos pela seleção".into());
+    }
+    if let Some(e) = extras_of(conn, person)? {
+        out.extend(e.labels());
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

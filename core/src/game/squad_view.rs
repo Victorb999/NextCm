@@ -112,7 +112,41 @@ impl Game {
         }
         // Selecção que nunca convocou neste jogo (ou num save antigo, que apagava a convocatória
         // no fim da janela): os 23 que o seleccionador chamaria hoje
-        if c.is_national_team && c.players.is_empty() {
+        if c.is_national_team && c.parent.is_some() {
+            // A sub-21 (ainda não joga): os melhores da nação até 21 anos que a principal não chamaria
+            let senior = c.parent.as_ref().map_or(0, |p| p.id);
+            let skip: Vec<String> = self.choose_call_up(senior, &self.date)?.iter().map(|p| p.to_string()).collect();
+            let skip = if skip.is_empty() { "0".to_string() } else { skip.join(",") };
+            let year: i32 = self.date[0..4].parse().unwrap_or(0);
+            let mut ids: Vec<i32> = Vec::new();
+            for (keepers, count) in [(true, 3), (false, 20)] {
+                let sql = format!(
+                    "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id
+                     WHERE p.nation_id = (SELECT nation_id FROM clubs WHERE id = ?1) AND p.is_player = 1 AND p.birth_year >= ?2
+                       AND (COALESCE(pl.pos_goalkeeper, 0) >= 15) = ?3 AND p.id NOT IN ({skip})
+                       AND p.id NOT IN (SELECT person_id FROM retired) AND p.id NOT IN (SELECT person_id FROM ghosts)
+                     ORDER BY pl.current_ability DESC, p.id LIMIT {count}"
+                );
+                let found: Vec<i32> = self
+                    .world
+                    .conn
+                    .prepare(&sql)?
+                    .query_map(rusqlite::params![id, year - 21, keepers], |r| r.get(0))?
+                    .collect::<rusqlite::Result<_>>()?;
+                ids.extend(found);
+            }
+            c.players = if ids.is_empty() {
+                Vec::new()
+            } else {
+                let list = ids.iter().map(i32::to_string).collect::<Vec<_>>().join(",");
+                self.world.squad_players(&format!("p.id IN ({list}) AND ? > 0"), id)?
+            };
+            c.players.sort_by_key(|p| (std::cmp::Reverse(p.current_ability.unwrap_or(0)), p.id));
+            for (rank, p) in c.players.iter_mut().enumerate() {
+                p.ability_rank = rank as i32 + 1;
+                p.key = rank < 3;
+            }
+        } else if c.is_national_team && c.players.is_empty() {
             let ids: Vec<String> = self.choose_call_up(id, &self.date)?.iter().map(|p| p.to_string()).collect();
             if !ids.is_empty() {
                 let filter = format!("p.id IN ({}) AND p.nation_id = (SELECT nation_id FROM clubs WHERE id = ?)", ids.join(","));
@@ -220,21 +254,9 @@ impl Game {
                 }
                 .into(),
             );
-            let mut clauses = Vec::new();
-            if let Some(pct) = conn.query_row("SELECT pct FROM sell_on WHERE person_id = ?", [p.id], |r| r.get::<_, i32>(0)).optional()? {
-                clauses.push(format!("{pct}% venda futura"));
-            }
-            if conn.query_row("SELECT 1 FROM apps_bonus WHERE person_id = ?", [p.id], |_| Ok(())).optional()?.is_some() {
-                clauses.push("Prêmio por jogos".into());
-            }
-            if conn.query_row("SELECT 1 FROM caps_bonus WHERE person_id = ?", [p.id], |_| Ok(())).optional()?.is_some() {
-                clauses.push("Prêmio por jogos pela seleção".into());
-            }
-            // Os prémios e cláusulas do contrato (só nos contratos do treinador)
-            if let Some(e) = self.contract_extras(p.id)? {
-                clauses.extend(e.labels());
-            }
-            p.clauses = clauses;
+            p.clauses = super::contract_extras::clause_labels(conn, p.id)?;
+            // A cláusula de rescisão, na coluna dela
+            p.release_clause = self.contract_extras(p.id)?.and_then(|e| e.min_fee);
             p.value = if p.free { None } else { self.world.market_value_of(p.id, &self.date)? };
             p.form = self.form_of(p.id)?;
             let (apps, subs, goals, assists, mom, rating): (i32, i32, i32, i32, i32, Option<f64>) = conn

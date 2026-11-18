@@ -97,7 +97,13 @@ export default function PersonHeader({ p, action, tabs }: { p: PersonProfile | n
               {dot}
               <NationFlag name={p.nation} round className="mr-1.5" />
               {p.nationId !== null && p.nation ? (
-                <Link onClick={() => nav.go({ kind: 'nation', id: p.nationId! })}>{p.nation}</Link>
+                <Link
+                  onClick={() =>
+                    nav.go(p.nationalTeamId != null ? { kind: 'club', id: p.nationalTeamId } : { kind: 'nation', id: p.nationId! })
+                  }
+                >
+                  {p.nation}
+                </Link>
               ) : (
                 (p.nation ?? '-')
               )}
