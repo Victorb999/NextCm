@@ -215,10 +215,18 @@ impl Squads {
         }
     }
 
-    /// Uma lesão no treino, ligeira: devolve o nome e a duração em dias.
+    /// Uma lesão fora dos jogos (no treino), quase sempre ligeira: devolve o nome e a duração em dias.
     pub fn training_injury(&mut self, id: i32, today: &str, rng: &mut impl RngCore) -> Option<(String, i32)> {
-        let days = 3 + (uniform(rng) * 19.0) as i32;
-        let injury = pick(&LIGHT, rng).to_string();
+        let roll = uniform(rng);
+        let (list, min, max): (&[&str], i32, i32) = if roll < 0.85 {
+            (&LIGHT, 3, 21)
+        } else if roll < 0.98 {
+            (&MEDIUM, 15, 45)
+        } else {
+            (&SERIOUS, 46, 120)
+        };
+        let days = min + (uniform(rng) * (max - min + 1) as f64) as i32;
+        let injury = pick(list, rng).to_string();
         let until = date::add_days(today, days)?;
         let s = self.state_mut(id);
         if s.injury.is_some() {

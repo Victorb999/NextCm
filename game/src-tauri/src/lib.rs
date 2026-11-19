@@ -10,7 +10,6 @@ use nextcm_core::LineupCheck;
 use nextcm_core::MatchAnalysis;
 use nextcm_core::MatchReview;
 use nextcm_core::MatchSheet;
-use nextcm_core::NewsLink;
 use nextcm_core::PressView;
 use nextcm_core::ReserveLineup;
 use nextcm_core::SquadRoleView;
@@ -28,6 +27,7 @@ use nextcm_core::{CareerClub, ContinueStep, HonoursBoard, ManagerStats, Managers
 use nextcm_core::{DealTerms, LoanTerms};
 use nextcm_core::{EditorClub, EditorHit, EditorPlayer, EditorProfileView};
 use nextcm_core::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
+use nextcm_core::{NewsCard, NewsLink};
 use nextcm_core::{TalkLine, TalkReaction, TalkView};
 use tauri::{Manager, State};
 
@@ -140,6 +140,7 @@ session_command!(give_leave(id: i32) -> String);
 session_command!(jobs_view(nation: Option<i32>) -> JobsView);
 session_command!(apply_job(id: i32) -> String);
 session_command!(news_links(id: i32) -> Vec<NewsLink>);
+session_command!(news_card(id: i32) -> Option<NewsCard>);
 session_command!(set_shortlist(id: i32, on: bool) -> ());
 session_command!(league_request(key: String) -> String);
 session_command!(squad_numbers() -> SquadNumbers);
@@ -402,6 +403,7 @@ pub fn run() {
             jobs_view,
             apply_job,
             news_links,
+            news_card,
             set_shortlist,
             league_request,
             squad_numbers,

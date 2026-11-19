@@ -19,7 +19,6 @@ use crate::LeagueNation;
 use crate::LineupCheck;
 use crate::MatchAnalysis;
 use crate::MatchSheet;
-use crate::NewsLink;
 use crate::PressView;
 use crate::SquadRoleView;
 use crate::StaffHireView;
@@ -29,6 +28,7 @@ use crate::tactic_file::{self, SavedFile};
 use crate::{AreaStrength, AwardLine, CoachAreas, ReserveLineup, TrainingPlan, TrainingView};
 use crate::{DealTerms, LoanTerms};
 use crate::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
+use crate::{NewsCard, NewsLink};
 use crate::{TalkLine, TalkReaction, TalkView};
 
 /// Um dia do Continuar Jogo (comando `continue_step`).
@@ -886,6 +886,36 @@ impl Session {
 
     pub fn news_links(&self, id: i32) -> Result<Vec<NewsLink>> {
         self.game()?.news_links(id)
+    }
+
+    /// O quadro ao lado da notícia: a pessoa ou o clube de que ela fala (`None` sem nenhum).
+    pub fn news_card(&self, id: i32) -> Result<Option<NewsCard>> {
+        let game = self.game()?;
+        let Some(subject) = game.news_subject(id)? else { return Ok(None) };
+        if subject.kind == "club" {
+            return Ok(Some(game.club_card(subject.id)?));
+        }
+        let p = self.get_person(subject.id)?;
+        let kind = if p.player.is_some() { "player" } else { "staff" };
+        let mut card = NewsCard::empty(kind, p.id, p.name.clone());
+        card.club = p.club.clone();
+        card.nation = p.nation.clone();
+        card.age = p.age;
+        match &p.player {
+            Some(pl) => {
+                card.role = Some(pl.position.clone());
+                card.value = pl.value;
+                let apps: i32 = p.season.iter().map(|s| s.apps).sum();
+                card.apps = Some(apps);
+                card.goals = Some(p.season.iter().map(|s| s.goals).sum());
+                card.rating = (apps > 0).then(|| {
+                    let total: f64 = p.season.iter().map(|s| s.rating * s.apps as f64).sum();
+                    (total / apps as f64 * 100.0).round() / 100.0
+                });
+            }
+            None => card.role = p.job.clone(),
+        }
+        Ok(Some(card))
     }
 
     pub fn list_news(&self) -> Result<Vec<NewsItem>> {

@@ -1476,11 +1476,12 @@ impl LiveMatch {
         }
     }
 
-    /// Lesões: 0,6% (Propensão 1) a 1,8% (20) por jogador e jogo inteiro.
+    /// Lesões: 1,2% (Propensão 1) a 3,6% (20) por jogador e jogo inteiro (cerca de uma por
+    /// equipa a cada quatro jogos, como no CM).
     fn injuries(&mut self, side: usize) {
         for i in self.teams[side].on_pitch() {
             let ip = self.teams[side].players[i].prof.injury_proneness;
-            let chance = (0.006 + 0.012 * (ip - 1.0) / 19.0) / 90.0;
+            let chance = (0.012 + 0.024 * (ip - 1.0) / 19.0) / 90.0;
             if uniform(&mut self.rng) >= chance || self.teams[side].players[i].injured {
                 continue;
             }

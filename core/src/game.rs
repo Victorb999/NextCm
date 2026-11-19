@@ -83,6 +83,7 @@ mod status_bar;
 mod team_talk;
 mod training;
 pub(crate) mod unhappy;
+mod world_news;
 use crate::league::{self, Fixture, Match, StandingRow};
 use crate::live::{Decider, LiveMatch, LiveView, Occasion, TeamStats};
 use crate::person::ClubRef;
@@ -116,7 +117,7 @@ pub use match_analysis::{KeyMan, MatchAnalysis, MatchReview, Milestone};
 pub(crate) use negotiation::MAX_SELL_ON;
 pub use negotiation::{DealTerms, LoanTerms};
 pub use new_game::{ClubPreview, club_preview};
-pub use news_links::NewsLink;
+pub use news_links::{NewsCard, NewsLink};
 pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
 pub use personal_info::PersonalInfo;
 pub use player_record::MatchSheet;
@@ -1998,6 +1999,8 @@ impl Game {
                 *next_id += 1;
             }
         }
+        // As lesões fora dos jogos nos plantéis da IA
+        self.ai_injuries_day(fresh, next_id)?;
         // Evolução do CA, juniores, fim de época e nova época
         self.calendar_events(fresh, next_id)?;
         // Selecções: sorteios, convocatórias e regressos
@@ -2024,6 +2027,8 @@ impl Game {
         self.setup_day(fresh, next_id)?;
         // Amigáveis: os que chocam com jogos oficiais saem; os convites dos outros clubes
         self.friendlies_day(fresh, next_id)?;
+        // Os jogadores da Lista Preferencial que mudaram de clube hoje
+        self.shortlist_moves(fresh, next_id)?;
         // Dia 1: o relatório do adjunto sobre as reservas (depois da evolução do mês)
         self.reserve_report(fresh, next_id)?;
         // As reservas jogam na véspera do jogo do campeonato
@@ -2214,6 +2219,9 @@ impl Game {
         let mut fresh = std::mem::take(&mut day.news);
         let mut next_id = self.news.iter().chain(&fresh).map(|n| n.id).max().unwrap_or(0) + 1;
         let date = self.date.clone();
+        // Para as notícias do mundo: os líderes antes dos jogos e a Lista Preferencial
+        let leaders = self.leaders();
+        let shortlist = self.shortlist_ids()?;
         let mut internationals_played: Vec<String> = Vec::new();
         for (i, live) in &mut day.games {
             if !live.finished() {
@@ -2251,7 +2259,11 @@ impl Game {
                 self.excuse_internationals([played.home_id, played.away_id]);
             }
             for event in events {
-                if let Some(n) = self.event_news(next_id, &event)? {
+                let news = match self.event_news(next_id, &event)? {
+                    Some(n) => Some(n),
+                    None => self.world_event_news(next_id, &event, &shortlist)?,
+                };
+                if let Some(n) = news {
                     fresh.push(n);
                     next_id += 1;
                 }
@@ -2331,9 +2343,11 @@ impl Game {
             let played = self.matches[i].clone();
             self.gate(&played)?;
         }
+        // Os resultados de hoje que chamam a atenção nas competições do treinador
+        let today: Vec<usize> = day.games.iter().map(|(i, _)| *i).chain(day.quick.iter().map(|(i, _)| *i)).collect();
+        self.result_headlines(&today, &leaders, &mut fresh, &mut next_id)?;
         // Rondas e fases que acabaram hoje passam à seguinte; as competições que acabaram têm campeão
-        let mut played: Vec<i32> =
-            day.games.iter().map(|(i, _)| *i).chain(day.quick.iter().map(|(i, _)| *i)).map(|i| self.matches[i].competition_id).collect();
+        let mut played: Vec<i32> = today.iter().map(|&i| self.matches[i].competition_id).collect();
         played.sort_unstable();
         played.dedup();
         for comp in self.progress(&played, &mut fresh, &mut next_id)? {
@@ -3914,7 +3928,13 @@ mod tests {
         // que dependem das lesões iniciais do player_setup.cfg)
         let titles: Vec<&str> = news.iter().map(|n| n.title.as_str()).collect();
         // (e as propostas pelos jogadores, que chegam de manhã)
-        assert_eq!(news.iter().filter(|n| n.kind != "injury" && n.kind != "transfer" && n.offer_id.is_none()).count(), 2, "{titles:?}");
+        // (e as manchetes dos outros jogos da rodada: goleadas e zebras)
+        let headline = |n: &NewsItem| n.kind == "competition" && n.body.starts_with("Série A: ");
+        assert_eq!(
+            news.iter().filter(|n| n.kind != "injury" && n.kind != "transfer" && n.offer_id.is_none() && !headline(n)).count(),
+            2,
+            "{titles:?}"
+        );
         assert!(news.iter().any(|n| n.body.starts_with("Série A, 1ª rodada.")), "{}", news[0].body);
         assert!(news.iter().any(|n| n.link.as_deref().is_some_and(|l| l.starts_with("press:"))));
         let mut days = 0;

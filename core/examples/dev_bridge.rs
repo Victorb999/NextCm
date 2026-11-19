@@ -136,6 +136,7 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
         }
         "apply_job" => out(serde_json::to_value(session.apply_job(id()?).map_err(e)?)),
         "news_links" => out(serde_json::to_value(session.news_links(id()?).map_err(e)?)),
+        "news_card" => out(serde_json::to_value(session.news_card(id()?).map_err(e)?)),
         "set_shortlist" => {
             let on = args["on"].as_bool().ok_or("falta on")?;
             out(serde_json::to_value(session.set_shortlist(id()?, on).map_err(e)?))
