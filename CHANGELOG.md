@@ -3,6 +3,22 @@
 Uma secção por versão, da mais nova para a mais antiga. A tela Sobre do jogo e as notas
 das Releases no GitHub saem deste ficheiro.
 
+## 0.1.0 beta 4
+
+- **Versão para Linux** (AppImage e .deb), além do instalador do Windows
+- Todo o jogo em português do Brasil: time, elenco, gol, temporada, Diretoria
+- Copas nacionais, supercopas e as competições continentais que faltavam
+- Prorrogação e pênaltis nos mata-matas
+- Contratar e demitir staff, com preparadores por área
+- A partida jogada fica guardada e abre como no CM, com todas as abas
+- Quadro de Honra, Estatísticas dos Técnicos e o resumo da temporada
+- Imprensa com temas, festa dos títulos e títulos garantidos antes do fim
+- Jogadores com mágoas e vontade de sair; contratos menos robóticos
+- Lesões muito graves e arquivo das notícias
+- Ir de Férias com as opções do CM
+- Editor de saves com aba Busca, cláusulas e salário máximo
+- Partidas que não se repetem ao carregar o save
+
 ## 0.1.0 beta 3
 
 - Tela **Sobre o NextCM** no menu inicial, com a versão, as novidades e os créditos
