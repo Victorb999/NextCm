@@ -223,6 +223,18 @@ export const shortRole = (role: string) => role.replace(' ', '')
 /** Fora da posição: nota na função abaixo de 15 (mostrada em laranja). */
 export const outOfPosition = (p: TacticPlayer | null | undefined) => !!p && p.fit !== null && p.fit < 15
 
+/** Porque não pode jogar: a sigla, o texto e se é lesão ou castigo (vermelho) ou só está fora
+ * (na seleção, de folga: azul). */
+export function unavailable(p: TacticPlayer | null | undefined): { label: string; title: string; red: boolean } | null {
+  if (!p) return null
+  if (p.away === 'Sel') return { label: 'Sel', title: 'Na seleção', red: false }
+  if (p.away === 'Fol') return { label: 'Fol', title: 'De folga', red: false }
+  if (p.away === 'Aus') return { label: 'Aus', title: 'Ausente sem permissão', red: true }
+  if (p.injured) return { label: 'Les', title: 'Lesionado', red: true }
+  if (p.suspended) return { label: 'Sus', title: 'Suspenso', red: true }
+  return null
+}
+
 /** Cor da condição: verde em forma, amarelo a cansar, vermelho esgotado. */
 export function conditionColour(c: number | null) {
   if (c === null || c >= 90) return 'text-cm-mint'

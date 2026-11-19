@@ -83,8 +83,15 @@ impl Game {
     pub(super) fn mark_key_players(&self, t: &mut ClubTactics) -> Result<()> {
         let keys = self.key_players(t.club_id)?;
         let start = self.season_start(Some(t.club_id))?;
+        let internationals: std::collections::HashSet<i32> = self.away_internationals().into_iter().collect();
         let players = t.starters.iter_mut().filter_map(|s| s.player.as_mut()).chain(&mut t.bench).chain(&mut t.reserves);
         for p in players {
+            // Fora na seleção ou de folga não é lesão: a tela mostra porquê
+            p.away = if internationals.contains(&p.id) {
+                Some("Sel".into())
+            } else {
+                self.absence(p.id)?.map(|(kind, _)| if kind == "leave" { "Fol".into() } else { "Aus".into() })
+            };
             p.key = keys.contains(&p.id);
             p.ghost = self.is_ghost(p.id);
             p.form = self.form_of(p.id)?;

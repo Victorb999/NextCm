@@ -20,6 +20,10 @@ impl Game {
     /// A notícia da imprensa sobre o jogo `m` do treinador, se o resultado der que falar.
     pub(super) fn result_press(&self, id: i32, m: &Match) -> Result<Option<NewsItem>> {
         let Some((hg, ag)) = m.result else { return Ok(None) };
+        // Amistoso não dá que falar
+        if m.competition_id == super::friendlies::CLUB_FRIENDLY || m.competition_id == super::internationals::FRIENDLY {
+            return Ok(None);
+        }
         let at_home = m.home_id == self.club_id;
         let (gf, ga) = if at_home { (hg as i32, ag as i32) } else { (ag as i32, hg as i32) };
         let us = self.club(self.club_id).short_name;

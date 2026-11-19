@@ -2177,6 +2177,11 @@ impl Game {
         if let Some(d) = self.decider(i) {
             live = live.deciding(d);
         }
+        // Amistoso (de clubes ou de seleções): substituições à vontade
+        let comp = self.matches[i].competition_id;
+        if comp == crate::regulation::CLUB_FRIENDLY || comp == internationals::FRIENDLY {
+            live = live.friendly();
+        }
         // O treinador provocou-os na conferência antes do jogo: o adversário vem mais motivado
         if let Some(s) = side
             && self.provoked(self.matches[i].id)?
@@ -4331,6 +4336,13 @@ mod tests {
         let mut m = LiveMatch::new(w, fixture.clone(), tactics(home.id), tactics(away.id), None, true, rng).unwrap();
         m.play_out();
         assert!(m.minute() == 90 && m.pens().is_none());
+        // Num amistoso as substituições são à vontade (o banco todo)
+        let m = LiveMatch::new(w, fixture.clone(), tactics(home.id), tactics(away.id), None, true, engine::match_rng(3, 2)).unwrap();
+        let normal = m.view(&[]).home.subs_left;
+        let friendly = m.friendly().view(&[]).home;
+        assert_eq!(normal, crate::live::MAX_SUBS);
+        assert_eq!(friendly.subs_left, friendly.bench.len() as i32);
+        assert!(friendly.subs_left > normal);
     }
 
     #[test]

@@ -30,6 +30,8 @@ use crate::{Error, Result, World, date};
 
 /// Substituições por jogo (regra actual do Brasileirão).
 pub const MAX_SUBS: i32 = 5;
+/// Num amistoso troca-se à vontade (na prática, o banco todo).
+pub const FRIENDLY_SUBS: i32 = 12;
 /// Remates de uma equipa média por jogo (mais para quem tem mais golos esperados).
 const SHOTS_PER_90: f64 = 12.0;
 /// Fração dos remates que vão à baliza (golos incluídos).
@@ -660,6 +662,8 @@ pub struct LiveMatch {
     awaiting: bool,
     /// A ordem dos batedores escolhida pelo treinador (ids), de cada lado.
     pen_order: [Vec<i32>; 2],
+    /// Substituições permitidas a cada lado ([`MAX_SUBS`]; nos amistosos, [`FRIENDLY_SUBS`]).
+    max_subs: i32,
 }
 
 /// Escolhe uma variante do texto sem gastar o RNG (o relato não muda o jogo).
@@ -735,6 +739,7 @@ impl LiveMatch {
             pens: None,
             awaiting: false,
             pen_order: [Vec::new(), Vec::new()],
+            max_subs: MAX_SUBS,
         };
         // Forma do dia de cada titular: a nota parte de 6 ± 0,4
         for side in 0..2 {
@@ -764,6 +769,12 @@ impl LiveMatch {
             }
         }
         self.occasion = occasion;
+        self
+    }
+
+    /// Um amistoso: substituições à vontade.
+    pub fn friendly(mut self) -> LiveMatch {
+        self.max_subs = FRIENDLY_SUBS;
         self
     }
 
@@ -1432,6 +1443,7 @@ impl LiveMatch {
     /// campo) ou manda um jogador de campo para a baliza.
     fn send_off(&mut self, side: usize, i: usize) {
         let m = self.minute;
+        let max_subs = self.max_subs;
         let t = &mut self.teams[side];
         t.stats.reds += 1;
         let slot = t.players[i].slot.take();
@@ -1442,7 +1454,7 @@ impl LiveMatch {
         let Some(slot) = slot.filter(|&s| sector(t.role(s)) == 0) else { return };
         let keeper = t.bench().into_iter().find(|&b| fit_for_role(&t.players[b].prof.pos, "GR") >= 10);
         let outfield = t.on_pitch();
-        if let (Some(gk), true) = (keeper, t.subs < MAX_SUBS) {
+        if let (Some(gk), true) = (keeper, t.subs < max_subs) {
             // Sai o jogador de campo que menos rende
             let Some(&out) = outfield.iter().min_by(|&&a, &&b| t.players[a].value().total_cmp(&t.players[b].value())) else {
                 return;
@@ -1482,7 +1494,7 @@ impl LiveMatch {
             // até trocar, o lesionado fica em campo a coxear, como no CM
             let best = if self.user == Some(side) { None } else { self.teams[side].best_sub(slot) };
             match best {
-                Some((sub, _)) if self.teams[side].subs < MAX_SUBS => self.make_sub(side, i, sub),
+                Some((sub, _)) if self.teams[side].subs < self.max_subs => self.make_sub(side, i, sub),
                 // Sem substituições, fica em campo a coxear
                 _ => {
                     let p = &mut self.teams[side].players[i];
@@ -1516,7 +1528,7 @@ impl LiveMatch {
     /// O adjunto troca o jogador que mais ganha com a troca (o cansado por um fresco).
     fn ai_change(&mut self, side: usize) {
         let t = &self.teams[side];
-        if !t.ai || t.tactical_subs >= AI_TACTICAL_SUBS || t.subs >= MAX_SUBS - 1 {
+        if !t.ai || t.tactical_subs >= AI_TACTICAL_SUBS || t.subs >= self.max_subs - 1 {
             return;
         }
         let mut best: Option<(usize, usize, f64)> = None;
@@ -1611,8 +1623,8 @@ impl LiveMatch {
     pub fn substitute(&mut self, out: i32, inn: i32) -> Result<()> {
         let side = self.user_team()?;
         let t = &self.teams[side];
-        if t.subs >= MAX_SUBS {
-            return Err(Error::Invalid(format!("Já fez as {MAX_SUBS} substituições.")));
+        if t.subs >= self.max_subs {
+            return Err(Error::Invalid(format!("Já fez as {} substituições.", self.max_subs)));
         }
         let find = |id: i32| t.players.iter().position(|p| p.info.id == id);
         let out =
@@ -1729,8 +1741,8 @@ impl LiveMatch {
         }
         let entering: Vec<i32> = new_on.iter().filter(|p| !on.contains(p)).copied().collect();
         let leaving: Vec<i32> = on.iter().filter(|p| !new_on.contains(p)).copied().collect();
-        if self.minute > 0 && t.subs + entering.len() as i32 > MAX_SUBS {
-            return Err(Error::Invalid(format!("Só pode fazer {MAX_SUBS} substituições (faltam {}).", MAX_SUBS - t.subs)));
+        if self.minute > 0 && t.subs + entering.len() as i32 > self.max_subs {
+            return Err(Error::Invalid(format!("Só pode fazer {} substituições (faltam {}).", self.max_subs, self.max_subs - t.subs)));
         }
         Ok((entering, leaving))
     }
@@ -1978,7 +1990,7 @@ impl LiveMatch {
                 players: t.on_pitch().into_iter().map(|i| player(side, i)).collect(),
                 bench: t.bench().into_iter().map(|i| player(side, i)).collect(),
                 out: (0..t.players.len()).filter(|&i| t.players[i].left.is_some()).map(|i| player(side, i)).collect(),
-                subs_left: MAX_SUBS - t.subs,
+                subs_left: (self.max_subs - t.subs).min(t.bench().len() as i32),
                 stats: self.team_stats(side),
             }
         };

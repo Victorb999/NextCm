@@ -3,7 +3,18 @@ import PitchField from './PitchField'
 import type { ClubTactics } from '../bindings/ClubTactics'
 import type { TacticPlayer } from '../bindings/TacticPlayer'
 import type { Spot } from '../selection'
-import { MENTALITY, PASSING, TACKLING, conditionColour, fullName, outOfPosition, shortRole, surname, type Run } from '../tactics'
+import {
+  MENTALITY,
+  PASSING,
+  TACKLING,
+  conditionColour,
+  fullName,
+  outOfPosition,
+  shortRole,
+  surname,
+  unavailable,
+  type Run,
+} from '../tactics'
 import { PanelTitle } from './Screen'
 
 // Componentes da tela de Tácticas do CM, usados na tela de Tácticas e nas Tácticas a meio
@@ -105,8 +116,10 @@ export function Row({
       onToggle()
     })
   const out = kind === 'starter' && outOfPosition(p)
-  // No time sem poder jogar (suspenso ou lesionado): a casa fica vermelha (também no banco)
-  const barred = kind !== 'reserve' && (p.injured || p.suspended)
+  // No time sem poder jogar: a casa fica vermelha (lesionado, suspenso) ou azul (na seleção, de
+  // folga), também no banco
+  const off = unavailable(p)
+  const barred = kind !== 'reserve' ? off : null
   return (
     <div
       {...bind}
@@ -137,7 +150,11 @@ export function Row({
             onMouseDown={(e) => onToggle && e.stopPropagation()}
             onClick={toggle}
             className={`inline-block min-w-[38px] rounded-[3px] px-1 text-center text-[11px] font-bold leading-[18px] tracking-wide ${
-              barred ? 'bg-[#e01010] text-white ring-1 ring-white/60' : out ? 'bg-[#7a3d00] text-cm-orange' : roleChip(place)
+              barred
+                ? `${barred.red ? 'bg-[#e01010]' : 'bg-[#1f5fbf]'} text-white ring-1 ring-white/60`
+                : out
+                  ? 'bg-[#7a3d00] text-cm-orange'
+                  : roleChip(place)
             } ${onToggle ? 'cursor-pointer' : ''}`}
             title={kind === 'starter' && p.fit !== null ? `Nota na função: ${p.fit}` : undefined}
           >
@@ -180,8 +197,13 @@ export function Row({
       <span className={`${COL.cond} font-semibold tabular-nums ${conditionColour(p.condition)}`}>{p.condition ?? 100}%</span>
       {rating !== undefined && <span className={`${COL.rating} font-semibold tabular-nums text-cm-yellow`}>{rating ?? '-'}</span>}
       <span className={COL.stat}>
-        {p.injured || p.suspended ? (
-          <span className="rounded-[3px] bg-[#9c0000] px-1.5 text-[11px] font-bold text-white">{p.injured ? 'Les' : 'Sus'}</span>
+        {off ? (
+          <span
+            className={`rounded-[3px] px-1.5 text-[11px] font-bold text-white ${off.red ? 'bg-[#9c0000]' : 'bg-[#1f5fbf]'}`}
+            title={off.title}
+          >
+            {off.label}
+          </span>
         ) : (
           <span className="rounded-[3px] bg-white/10 px-1.5 text-[11px] font-bold text-cm-muted">OK</span>
         )}
@@ -240,7 +262,7 @@ export function Pitch({
           {run && t.starters[run.index] && <Arrow from={[t.starters[run.index]!.x, t.starters[run.index]!.y]} to={[run.x, run.y]} live />}
         </svg>
         {t.starters.map((s, i) => {
-          const barred = s.player && (s.player.injured || s.player.suspended)
+          const barred = unavailable(s.player)
           const b = bind({ kind: 'starter', index: i }, s.player ? surname(s.player.listName) : s.role)
           return (
             <div
@@ -273,15 +295,25 @@ export function Pitch({
               </span>
               {barred && (
                 <span
-                  className="absolute -top-1.5 left-1/2 ml-2.5 rounded-[3px] bg-[#9c0000] px-1 text-[10px] font-bold leading-[14px] text-white shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
-                  title={s.player?.injured ? 'Lesionado' : 'Suspenso'}
+                  className={`absolute -top-1.5 left-1/2 ml-2.5 rounded-[3px] px-1 text-[10px] font-bold leading-[14px] text-white shadow-[0_1px_3px_rgba(0,0,0,0.6)] ${
+                    barred.red ? 'bg-[#9c0000]' : 'bg-[#1f5fbf]'
+                  }`}
+                  title={barred.title}
                 >
-                  {s.player?.injured ? 'Les' : 'Sus'}
+                  {barred.label}
                 </span>
               )}
               <span
                 className={`whitespace-nowrap rounded bg-black/75 px-1.5 text-[12px] font-bold leading-[18px] ${
-                  barred ? 'text-[#ff6b6b]' : outOfPosition(s.player) ? 'text-cm-orange' : s.player ? 'text-white' : 'text-white/60'
+                  barred
+                    ? barred.red
+                      ? 'text-[#ff6b6b]'
+                      : 'text-[#8ab4ff]'
+                    : outOfPosition(s.player)
+                      ? 'text-cm-orange'
+                      : s.player
+                        ? 'text-white'
+                        : 'text-white/60'
                 }`}
               >
                 {s.player ? surname(s.player.listName) : shortRole(s.role)}

@@ -18,6 +18,11 @@ fit: number | null,
  */
 condition: number | null, morale: number | null, injured: boolean, suspended: boolean, 
 /**
+ * Fora do clube, que para a escalação conta como lesionado: "Sel" na seleção, "Fol" de
+ * folga, "Aus" ausente sem permissão.
+ */
+away: string | null, 
+/**
  * Na equipa de reservas do treinador: só entra pelo filtro "Equipa de Reservas".
  */
 reserve: boolean, 

@@ -484,6 +484,9 @@ pub struct TacticPlayer {
     pub morale: Option<i32>,
     pub injured: bool,
     pub suspended: bool,
+    /// Fora do clube, que para a escalação conta como lesionado: "Sel" na seleção, "Fol" de
+    /// folga, "Aus" ausente sem permissão.
+    pub away: Option<String>,
     /// Na equipa de reservas do treinador: só entra pelo filtro "Equipa de Reservas".
     pub reserve: bool,
     /// De enchimento (criado pelo jogo para completar o plantel): a tela mostra-o apagado.
@@ -611,6 +614,7 @@ impl Candidate {
             morale: self.in_game.then_some(self.state.morale),
             injured: self.state.injured,
             suspended: self.state.suspended,
+            away: None,
             reserve: self.state.reserve,
             ghost: false,
             key: false,
