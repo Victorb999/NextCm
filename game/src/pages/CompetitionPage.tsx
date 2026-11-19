@@ -283,17 +283,23 @@ function startRound(rounds: [string, Fixture[]][]) {
 /** ◀ jornada ▶, para o Calendário e o painel ao lado da classificação. */
 function RoundPicker({ rounds, index, onChange }: { rounds: [string, Fixture[]][]; index: number; onChange: (i: number) => void }) {
   const [name, games] = rounds[index] ?? ['', []]
+  const label = `${name}${games[0] ? ` · ${matchDate(games[0].date).slice(4)}` : ''}`
+  // Num painel estreito o nome encolhe (com "..."), e as setas ficam sempre à vista
   return (
-    <span className="flex items-center gap-1.5">
-      <button className="cm-purple h-6 w-8 px-0" disabled={index <= 0} onClick={() => onChange(index - 1)} aria-label="Rodada anterior">
+    <span className="flex min-w-0 items-center gap-1.5">
+      <button
+        className="cm-purple h-6 w-8 shrink-0 px-0"
+        disabled={index <= 0}
+        onClick={() => onChange(index - 1)}
+        aria-label="Rodada anterior"
+      >
         ◀
       </button>
-      <span className="min-w-[9rem] text-center font-bold text-cm-yellow">
-        {name}
-        {games[0] ? ` · ${matchDate(games[0].date).slice(4)}` : ''}
+      <span className="min-w-0 truncate text-center font-bold text-cm-yellow" title={label}>
+        {label}
       </span>
       <button
-        className="cm-purple h-6 w-8 px-0"
+        className="cm-purple h-6 w-8 shrink-0 px-0"
         disabled={index >= rounds.length - 1}
         onClick={() => onChange(index + 1)}
         aria-label="Rodada seguinte"

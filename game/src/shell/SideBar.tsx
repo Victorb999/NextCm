@@ -152,7 +152,7 @@ export default function SideBar({
 
   return (
     <aside
-      className={`flex w-[150px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-cm-sidedark p-2 ${locked ? 'pointer-events-none opacity-40' : ''}`}
+      className={`flex w-[160px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-cm-sidedark p-2 ${locked ? 'pointer-events-none opacity-40' : ''}`}
       aria-disabled={locked}
     >
       <HistoryButtons enabled={browsing} />
@@ -185,8 +185,8 @@ export default function SideBar({
         </SideButton>
       )}
       <SideButton icon={<Trophy size={16} />} disabled={!browsing} active={marked('competitions')} onClick={toggle('competitions')}>
-        Competições
-        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-white/40">▶</span>
+        <span className="min-w-0 flex-1">Competições</span>
+        <span className="-ml-1 shrink-0 text-[9px] text-white/40">▶</span>
       </SideButton>
       {menu?.kind === 'competitions' && comps && (
         <CascadeMenu
@@ -211,8 +211,8 @@ export default function SideBar({
       </SideButton>
       {/* Num jogo, um menu com as Opções, Gravar Jogo e Sair para o Menu; fora dele, só as Opções */}
       <SideButton icon={<Settings size={16} />} onClick={info ? toggle('options') : onOptions} className="relative !text-cm-yellow">
-        Opções Jogo
-        {info && <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-white/40">▶</span>}
+        <span className="min-w-0 flex-1">Opções Jogo</span>
+        {info && <span className="-ml-1 shrink-0 text-[9px] text-white/40">▶</span>}
       </SideButton>
       {menu?.kind === 'options' && info && (
         <CascadeMenu

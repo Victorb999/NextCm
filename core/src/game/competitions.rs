@@ -67,7 +67,7 @@ pub struct StageView {
 /// Mando dos jogos de uma fase de liga: cada clube joga um número par de jogos, então
 /// orientar cada jogo no sentido em que um circuito de Euler (Hierholzer) o percorre dá a
 /// todos metade em casa e metade fora.
-fn orient_evenly(days: &mut [Vec<(i32, i32)>]) {
+pub(super) fn orient_evenly(days: &mut [Vec<(i32, i32)>]) {
     let games: Vec<(usize, usize)> = days.iter().enumerate().flat_map(|(d, g)| (0..g.len()).map(move |i| (d, i))).collect();
     let mut adjacency: HashMap<i32, Vec<usize>> = HashMap::new();
     let mut clubs = Vec::new();
@@ -115,7 +115,7 @@ fn bracket_order(n: usize) -> Vec<usize> {
     order
 }
 
-fn shuffle<T>(v: &mut [T], rng: &mut impl RngCore) {
+pub(super) fn shuffle<T>(v: &mut [T], rng: &mut impl RngCore) {
     for i in (1..v.len()).rev() {
         let j = (rng.next_u64() % (i as u64 + 1)) as usize;
         v.swap(i, j);
@@ -659,7 +659,7 @@ impl Game {
 
     /// Reputação e nação dos clubes (para os potes e para evitar a mesma nação num grupo). Nas
     /// selecções, o continente no lugar da nação (evita-se o mesmo continente num grupo).
-    fn club_facts(&self, ids: &[i32]) -> Result<HashMap<i32, (i32, Option<i32>, Option<i32>)>> {
+    pub(super) fn club_facts(&self, ids: &[i32]) -> Result<HashMap<i32, (i32, Option<i32>, Option<i32>)>> {
         let mut out = HashMap::new();
         let mut stmt = self.world.conn.prepare_cached(
             "SELECT COALESCE(c.reputation, 0),
@@ -672,11 +672,17 @@ impl Game {
         Ok(out)
     }
 
-    /// Fase de liga: `matchdays` jornadas tiradas de um calendário de todos contra todos (cada
-    /// clube encontra adversários diferentes), escolhido entre várias tentativas o que tem menos
-    /// jogos entre clubes da mesma nação; depois o mando fica em metade em casa e metade fora.
+    /// Fase de liga: o sorteio por potes (`league_draw`). Se os números não dão (clubes a
+    /// menos), `matchdays` jornadas tiradas de um calendário de todos contra todos, escolhido
+    /// entre várias tentativas o que tem menos jogos entre clubes da mesma nação; depois o mando
+    /// fica em metade em casa e metade fora.
     fn league_phase(&self, entrants: &[i32], matchdays: usize, rng: &mut impl RngCore) -> Result<Vec<Vec<(i32, i32)>>> {
         let facts = self.club_facts(entrants)?;
+        let field: Vec<super::league_draw::Entrant> =
+            entrants.iter().map(|&id| super::league_draw::Entrant { id, strength: facts[&id].0, nation: facts[&id].1 }).collect();
+        if let Some(days) = super::league_draw::draw(&field, matchdays, rng) {
+            return Ok(days);
+        }
         let n = entrants.len() - entrants.len() % 2;
         let mut best: Option<(usize, Vec<Vec<(i32, i32)>>)> = None;
         for _ in 0..40 {

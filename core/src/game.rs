@@ -41,6 +41,7 @@ mod honours;
 mod hosts;
 mod internationals;
 mod jobs;
+mod league_draw;
 mod league_meeting;
 mod leagues;
 mod lineup_check;
@@ -4291,6 +4292,33 @@ mod tests {
         g.save().unwrap();
         let ids: HashSet<i32> = g.news.iter().map(|n| n.id).collect();
         assert_eq!(ids.len(), g.news.len());
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn league_phases_use_the_pot_draw() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("league-phase");
+        let g = Game::create(&world, &dir, &new_game(7568), 5).unwrap();
+        for reg in crate::regulation::all() {
+            let Some(stage) = reg.stages.iter().position(|s| s.kind == crate::regulation::StageKind::LeaguePhase) else { continue };
+            let ms: Vec<&Match> = g.matches.iter().filter(|m| m.competition_id == reg.competition && m.stage as usize == stage).collect();
+            if ms.is_empty() {
+                continue;
+            }
+            let clubs: HashSet<i32> = ms.iter().flat_map(|m| [m.home_id, m.away_id]).collect();
+            let facts = g.club_facts(&clubs.iter().copied().collect::<Vec<_>>()).unwrap();
+            // O sorteio por potes fecha (36, ou 24 na Ásia); nas europeias, nunca dois da mesma nação
+            // (na Ásia, os 4 sauditas podem cair no mesmo pote)
+            assert!(clubs.len() == 36 || clubs.len() == 24, "{}: {} clubes", reg.competition, clubs.len());
+            if clubs.len() == 36 {
+                assert!(ms.iter().all(|m| facts[&m.home_id].1 != facts[&m.away_id].1), "{}: jogo entre a mesma nação", reg.competition);
+            }
+            for c in &clubs {
+                assert_eq!(ms.iter().filter(|m| m.home_id == *c).count(), reg.stages[stage].matchdays / 2, "{}", reg.competition);
+            }
+        }
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

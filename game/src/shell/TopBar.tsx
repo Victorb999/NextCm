@@ -19,7 +19,7 @@ export default function TopBar({ onContinue, busy, label = 'Continuar Jogo' }: {
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-cm-line bg-cm-panel pr-2">
       {/* Por cima da coluna, com a mesma largura */}
-      <div className="flex h-full w-[150px] shrink-0 items-center justify-center border-r border-cm-line">
+      <div className="flex h-full w-[160px] shrink-0 items-center justify-center border-r border-cm-line">
         <img src="/favicon.svg?v=2" alt="NextCM" className="size-8" />
       </div>
       <span className="font-bold text-cm-yellow">

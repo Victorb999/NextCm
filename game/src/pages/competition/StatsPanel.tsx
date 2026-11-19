@@ -92,10 +92,13 @@ export default function StatsPanel({ id, date, own }: { id: number; date?: strin
               </thead>
               <tbody className="cm-zebra">
                 {players.map((p, i) => (
-                  <tr key={p.person} className="h-[26px] text-[14px]">
+                  <tr key={p.person} className={`h-[26px] text-[14px] ${p.club.id === own ? 'bg-cm-pink/10' : ''}`}>
                     <td className="text-center tabular-nums text-cm-dim">{i + 1}</td>
                     <td className="max-w-0 truncate px-2">
-                      <Link onClick={() => nav.go({ kind: 'person', id: p.person })} className="font-title text-[15px] text-white">
+                      <Link
+                        onClick={() => nav.go({ kind: 'person', id: p.person })}
+                        className={`font-title text-[15px] ${p.club.id === own ? 'font-bold text-cm-pink' : 'text-white'}`}
+                      >
                         {shortListName(p.name)}
                       </Link>
                     </td>
@@ -139,7 +142,7 @@ export default function StatsPanel({ id, date, own }: { id: number; date?: strin
             </thead>
             <tbody className="cm-zebra">
               {stats.teams.map((t) => (
-                <tr key={t.club.id} className="h-[26px] text-[14px]">
+                <tr key={t.club.id} className={`h-[26px] text-[14px] ${t.club.id === own ? 'bg-cm-pink/10' : ''}`}>
                   <td className="max-w-0 truncate px-2">{club(t.club)}</td>
                   <td className="text-center tabular-nums text-cm-text">{t.games}</td>
                   <td className="text-center tabular-nums text-cm-text">{t.goalsFor}</td>
