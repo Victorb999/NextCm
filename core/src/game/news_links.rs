@@ -24,7 +24,97 @@ pub struct NewsLink {
     pub id: i32,
 }
 
+/// O quadro ao lado do texto da notícia (como no CM): a pessoa ou o clube de que ela fala.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct NewsCard {
+    /// "player", "staff" ou "club"
+    pub kind: String,
+    pub id: i32,
+    pub name: String,
+    /// O clube da pessoa (ou o próprio clube): as cores da faixa.
+    pub club: Option<crate::ClubRef>,
+    pub nation: Option<String>,
+    pub age: Option<i32>,
+    /// As siglas da posição ("MA/A DEC") ou a função do staff.
+    pub role: Option<String>,
+    #[ts(type = "number | null")]
+    pub value: Option<i64>,
+    /// Jogos, gols e nota média na temporada (jogador).
+    pub apps: Option<i32>,
+    pub goals: Option<i32>,
+    pub rating: Option<f64>,
+    /// Clube: a divisão, o lugar na classificação, gols pró e contra e a média de público.
+    pub division: Option<String>,
+    pub position: Option<i32>,
+    pub goals_for: Option<i32>,
+    pub goals_against: Option<i32>,
+    pub attendance: Option<i32>,
+}
+
+impl NewsCard {
+    pub(crate) fn empty(kind: &str, id: i32, name: String) -> NewsCard {
+        NewsCard {
+            kind: kind.into(),
+            id,
+            name,
+            club: None,
+            nation: None,
+            age: None,
+            role: None,
+            value: None,
+            apps: None,
+            goals: None,
+            rating: None,
+            division: None,
+            position: None,
+            goals_for: None,
+            goals_against: None,
+            attendance: None,
+        }
+    }
+}
+
 impl Game {
+    /// De quem fala a notícia: a primeira pessoa ou clube citado no título (senão no texto).
+    pub fn news_subject(&self, news_id: i32) -> Result<Option<NewsLink>> {
+        let Some(n) = self.news.iter().find(|n| n.id == news_id) else { return Ok(None) };
+        let links: Vec<NewsLink> =
+            self.news_links(news_id)?.into_iter().filter(|l| l.kind != "competition" && l.id != self.manager_id).collect();
+        for text in [&n.title, &n.body] {
+            // Num empate de posição ganha o nome mais comprido (vêm ordenados assim)
+            let first = links.iter().filter_map(|l| text.find(&l.text).map(|at| (at, l))).min_by_key(|&(at, _)| at);
+            if let Some((_, l)) = first {
+                return Ok(Some(l.clone()));
+            }
+        }
+        Ok(None)
+    }
+
+    /// A linha do clube no quadro: divisão, lugar e gols na liga em curso.
+    pub fn club_card(&self, id: i32) -> Result<NewsCard> {
+        let club = self.club(id);
+        let mut card = NewsCard::empty("club", id, club.name.clone());
+        let (division, nation, attendance): (Option<i32>, Option<String>, Option<i32>) = self.world.conn.query_row(
+            "SELECT c.division_id, n.name, c.avg_attendance FROM clubs c LEFT JOIN nations n ON n.id = c.nation_id WHERE c.id = ?",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )?;
+        card.nation = nation;
+        card.attendance = attendance.filter(|&a| a > 0);
+        if let Some(d) = division {
+            card.division = Some(self.competition_name(d).to_string());
+            if let Some(row) = self.table(d).into_iter().find(|r| r.club.id == id) {
+                card.position = Some(row.position);
+                card.goals_for = Some(row.goals_for);
+                card.goals_against = Some(row.goals_against);
+            }
+        }
+        card.club = Some(club);
+        Ok(card)
+    }
+
     /// As ligações de uma notícia (as mais compridas primeiro, para "Real Madrid" ganhar a "Real").
     pub fn news_links(&self, news_id: i32) -> Result<Vec<NewsLink>> {
         let Some(n) = self.news.iter().find(|n| n.id == news_id) else { return Ok(Vec::new()) };

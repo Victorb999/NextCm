@@ -10,7 +10,7 @@ export default function PersonRecords({ p }: { p: PersonProfile }) {
       <Panel title="Recordes" className="w-[42%] shrink-0">
         <div className="cm-zebra">
           {p.records.map((r) => (
-            <div key={r.label} className="px-3 py-0.5 text-[13.5px]">
+            <div key={r.label} className="px-3 py-0.5 text-[14px]">
               <div className="flex min-h-6 items-center gap-2">
                 <span className="min-w-0 flex-1 truncate text-cm-muted">{r.label}</span>
                 <span className="shrink-0 text-right font-bold text-cm-yellow">{r.value}</span>
@@ -24,7 +24,7 @@ export default function PersonRecords({ p }: { p: PersonProfile }) {
         {p.marks.length ? (
           <div className="cm-zebra">
             {p.marks.map((m, i) => (
-              <div key={`${m.date}-${i}`} className="flex min-h-6 items-center gap-3 px-3 text-[13.5px]">
+              <div key={`${m.date}-${i}`} className="flex min-h-6 items-center gap-3 px-3 text-[14px]">
                 <span className="w-20 shrink-0 font-mono text-[12.5px] text-cm-yellow">{cmDate(m.date)}</span>
                 <span className="min-w-0 flex-1 truncate text-white">{m.text}</span>
               </div>

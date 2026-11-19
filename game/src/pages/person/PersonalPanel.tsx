@@ -40,7 +40,7 @@ export default function PersonalPanel({ p }: { p: PersonProfile }) {
     <Panel title="Informação Pessoal">
       <div className="cm-zebra">
         {rows.map(([k, v]) => (
-          <div key={k} className="flex min-h-6 items-start gap-3 px-3 py-0.5 text-[13.5px]">
+          <div key={k} className="flex min-h-8 items-center gap-3 px-3 py-0.5 text-[14px]">
             <span className="w-36 shrink-0 text-cm-muted">{k}</span>
             <span className="min-w-0 flex-1 text-right font-bold text-cm-yellow">{v}</span>
           </div>

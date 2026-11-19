@@ -223,6 +223,29 @@ export const shortRole = (role: string) => role.replace(' ', '')
 /** Fora da posição: nota na função abaixo de 15 (mostrada em laranja). */
 export const outOfPosition = (p: TacticPlayer | null | undefined) => !!p && p.fit !== null && p.fit < 15
 
+/** O que a lista Resto do Elenco das Táticas mostra além dos outros: os de enchimento e os que
+ * não podem jogar. Fica gravado neste computador. */
+export type RestFilter = { ghosts: boolean; unavailable: boolean }
+const REST_KEY = 'nextcm.tacticsRest'
+
+export function loadRestFilter(): RestFilter {
+  const all = { ghosts: true, unavailable: true }
+  try {
+    const raw = localStorage.getItem(REST_KEY)
+    return raw ? { ...all, ...(JSON.parse(raw) as Partial<RestFilter>) } : all
+  } catch {
+    return all
+  }
+}
+
+export function saveRestFilter(f: RestFilter) {
+  try {
+    localStorage.setItem(REST_KEY, JSON.stringify(f))
+  } catch {
+    // Sem localStorage: o filtro vale só nesta tela
+  }
+}
+
 /** Porque não pode jogar: a sigla, o texto e se é lesão ou castigo (vermelho) ou só está fora
  * (na seleção, de folga: azul). */
 export function unavailable(p: TacticPlayer | null | undefined): { label: string; title: string; red: boolean } | null {

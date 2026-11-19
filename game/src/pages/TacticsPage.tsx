@@ -18,14 +18,18 @@ import {
   TACTICS_VIEWS,
   fullName,
   hasOrders,
+  loadRestFilter,
   moveOnPitch,
   ordersOf,
   shortRole,
+  saveRestFilter,
   surname,
+  unavailable,
   useRunArrow,
   viewLabel,
   viewValue,
   withOrders,
+  type RestFilter,
   type TacticsView,
 } from '../tactics'
 import { initials } from '../format'
@@ -47,6 +51,14 @@ export default function TacticsPage({ id }: { id: number }) {
   const [instructions, setInstructions] = useState(false)
   // Filtro "Equipa de Reservas": mostra as reservas no resto do plantel, para as relacionar
   const [withReserves, setWithReserves] = useState(false)
+  // Mostrar no Resto do Elenco os de enchimento e os que não podem jogar
+  const [rest, setRestState] = useState<RestFilter>(loadRestFilter)
+  const setRest = (patch: Partial<RestFilter>) =>
+    setRestState((r) => {
+      const next = { ...r, ...patch }
+      saveRestFilter(next)
+      return next
+    })
   // Jogador com o diálogo das instruções individuais aberto
   const [ordersFor, setOrdersFor] = useState<TacticPlayer | null>(null)
   // O Vêr: o que a coluna da direita da lista mostra (posição, condição, golos, instruções...)
@@ -354,18 +366,30 @@ export default function TacticsPage({ id }: { id: number }) {
                 <PanelTitle
                   title="Resto do Elenco"
                   right={
-                    t.reserves.some((p) => p.reserve) && (
+                    <span className="flex items-center gap-3">
                       <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-cm-lilac">
-                        <input type="checkbox" checked={withReserves} onChange={(e) => setWithReserves(e.target.checked)} />
-                        Time de Reservas
+                        <input type="checkbox" checked={rest.unavailable} onChange={(e) => setRest({ unavailable: e.target.checked })} />
+                        Indisponíveis
                       </label>
-                    )
+                      {t.reserves.some((p) => p.ghost) && (
+                        <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-cm-lilac">
+                          <input type="checkbox" checked={rest.ghosts} onChange={(e) => setRest({ ghosts: e.target.checked })} />
+                          Enchimento
+                        </label>
+                      )}
+                      {t.reserves.some((p) => p.reserve) && (
+                        <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-cm-lilac">
+                          <input type="checkbox" checked={withReserves} onChange={(e) => setWithReserves(e.target.checked)} />
+                          Time de Reservas
+                        </label>
+                      )}
+                    </span>
                   }
                 />
                 <RowHeader place="" column={viewLabel(view)} />
                 <div className="cm-zebra">
                   {t.reserves
-                    .filter((p) => withReserves || !p.reserve)
+                    .filter((p) => (withReserves || !p.reserve) && (rest.ghosts || !p.ghost) && (rest.unavailable || !unavailable(p)))
                     .toSorted((a, b) => a.positionOrder - b.positionOrder || a.listName.localeCompare(b.listName))
                     .map((p) => {
                       const spot: Spot = { kind: 'reserve', id: p.id }

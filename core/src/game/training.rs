@@ -53,7 +53,7 @@ const BASE_AGE: i32 = 19;
 /// Condição por dia de treino, pela intensidade da Prep. Física.
 const CONDITION_PER_DAY: [i32; 4] = [1, 1, 0, -1];
 /// Probabilidade por dia de uma lesão no treino (com Propensão a Lesões 10).
-const INJURY_PER_DAY: [f64; 4] = [0.0, 0.0, 0.000_05, 0.000_4];
+const INJURY_PER_DAY: [f64; 4] = [0.000_8, 0.001_0, 0.001_4, 0.002_4];
 /// Pontos por mês ao aprender uma posição (Versatilidade 10, até aos 23 anos).
 const LEARN_PER_MONTH: f64 = 1.8;
 /// Atributos de cada área (Prep. Física, Táctica, Remate, Técnica, G-Redes), colunas de `players`.

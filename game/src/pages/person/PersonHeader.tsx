@@ -33,7 +33,8 @@ export default function PersonHeader({ p, action, tabs }: { p: PersonProfile | n
           x: r.left,
           y: r.bottom + 2,
           items: c.players
-            .filter((s) => !s.loanedOut)
+            // Sem os emprestados a outros clubes e sem os de enchimento
+            .filter((s) => !s.loanedOut && !s.ghost)
             .sort((a, b) => a.listName.localeCompare(b.listName))
             .map((s) => ({ label: shortListName(s.listName), onSelect: () => nav.go({ kind: 'person', id: s.id }) })),
         }),

@@ -56,7 +56,7 @@ function Table({
   total?: ReactNode[]
 }) {
   return (
-    <table className="w-full table-fixed border-collapse text-[13.5px]">
+    <table className="w-full table-fixed border-collapse text-[14px]">
       {/* Os números em colunas estreitas à direita; as de texto ficam com o resto */}
       <colgroup>
         {head.map((_, i) => (

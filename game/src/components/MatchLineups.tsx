@@ -20,10 +20,7 @@ function Side({ club, entries, motm }: { club: ClubRef; entries: LineupEntry[]; 
       </div>
       <div className="cm-zebra">
         {entries.map((p) => (
-          <div
-            key={p.id}
-            className={`flex h-[23px] items-center gap-1.5 px-1 text-[13.5px] ${p.id === motm ? 'ring-1 ring-cm-yellow' : ''}`}
-          >
+          <div key={p.id} className={`flex h-[23px] items-center gap-1.5 px-1 text-[14px] ${p.id === motm ? 'ring-1 ring-cm-yellow' : ''}`}>
             <span
               className={`w-7 shrink-0 rounded-sm text-center font-mono text-[12px] leading-[19px] ${p.played ? 'bg-[#262626] text-white' : 'bg-[#161660] text-cm-lilac'}`}
             >

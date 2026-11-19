@@ -71,7 +71,7 @@ export default function PickDialog({
               key={h.id}
               onClick={() => setPicked(h)}
               onDoubleClick={() => onPick({ id: h.id, name: h.name })}
-              className={`flex h-6 w-full items-center gap-2 px-2 text-left text-[13.5px] ${picked?.id === h.id ? 'bg-cm-sel text-white' : 'text-cm-yellow'}`}
+              className={`flex h-6 w-full items-center gap-2 px-2 text-left text-[14px] ${picked?.id === h.id ? 'bg-cm-sel text-white' : 'text-cm-yellow'}`}
             >
               <span className="min-w-0 flex-1 truncate">{h.name}</span>
               <span className="w-40 truncate text-right text-[12px] text-cm-lilac">{h.club ?? ''}</span>

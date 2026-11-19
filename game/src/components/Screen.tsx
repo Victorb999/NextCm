@@ -78,7 +78,7 @@ export function Panel({
 /** A barra de título de um painel, para painéis montados de outra forma. */
 export function PanelTitle({ title, chip, right }: { title: ReactNode; chip?: ReactNode; right?: ReactNode }) {
   return (
-    <div className="flex h-8 shrink-0 items-center gap-2 border-b border-cm-line px-3 text-[12px] font-bold font-mono uppercase tracking-[0.12em] text-cm-orange">
+    <div className="flex h-10 shrink-0 items-center gap-2 border-b border-cm-line px-3 text-[14px] font-bold font-mono uppercase tracking-[0.12em] text-cm-orange">
       {title}
       {chip && <span className="rounded bg-cm-dlgdeep px-1.5 tracking-wider text-cm-mint">{chip}</span>}
       {/* Sem `truncate`: o overflow escondido cortava a lista dos menus (Vêr) */}

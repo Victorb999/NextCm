@@ -57,7 +57,7 @@ function Attributes({ clubId, personId }: { clubId: number; personId: number }) 
           {col.map(([key, label]) => {
             const v = attrs?.[key] ?? null
             return (
-              <div key={key} className="flex h-[26px] items-center justify-between text-[13.5px]">
+              <div key={key} className="flex h-[26px] items-center justify-between text-[14px]">
                 <span className="truncate text-cm-text">{label}</span>
                 <span className={`font-bold tabular-nums ${v ? valueColor(v) : 'text-[#777]'}`}>{attrs ? (v ?? '-') : ''}</span>
               </div>

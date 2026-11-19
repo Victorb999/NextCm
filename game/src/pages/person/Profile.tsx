@@ -172,7 +172,7 @@ export default function Profile({ p }: { p: PersonProfile }) {
           )}
           {p.assistantNote && (
             <Panel title="Relatório do Auxiliar">
-              <div className="px-3 py-2 text-[13.5px] italic leading-snug text-white">“{p.assistantNote}”</div>
+              <div className="px-3 py-2 text-[14px] italic leading-snug text-white">“{p.assistantNote}”</div>
             </Panel>
           )}
           <Panel title="Situação">

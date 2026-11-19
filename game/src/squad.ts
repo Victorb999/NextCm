@@ -145,8 +145,8 @@ export function squadName(p: SquadPlayer) {
 
 /** O Filtrar: posição, lado, disponibilidade, (nas reservas) incluir os séniores e (no plantel
  * principal) incluir as reservas, ligado como no CM. */
-export type Filter = { line: string; side: string; avail: '' | 'yes' | 'no'; seniors: boolean; reserves: boolean }
-export const NO_FILTER: Filter = { line: '', side: '', avail: '', seniors: false, reserves: true }
+export type Filter = { line: string; side: string; avail: '' | 'yes' | 'no'; seniors: boolean; reserves: boolean; ghosts: boolean }
+export const NO_FILTER: Filter = { line: '', side: '', avail: '', seniors: false, reserves: true, ghosts: true }
 
 // O filtro do plantel fica gravado neste computador: trocar de tela e voltar mantém-no
 const FILTER_KEY = 'nextcm.squadFilter'
@@ -202,6 +202,8 @@ export const FILTER_OPTIONS: MenuOption<string>[] = [
   'separator',
   { key: 'avail:yes', label: 'Disponíveis' },
   { key: 'avail:no', label: 'Indisponíveis' },
+  'separator',
+  { key: 'ghosts', label: 'Jogadores de Enchimento' },
 ]
 
 export function passes(p: SquadPlayer, f: Filter) {
@@ -211,6 +213,7 @@ export function passes(p: SquadPlayer, f: Filter) {
     (!f.line || p.lines.includes(f.line)) &&
     (!f.side || p.sides.includes(f.side)) &&
     (f.avail !== 'yes' || !out) &&
-    (f.avail !== 'no' || out)
+    (f.avail !== 'no' || out) &&
+    (f.ghosts || !p.ghost)
   )
 }

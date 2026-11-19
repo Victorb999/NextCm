@@ -41,7 +41,7 @@ export default function SearchForm({
       return (money ? fromEuros(v) : v) ?? ''
     }
     const write = (k: Key, s: string) => set({ [k]: money ? toEuros(num(s)) : num(s) })
-    const box = `cm-field h-6 ${money ? 'w-24' : 'w-16'} text-center text-[13.5px]`
+    const box = `cm-field h-6 ${money ? 'w-24' : 'w-16'} text-center text-[14px]`
     return (
       <div className={LINE}>
         <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -67,7 +67,7 @@ export default function SearchForm({
   ) => (
     <label className={LINE}>
       <span className="w-36 shrink-0">{label}</span>
-      <select className="cm-field h-6 min-w-0 flex-1 text-[13.5px]" value={value} onChange={(e) => change(e.target.value)}>
+      <select className="cm-field h-6 min-w-0 flex-1 text-[14px]" value={value} onChange={(e) => change(e.target.value)}>
         <option value="">{any}</option>
         {list.map((o) => (
           <option key={o.id} value={o.id}>
@@ -98,7 +98,7 @@ export default function SearchForm({
             <label key={k} className={`${LINE} even:bg-black/20 px-2`}>
               <span className="min-w-0 flex-1 truncate">{LABELS[k] ?? k}</span>
               <input
-                className={`cm-field h-6 w-12 text-center text-[13.5px] ${min(k) ? '!text-cm-yellow' : ''}`}
+                className={`cm-field h-6 w-12 text-center text-[14px] ${min(k) ? '!text-cm-yellow' : ''}`}
                 inputMode="numeric"
                 placeholder="–"
                 value={min(k) ?? ''}

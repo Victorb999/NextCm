@@ -1,8 +1,12 @@
-import { Newspaper } from 'lucide-react'
+import { ArrowLeftRight, BookOpen, Briefcase, FileSignature, Handshake, HeartPulse, Inbox, Mail, Newspaper, Trophy } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
+import type { NewsCard } from '../bindings/NewsCard'
 import type { NewsLink } from '../bindings/NewsLink'
 import LinkedText from '../components/LinkedText'
+import NewsCardBox from '../components/NewsCardBox'
+import NewsSubsDialog from '../components/NewsSubsDialog'
 import type { FriendlyInvite } from '../bindings/FriendlyInvite'
 import type { NewsItem } from '../bindings/NewsItem'
 import type { OfferView } from '../bindings/OfferView'
@@ -14,10 +18,10 @@ import { useEscBack, useNav } from '../nav'
 import { setPendingAct } from '../personActions'
 
 const TABS = [
-  { key: 'all', label: 'Todas' },
-  { key: 'message', label: 'Mensagens' },
-  { key: 'competition', label: 'Competições' },
-  { key: 'injury', label: 'Lesões e Suspensões' },
+  { key: 'all', label: 'Todas', icon: Inbox },
+  { key: 'message', label: 'Mensagens', icon: Mail },
+  { key: 'competition', label: 'Competições', icon: Trophy },
+  { key: 'injury', label: 'Lesões e Suspensões', icon: HeartPulse },
 ]
 
 // Os assuntos das abas de baixo (os "kind" das notícias no core)
@@ -39,15 +43,16 @@ const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 // A etiqueta de cada assunto na lista
-const KIND_LABEL: Record<string, [string, string]> & { message: [string, string] } = {
-  message: ['Mensagem', 'bg-cm-hover text-cm-muted'],
-  competition: ['Competição', 'bg-[#0f2a3a] text-[#5bc0f0]'],
-  injury: ['Lesões', 'bg-[#3a1010] text-cm-red'],
-  transfer: ['Transferências', 'bg-cm-headdeep text-cm-purplelight'],
-  deal: ['Negócio', 'bg-[#3a2508] text-cm-orange'],
-  contract: ['Contrato', 'bg-[#3a2508] text-cm-orange'],
-  press: ['Imprensa', 'bg-cm-hover text-cm-muted'],
-  jobs: ['Empregos', 'bg-cm-dlgdeep text-cm-mint'],
+type Label = [string, string, LucideIcon]
+const KIND_LABEL: Record<string, Label> & { message: Label } = {
+  message: ['Mensagem', 'bg-cm-hover text-cm-muted', Mail],
+  competition: ['Competição', 'bg-[#0f2a3a] text-[#5bc0f0]', Trophy],
+  injury: ['Lesões', 'bg-[#3a1010] text-cm-red', HeartPulse],
+  transfer: ['Transferências', 'bg-cm-headdeep text-cm-purplelight', ArrowLeftRight],
+  deal: ['Negócio', 'bg-[#3a2508] text-cm-orange', Handshake],
+  contract: ['Contrato', 'bg-[#3a2508] text-cm-orange', FileSignature],
+  press: ['Imprensa', 'bg-cm-hover text-cm-muted', Newspaper],
+  jobs: ['Empregos', 'bg-cm-dlgdeep text-cm-mint', Briefcase],
 }
 
 /** "2025-07-01" -> "Ter 1 Jul", como na lista de notícias do CM. */
@@ -117,6 +122,7 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
   const [tab, setTab] = useState('all')
   // Ao voltar (de um nome clicado numa notícia), abre na que estava aberta
   const [selected, setSelected] = useState<number | null>(id ?? null)
+  const [subsOpen, setSubsOpen] = useState(false)
   // Onde os botões da proposta da mensagem aparecem (na barra da lista)
 
   // Recarrega quando o dia avança ou uma notícia é lida; ao abrir, fixa a primeira por ler
@@ -175,6 +181,16 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
       )
   }, [currentId])
   const currentLinks = links.id === currentId ? links.list : []
+  // O quadro ao lado do texto (a pessoa ou o clube de que fala)
+  const [card, setCard] = useState<{ id: number; card: NewsCard | null }>({ id: -1, card: null })
+  useEffect(() => {
+    if (currentId !== null)
+      api.newsCard(currentId).then(
+        (c) => setCard({ id: currentId, card: c }),
+        () => setCard({ id: currentId, card: null }),
+      )
+  }, [currentId])
+  const currentCard = card.id === currentId ? card.card : null
 
   const readNext = () => {
     // A seguinte por ler, pela ordem em que chegaram (de baixo para cima)
@@ -185,13 +201,14 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
   const unread = news.filter((n) => !n.read).length
   const count = (t: string) => news.filter((n) => inTab(n, t)).length
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
+      {subsOpen && <NewsSubsDialog onClose={() => setSubsOpen(false)} />}
       <ScreenHeader
         icon={<Newspaper size={22} />}
         eyebrow={game.info?.managerName}
         title="Notícias"
         right={
-          <span className="rounded-md bg-black/30 px-3 py-1.5 font-mono text-[12px] uppercase tracking-wider text-cm-dim">
+          <span className="rounded-md bg-black/30 px-3 py-1.5 font-mono text-[14px] uppercase tracking-wider text-cm-dim">
             Não lidas: <b className={unread ? 'text-cm-yellow' : 'text-white'}>{unread}</b>
           </span>
         }
@@ -202,6 +219,9 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
           title="Caixa de Mensagens"
           right={
             <span className="flex items-center gap-1.5">
+              <button className="cm-purple h-6 w-32" onClick={() => setSubsOpen(true)}>
+                Assinaturas
+              </button>
               <button className="cm-purple h-6 w-32" disabled={!shown.some((n) => !n.read && n.id !== current?.id)} onClick={readNext}>
                 Ler Próxima
               </button>
@@ -212,20 +232,21 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
           <div ref={listRef} className="cm-zebra min-h-0 flex-1 overflow-auto">
             {shown.length === 0 && <Empty className="p-4">Sem notícias.</Empty>}
             {shown.map((n) => {
-              const [label, colour] = KIND_LABEL[n.kind] ?? KIND_LABEL.message
+              const [label, colour, Icon] = KIND_LABEL[n.kind] ?? KIND_LABEL.message
               return (
                 <div
                   key={n.id}
                   onMouseDown={() => setSelected(n.id)}
                   data-current={n.id === current?.id || undefined}
-                  className={`flex h-6 cursor-pointer items-center gap-3 px-3 text-[14px] ${n.id === current?.id ? '!bg-cm-sel' : ''}`}
+                  className={`flex h-8 cursor-pointer items-center gap-3 px-3 text-[16px]  ${n.id === current?.id ? '!bg-cm-sel' : ''}`}
                 >
-                  <span className="cm-cell w-28 shrink-0 text-center font-mono text-[12px] text-white">{newsDate(n.date, n.part)}</span>
+                  <span className="cm-cell w-32 shrink-0 text-center font-mono text-[14px] text-white">{newsDate(n.date, n.part)}</span>
                   <span className={`min-w-0 flex-1 truncate ${n.read ? 'text-white' : 'font-bold text-cm-yellow'}`}>{n.title}</span>
                   {n.awaiting && <span className="shrink-0 text-[13px] font-bold text-cm-magenta">Responder</span>}
                   <span
-                    className={`w-28 shrink-0 rounded px-1.5 text-center font-mono text-[10.5px] font-bold uppercase tracking-wider ${colour}`}
+                    className={`flex w-36 shrink-0 items-center justify-center gap-1 rounded px-1.5 font-mono text-[12px] font-bold uppercase tracking-wider ${colour}`}
                   >
+                    <Icon size={12} className="shrink-0" />
                     {label}
                   </span>
                 </div>
@@ -238,8 +259,11 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
             {current && (
               <>
                 <div className="pb-3 font-title text-[22px] font-bold text-cm-yellow">{current.title}</div>
-                <div className="whitespace-pre-line text-[16px] leading-relaxed text-cm-text">
-                  <LinkedText text={current.body} links={currentLinks} />
+                <div className="flex items-start gap-4">
+                  <div className="min-w-0 flex-1 whitespace-pre-line text-[18px] leading-relaxed text-cm-text">
+                    <LinkedText text={current.body} links={currentLinks} />
+                  </div>
+                  {currentCard && <NewsCardBox card={currentCard} />}
                 </div>
                 {current.link?.startsWith('press:') && (
                   <div className="mt-4 flex gap-1 border-t border-cm-line pt-3">
@@ -309,10 +333,10 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
       <div className="mt-2">
         <Tabs
           tabs={[
-            { key: 'press', label: 'Contratos e Imprensa' },
-            { key: 'transfer', label: 'Transferências' },
-            { key: 'jobs', label: 'Empregos' },
-            { key: 'records', label: 'Registros', disabled: true },
+            { key: 'press', label: 'Contratos e Imprensa', icon: FileSignature },
+            { key: 'transfer', label: 'Transferências', icon: ArrowLeftRight },
+            { key: 'jobs', label: 'Empregos', icon: Briefcase },
+            { key: 'records', label: 'Registros', icon: BookOpen, disabled: true },
           ]}
           active={tab in TOPICS ? tab : ''}
           onChange={changeTab}

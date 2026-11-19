@@ -170,7 +170,7 @@ export function RefList({
       <div className="px-1 text-center text-[13px] font-bold text-white">{title}</div>
       <div className="cm-zebra rounded border border-white/15 bg-black/40">
         {items.map((it) => (
-          <div key={it.id} className="flex h-6 items-center gap-1 px-2 text-[13.5px] text-cm-yellow">
+          <div key={it.id} className="flex h-6 items-center gap-1 px-2 text-[14px] text-cm-yellow">
             <span className="min-w-0 flex-1 truncate">{it.name ?? `#${it.id}`}</span>
             <button className="w-5 text-cm-lilac hover:text-white" title="Tirar" onClick={() => onRemove(it.id)}>
               ×
@@ -178,7 +178,7 @@ export function RefList({
           </div>
         ))}
         {Array.from({ length: empty }, (_, i) => (
-          <div key={`e${i}`} className="flex h-6 items-center px-2 text-[13.5px] text-[#8a8a8a]">
+          <div key={`e${i}`} className="flex h-6 items-center px-2 text-[14px] text-[#8a8a8a]">
             &lt;nenhum&gt;
           </div>
         ))}
