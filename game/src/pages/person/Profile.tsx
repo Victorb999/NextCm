@@ -141,6 +141,8 @@ export default function Profile({ p }: { p: PersonProfile }) {
       { label: 'Forma', sep: true, value: p.form.length ? p.form.map((r) => Math.round(r)).join('-') : '-' },
       { label: 'Moral', value: p.status?.moraleLabel ?? '-' },
       { label: 'Condição', value: `${p.status?.condition ?? 100}%` },
+      { label: 'Rep. Atual', value: pl.currentReputation ?? '-' },
+      { label: 'Rep. Mundial', value: pl.worldReputation ?? '-' },
     )
   }
   const ability = pl ?? p.staff
@@ -175,35 +177,33 @@ export default function Profile({ p }: { p: PersonProfile }) {
               <div className="px-3 py-2 text-[14px] italic leading-snug text-white">“{p.assistantNote}”</div>
             </Panel>
           )}
-          <Panel title="Situação">
-            <InfoRows
-              rows={[
-                ...(pl ? ([['Número', pl.squadNumber ?? '-']] as [string, ReactNode][]) : []),
-                ['Rep. Atual', ability?.currentReputation ?? '-'],
-                ['Rep. Mundial', ability?.worldReputation ?? '-'],
-                ['No clube desde', cmDate(p.clubJoined)],
-                ['Contrato até', cmDate(p.contractExpires)],
-                ...(p.status?.retiring
-                  ? ([
-                      [
-                        'Futuro',
-                        <span key="r" className="text-cm-yellow">
-                          Vai se aposentar no fim da temporada
-                        </span>,
-                      ],
-                    ] as [string, ReactNode][])
-                  : []),
-              ]}
-            />
-            {p.note && (
-              <div className="border-t border-cm-line px-3 py-1.5 text-[13px] text-white">
-                <span className="text-cm-yellow">Nota: </span>
-                {p.note}
-              </div>
-            )}
-          </Panel>
+          {/* Do jogador, a reputação vai na grade e as datas na aba Contrato & Transferência */}
+          {!pl && (
+            <Panel title="Situação">
+              <InfoRows
+                rows={[
+                  ['Rep. Atual', ability?.currentReputation ?? '-'],
+                  ['Rep. Mundial', ability?.worldReputation ?? '-'],
+                  ['No clube desde', cmDate(p.clubJoined)],
+                  ['Contrato até', cmDate(p.contractExpires)],
+                ]}
+              />
+            </Panel>
+          )}
         </div>
       </div>
+      {(p.status?.retiring || p.note) && (
+        <div className="shrink-0 rounded border border-cm-line bg-cm-panel px-3 py-1 text-[13px] text-white">
+          {p.status?.retiring && <span className="text-cm-yellow">Vai se aposentar no fim da temporada.</span>}
+          {p.status?.retiring && p.note && ' '}
+          {p.note && (
+            <>
+              <span className="text-cm-yellow">Nota: </span>
+              {p.note}
+            </>
+          )}
+        </div>
+      )}
       {p.knowledge && p.knowledge !== 'known' && (
         <div className="shrink-0 rounded border border-cm-line bg-cm-panel px-3 py-1 text-center text-cm-yellow">
           {p.reportOn

@@ -2012,7 +2012,7 @@ impl Game {
     fn morning(&mut self, unemployed: bool, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         // Recuperação do dia; quem do clube do treinador voltou de lesão vira notícia
         for id in self.squads.new_day(&self.date.clone()) {
-            if self.squads.traits.get(&id).is_some_and(|t| t.club_id == self.club_id) {
+            if self.squads.traits.get(&id).is_some_and(|t| t.club_id == self.club_id) && !self.is_ghost(id) {
                 let name = self.person_name(id)?;
                 fresh.push(self.news_item(
                     *next_id,
@@ -2663,6 +2663,8 @@ impl Game {
     /// Lesões e suspensões dos jogadores do treinador.
     fn event_news(&self, id: i32, event: &Event) -> Result<Option<NewsItem>> {
         Ok(match event {
+            // Os de enchimento não dão notícia
+            Event::Injured { player, .. } | Event::Suspended { player, .. } if self.is_ghost(*player) => None,
             Event::Injured { player, club, injury, days } if *club == self.club_id => {
                 let name = self.person_name(*player)?;
                 let back = self.squads.state(*player).injury_until.map(|d| cm_date(&d)).unwrap_or_default();

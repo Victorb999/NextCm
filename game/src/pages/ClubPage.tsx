@@ -45,10 +45,24 @@ import { SquadGrid } from './club/SquadGrid'
 import { Info } from './club/ClubInfo'
 import { FriendlyActions, InviteButton } from './club/FriendlyButtons'
 
+// A última ficha de cada clube (por jogo aberto): reabrir o elenco mostra-a logo e o pedido novo a substitui
+const clubCache = new Map<string, ClubProfile>()
+
 export default function ClubPage({ id, reserves, initialTab }: { id: number; reserves?: boolean; initialTab?: string }) {
   const nav = useNav()
   const game = useGame()
-  const [club, setClub] = useState<ClubProfile | null>(null)
+  const cacheKey = `${game.info?.name ?? ''}:${id}`
+  const [club, setClubState] = useState<ClubProfile | null>(() => clubCache.get(cacheKey) ?? null)
+  const setClub = (c: ClubProfile) => {
+    clubCache.set(cacheKey, c)
+    setClubState(c)
+  }
+  // Outro clube na mesma página: o que houver na memória até chegar a resposta
+  const [shownKey, setShownKey] = useState(cacheKey)
+  if (shownKey !== cacheKey) {
+    setShownKey(cacheKey)
+    setClubState(clubCache.get(cacheKey) ?? null)
+  }
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState(initialTab ?? 'squad')

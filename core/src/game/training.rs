@@ -645,6 +645,10 @@ impl Game {
                 "INSERT INTO injury_log (person_id, date, injury, kind, days) VALUES (?, ?, ?, 'Treino', ?)",
                 params![person, today, injury, days],
             )?;
+            // Os de enchimento não dão notícia
+            if self.is_ghost(person) {
+                continue;
+            }
             let name = self.person_name(person)?;
             fresh.push(self.news_item(
                 *next_id,
