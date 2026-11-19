@@ -344,3 +344,8 @@ p { margin: 0; text-wrap: pretty; }
   .tagline-text .w { opacity: 1; transition: none; }
   .btn:hover, .card:hover { transform: none; }
 }
+
+/* Links do outro sistema, por baixo do botão de download */
+.download-alt { color: var(--muted); min-height: 20px; }
+.download-alt a { color: var(--text); text-underline-offset: 4px; transition: color 300ms var(--ease); }
+.download-alt a:hover { color: var(--purple-soft); }

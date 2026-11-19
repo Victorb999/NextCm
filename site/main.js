@@ -1,21 +1,38 @@
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
 
-// Download: o setup.exe da última versão (pre-releases incluídas).
+// Download: os instaladores da última versão (pre-releases incluídas).
+// No Linux o botão baixa o AppImage; nos outros, o setup.exe. Por baixo, os links do outro sistema.
 // Sem a API, os botões continuam a ir para a página das versões.
 ;(async () => {
   const metas = document.querySelectorAll('.download-meta')
-  const fallback = () => metas.forEach((m) => (m.textContent = 'Windows 10 e 11 · grátis'))
+  const alts = document.querySelectorAll('.download-alt')
+  const fallback = () => metas.forEach((m) => (m.textContent = 'Windows e Linux · grátis'))
+  const linux = /Linux/i.test(navigator.userAgent) && !/Android/i.test(navigator.userAgent)
+  const link = (a, label) => `<a href="${a.browser_download_url}">${label}</a>`
   try {
     const res = await fetch('https://api.github.com/repos/Victorb999/NextCm/releases?per_page=10')
     if (!res.ok) return fallback()
     for (const rel of await res.json()) {
-      const asset = !rel.draft && rel.assets.find((a) => a.name.endsWith('-setup.exe'))
-      if (!asset) continue
+      if (rel.draft) continue
+      const find = (end) => rel.assets.find((a) => a.name.endsWith(end))
+      const exe = find('-setup.exe')
+      const appimage = find('.AppImage')
+      const deb = find('.deb')
+      if (!exe) continue
       // v0.1.0-beta.1 → 0.1.0 beta 1
       const version = rel.tag_name.replace(/^v/, '').replace(/-beta\.(\d+)$/, ' beta $1')
-      const mb = Math.round(asset.size / 1048576)
-      document.querySelectorAll('a.download').forEach((a) => (a.href = asset.browser_download_url))
-      metas.forEach((m) => (m.textContent = `Versão ${version} · ${mb} MB · Windows 10 e 11`))
+      const main = linux && appimage ? appimage : exe
+      const mb = Math.round(main.size / 1048576)
+      const what = main === exe ? 'Windows 10 e 11' : 'AppImage para Linux'
+      document.querySelectorAll('a.download').forEach((a) => {
+        a.href = main.browser_download_url
+        if (main !== exe) a.querySelector('i').className = 'ph ph-linux-logo'
+      })
+      metas.forEach((m) => (m.textContent = `Versão ${version} · ${mb} MB · ${what}`))
+      let alt = ''
+      if (main === exe && appimage) alt = `Também para Linux: ${link(appimage, 'AppImage')}${deb ? ' · ' + link(deb, '.deb') : ''}`
+      if (main !== exe) alt = `${deb ? link(deb, '.deb para Ubuntu e Debian') + ' · ' : ''}${link(exe, 'Windows')}`
+      alts.forEach((a) => (a.innerHTML = alt))
       document.getElementById('pill-version').textContent = `Versão ${version}`
       return
     }
