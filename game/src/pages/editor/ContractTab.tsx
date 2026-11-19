@@ -111,7 +111,7 @@ export default function ContractTab({
             <label className={ROW}>
               <span className="w-20 shrink-0">Função</span>
               <select
-                className="cm-field h-6 min-w-0 flex-1 text-[13.5px]"
+                className="cm-field h-6 min-w-0 flex-1 text-[14px]"
                 value={p.role ?? ''}
                 onChange={(e) => setP({ role: e.target.value || null })}
               >

@@ -45,7 +45,7 @@ export default function ClubCard({ id }: { id: number | null }) {
       </div>
       <div className="cm-zebra mt-2">
         {rows.map(([k, v]) => (
-          <div key={k} className="flex min-h-6 items-center gap-3 px-3 text-[13.5px]">
+          <div key={k} className="flex min-h-6 items-center gap-3 px-3 text-[14px]">
             <span className="w-44 shrink-0 text-cm-dlgtext">{k}</span>
             <span className="min-w-0 flex-1 font-semibold text-cm-green">{v}</span>
           </div>

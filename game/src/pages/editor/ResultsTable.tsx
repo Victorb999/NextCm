@@ -48,7 +48,7 @@ export default function ResultsTable({
               <button
                 key={h.id}
                 onClick={() => onOpen(h.id)}
-                className={`flex h-6 w-full items-center gap-2 px-2 text-left text-[13.5px] ${
+                className={`flex h-6 w-full items-center gap-2 px-2 text-left text-[14px] ${
                   selected === h.id ? 'bg-cm-sel text-white' : 'text-cm-yellow hover:bg-white/10'
                 }`}
               >

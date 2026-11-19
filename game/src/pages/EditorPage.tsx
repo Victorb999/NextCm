@@ -339,7 +339,7 @@ export default function EditorPage() {
                       key={h.id}
                       onClick={() => void open(h.id)}
                       title={h.club ?? undefined}
-                      className={`flex h-6 w-full items-center gap-2 px-2 text-left text-[13.5px] ${selected === h.id ? 'bg-cm-sel text-white' : 'text-cm-yellow'}`}
+                      className={`flex h-6 w-full items-center gap-2 px-2 text-left text-[14px] ${selected === h.id ? 'bg-cm-sel text-white' : 'text-cm-yellow'}`}
                     >
                       <span className="min-w-0 flex-1 truncate">
                         {rowDirty(h.id) && <span className="text-cm-orange">* </span>}

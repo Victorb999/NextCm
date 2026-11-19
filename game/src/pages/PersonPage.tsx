@@ -349,7 +349,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
                   <Panel title="Estado de Espírito" chip="Insatisfeito">
                     <div className="cm-zebra">
                       {person.status.unhappy.map((u) => (
-                        <div key={u} className="flex min-h-6 items-center px-3 text-[13.5px] text-cm-orange">
+                        <div key={u} className="flex min-h-6 items-center px-3 text-[14px] text-cm-orange">
                           {u}.
                         </div>
                       ))}
@@ -360,7 +360,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
                   <Panel title="Descontentamento com o Clube">
                     <div className="cm-zebra">
                       {person.status.clubUnhappy.map((u) => (
-                        <div key={u} className="flex min-h-6 items-center px-3 text-[13.5px] text-cm-orange">
+                        <div key={u} className="flex min-h-6 items-center px-3 text-[14px] text-cm-orange">
                           {u}.
                         </div>
                       ))}

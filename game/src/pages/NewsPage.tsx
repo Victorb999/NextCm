@@ -191,7 +191,7 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
         eyebrow={game.info?.managerName}
         title="Notícias"
         right={
-          <span className="rounded-md bg-black/30 px-3 py-1.5 font-mono text-[12px] uppercase tracking-wider text-cm-dim">
+          <span className="rounded-md bg-black/30 px-3 py-1.5 font-mono text-[14px] uppercase tracking-wider text-cm-dim">
             Não lidas: <b className={unread ? 'text-cm-yellow' : 'text-white'}>{unread}</b>
           </span>
         }
@@ -218,13 +218,13 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
                   key={n.id}
                   onMouseDown={() => setSelected(n.id)}
                   data-current={n.id === current?.id || undefined}
-                  className={`flex h-6 cursor-pointer items-center gap-3 px-3 text-[14px] ${n.id === current?.id ? '!bg-cm-sel' : ''}`}
+                  className={`flex h-8 cursor-pointer items-center gap-3 px-3 text-[16px]  ${n.id === current?.id ? '!bg-cm-sel' : ''}`}
                 >
-                  <span className="cm-cell w-28 shrink-0 text-center font-mono text-[12px] text-white">{newsDate(n.date, n.part)}</span>
+                  <span className="cm-cell w-32 shrink-0 text-center font-mono text-[14px] text-white">{newsDate(n.date, n.part)}</span>
                   <span className={`min-w-0 flex-1 truncate ${n.read ? 'text-white' : 'font-bold text-cm-yellow'}`}>{n.title}</span>
                   {n.awaiting && <span className="shrink-0 text-[13px] font-bold text-cm-magenta">Responder</span>}
                   <span
-                    className={`w-28 shrink-0 rounded px-1.5 text-center font-mono text-[10.5px] font-bold uppercase tracking-wider ${colour}`}
+                    className={`w-28 shrink-0 rounded px-1.5 text-center font-mono text-[12px] font-bold uppercase tracking-wider ${colour}`}
                   >
                     {label}
                   </span>
@@ -238,7 +238,7 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
             {current && (
               <>
                 <div className="pb-3 font-title text-[22px] font-bold text-cm-yellow">{current.title}</div>
-                <div className="whitespace-pre-line text-[16px] leading-relaxed text-cm-text">
+                <div className="whitespace-pre-line text-[18px] leading-relaxed text-cm-text">
                   <LinkedText text={current.body} links={currentLinks} />
                 </div>
                 {current.link?.startsWith('press:') && (

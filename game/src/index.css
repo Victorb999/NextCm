@@ -304,7 +304,7 @@ body {
 
   /* Abas escuras, em relevo como no CM; a selecionada tem borda e texto amarelos */
   .cm-tab {
-    @apply flex h-8 flex-1 items-center justify-center rounded-[5px] bg-cm-raised text-cm-muted hover:bg-cm-hover hover:text-white;
+    @apply flex h-8 flex-1 items-center justify-center rounded-[4px] bg-cm-raised text-cm-muted text-[16px] hover:bg-cm-hover hover:text-white;
   }
   .cm-tab[aria-selected='true'] {
     @apply bg-cm-hover font-bold text-cm-yellow ring-1 ring-inset ring-cm-yellow;
