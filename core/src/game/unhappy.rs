@@ -21,7 +21,7 @@ pub(super) const ABSENCES_SCHEMA: &str =
     "CREATE TABLE absences (person_id INTEGER PRIMARY KEY, kind TEXT NOT NULL, since TEXT NOT NULL, until TEXT NOT NULL);";
 
 /// Motivos de insatisfação: chave gravada em `unhappy.reason` e o texto do CM.
-pub const REASONS: [(&str, &str); 13] = [
+pub const REASONS: [(&str, &str); 14] = [
     ("starter", "Sente que deve ser titular"),
     ("contract", "Quer negociar um novo contrato"),
     ("bigger", "Quer mudar para um clube maior"),
@@ -35,6 +35,7 @@ pub const REASONS: [(&str, &str); 13] = [
     ("subbed", "Descontente por ter sido substituído"),
     ("position", "Quer jogar numa posição diferente"),
     ("teammate", "Não se dá com um colega de time"),
+    ("challenge", "Quer um novo desafio"),
 ];
 
 /// Queixas sobre o clube (o grupo "Club Unhappiness" do CM): chave com o prefixo `club_`.
@@ -47,7 +48,7 @@ pub const CLUB_REASONS: [(&str, &str); 5] = [
 ];
 
 /// Os motivos pessoais de uma queixa antiga que levam o jogador a desabafar na imprensa.
-const GRIEVANCES: &str = "'starter', 'contract', 'bigger', 'blocked', 'unfair', 'manager', 'future'";
+const GRIEVANCES: &str = "'starter', 'contract', 'bigger', 'challenge', 'blocked', 'unfair', 'manager', 'future'";
 /// Dias de queixa até desabafar na imprensa (só quem tem mau feitio).
 const VENT_AFTER: i32 = 21;
 const VENT_TEMPERAMENT: i32 = 8;
@@ -94,9 +95,31 @@ fn contract_days(rank: usize, ambition: i32, loyalty: i32) -> i32 {
 }
 /// Dias de um treinador novo no clube em que ninguém começa a pedir contrato.
 const NEW_MANAGER_GRACE: i32 = 60;
-/// Dias que duram a desilusão de não ir para um clube maior, a de não o deixarem sair, o
-/// castigo injusto e a perda de confiança no treinador.
-const GRUDGE_DAYS: i32 = 120;
+/// Dias que dura uma mágoa (vezes [`personality::grudge_factor`]: de metade a 1,8×). Os outros
+/// motivos duram enquanto durar a causa.
+fn grudge_days(reason: &str) -> Option<i32> {
+    Some(match reason {
+        "subbed" => 10,
+        "position" | "unfair" => 60,
+        "bigger" | "teammate" => 90,
+        "manager" | "blocked" | "challenge" => 120,
+        _ => return None,
+    })
+}
+/// A moral apressa ou atrasa a mágoa: contente (15+) esquece em 3/4 do tempo, em baixo (7 ou
+/// menos) leva mais 1/4.
+const HAPPY_MORALE: i32 = 15;
+const LOW_MORALE: i32 = 7;
+/// Por vontade própria, sem proposta nenhuma (como no futebol, só no defeso: com a janela
+/// aberta ou a [`WINDOW_NEAR`] dias dela): o ambicioso bem acima do clube quer um clube maior;
+/// o pouco leal há anos no clube quer um novo desafio. Probabilidades por segunda-feira.
+const ITCH_BIGGER: f64 = 0.03;
+const ITCH_BIGGER_AMBITION: i32 = 15;
+const ITCH_BIGGER_GAP: i32 = 1000;
+const ITCH_CHALLENGE: f64 = 0.015;
+const ITCH_CHALLENGE_YEARS: i32 = 5;
+/// Dias antes de a janela abrir em que já se fala de saídas (vontades e pedidos para sair).
+const WINDOW_NEAR: i32 = 35;
 /// Adaptabilidade até à qual um estrangeiro acabado de chegar (ou um jovem estrangeiro do
 /// plantel) tem saudades de casa.
 const HOMESICK_ADAPTABILITY: i32 = 7;
@@ -170,6 +193,15 @@ impl Game {
             "INSERT OR IGNORE INTO unhappy (person_id, reason, since, detail) VALUES (?, ?, ?, ?)",
             params![person, reason, self.date, detail],
         )? > 0)
+    }
+
+    /// Quer sair: quer um clube maior ou um novo desafio, ou não o deixam sair.
+    pub(super) fn wants_out(&self, person: i32) -> Result<bool> {
+        Ok(self.world.conn.query_row(
+            "SELECT COUNT(*) > 0 FROM unhappy WHERE person_id = ? AND reason IN ('bigger', 'challenge', 'blocked')",
+            [person],
+            |r| r.get(0),
+        )?)
     }
 
     pub(super) fn remove_unhappy(&self, person: i32, reason: &str) -> Result<()> {
@@ -482,10 +514,7 @@ impl Game {
         self.world.conn.execute("DELETE FROM unhappy WHERE person_id NOT IN (SELECT id FROM people WHERE club_id = ?)", [self.club_id])?;
         self.world.conn.execute("DELETE FROM unhappy WHERE person_id IN (SELECT person_id FROM ghosts)", [])?;
         let today = date::parse(&self.date).unwrap_or(0);
-        let grudge = date::add_days(&self.date, -GRUDGE_DAYS).unwrap_or_default();
-        self.world
-            .conn
-            .execute("DELETE FROM unhappy WHERE reason IN ('bigger', 'blocked', 'unfair', 'manager', 'subbed', 'teammate', 'position') AND since < ?", [&grudge])?;
+        self.forget_grudges(today)?;
         let squad = self.squad_unhappy()?;
         // Há quanto tempo o treinador está no clube
         let manager_days: i32 = self
@@ -496,6 +525,7 @@ impl Game {
             .and_then(date::parse)
             .map_or(i32::MAX, |j| today - j);
         let mood = self.club_mood(&squad)?;
+        let talk = self.transfer_talk_time()?;
         // As queixas novas do clube, agrupadas por motivo (uma notícia por motivo, não por jogador)
         let mut club_new: std::collections::BTreeMap<&'static str, Vec<i32>> = Default::default();
         for p in &squad {
@@ -571,6 +601,13 @@ impl Game {
                 }
             } else {
                 self.remove_unhappy(p.id, "training")?;
+            }
+            // Por vontade própria: um clube maior ou um novo desafio
+            if manager_days >= NEW_MANAGER_GRACE
+                && let Some(key) = self.itchy_feet(p, &mood, today, talk)?
+                && self.add_unhappy(p.id, key)?
+            {
+                new.push(key);
             }
             // Desabafos, colegas e as queixas do clube
             for key in self.mood_reasons(p, &mood, fresh, next_id)? {
@@ -680,10 +717,10 @@ impl Game {
             ));
             *next_id += 1;
         }
-        // Pedidos para sair
+        // Pedidos para sair: como no futebol, só se fala disso perto das janelas
         let since = date::add_days(&self.date, -REQUEST_AFTER).unwrap_or_default();
         for p in &squad {
-            if p.listed || p.loaned_in || !(p.ambition >= 12 || p.loyalty <= 10) {
+            if !talk || p.listed || p.loaned_in || !(p.ambition >= 12 || p.loyalty <= 10) {
                 continue;
             }
             let reasons: Vec<String> = self
@@ -699,7 +736,7 @@ impl Game {
                 .optional()?
                 .is_some();
             let Some(reason) =
-                reasons.iter().find(|r| matches!(r.as_str(), "starter" | "bigger" | "contract" | "future" | "club_ambition"))
+                reasons.iter().find(|r| matches!(r.as_str(), "starter" | "bigger" | "challenge" | "contract" | "future" | "club_ambition"))
             else {
                 continue;
             };
@@ -728,6 +765,70 @@ impl Game {
             *next_id += 1;
         }
         Ok(())
+    }
+
+    /// As mágoas que já passaram: cada motivo dura o seu tempo, pela personalidade.
+    fn forget_grudges(&self, today: i32) -> Result<()> {
+        let rows: Vec<(i32, String, String, [f64; 3])> = self
+            .world
+            .conn
+            .prepare_cached(
+                "SELECT u.person_id, u.reason, u.since, COALESCE(p.ambition, 10), COALESCE(p.loyalty, 10), COALESCE(p.temperament, 10)
+                 FROM unhappy u JOIN people p ON p.id = u.person_id",
+            )?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, [r.get(3)?, r.get(4)?, r.get(5)?])))?
+            .collect::<rusqlite::Result<_>>()?;
+        for (id, reason, since, [ambition, loyalty, temperament]) in rows {
+            let Some(base) = grudge_days(&reason) else { continue };
+            let morale = self.squads.state(id).morale;
+            let mood = if morale >= HAPPY_MORALE {
+                0.75
+            } else if morale <= LOW_MORALE {
+                1.25
+            } else {
+                1.0
+            };
+            let days = (base as f64 * personality::grudge_factor(ambition, loyalty, temperament) * mood).round() as i32;
+            if date::parse(&since).is_some_and(|s| today - s >= days) {
+                self.remove_unhappy(id, &reason)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Fala-se de saídas: a janela do clube está aberta ou abre dentro de [`WINDOW_NEAR`] dias.
+    fn transfer_talk_time(&self) -> Result<bool> {
+        let next = super::market::next_window(self.kind_of(self.club_id)?, &self.date);
+        Ok(date::parse(&next).zip(date::parse(&self.date)).is_some_and(|(n, t)| n - t <= WINDOW_NEAR))
+    }
+
+    /// Quer sair por vontade própria (sorteado às segundas, perto das janelas)? "bigger" para o
+    /// ambicioso com reputação bem acima da do clube (mais quanto maior a diferença e pior a
+    /// temporada do clube); "challenge" para o pouco leal há anos no clube.
+    fn itchy_feet(&self, p: &Unhappy, mood: &ClubMood, today: i32, talk: bool) -> Result<Option<&'static str>> {
+        if !talk || p.loaned_in || p.listed || !(21..=32).contains(&p.age) || self.wants_out(p.id)? {
+            return Ok(None);
+        }
+        let years = p.joined.as_deref().and_then(date::parse).map_or(0, |j| (today - j) / 365);
+        if years < 1 {
+            return Ok(None);
+        }
+        let (_, _, reputation) = self.mood_traits(p.id)?;
+        let mut rng = match_rng(self.seed ^ 0xA_403, p.id ^ today);
+        let roll = uniform(&mut rng);
+        let gap = reputation - mood.reputation;
+        if p.rank < 11 && p.ambition >= ITCH_BIGGER_AMBITION && gap > ITCH_BIGGER_GAP {
+            let chance = ITCH_BIGGER
+                * (1.0 + 0.25 * (p.ambition - ITCH_BIGGER_AMBITION) as f64)
+                * (1.0 + ((gap - ITCH_BIGGER_GAP) as f64 / 2000.0).min(1.0))
+                * (1.0 + 0.15 * mood.behind.min(4) as f64)
+                - 0.004 * (p.loyalty - 10).max(0) as f64;
+            if roll < chance {
+                return Ok(Some("bigger"));
+            }
+        }
+        let veteran = p.rank < 15 && (25..=31).contains(&p.age) && years >= ITCH_CHALLENGE_YEARS;
+        Ok((veteran && p.ambition >= 12 && p.loyalty <= 12 && roll < ITCH_CHALLENGE).then_some("challenge"))
     }
 
     /// A ausência em curso de um jogador do plantel: ("leave" ou "awol", até quando).
@@ -896,8 +997,13 @@ mod tests {
         g.world.conn.execute("UPDATE unhappy SET since = '2025-01-01' WHERE person_id = ?", [star]).unwrap();
         g.world.conn.execute("DELETE FROM unhappy WHERE person_id = ? AND reason = 'blocked'", [star]).unwrap();
         g.add_unhappy(star, "bigger").unwrap();
+        // Longe das janelas ninguém pede para sair; a um mês da de janeiro, sim
         g.world.conn.execute("UPDATE unhappy SET since = '2025-08-01' WHERE person_id = ?", [star]).unwrap();
-        let news = monday(&mut g, "2025-09-01");
+        assert!(monday(&mut g, "2025-09-01").iter().all(|n| !n.title.contains("pede para sair")), "fora de época");
+        g.world.conn.execute("DELETE FROM unhappy WHERE person_id = ?", [star]).unwrap();
+        g.add_unhappy(star, "bigger").unwrap();
+        g.world.conn.execute("UPDATE unhappy SET since = '2025-11-01' WHERE person_id = ?", [star]).unwrap();
+        let news = monday(&mut g, "2025-12-01");
         let request = news.iter().find(|n| n.title.contains("pede para sair")).and_then(|n| n.offer_id).expect("novo pedido");
         assert_eq!(g.answer_offer(request, "accept", None).unwrap().status, "done");
         let requested: i32 = g
@@ -906,6 +1012,30 @@ mod tests {
             .query_row("SELECT requested FROM transfer_list WHERE person_id = ? AND transfer = 1", [star], |r| r.get(0))
             .unwrap();
         assert_eq!(requested, 1);
+
+        // As mágoas passam pelo motivo e pela personalidade: a substituição em 2 semanas, o clube
+        // maior ao leal e calmo em pouco mais de 6 semanas, ao ambicioso e pouco leal só em meses
+        let today = date::parse("2025-10-06").unwrap();
+        let (calm, angry) = (squad[1].id, squad[2].id);
+        g.world.conn.execute("UPDATE people SET ambition = 10, loyalty = 18, temperament = 16 WHERE id = ?", [calm]).unwrap();
+        g.world.conn.execute("UPDATE people SET ambition = 18, loyalty = 5, temperament = 5 WHERE id = ?", [angry]).unwrap();
+        for id in [calm, angry] {
+            g.squads.states.entry(id).or_default().morale = 12;
+            g.world.conn.execute("DELETE FROM unhappy WHERE person_id = ?", [id]).unwrap();
+            for (reason, since) in [("subbed", "2025-09-15"), ("bigger", "2025-08-18")] {
+                g.world
+                    .conn
+                    .execute("INSERT INTO unhappy (person_id, reason, since) VALUES (?, ?, ?)", params![id, reason, since])
+                    .unwrap();
+            }
+        }
+        g.forget_grudges(today).unwrap();
+        assert!(g.unhappy_reasons(calm).unwrap().is_empty(), "{:?}", g.unhappy_reasons(calm));
+        assert_eq!(g.unhappy_reasons(angry).unwrap(), vec![reason_text("bigger").to_string()]);
+        // Novo desafio: quer sair e pede mais para renovar
+        g.world.conn.execute("DELETE FROM unhappy WHERE person_id = ?", [angry]).unwrap();
+        g.add_unhappy(angry, "challenge").unwrap();
+        assert!(g.wants_out(angry).unwrap());
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -35,6 +35,16 @@ const MIN_FEE_ASKED: f64 = 2.0;
 const MIN_FEE_SUGGESTED: f64 = 3.0;
 /// Uma cláusula a favor do jogador que ele não pediu vale isto do salário de um ano.
 const CLAUSE_WORTH: f64 = 0.03;
+/// Uma cláusula que ele pediu e não está na proposta: falta isto do salário de um ano (um
+/// salário maior compensa).
+const CLAUSE_ASKED_WORTH: f64 = 0.08;
+/// Ambição a partir da qual a cláusula de venda pedida não se troca por dinheiro.
+const HARD_CLAUSE_AMBITION: f64 = 17.0;
+/// Golos, assistências e jogos sem sofrer golos numa época normal de cada papel (0 GR,
+/// 1 defesa, 2 meio, 3 ataque): o valor dos prémios.
+const SEASON_GOALS: [f64; 4] = [0.0, 1.0, 4.0, 10.0];
+const SEASON_ASSISTS: [f64; 4] = [0.0, 2.0, 5.0, 5.0];
+const SEASON_CLEAN_SHEETS: [f64; 4] = [12.0, 0.0, 0.0, 0.0];
 /// Atributos a partir dos quais pede o prémio por golo (Finalização) e por assistência (Passe).
 const SCORER: i32 = 13;
 const PROVIDER: i32 = 14;
@@ -98,14 +108,11 @@ impl ContractExtras {
     /// época normal do papel dele (0 GR, 1 defesa, 2 meio, 3 ataque), e cada cláusula a favor
     /// dele que não pediu ([`CLAUSE_WORTH`] do salário de um ano).
     pub(super) fn worth_above(&self, asks: &ContractExtras, role: usize, wage: f64) -> f64 {
-        const GOALS: [f64; 4] = [0.0, 1.0, 4.0, 10.0];
-        const ASSISTS: [f64; 4] = [0.0, 2.0, 5.0, 5.0];
-        const CLEAN_SHEETS: [f64; 4] = [12.0, 0.0, 0.0, 0.0];
         let r = role.min(3);
         let above = |offered: i64, asked: i64| (offered - asked).max(0) as f64;
-        let mut worth = above(self.goal_bonus, asks.goal_bonus) * GOALS[r]
-            + above(self.assist_bonus, asks.assist_bonus) * ASSISTS[r]
-            + above(self.clean_sheet_bonus, asks.clean_sheet_bonus) * CLEAN_SHEETS[r];
+        let mut worth = above(self.goal_bonus, asks.goal_bonus) * SEASON_GOALS[r]
+            + above(self.assist_bonus, asks.assist_bonus) * SEASON_ASSISTS[r]
+            + above(self.clean_sheet_bonus, asks.clean_sheet_bonus) * SEASON_CLEAN_SHEETS[r];
         let clauses = [
             self.relegation && !asks.relegation,
             self.non_promotion && !asks.non_promotion,
@@ -113,6 +120,31 @@ impl ContractExtras {
         ];
         worth += clauses.iter().filter(|&&c| c).count() as f64 * CLAUSE_WORTH * wage * 52.0;
         worth
+    }
+
+    /// O que lhe falta por época do que pediu, em dinheiro: os prémios abaixo do pedido, pelo
+    /// que ele faz numa época normal (× 1,5: dá mais valor ao que pediu), e cada cláusula pedida
+    /// que não está ([`CLAUSE_ASKED_WORTH`] do salário de um ano). Um salário maior compensa.
+    pub(super) fn missing_cost(&self, asks: &ContractExtras, role: usize, wage: f64) -> f64 {
+        let r = role.min(3);
+        let short = |offered: i64, asked: i64| (asked - offered).max(0) as f64 * 1.5;
+        let mut cost = short(self.goal_bonus, asks.goal_bonus) * SEASON_GOALS[r]
+            + short(self.assist_bonus, asks.assist_bonus) * SEASON_ASSISTS[r]
+            + short(self.clean_sheet_bonus, asks.clean_sheet_bonus) * SEASON_CLEAN_SHEETS[r];
+        let clauses = [
+            asks.min_fee.is_some_and(|fee| self.min_fee.is_none_or(|m| m > fee)),
+            asks.relegation && !self.relegation,
+            asks.non_promotion && !self.non_promotion,
+            asks.manager_job && !self.manager_job,
+        ];
+        cost += clauses.iter().filter(|&&c| c).count() as f64 * CLAUSE_ASKED_WORTH * wage * 52.0;
+        cost
+    }
+
+    /// O que ele não larga por dinheiro nenhum: a cláusula de venda de um muito ambicioso.
+    pub(super) fn hard_missing(&self, asks: &ContractExtras, ambition: f64) -> Vec<&'static str> {
+        let fee_missing = asks.min_fee.is_some_and(|fee| self.min_fee.is_none_or(|m| m > fee));
+        if fee_missing && ambition >= HARD_CLAUSE_AMBITION { vec!["cláusula de venda"] } else { Vec::new() }
     }
 
     /// Esta proposta com o que ele exige (a contraproposta).
@@ -467,15 +499,33 @@ mod tests {
             g.contract_replies(&mut fresh, &mut id).unwrap();
             fresh
         };
-        // Sem o que exige, faz uma contraproposta com isso, mesmo com o salário pedido
-        let wage = t.wage * 12 / 10;
-        g.negotiate(p, &t.role, wage, t.bonus * 2, t.years, &ContractExtras::default()).unwrap();
+        // Sem o que pediu e com o salário baixo: a contraproposta traz o que ele pediu
+        g.negotiate(p, &t.role, t.wage * 8 / 10, t.bonus, t.years, &ContractExtras::default()).unwrap();
         let news = next_day(&mut g);
-        assert!(news.iter().any(|n| n.body.contains("Exige também")), "{news:?}");
+        assert!(news.iter().any(|n| n.body.contains("Pede também") || n.body.contains("não abre mão")), "{news:?}");
         assert!(g.talk_extras(p).unwrap().missing(&t.asks).is_empty(), "a contraproposta traz as exigências");
         let offer = g.open_contract(p).unwrap().unwrap();
         assert_eq!(g.answer_offer(offer.id, "accept", None).unwrap().status, "done");
         assert_eq!(g.contract_extras(p).unwrap().unwrap().missing(&t.asks), Vec::<&str>::new());
+
+        // Sem o que pediu, mas um salário bem maior compensa (quem não é muito ambicioso)
+        let mut paid = None;
+        for &q in squad.iter().filter(|&&q| q != p) {
+            let Ok(tq) = g.contract_terms(q, None) else { continue };
+            let calm = g.facts(q).unwrap().is_some_and(|f| f.ambition < 17.0);
+            if tq.asks == ContractExtras::default() || !calm {
+                continue;
+            }
+            if g.negotiate(q, &tq.role, tq.wage * 13 / 10, tq.bonus, tq.years, &ContractExtras::default()).is_ok() {
+                paid = Some(q);
+                break;
+            }
+        }
+        let q = paid.expect("alguém que pede prêmios ou cláusulas");
+        let news = next_day(&mut g);
+        assert!(news.iter().any(|n| n.title.contains("aceita") && n.body.contains(&g.person_name(q).unwrap())), "{news:?}");
+        let offer = g.open_contract(q).unwrap().unwrap();
+        g.answer_contract(&offer, "withdraw").unwrap();
 
         // Prémios pagos depois do jogo: 2 golos e um jogo sem sofrer golos (de um guarda-redes)
         let scorer = squad.iter().copied().find(|&x| x != p && g.is_keeper(x).unwrap()).unwrap();

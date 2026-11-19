@@ -209,6 +209,35 @@ pub fn loyalty_renewal(loyalty: f64) -> f64 {
     1.0 - 0.1 * (loyalty.clamp(1.0, 20.0) - LOYALTY_MID) / (20.0 - LOYALTY_MID)
 }
 
+/// Renovar com quem quer sair (motivo "clube maior" ou "não o deixam sair"): o ambicioso pouco
+/// leal nem conversa enquanto a mágoa dura.
+pub fn wants_out_refuses(ambition: f64, loyalty: f64) -> bool {
+    ambition >= AMBITIOUS as f64 && loyalty < LOYALTY_MID
+}
+
+/// Os outros renovam, mas o salário pedido × isto: +15%, e mais 2% por ponto de Ambição acima
+/// da Lealdade (até +45%).
+pub fn wants_out_wage(ambition: f64, loyalty: f64) -> f64 {
+    1.15 + (0.02 * (ambition - loyalty)).clamp(0.0, 0.3)
+}
+
+/// Quanto tempo dura uma mágoa (a duração base do motivo × isto): o ambicioso e o pouco leal
+/// guardam-na mais tempo, o leal e o calmo esquecem depressa (de metade a 1,8×).
+pub fn grudge_factor(ambition: f64, loyalty: f64, temperament: f64) -> f64 {
+    (1.0 + 0.06 * (ambition - 10.0) - 0.06 * (loyalty - 10.0) - 0.03 * (temperament - 10.0)).clamp(0.5, 1.8)
+}
+
+/// A margem que o jogador dá numa proposta de contrato: aceita um contrato até esta parte
+/// abaixo do que pede. Um tanto por jogador (`roll`, 0 a 1), mais na renovação de um leal,
+/// menos para o ambicioso (até 3 pontos), mas nunca abaixo de 2%; com a proposta de outro clube
+/// na mão, metade (de 1 a 15%).
+pub fn contract_give(ambition: f64, loyalty: f64, renewal: bool, rival: bool, roll: f64) -> f64 {
+    let loyal = if renewal { (0.01 * (loyalty - 10.0)).clamp(0.0, 0.08) } else { 0.0 };
+    let greed = (0.005 * (ambition - 10.0)).clamp(0.0, 0.03);
+    let give = (0.035 + 0.05 * roll + loyal - greed).clamp(0.02, 0.15);
+    if rival { give / 2.0 } else { give }
+}
+
 /// Preço pedido pelo clube × isto: um jogador leal custa até 20% mais.
 pub fn loyalty_fee(loyalty: f64) -> f64 {
     1.0 + 0.2 * above(loyalty, LOYALTY_MID)
@@ -263,6 +292,27 @@ pub fn renewal_stay_chance(m: &RenewalMood) -> f64 {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn wanting_out_and_renewing() {
+        assert!(wants_out_refuses(18.0, 8.0));
+        assert!(!wants_out_refuses(18.0, 15.0) && !wants_out_refuses(10.0, 5.0));
+        assert!(wants_out_wage(10.0, 15.0) >= 1.15 && wants_out_wage(20.0, 1.0) <= 1.45 + 1e-9);
+        assert!(wants_out_wage(16.0, 12.0) > wants_out_wage(12.0, 12.0));
+        // A mágoa: o leal e calmo esquece em metade do tempo, o ambicioso de mau feitio guarda-a
+        assert_eq!(grudge_factor(10.0, 18.0, 16.0), 0.5);
+        assert_eq!(grudge_factor(18.0, 5.0, 5.0), 1.8);
+        assert_eq!(grudge_factor(10.0, 10.0, 10.0), 1.0);
+        // A margem no contrato: metade com outra proposta, mais ao leal que renova, menos ao
+        // ambicioso, mas sempre uns 2%; 4% abaixo do pedido passa na maior parte das vezes
+        assert_eq!(contract_give(10.0, 10.0, false, true, 0.5), contract_give(10.0, 10.0, false, false, 0.5) / 2.0);
+        assert!(contract_give(10.0, 18.0, true, false, 0.5) > contract_give(10.0, 18.0, false, false, 0.5));
+        assert!(contract_give(20.0, 5.0, false, false, 0.0) < contract_give(10.0, 5.0, false, false, 0.0));
+        assert_eq!(contract_give(20.0, 5.0, false, false, 0.0), 0.02);
+        assert!(contract_give(10.0, 10.0, false, false, 0.1) >= 0.04);
+        assert!((0.0..=0.15).contains(&contract_give(1.0, 20.0, true, false, 1.0)));
+    }
+
     use super::*;
 
     fn bench_kid() -> Move {

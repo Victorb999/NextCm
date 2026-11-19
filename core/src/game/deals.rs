@@ -785,6 +785,10 @@ impl Game {
         ask *= personality::ambition_wage(f.ambition, expected == 0);
         if renewal {
             ask *= personality::loyalty_renewal(f.loyalty);
+            // Quem quer sair pede mais para ficar
+            if self.wants_out(person)? {
+                ask *= personality::wants_out_wage(f.ambition, f.loyalty);
+            }
         } else {
             // Uma cidade pouco atraente pede mais, sobretudo a quem vem de fora (4.0, item 23)
             ask *= self.city_wage(person, self.club_id)?;
@@ -3131,9 +3135,14 @@ Palmeiras fez uma nova proposta."
             params![PALMEIRAS, mine, buy],
             |r| r.get::<_, i32>(0),
         ).unwrap();
-        // Renovação com 5% a menos de salário, compensados no prémio: ele aceita e falta confirmar
+        // Renovação com 5% a menos de salário, compensados no prémio: ele aceita e falta confirmar.
+        // Ele queria sair (não o deixaram): pede mais, e ao assinar a mágoa fica para trás
+        g.world.conn.execute("UPDATE people SET loyalty = 20 WHERE id = ?", [other]).unwrap();
+        let calm = g.contract_terms(other, None).unwrap().wage;
+        g.add_unhappy(other, "blocked").unwrap();
         let before = g.facts(other).unwrap().unwrap().expires;
         let t = g.contract_terms(other, None).unwrap();
+        assert!(t.wage > calm, "quem quer sair pede mais: {} {calm}", t.wage);
         // Os limites são por função: a que ele espera passa; uma função menor (mais cara) pode não passar
         assert!(t.renewal && t.roles.iter().any(|r| r.key == t.expected_role && r.allowed));
         assert!(t.roles.iter().all(|r| r.max_wage.is_some()));
@@ -3145,6 +3154,7 @@ Palmeiras fez uma nova proposta."
         assert_eq!(offer.status, "agreed");
         assert_eq!(g.facts(other).unwrap().unwrap().expires, before, "só depois de confirmar");
         assert_eq!(g.answer_offer(offer.id, "confirm", None).unwrap().status, "done");
+        assert!(!g.wants_out(other).unwrap());
         let after = g.facts(other).unwrap().unwrap();
         assert!(after.expires > before && after.wage == wage);
         assert_eq!(after.expires.as_deref(), Some(t.ends[t.years as usize - 1].as_str()));

@@ -15,7 +15,7 @@ use super::deals::{COOLDOWN_DAYS, ContractReply, Offer, Party, SQUAD_ROLES, TRIE
 use super::market::money_text;
 use super::{Game, NewsItem, cm_date};
 use crate::engine::uniform;
-use crate::{Error, Result, date, personality};
+use crate::{Error, Result, date, finance, personality};
 
 /// Contratação sonante: o valor sobre as receitas de uma época do clube, e os adeptos que ganha.
 const BIG_SIGNING: f64 = 0.1;
@@ -35,6 +35,9 @@ const REP_WEIGHT: f64 = 0.08;
 
 /// O salário pode descer até isto do pedido, se o prémio e os extras compensarem.
 const WAGE_FLOOR: f64 = 0.75;
+/// Além da margem dele, até esta parte abaixo do que pede a proposta conta como "perto": a
+/// contraproposta fica a meio caminho e a recusa não conta para ele romper as negociações.
+const CLOSE_GAP: f64 = 0.1;
 /// Anos de contrato: cada ano longe do que pede custa 4% de salário; ao veterano (30+), cada
 /// ano a mais dá segurança e vale 5% a menos (até 15%).
 const YEAR_COST: f64 = 0.04;
@@ -152,6 +155,10 @@ impl Game {
         // A função que lhe oferecem, comparada com a que ele espera ter no plantel (4.0, item 21)
         if let Some(text) = self.role_refusal(person, &f, role_i, &party, wage, &name)? {
             return Err(Error::Invalid(text));
+        }
+        // Quem quer sair (clube maior, novo desafio), se for ambicioso e pouco leal, nem conversa
+        if matches!(party, Party::Renewal) && self.wants_out(person)? && personality::wants_out_refuses(f.ambition, f.loyalty) {
+            return Err(Error::Invalid(format!("{name} não quer renovar: quer sair do clube.")));
         }
         if self.open_contract(person)?.is_some_and(|o| o.status == "pending") {
             return Err(Error::Invalid(format!("Já fez uma proposta a {name}: a resposta chega amanhã.")));
@@ -324,19 +331,28 @@ impl Game {
             }
             let role_i = Self::role_index(&t.role)?;
             let free = matches!(party, Party::Free(_) | Party::Precontract);
-            let d = self.demand(o.person, &f, role_i, matches!(party, Party::Renewal), free)?;
+            let renewal = matches!(party, Party::Renewal);
+            let d = self.demand(o.person, &f, role_i, renewal, free)?;
             let wanted = d.wage as f64 * years_factor(t.years, d.years, f.age);
             let weeks = 52.0 * t.years as f64;
-            // Os prémios e as cláusulas que ele exige têm de estar na proposta
+            // Os prémios e as cláusulas que ele pediu: o que falta, um salário maior compensa (menos
+            // a cláusula de venda de um muito ambicioso, que ele não larga)
             let offered = self.talk_extras(o.person)?;
             let (asks, _) = self.extras_demand(o.person, &f, d.wage)?;
             let missing = offered.missing(&asks);
-            // O salário pode ficar abaixo do pedido (até WAGE_FLOOR) se o prémio de assinatura e o
-            // que a proposta dá a mais compensarem o contrato todo (4.0, item 22)
-            let extra = offered.worth_above(&asks, f.role, wanted) * t.years as f64;
-            let package =
-                t.wage as f64 >= WAGE_FLOOR * wanted && t.wage as f64 * weeks + t.bonus as f64 + extra >= wanted * weeks + d.bonus as f64;
-            let enough = package && missing.is_empty();
+            let hard = offered.hard_missing(&asks, f.ambition);
+            // O contrato todo: o salário pode ficar abaixo do pedido (até WAGE_FLOOR) se o prémio de
+            // assinatura e o que a proposta dá a mais compensarem (4.0, item 22)
+            let extras = offered.worth_above(&asks, f.role, wanted) - offered.missing_cost(&asks, f.role, wanted);
+            let ours_total = t.wage as f64 * weeks + t.bonus as f64 + extras * t.years as f64;
+            let theirs_total = wanted * weeks + d.bonus as f64;
+            // A margem dele (fixa por jogador e temporada): aceita um pouco abaixo do que pede
+            let year: u64 = self.date[0..4].parse().unwrap_or(0);
+            let roll = uniform(&mut self.deal_rng(o.person, 0x61FE ^ year));
+            let give = personality::contract_give(f.ambition, f.loyalty, renewal, t.rival.is_some(), roll);
+            let package = t.wage as f64 >= WAGE_FLOOR * wanted && ours_total >= theirs_total * (1.0 - give);
+            let enough = package && hard.is_empty();
+            let close = ours_total >= theirs_total * (1.0 - give - CLOSE_GAP);
             let deadline = date::add_days(&self.date, CONFIRM_DAYS).unwrap_or_default();
             // Com outra proposta na mão, escolhe a melhor (o contrato todo, pesado pela reputação)
             if let Some((rival, rival_wage)) = t.rival {
@@ -379,9 +395,10 @@ impl Game {
                 self.offer_news(fresh, next_id, format!("{club} se prepara para contratar {name}"), body, o.id);
                 continue;
             }
+            // Uma proposta perto do que ele pede não o irrita
             let tries: i32 =
                 self.world.conn.query_row("SELECT tries FROM talks WHERE person_id = ?", [o.person], |r| r.get(0)).optional()?.unwrap_or(0)
-                    + 1;
+                    + i32::from(!close);
             let over = tries >= TRIES;
             let blocked = over.then(|| date::add_days(&self.date, COOLDOWN_DAYS).unwrap_or_default());
             self.world.conn.execute(
@@ -396,18 +413,37 @@ impl Game {
                 let body = format!("{name} rompeu as negociações e não volta a falar de contrato nos próximos {COOLDOWN_DAYS} dias.");
                 self.offer_news(fresh, next_id, format!("{name} rompe negociações"), body, o.id);
             } else {
-                // A contraproposta: o que ele quer
-                let (w, b, y) = (round_wage(wanted), d.bonus, d.years);
-                // Quem só pede prémios ou cláusulas fica com o salário que lhe ofereceram
-                let (w, b, y) = if package { (t.wage, t.bonus, t.years) } else { (w, b, y) };
+                // A contraproposta: quem só não larga a cláusula fica com o dinheiro oferecido; perto
+                // do que pede, fica a meio caminho; longe, pede tudo
+                let (w, b, y) = if package {
+                    (t.wage, t.bonus, t.years)
+                } else if close {
+                    let bonus = finance::round_money((t.bonus + d.bonus) as f64 / 2.0).max(t.bonus);
+                    (round_wage((t.wage as f64 + wanted) / 2.0).max(t.wage), bonus, t.years)
+                } else {
+                    (round_wage(wanted), d.bonus, d.years)
+                };
                 self.world
                     .conn
                     .execute("UPDATE contract_talks SET wage = ?, bonus = ?, years = ? WHERE person_id = ?", params![w, b, y, o.person])?;
                 self.set_talk_extras(o.person, &offered.with_asks(&asks))?;
                 self.set_status(o.id, "countered", Some(&deadline))?;
-                let demands = if missing.is_empty() { String::new() } else { format!(" Exige também: {}.", missing.join(", ")) };
+                let demands = if package && !hard.is_empty() {
+                    format!(" O dinheiro está bem, mas não abre mão de: {}.", hard.join(", "))
+                } else if missing.is_empty() {
+                    String::new()
+                } else {
+                    format!(" Pede também: {}.", missing.join(", "))
+                };
+                let lead = if package {
+                    "está perto de um acordo:"
+                } else if close {
+                    "está perto de um acordo e propõe um meio-termo:"
+                } else {
+                    "recusou a proposta e pede"
+                };
                 let body = format!(
-                    "{name} recusou a proposta e pede {} por semana, um prêmio de {} e {} ano(s) de contrato.{demands}\n\nResponda até {}.",
+                    "{name} {lead} {} por semana, um prêmio de {} e {} ano(s) de contrato.{demands}\n\nResponda até {}.",
                     money_text(w),
                     money_text(b),
                     y,
@@ -585,7 +621,10 @@ impl Game {
             self.sign_extras(o.person)?;
             self.world.conn.execute("DELETE FROM contract_talks WHERE person_id = ?", [o.person])?;
         }
-        self.remove_unhappy(o.person, "contract")?;
+        // Assinou: a vontade de sair fica para trás
+        for reason in ["contract", "bigger", "challenge", "blocked"] {
+            self.remove_unhappy(o.person, reason)?;
+        }
         Ok(())
     }
 
