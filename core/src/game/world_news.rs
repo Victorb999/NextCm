@@ -15,8 +15,8 @@ use crate::squad::Event;
 
 /// Probabilidade por dia de uma lesão fora dos jogos (Propensão a Lesões 10) nos plantéis da IA.
 const AI_INJURY_PER_DAY: f64 = 0.0012;
-/// Uma lesão é notícia no mundo a partir de tantos dias de baixa.
-const SERIOUS_DAYS: i32 = 28;
+/// Uma lesão é notícia no mundo a partir de tantos dias de baixa (4 meses: as que tiram a temporada).
+const SERIOUS_DAYS: i32 = 120;
 /// Reputação (1–200) de um jogador cuja lesão grave é notícia em qualquer liga escolhida...
 const STAR_REP: i32 = 140;
 /// ... e na liga do treinador.
@@ -70,7 +70,11 @@ impl Game {
         let name = self.person_name(player)?;
         let team = self.club(club).short_name;
         let when = if in_match { "no jogo de hoje" } else { "no treino" };
-        let time = if days >= 14 { format!("cerca de {} semanas", (days + 3) / 7) } else { format!("cerca de {days} dias") };
+        let time = match days {
+            ..14 => format!("cerca de {days} dias"),
+            14..60 => format!("cerca de {} semanas", (days + 3) / 7),
+            _ => format!("cerca de {} meses", (days + 15) / 30),
+        };
         let title = if notable { format!("Lesão grave: {name}") } else { format!("{name} lesionado") };
         let mut body = format!(
             "{name} ({team}) se lesionou {when}: {}.\n\nO departamento médico do {team} prevê {time} de recuperação.",

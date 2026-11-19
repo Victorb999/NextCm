@@ -62,6 +62,9 @@ function newsDate(iso: string, part: number) {
   return `${WEEKDAYS[wd]} ${d} ${MONTHS[m - 1]} ${partLabel(part)}`
 }
 
+/** O tamanho de 1rem em px (as linhas da lista têm 2rem, h-8). */
+const remPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+
 /** As notícias de uma aba, da mais recente (em cima) para a mais antiga, como o core as guarda. */
 const inOrder = (news: NewsItem[], tab: string) => news.filter((n) => inTab(n, tab))
 
@@ -145,10 +148,33 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
   // A mais recente em cima
   const shown = useMemo(() => inOrder(news, tab), [news, tab])
   const current = shown.find((n) => n.id === selected) ?? shown[0]
+  // A lista só desenha as linhas à vista (um save longo tem mais de mil notícias)
   const listRef = useRef<HTMLDivElement>(null)
+  const [view, setView] = useState({ top: 0, height: 400 })
+  const row = 2 * remPx()
+  const first = Math.max(0, Math.floor(view.top / row) - 8) & ~1 // par: a zebra não troca
+  const last = Math.min(shown.length, Math.ceil((view.top + view.height) / row) + 8)
+  // A altura no máximo a da janela (a meio do layout a lista ainda pode estar sem limite)
+  const onScroll = () => {
+    const el = listRef.current
+    if (el) setView({ top: el.scrollTop, height: Math.min(el.clientHeight, window.innerHeight) })
+  }
   useEffect(() => {
-    listRef.current?.querySelector('[data-current]')?.scrollIntoView({ block: 'nearest' })
-  }, [current?.id])
+    const el = listRef.current
+    if (!el) return
+    const watch = new ResizeObserver(() => setView({ top: el.scrollTop, height: Math.min(el.clientHeight, window.innerHeight) }))
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [])
+  const currentIndex = shown.findIndex((n) => n.id === current?.id)
+  useEffect(() => {
+    const el = listRef.current
+    if (!el || currentIndex < 0) return
+    const top = currentIndex * row
+    if (top < el.scrollTop) el.scrollTop = top
+    else if (top + row > el.scrollTop + el.clientHeight) el.scrollTop = top + row - el.clientHeight
+    setView({ top: el.scrollTop, height: Math.min(el.clientHeight, window.innerHeight) })
+  }, [currentIndex, row])
 
   // Abrir uma notícia marca-a como lida
   useEffect(() => {
@@ -229,29 +255,32 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
           }
           className="h-[205px] shrink-0"
         >
-          <div ref={listRef} className="cm-zebra min-h-0 flex-1 overflow-auto">
+          <div ref={listRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-auto">
             {shown.length === 0 && <Empty className="p-4">Sem notícias.</Empty>}
-            {shown.map((n) => {
-              const [label, colour, Icon] = KIND_LABEL[n.kind] ?? KIND_LABEL.message
-              return (
-                <div
-                  key={n.id}
-                  onMouseDown={() => setSelected(n.id)}
-                  data-current={n.id === current?.id || undefined}
-                  className={`flex h-8 cursor-pointer items-center gap-3 px-3 text-[16px]  ${n.id === current?.id ? '!bg-cm-sel' : ''}`}
-                >
-                  <span className="cm-cell w-32 shrink-0 text-center font-mono text-[14px] text-white">{newsDate(n.date, n.part)}</span>
-                  <span className={`min-w-0 flex-1 truncate ${n.read ? 'text-white' : 'font-bold text-cm-yellow'}`}>{n.title}</span>
-                  {n.awaiting && <span className="shrink-0 text-[13px] font-bold text-cm-magenta">Responder</span>}
-                  <span
-                    className={`flex w-36 shrink-0 items-center justify-center gap-1 rounded px-1.5 font-mono text-[12px] font-bold uppercase tracking-wider ${colour}`}
+            {/* O espaço das linhas por desenhar fica no padding de dentro (o de fora não encolhe) */}
+            <div className="cm-zebra" style={{ paddingTop: first * row, paddingBottom: (shown.length - last) * row }}>
+              {shown.slice(first, last).map((n) => {
+                const [label, colour, Icon] = KIND_LABEL[n.kind] ?? KIND_LABEL.message
+                return (
+                  <div
+                    key={n.id}
+                    onMouseDown={() => setSelected(n.id)}
+                    data-current={n.id === current?.id || undefined}
+                    className={`flex h-8 cursor-pointer items-center gap-3 px-3 text-[16px]  ${n.id === current?.id ? '!bg-cm-sel' : ''}`}
                   >
-                    <Icon size={12} className="shrink-0" />
-                    {label}
-                  </span>
-                </div>
-              )
-            })}
+                    <span className="cm-cell w-32 shrink-0 text-center font-mono text-[14px] text-white">{newsDate(n.date, n.part)}</span>
+                    <span className={`min-w-0 flex-1 truncate ${n.read ? 'text-white' : 'font-bold text-cm-yellow'}`}>{n.title}</span>
+                    {n.awaiting && <span className="shrink-0 text-[13px] font-bold text-cm-magenta">Responder</span>}
+                    <span
+                      className={`flex w-36 shrink-0 items-center justify-center gap-1 rounded px-1.5 font-mono text-[12px] font-bold uppercase tracking-wider ${colour}`}
+                    >
+                      <Icon size={12} className="shrink-0" />
+                      {label}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </Panel>
         <Panel title={current ? newsDate(current.date, current.part) : 'Mensagem'} className="min-h-0 flex-1">

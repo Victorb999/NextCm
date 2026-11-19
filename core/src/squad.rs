@@ -171,6 +171,25 @@ pub struct Side {
 const LIGHT: [&str; 5] = ["Distensão muscular", "Contusão na coxa", "Entorse no tornozelo", "Pancada no joelho", "Dores nas costas"];
 const MEDIUM: [&str; 4] = ["Ruptura muscular", "Lesão nos isquiotibiais", "Entorse grave no tornozelo", "Lesão na virilha"];
 const SERIOUS: [&str; 3] = ["Ruptura de ligamentos do joelho", "Fratura do perônio", "Lesão no menisco"];
+/// As que tiram a temporada (4 a 9 meses).
+const VERY_SERIOUS: [&str; 4] = ["Ruptura do ligamento cruzado", "Ruptura do tendão de Aquiles", "Fratura da tíbia", "Fratura da perna"];
+
+/// A gravidade de uma lesão: `cuts` são as probabilidades acumuladas de leve, média e grave
+/// (o resto é muito grave); `light_max` os dias de uma leve. Devolve o nome e os dias.
+fn draw_injury(cuts: [f64; 3], light_max: i32, rng: &mut impl RngCore) -> (String, i32) {
+    let roll = uniform(rng);
+    let (list, min, max): (&[&str], i32, i32) = if roll < cuts[0] {
+        (&LIGHT, 3, light_max)
+    } else if roll < cuts[1] {
+        (&MEDIUM, 15, 45)
+    } else if roll < cuts[2] {
+        (&SERIOUS, 46, 120)
+    } else {
+        (&VERY_SERIOUS, 121, 270)
+    };
+    let days = min + (uniform(rng) * (max - min + 1) as f64) as i32;
+    (pick(list, rng).to_string(), days)
+}
 
 fn pick<'a>(list: &[&'a str], rng: &mut impl RngCore) -> &'a str {
     list[(uniform(rng) * list.len() as f64) as usize % list.len()]
@@ -217,16 +236,8 @@ impl Squads {
 
     /// Uma lesão fora dos jogos (no treino), quase sempre ligeira: devolve o nome e a duração em dias.
     pub fn training_injury(&mut self, id: i32, today: &str, rng: &mut impl RngCore) -> Option<(String, i32)> {
-        let roll = uniform(rng);
-        let (list, min, max): (&[&str], i32, i32) = if roll < 0.85 {
-            (&LIGHT, 3, 21)
-        } else if roll < 0.98 {
-            (&MEDIUM, 15, 45)
-        } else {
-            (&SERIOUS, 46, 120)
-        };
-        let days = min + (uniform(rng) * (max - min + 1) as f64) as i32;
-        let injury = pick(list, rng).to_string();
+        // 85% leves, 12,5% médias, 2% graves e 0,5% muito graves
+        let (injury, days) = draw_injury([0.85, 0.975, 0.995], 21, rng);
         let until = date::add_days(today, days)?;
         let s = self.state_mut(id);
         if s.injury.is_some() {
@@ -346,16 +357,8 @@ impl Squads {
                 }
             }
             for &id in &side.injured {
-                let roll = uniform(rng);
-                let (list, min, max): (&[&str], i32, i32) = if roll < 0.70 {
-                    (&LIGHT, 3, 14)
-                } else if roll < 0.95 {
-                    (&MEDIUM, 15, 45)
-                } else {
-                    (&SERIOUS, 46, 120)
-                };
-                let days = min + (uniform(rng) * (max - min + 1) as f64) as i32;
-                let injury = pick(list, rng).to_string();
+                // 70% leves, 24% médias, 5% graves e 1% muito graves (cruzado, Aquiles)
+                let (injury, days) = draw_injury([0.70, 0.94, 0.99], 14, rng);
                 let s = self.state_mut(id);
                 s.injury = Some(injury.clone());
                 s.injury_until = date::add_days(today, days);

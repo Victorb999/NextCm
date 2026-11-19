@@ -784,6 +784,7 @@ impl Game {
             *next_id += 1;
         }
         if self.kind_of(self.club_id)? == kind {
+            self.archive_news()?;
             self.board_new_season(fresh, next_id)?;
             self.numbers_news(fresh, next_id)?;
         }
