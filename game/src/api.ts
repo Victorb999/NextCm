@@ -36,6 +36,7 @@ import type { PressView } from './bindings/PressView'
 import type { JobsView } from './bindings/JobsView'
 import type { NewsLink } from './bindings/NewsLink'
 import type { NewsCard } from './bindings/NewsCard'
+import type { NewsSubs } from './bindings/NewsSubs'
 import type { ClubFinances } from './bindings/ClubFinances'
 import type { ClubListItem } from './bindings/ClubListItem'
 import type { ClubProfile } from './bindings/ClubProfile'
@@ -239,6 +240,8 @@ export const api = {
   newsLinks: (id: number) => call<NewsLink[]>('news_links', { id }),
   /** O quadro ao lado da notícia (a pessoa ou o clube de que fala). */
   newsCard: (id: number) => call<NewsCard | null>('news_card', { id }),
+  newsSubs: () => call<NewsSubs>('news_subs'),
+  setNewsSub: (competitionId: number, topic: string, on: boolean) => call<null>('set_news_sub', { competitionId, topic, on }),
   /** Adicionar (true) ou Retirar da Lista Preferencial. */
   setShortlist: (id: number, on: boolean) => call<null>('set_shortlist', { id, on }),
   /** Uma questão à Liga; devolve a resposta. */

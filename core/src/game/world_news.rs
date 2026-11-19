@@ -1,13 +1,13 @@
-//! As notícias do resto do mundo, como no CM: as lesões graves das ligas escolhidas, os
-//! resultados que chamam a atenção nas competições do treinador e o que acontece aos jogadores
-//! da Lista Preferencial (lesões, castigos, transferências). Também as lesões fora dos jogos
-//! nos plantéis da IA (as do treinador vêm do treino, em `training.rs`).
+//! As notícias do resto do mundo, como no CM, conforme as assinaturas (`news_subs.rs`): as
+//! lesões graves das ligas escolhidas, os resultados que chamam a atenção e as lesões e os
+//! castigos dos jogadores da Lista Preferencial. Também as lesões fora dos jogos nos plantéis
+//! da IA (as do treinador vêm do treino, em `training.rs`).
 
 use std::collections::{HashMap, HashSet};
 
 use rusqlite::{OptionalExtension, params};
 
-use super::market::money_text;
+use super::news_subs::{INJURIES, RESULTS, SHORTLIST};
 use super::{Game, NewsItem, friendlies, internationals};
 use crate::Result;
 use crate::engine::uniform;
@@ -48,17 +48,22 @@ impl Game {
         if club == self.club_id {
             return Ok(None);
         }
-        let listed = self.world.conn.query_row("SELECT 1 FROM shortlist WHERE person_id = ?", [player], |_| Ok(())).optional()?.is_some();
-        let notable = days >= SERIOUS_DAYS && {
-            let rep: i32 = self
-                .world
-                .conn
-                .query_row("SELECT COALESCE(current_reputation, 0) FROM players WHERE person_id = ?", [player], |r| r.get(0))
-                .optional()?
-                .unwrap_or(0);
-            rep >= STAR_REP
-                || (rep >= LEAGUE_REP && self.division_of(club)?.is_some_and(|d| Some(d) == self.division_of(self.club_id).ok().flatten()))
-        };
+        let listed = self.shortlist_sub()? && self.in_shortlist(player)?;
+        // As lesões graves das ligas assinadas: as estrelas e, na liga do treinador, os bons
+        let division = self.division_of(club)?;
+        let notable = days >= SERIOUS_DAYS
+            && match division {
+                Some(d) if self.league_sub(d, INJURIES)? => {
+                    let rep: i32 = self
+                        .world
+                        .conn
+                        .query_row("SELECT COALESCE(current_reputation, 0) FROM players WHERE person_id = ?", [player], |r| r.get(0))
+                        .optional()?
+                        .unwrap_or(0);
+                    rep >= STAR_REP || (rep >= LEAGUE_REP && division == self.division_of(self.club_id)?)
+                }
+                _ => false,
+            };
         if !listed && !notable {
             return Ok(None);
         }
@@ -74,21 +79,25 @@ impl Game {
         if listed {
             body += &format!("\n\n{name} está na sua Lista Preferencial.");
         }
-        Ok(Some(self.news_item(id, "injury", title, body)))
+        let mut n = self.news_item(id, "injury", title, body);
+        n.quiet = !((notable && self.news_stops(INJURIES)?) || (listed && self.news_stops(SHORTLIST)?));
+        Ok(Some(n))
     }
 
     /// Lesões e castigos dos jogos de hoje fora do clube do treinador que são notícia.
     pub(super) fn world_event_news(&self, id: i32, event: &Event, shortlist: &HashSet<i32>) -> Result<Option<NewsItem>> {
         match event {
             Event::Injured { player, club, injury, days } => self.world_injury_news(id, *player, *club, injury, *days, true),
-            Event::Suspended { player, club, red } if *club != self.club_id && shortlist.contains(player) => {
+            Event::Suspended { player, club, red } if *club != self.club_id && shortlist.contains(player) && self.shortlist_sub()? => {
                 let name = self.person_name(*player)?;
                 let why = if *red { "foi expulso" } else { "levou o terceiro cartão amarelo" };
                 let body = format!(
                     "{name} ({}) {why} e cumpre um jogo de suspensão.\n\n{name} está na sua Lista Preferencial.",
                     self.club(*club).short_name
                 );
-                Ok(Some(self.news_item(id, "injury", format!("{name} suspenso"), body)))
+                let mut n = self.news_item(id, "injury", format!("{name} suspenso"), body);
+                n.quiet = !self.news_stops(SHORTLIST)?;
+                Ok(Some(n))
             }
             _ => Ok(None),
         }
@@ -142,16 +151,21 @@ impl Game {
             .collect()
     }
 
-    /// Os líderes das competições do treinador antes dos jogos de hoje.
-    pub(super) fn leaders(&self) -> HashMap<i32, i32> {
+    /// Os líderes das ligas com os resultados assinados antes dos jogos de hoje.
+    pub(super) fn leaders(&self) -> Result<HashMap<i32, i32>> {
         if self.sacked() {
-            return HashMap::new();
+            return Ok(HashMap::new());
         }
-        self.own_competitions().into_iter().filter_map(|c| self.table(c).first().filter(|r| r.played > 0).map(|r| (c, r.club.id))).collect()
+        Ok(self
+            .subscribed(RESULTS)?
+            .into_iter()
+            .filter(|&c| crate::regulation::get(c).is_some_and(|r| !r.is_cup()))
+            .filter_map(|c| self.table(c).first().filter(|r| r.played > 0).map(|r| (c, r.club.id)))
+            .collect())
     }
 
-    /// Os resultados de hoje que chamam a atenção nas competições do treinador (sem o jogo
-    /// dele): o líder derrotado, a zebra e a goleada. No máximo [`MAX_HEADLINES`].
+    /// Os resultados de hoje que chamam a atenção nas competições assinadas (sem o jogo do
+    /// treinador): o líder derrotado, a zebra e a goleada. No máximo [`MAX_HEADLINES`].
     pub(super) fn result_headlines(
         &self,
         played: &[usize],
@@ -162,7 +176,8 @@ impl Game {
         if self.sacked() {
             return Ok(());
         }
-        let mine = self.own_competitions();
+        let mine = self.subscribed(RESULTS)?;
+        let quiet = !self.news_stops(RESULTS)?;
         let rep = |club: i32| -> i32 {
             self.world.conn.query_row("SELECT COALESCE(reputation, 0) FROM clubs WHERE id = ?", [club], |r| r.get(0)).unwrap_or(0)
         };
@@ -205,40 +220,9 @@ impl Game {
         }
         found.sort_by_key(|f| f.0);
         for (_, title, body) in found.into_iter().take(MAX_HEADLINES) {
-            fresh.push(self.news_item(*next_id, "competition", title, body));
-            *next_id += 1;
-        }
-        Ok(())
-    }
-
-    /// Os jogadores da Lista Preferencial que mudaram de clube hoje (os negócios do treinador
-    /// já têm as notícias deles).
-    pub(super) fn shortlist_moves(&self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
-        let rows: Vec<(i32, Option<i32>, Option<i32>, i64, String)> = self
-            .world
-            .conn
-            .prepare_cached(
-                "SELECT t.person_id, t.from_club, t.to_club, t.fee, t.kind FROM transfers t JOIN shortlist s ON s.person_id = t.person_id
-                 WHERE t.date = ?1 AND COALESCE(t.to_club, -1) <> ?2 AND COALESCE(t.from_club, -1) <> ?2 ORDER BY t.id",
-            )?
-            .query_map(params![self.date, self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
-            .collect::<rusqlite::Result<_>>()?;
-        for (person, from, to, fee, kind) in rows {
-            let name = self.person_name(person)?;
-            let from = from.map(|c| self.club(c).short_name);
-            let to = to.map(|c| self.club(c).short_name);
-            let (title, what) = match (kind.as_str(), &from, &to) {
-                ("loan", Some(f), Some(t)) => (format!("{name} emprestado ao {t}"), format!("{name} foi emprestado pelo {f} ao {t}.")),
-                ("return", _, Some(t)) => (format!("{name} volta ao {t}"), format!("{name} acabou o empréstimo e voltou ao {t}.")),
-                ("release", Some(f), _) => (format!("{name} dispensado"), format!("{name} foi dispensado pelo {f} e está sem clube.")),
-                ("free", _, Some(t)) => (format!("{name} assina com o {t}"), format!("{name} assinou com o {t} sem custos.")),
-                (_, Some(f), Some(t)) => {
-                    (format!("{name} vai para o {t}"), format!("{name} trocou o {f} pelo {t} por {}.", money_text(fee)))
-                }
-                _ => continue,
-            };
-            let body = format!("{what}\n\n{name} está na sua Lista Preferencial.");
-            fresh.push(self.news_item(*next_id, "transfer", title, body));
+            let mut n = self.news_item(*next_id, "competition", title, body);
+            n.quiet = quiet;
+            fresh.push(n);
             *next_id += 1;
         }
         Ok(())

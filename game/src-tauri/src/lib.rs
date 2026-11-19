@@ -27,7 +27,7 @@ use nextcm_core::{CareerClub, ContinueStep, HonoursBoard, ManagerStats, Managers
 use nextcm_core::{DealTerms, LoanTerms};
 use nextcm_core::{EditorClub, EditorHit, EditorPlayer, EditorProfileView};
 use nextcm_core::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
-use nextcm_core::{NewsCard, NewsLink};
+use nextcm_core::{NewsCard, NewsLink, NewsSubs};
 use nextcm_core::{TalkLine, TalkReaction, TalkView};
 use tauri::{Manager, State};
 
@@ -141,6 +141,8 @@ session_command!(jobs_view(nation: Option<i32>) -> JobsView);
 session_command!(apply_job(id: i32) -> String);
 session_command!(news_links(id: i32) -> Vec<NewsLink>);
 session_command!(news_card(id: i32) -> Option<NewsCard>);
+session_command!(news_subs() -> NewsSubs);
+session_command!(set_news_sub(competition_id: i32, topic: String, on: bool) -> ());
 session_command!(set_shortlist(id: i32, on: bool) -> ());
 session_command!(league_request(key: String) -> String);
 session_command!(squad_numbers() -> SquadNumbers);
@@ -404,6 +406,8 @@ pub fn run() {
             apply_job,
             news_links,
             news_card,
+            news_subs,
+            set_news_sub,
             set_shortlist,
             league_request,
             squad_numbers,

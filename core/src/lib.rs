@@ -66,7 +66,7 @@ pub use game::{HolidayGame, HolidayPlan, HolidaySales, HolidayView};
 pub use game::{HonourAward, HonourRow, HonoursBoard, ManagerRow, ManagersTable};
 pub use game::{KeyMan, MatchAnalysis, MatchReview, Milestone};
 pub use game::{LeagueChoice, LeagueMode, LeagueNation, league_nations};
-pub use game::{NewsCard, NewsLink};
+pub use game::{NewsCard, NewsLink, NewsSubRow, NewsSubs};
 pub use game::{PressQuestion, PressView};
 pub use game::{ReserveLineup, ReserveSpot};
 pub use game::{StaffHireView, StaffJobOption};

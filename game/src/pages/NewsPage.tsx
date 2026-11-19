@@ -6,6 +6,7 @@ import type { NewsCard } from '../bindings/NewsCard'
 import type { NewsLink } from '../bindings/NewsLink'
 import LinkedText from '../components/LinkedText'
 import NewsCardBox from '../components/NewsCardBox'
+import NewsSubsDialog from '../components/NewsSubsDialog'
 import type { FriendlyInvite } from '../bindings/FriendlyInvite'
 import type { NewsItem } from '../bindings/NewsItem'
 import type { OfferView } from '../bindings/OfferView'
@@ -121,6 +122,7 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
   const [tab, setTab] = useState('all')
   // Ao voltar (de um nome clicado numa notícia), abre na que estava aberta
   const [selected, setSelected] = useState<number | null>(id ?? null)
+  const [subsOpen, setSubsOpen] = useState(false)
   // Onde os botões da proposta da mensagem aparecem (na barra da lista)
 
   // Recarrega quando o dia avança ou uma notícia é lida; ao abrir, fixa a primeira por ler
@@ -199,7 +201,8 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
   const unread = news.filter((n) => !n.read).length
   const count = (t: string) => news.filter((n) => inTab(n, t)).length
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
+      {subsOpen && <NewsSubsDialog onClose={() => setSubsOpen(false)} />}
       <ScreenHeader
         icon={<Newspaper size={22} />}
         eyebrow={game.info?.managerName}
@@ -216,6 +219,9 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
           title="Caixa de Mensagens"
           right={
             <span className="flex items-center gap-1.5">
+              <button className="cm-purple h-6 w-32" onClick={() => setSubsOpen(true)}>
+                Assinaturas
+              </button>
               <button className="cm-purple h-6 w-32" disabled={!shown.some((n) => !n.read && n.id !== current?.id)} onClick={readNext}>
                 Ler Próxima
               </button>

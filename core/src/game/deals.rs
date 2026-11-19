@@ -1785,6 +1785,7 @@ impl Game {
             link: None,
             awaiting: false,
             part: self.part,
+            quiet: false,
         });
         *next_id += 1;
     }

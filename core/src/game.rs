@@ -53,6 +53,7 @@ mod match_reports;
 mod negotiation;
 mod new_game;
 mod news_links;
+mod news_subs;
 mod numbers;
 mod offer_comments;
 mod open_contracts;
@@ -118,6 +119,7 @@ pub(crate) use negotiation::MAX_SELL_ON;
 pub use negotiation::{DealTerms, LoanTerms};
 pub use new_game::{ClubPreview, club_preview};
 pub use news_links::{NewsCard, NewsLink};
+pub use news_subs::{NewsSubRow, NewsSubs};
 pub use numbers::{NumberAssign, NumberEntry, SquadNumbers};
 pub use personal_info::PersonalInfo;
 pub use player_record::MatchSheet;
@@ -192,7 +194,7 @@ pub use training::{AreaStrength, CoachAreas, TrainingPlan, TrainingView};
 /// 76: o relatório completo do olheiro (`scout_cards`), na aba Relatórios do perfil.
 /// 77: a prorrogação nos mata-matas (`fixtures.extra_time`).
 /// 78: a reputação de partida dos clubes (`clubs.base_reputation`); a de hoje muda no fim da temporada.
-pub const SAVE_VERSION: i32 = 78;
+pub const SAVE_VERSION: i32 = 79;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -646,6 +648,10 @@ pub struct NewsItem {
     pub awaiting: bool,
     /// A parte do dia em que chegou ([`MORNING`], [`AFTERNOON`], [`NIGHT`]).
     pub part: i32,
+    /// Não pára o Continuar Jogo (assinaturas, `news_subs.rs`); só vale no dia em que chega.
+    #[serde(skip)]
+    #[ts(skip)]
+    pub quiet: bool,
 }
 
 /// O que a coluna esquerda e o menu do treinador precisam.
@@ -930,6 +936,7 @@ impl Game {
             tx.execute_batch(scout_card::SCOUT_CARDS_SCHEMA)?;
             tx.execute_batch(club_reputation::BASE_REP_SCHEMA)?;
             tx.execute_batch(board::SHIFT_SCHEMA)?;
+            tx.execute_batch(news_subs::NEWS_SUBS_SCHEMA)?;
             // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
             let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
                 .prepare("SELECT id, cash, COALESCE(reputation, 0), division_id FROM clubs WHERE cash > 0")?
@@ -1567,6 +1574,12 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 78", [])?;
             version = 78;
         }
+        // Save 79: as assinaturas das notícias
+        if version == 78 {
+            world.conn.execute_batch(news_subs::NEWS_SUBS_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 79", [])?;
+            version = 79;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo salvo numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1596,6 +1609,7 @@ impl Game {
                     link: r.get(7)?,
                     awaiting: false,
                     part: r.get(8)?,
+                    quiet: false,
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -2027,8 +2041,6 @@ impl Game {
         self.setup_day(fresh, next_id)?;
         // Amigáveis: os que chocam com jogos oficiais saem; os convites dos outros clubes
         self.friendlies_day(fresh, next_id)?;
-        // Os jogadores da Lista Preferencial que mudaram de clube hoje
-        self.shortlist_moves(fresh, next_id)?;
         // Dia 1: o relatório do adjunto sobre as reservas (depois da evolução do mês)
         self.reserve_report(fresh, next_id)?;
         // As reservas jogam na véspera do jogo do campeonato
@@ -2220,7 +2232,7 @@ impl Game {
         let mut next_id = self.news.iter().chain(&fresh).map(|n| n.id).max().unwrap_or(0) + 1;
         let date = self.date.clone();
         // Para as notícias do mundo: os líderes antes dos jogos e a Lista Preferencial
-        let leaders = self.leaders();
+        let leaders = self.leaders()?;
         let shortlist = self.shortlist_ids()?;
         let mut internationals_played: Vec<String> = Vec::new();
         for (i, live) in &mut day.games {
@@ -2400,8 +2412,8 @@ impl Game {
     pub fn advance_step(&mut self, idle: i32) -> Result<(Vec<NewsItem>, bool)> {
         let news = self.advance_part()?;
         // Qualquer notícia pára o Continuar Jogo, como no CM (as Transferências do dia também);
-        // só os resultados das reservas não (jogam 2 dias antes de cada jogo do campeonato)
-        let quiet = |n: &NewsItem| n.link.as_deref().is_some_and(|l| l.starts_with("sheet:"));
+        // só os resultados das reservas e os temas que o treinador tirou (assinaturas) não
+        let quiet = |n: &NewsItem| n.quiet || n.link.as_deref().is_some_and(|l| l.starts_with("sheet:"));
         if news.iter().any(|n| !quiet(n)) || self.live.is_some() {
             return Ok((news, true));
         }
@@ -2634,6 +2646,7 @@ impl Game {
             link: None,
             awaiting: false,
             part: self.part,
+            quiet: false,
         }
     }
 
@@ -2949,6 +2962,7 @@ impl Game {
             link: None,
             awaiting: false,
             part: self.part,
+            quiet: false,
         }
     }
 
@@ -3022,6 +3036,7 @@ impl Game {
             link: None,
             awaiting: false,
             part: self.part,
+            quiet: false,
         }))
     }
 
@@ -3074,6 +3089,7 @@ impl Game {
             link: None,
             awaiting: false,
             part: self.part,
+            quiet: false,
         })
     }
 
@@ -3713,6 +3729,7 @@ fn welcome_news(world: &World, club: &ClubRef, manager: &str, date: &str) -> Res
         link: None,
         awaiting: false,
         part: MORNING,
+        quiet: false,
     })
 }
 

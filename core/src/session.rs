@@ -28,7 +28,7 @@ use crate::tactic_file::{self, SavedFile};
 use crate::{AreaStrength, AwardLine, CoachAreas, ReserveLineup, TrainingPlan, TrainingView};
 use crate::{DealTerms, LoanTerms};
 use crate::{FriendlyClub, FriendlyDay, FriendlyGame, FriendlyInvite, TourNation};
-use crate::{NewsCard, NewsLink};
+use crate::{NewsCard, NewsLink, NewsSubs};
 use crate::{TalkLine, TalkReaction, TalkView};
 
 /// Um dia do Continuar Jogo (comando `continue_step`).
@@ -882,6 +882,14 @@ impl Session {
     /// O Calendário das reservas (só do clube do treinador; sem jogo, vazio).
     pub fn reserve_fixtures(&self, id: i32) -> Result<Vec<Fixture>> {
         Ok(self.game.as_ref().map(|g| g.reserve_fixtures(id)).transpose()?.unwrap_or_default())
+    }
+
+    pub fn news_subs(&self) -> Result<NewsSubs> {
+        self.game()?.news_subs()
+    }
+
+    pub fn set_news_sub(&mut self, competition_id: i32, topic: String, on: bool) -> Result<()> {
+        self.game_mut()?.set_news_sub(competition_id, &topic, on)
     }
 
     pub fn news_links(&self, id: i32) -> Result<Vec<NewsLink>> {

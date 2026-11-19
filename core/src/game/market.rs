@@ -13,6 +13,7 @@ use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use ts_rs::TS;
 
+use super::news_subs::{SHORTLIST, TRANSFERS};
 use super::{Game, NewsItem, age_on, cm_date};
 use crate::engine::uniform;
 use crate::finance::{self, market_value, wage_demand};
@@ -1483,7 +1484,7 @@ impl Game {
 
     /// Uma notícia com as transferências do dia que interessam ao treinador: as do seu clube,
     /// dos rivais e dos clubes da liga do mesmo tamanho ou maiores, as de jogadores por quem
-    /// fez propostas e as maiores do mundo (até 3, de €20M ou mais). O resto fica só nas abas
+    /// fez propostas e as maiores das ligas assinadas (até 3, de €20M ou mais). O resto fica só nas abas
     /// Transferências dos clubes.
     fn transfer_news(&self, deals: &[TransferItem], fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let (division, my_rep, rivals): (Option<i32>, i32, [Option<i32>; 3]) = self.world.conn.query_row(
@@ -1502,23 +1503,47 @@ impl Game {
         };
         ours.extend(rivals.into_iter().flatten());
         ours.insert(self.club_id);
+        // Assinaturas: as transferências da liga do treinador e das outras ligas, a Lista Preferencial
+        let local_on = match division {
+            Some(d) => self.league_sub(d, TRANSFERS)?,
+            None => true,
+        };
+        let shortlist_on = self.shortlist_sub()?;
         let wanted: HashSet<i32> = self
             .world
             .conn
             // As propostas do treinador, a Lista Preferencial e as listas dos olheiros
             .prepare_cached(
                 "SELECT person_id FROM offers WHERE buyer = ?1 AND kind <> 'request'
-                 UNION SELECT person_id FROM shortlist UNION SELECT person_id FROM scout_finds WHERE stars >= 4",
+                 UNION SELECT person_id FROM shortlist WHERE ?2 UNION SELECT person_id FROM scout_finds WHERE stars >= 4",
             )?
-            .query_map([self.club_id], |r| r.get(0))?
+            .query_map(params![self.club_id, shortlist_on], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
-        let mut biggest: Vec<&TransferItem> = deals.iter().filter(|d| d.fee >= WORLD_NEWS_FEE).collect();
+        let mut leagues: HashMap<i32, bool> = HashMap::new();
+        let mut subscribed = |c: &Option<ClubRef>| -> Result<bool> {
+            let Some(c) = c else { return Ok(false) };
+            if let Some(&on) = leagues.get(&c.id) {
+                return Ok(on);
+            }
+            let on = match self.division_of(c.id)? {
+                Some(d) => self.league_sub(d, TRANSFERS)?,
+                None => false,
+            };
+            leagues.insert(c.id, on);
+            Ok(on)
+        };
+        let mut biggest: Vec<&TransferItem> = Vec::new();
+        for d in deals.iter().filter(|d| d.fee >= WORLD_NEWS_FEE) {
+            if subscribed(&d.from)? || subscribed(&d.to)? {
+                biggest.push(d);
+            }
+        }
         biggest.sort_by_key(|d| (std::cmp::Reverse(d.fee), d.person_id));
         let biggest: HashSet<i32> = biggest.iter().take(3).map(|d| d.person_id).collect();
         let in_ours = |c: &Option<ClubRef>| c.as_ref().is_some_and(|c| ours.contains(&c.id));
         let mut lines: Vec<String> = Vec::new();
         for d in deals {
-            let local = (in_ours(&d.from) || in_ours(&d.to)) && d.kind != "release" && d.kind != "return";
+            let local = local_on && (in_ours(&d.from) || in_ours(&d.to)) && d.kind != "release" && d.kind != "return";
             if !(local || biggest.contains(&d.person_id) || wanted.contains(&d.person_id)) {
                 continue;
             }
@@ -1533,8 +1558,13 @@ impl Game {
         }
         if !lines.is_empty() {
             let body = format!("Transferências de {}:\n\n{}", cm_date(&self.date), lines.join("\n"));
-            fresh.push(self.news_item(*next_id, "transfer", "Transferências do dia".into(), body));
+            let mut n = self.news_item(*next_id, "transfer", "Transferências do dia".into(), body);
+            n.quiet = !self.news_stops(TRANSFERS)?;
+            fresh.push(n);
             *next_id += 1;
+        }
+        if !shortlist_on {
+            return Ok(());
         }
         self.shortlist_news(deals, fresh, next_id)
     }
@@ -1580,7 +1610,9 @@ impl Game {
                     format!("{name}, da sua Lista Preferencial, foi vendido pelo {from} ao {to} por {}.", money_text(d.fee)),
                 ),
             };
-            fresh.push(self.news_item(*next_id, "message", title, body));
+            let mut n = self.news_item(*next_id, "message", title, body);
+            n.quiet = !self.news_stops(SHORTLIST)?;
+            fresh.push(n);
             *next_id += 1;
         }
         Ok(())
