@@ -179,7 +179,7 @@ function Proposal({ terms, onRole }: { terms: ContractTerms; onRole: () => void 
               {terms.renewal
                 ? `Contrato atual: ${wageText(terms.currentWage, true)} até ${monthYear(terms.currentExpires ?? '')}.`
                 : terms.precontract
-                  ? `Pré-contrato: o contrato dele acaba a ${monthYear(terms.currentExpires ?? '')} e chega livre nessa data.`
+                  ? `Pré-contrato: o contrato dele acaba em ${monthYear(terms.currentExpires ?? '')} e chega livre nessa data.`
                   : terms.fee
                     ? `Transferência acordada: ${money(terms.fee)}.`
                     : 'Jogador livre.'}

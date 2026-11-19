@@ -139,7 +139,7 @@ fn raw(world: &World, id: i32) -> Result<(Attributes, i32)> {
                 Ok((out, r.get(0)?))
             },
         )
-        .map_err(|_| Error::Invalid("Só se edita aqui o staff (não jogadores).".into()))
+        .map_err(|_| Error::Invalid("Aqui você edita só o staff, não os jogadores.".into()))
 }
 
 fn build(world: &World, id: i32) -> Result<EditorStaff> {

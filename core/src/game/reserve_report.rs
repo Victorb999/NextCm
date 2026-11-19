@@ -183,9 +183,9 @@ impl Game {
             let played = minutes.get(&id).copied().unwrap_or(0);
             if team_games >= MIN_TEAM_GAMES && played < FEW_MINUTES {
                 let line = if played == 0 {
-                    format!("{name} não jogou no último mês: uns jogos pelas reservas lhe davam ritmo.")
+                    format!("{name} não jogou no último mês: alguns jogos pelas reservas dariam ritmo a ele.")
                 } else {
-                    format!("{name} só jogou {played} minutos no último mês: uns jogos pelas reservas lhe davam ritmo.")
+                    format!("{name} só jogou {played} minutos no último mês: alguns jogos pelas reservas dariam ritmo a ele.")
                 };
                 few.push((played, line));
                 continue;
@@ -197,7 +197,7 @@ impl Game {
                     poor.push((
                         avg,
                         format!(
-                            "{name} está em má forma (nota média {} nos últimos {} jogos): jogar pelas reservas o ajudava a recuperar a confiança.",
+                            "{name} está em má forma (nota média {} nos últimos {} jogos): jogar pelas reservas ajudaria a recuperar a confiança.",
                             decimal(avg),
                             form.len()
                         ),

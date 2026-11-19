@@ -25,13 +25,13 @@ pub const REASONS: [(&str, &str); 14] = [
     ("starter", "Sente que deve ser titular"),
     ("contract", "Quer negociar um novo contrato"),
     ("bigger", "Quer mudar para um clube maior"),
-    ("blocked", "Frustrado por não o deixarem sair"),
-    ("homesick", "Tem saudades de casa"),
+    ("blocked", "Frustrado por não ser liberado"),
+    ("homesick", "Está com saudade de casa"),
     ("unfair", "Sente que foi tratado injustamente"),
     ("manager", "Perdeu a confiança no treinador"),
     ("training", "Infeliz com o treino"),
-    ("future", "Deseja ver o seu futuro esclarecido"),
-    ("vented", "Desabafou os seus sentimentos publicamente"),
+    ("future", "Quer uma definição sobre o futuro"),
+    ("vented", "Desabafou publicamente"),
     ("subbed", "Descontente por ter sido substituído"),
     ("position", "Quer jogar numa posição diferente"),
     ("teammate", "Não se dá com um colega de time"),
@@ -305,7 +305,7 @@ impl Game {
                 *next_id,
                 "press",
                 format!("{name} desabafa na imprensa"),
-                format!("{name}, farto de esperar, deu a sua opinião aos jornais: a situação dele no clube está por resolver."),
+                format!("{name}, cansado de esperar, desabafou com os jornais: a situação dele no clube continua indefinida."),
             ));
             *next_id += 1;
             self.change_fans(-1)?;
@@ -552,8 +552,8 @@ impl Game {
                         "press",
                         format!("{name} quer saber o seu futuro"),
                         format!(
-                            "{name}, com {} anos e ainda nas reservas, deseja ver o seu futuro esclarecido. Promova-o ao \
-                             elenco principal, empreste-o ou ponha-o na lista de transferências.",
+                            "{name}, com {} anos e ainda nas reservas, quer uma definição sobre o futuro. Promova o jogador ao \
+                             elenco principal, empreste ou coloque na lista de transferências.",
                             p.age
                         ),
                     ));
@@ -710,8 +710,8 @@ impl Game {
                 "press",
                 format!("{name} ausente sem permissão"),
                 format!(
-                    "{name} não apareceu no treino e não deu notícias: terá voltado para o seu país, com saudades de casa. \
-                     Deverá voltar por volta de {}. Para o evitar, pode lhe dar uma folga (Ação → Dar Folga).",
+                    "{name} não apareceu no treino e não deu notícias: parece que voltou para o seu país, com saudade de casa. \
+                     Deve voltar por volta de {}. Para evitar isso, você pode dar uma folga a ele (Ação → Dar Folga).",
                     super::cm_date(&until)
                 ),
             ));
@@ -755,7 +755,7 @@ impl Game {
                 "deal",
                 format!("{name} pede para sair"),
                 format!(
-                    "{name} pede para ser posto na lista de transferências ({}). Responda até {}.",
+                    "{name} pede para ser colocado na lista de transferências ({}). Responda até {}.",
                     reason_text(reason).to_lowercase(),
                     super::cm_date(&until)
                 ),
@@ -879,7 +879,7 @@ impl Game {
             return Err(Error::Invalid("Só para os jogadores do seu elenco.".into()));
         }
         if !self.can_give_leave(person)? {
-            return Err(Error::Invalid("Só se dá folga a quem tem saudades de casa.".into()));
+            return Err(Error::Invalid("Só é possível dar folga a quem está com saudade de casa.".into()));
         }
         let until = date::add_days(&self.date, LEAVE_DAYS).unwrap_or_default();
         self.world.conn.execute(
@@ -1077,7 +1077,7 @@ mod tests {
         monday(&mut g, "2025-07-07");
         assert!(g.unhappy_reasons(young).unwrap().is_empty());
         let future = g.transfer_view(young).unwrap().future;
-        assert!(future.iter().any(|f| f == "Contente com situação no clube"), "{future:?}");
+        assert!(future.iter().any(|f| f == "Contente com a situação no clube"), "{future:?}");
 
         // Com 23 e a função "apoio à primeira equipa", já não é um "jovem com valor": quer ver o
         // futuro esclarecido; com a função "jovem com valor" (ou sem função), aceita as reservas
@@ -1125,7 +1125,7 @@ mod tests {
         assert!(g.unhappy_reasons(foreign).unwrap().contains(&reason_text("homesick").to_string()));
         assert!(g.can_give_leave(foreign).unwrap());
         let future = g.transfer_view(foreign).unwrap().future;
-        assert!(future.iter().any(|f| f == "Está tendo dificuldades em adaptar-se ao estilo de vida Brasileiro"), "{future:?}");
+        assert!(future.iter().any(|f| f == "Está tendo dificuldade para se adaptar ao estilo de vida Brasileiro"), "{future:?}");
         let mut awol = false;
         for d in ["2025-08-25", "2025-09-01", "2025-09-08", "2025-09-15", "2025-09-22", "2025-09-29", "2025-10-06", "2025-10-13"] {
             monday(&mut g, d);

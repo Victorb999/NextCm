@@ -106,9 +106,9 @@ impl Game {
         let (injured, busy) = self.congestion();
         let postpone =
             if let Some(until) = last.and_then(|d| date::add_days(&d, POSTPONE_COOLDOWN)).filter(|u| u.as_str() > self.date.as_str()) {
-                Some(format!("A Liga já recusou um pedido há pouco: volte a pedir depois de {}.", cm_date(&until)))
+                Some(format!("A Liga já recusou um pedido há pouco: tente de novo depois de {}.", cm_date(&until)))
             } else if self.postponable().is_none() {
-                Some("Não tem nenhum jogo do campeonato nos próximos dias.".to_string())
+                Some("Você não tem nenhum jogo do campeonato nos próximos dias.".to_string())
             } else if injured < POSTPONE_INJURED && busy < POSTPONE_BUSY {
                 Some("A Liga só adia jogos com muitos lesionados ou jogos seguidos.".to_string())
             } else {
@@ -149,10 +149,10 @@ impl Game {
                     if let Some(k) = self.squads.states.entry(player).or_default().cards.get_mut(&competition) {
                         k.suspended = (k.suspended - 1).max(0);
                     }
-                    (true, format!("A Liga analisou o jogo e lhe deu razão: a suspensão de {name} foi anulado."))
+                    (true, format!("A Liga analisou o jogo e deu razão a você: a suspensão de {name} foi anulada."))
                 }
                 (0..=69, _) => {
-                    (false, "A Liga tomou nota da sua reclamação sobre a arbitragem, mas não vai tomar nenhuma medida.".to_string())
+                    (false, "A Liga registrou a sua reclamação sobre a arbitragem, mas não vai tomar nenhuma medida.".to_string())
                 }
                 _ => {
                     let fine = finance::round_money(FINE_SHARE * self.club_base(self.club_id)?).max(1_000);

@@ -98,7 +98,7 @@ function Options({
         </div>
         <OptionGroup title="Empregos">
           <OptionLine
-            label="Concorrer para lugar de técnico em clubes de maior reputação"
+            label="Se candidatar a vagas de técnico em clubes de maior reputação"
             on={plan.applyJobs}
             onToggle={() => set({ applyJobs: !plan.applyJobs })}
           />

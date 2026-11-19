@@ -74,7 +74,7 @@ const KEEPER_STRENGTHS: [(&str, &str); 4] = [
     ("reflexes", "tem grandes reflexos"),
     ("handling", "tem mãos seguras"),
     ("one_on_ones", "forte no um contra um"),
-    ("positioning", "sempre bem posicionado entre os postes"),
+    ("positioning", "sempre bem posicionado debaixo das traves"),
 ];
 const WEAKNESSES: [(&str, &str); 8] = [
     ("pace", "a velocidade"),
@@ -117,7 +117,7 @@ fn assistant_note(p: &PersonProfile) -> Option<String> {
         out.push_str(&format!(", joga sobretudo {side}"));
     }
     if !keeper && let Some((_, what)) = WEAKNESSES.iter().filter_map(|(k, w)| get(k).filter(|v| *v <= WEAK).map(|v| (v, *w))).min() {
-        out.push_str(&format!("; tem de melhorar {what}"));
+        out.push_str(&format!("; precisa melhorar {what}"));
     }
     out.push('.');
     Some(out)
@@ -283,7 +283,7 @@ impl Game {
         }
         let m = self.matches.iter().find(|m| m.id == fixture).ok_or_else(|| Error::NotFound(format!("jogo {fixture}")))?;
         if m.result.is_none() {
-            return Err(Error::Invalid("Este jogo ainda não se jogou.".into()));
+            return Err(Error::Invalid("Este jogo ainda não foi disputado.".into()));
         }
         type Row = (i32, i32, String, Option<i32>, f64, i32, i32, bool, Option<i32>, Option<i32>, i32, bool, f64);
         // Os jogos de selecções ficam em `intl_apps`, com a selecção no lugar do clube
@@ -732,7 +732,7 @@ impl Game {
     pub fn release_player(&mut self, person: i32) -> Result<String> {
         let club: Option<i32> = self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [person], |r| r.get(0))?;
         if club != Some(self.club_id) || self.loan_of(person)?.is_some() {
-            return Err(Error::Invalid("Só se dispensam jogadores do seu elenco.".into()));
+            return Err(Error::Invalid("Só é possível dispensar jogadores do seu elenco.".into()));
         }
         let cost = self.release_cost(person)?;
         let name = self.person_name(person)?;
@@ -745,7 +745,7 @@ impl Game {
         }
         self.squad_changed()?;
         let text = if cost > 0 {
-            format!("{name} foi dispensado. O clube lhe pagou {} de indenização pelo resto do contrato.", money_text(cost))
+            format!("{name} foi dispensado. O clube pagou a ele {} de indenização pelo resto do contrato.", money_text(cost))
         } else {
             format!("{name} foi dispensado.")
         };

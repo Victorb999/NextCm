@@ -152,7 +152,7 @@ impl Game {
             let recent =
                 self.last_request(key)?.and_then(|d| date::add_days(&d, cooldown)).filter(|until| until.as_str() > self.date.as_str());
             let reason = if let Some(until) = recent {
-                Some(format!("Já pediu isto há pouco: volte a pedir depois de {}.", cm_date(&until)))
+                Some(format!("Você pediu isso há pouco tempo: tente de novo depois de {}.", cm_date(&until)))
             } else {
                 match key {
                     "stadium" if works => Some("O estádio já está em obras.".into()),
@@ -160,8 +160,10 @@ impl Game {
                     "stadium" if cash <= 0 => Some("O clube não tem dinheiro para obras.".into()),
                     "youth" if youth >= YOUTH_MAX => Some("A diretoria já investiu tudo o que podia nas categorias de base.".into()),
                     "youth" if (cash as f64) < YOUTH_COST * base => Some("O clube não tem dinheiro para investir.".into()),
-                    "time" if confidence >= 50 => Some("A diretoria está contente com você: não precisa de mais tempo.".into()),
-                    "time" if grace.as_deref().is_some_and(|g| g > self.date.as_str()) => Some("Já tem mais tempo da diretoria.".into()),
+                    "time" if confidence >= 50 => Some("A diretoria está contente com você: você não precisa de mais tempo.".into()),
+                    "time" if grace.as_deref().is_some_and(|g| g > self.date.as_str()) => {
+                        Some("A diretoria já deu mais tempo a você.".into())
+                    }
                     _ => None,
                 }
             };
@@ -286,7 +288,7 @@ impl Game {
             }
             _ => {
                 if confidence < 20 {
-                    (false, "A diretoria recusou: já lhe deu tempo suficiente.".to_string())
+                    (false, "A diretoria recusou: você já teve tempo suficiente.".to_string())
                 } else {
                     let until = date::add_days(&self.date, GRACE_DAYS).unwrap_or_default();
                     let total: i32 = self.world.conn.query_row(
@@ -301,7 +303,7 @@ impl Game {
                     (
                         true,
                         format!(
-                            "A diretoria aceitou lhe dar mais tempo para reconstruir o elenco, até {}, e baixou o objetivo da temporada.",
+                            "A diretoria aceitou: você tem mais tempo para reconstruir o elenco, até {}, e o objetivo da temporada ficou mais baixo.",
                             cm_date(&until)
                         ),
                     )
@@ -339,7 +341,7 @@ impl Game {
                 continue;
             }
             let capacity: i32 = self.world.conn.query_row("SELECT capacity FROM stadiums WHERE id = ?", [stadium], |r| r.get(0))?;
-            let body = format!("As obras de ampliação acabaram: o estádio tem agora {capacity} lugares ({seats} novos).");
+            let body = format!("As obras de ampliação acabaram: agora o estádio tem {capacity} lugares ({seats} novos).");
             fresh.push(self.news_item(*next_id, "message", "Estádio ampliado".into(), body));
             *next_id += 1;
         }

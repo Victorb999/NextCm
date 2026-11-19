@@ -99,7 +99,7 @@ export default function TalkPanel({
                 </Choice>
               ))}
               {view.team && view.done && (
-                <span className="text-[13px] text-cm-magenta">Já falou ao time: agora só a quem ainda não ouviu.</span>
+                <span className="text-[13px] text-cm-magenta">Você já falou com o time: agora só com quem ainda não ouviu.</span>
               )}
             </div>
             <Panel

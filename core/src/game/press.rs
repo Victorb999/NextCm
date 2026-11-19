@@ -97,7 +97,7 @@ impl Game {
                     *next_id,
                     "press",
                     "Diretoria critica ausências".into(),
-                    "A Diretoria não gostou de ver o treinador faltar às conferências de imprensa antes dos jogos.".into(),
+                    "A Diretoria não gostou de ver o treinador faltando às entrevistas coletivas antes dos jogos.".into(),
                 );
                 fresh.push(n);
                 *next_id += 1;
@@ -161,13 +161,13 @@ impl Game {
                     &[
                         "Vitória por {score} sobre o {opp}. Satisfeito com a exibição?",
                         "{score} sobre o {opp}. Foi a melhor exibição do time na temporada?",
-                        "O time venceu o {opp} por {score}. O que mais o agradou?",
+                        "O time venceu o {opp} por {score}. O que mais te agradou?",
                     ],
                 ),
                 vec![
-                    Answer { squad: 1, fans: 1, ..answer("Merecemos ganhar, fomos melhores do princípio ao fim.") },
+                    Answer { squad: 1, fans: 1, ..answer("Merecemos ganhar, fomos melhores do começo ao fim.") },
                     answer("Foi só um jogo. Ainda não ganhamos nada."),
-                    Answer { fans: 2, board: -1, ..answer("Hoje calamos muitos críticos.") },
+                    Answer { fans: 2, board: -1, ..answer("Hoje calamos a boca de muita gente.") },
                     answer("Prefiro não falar do jogo."),
                 ],
             )
@@ -176,14 +176,14 @@ impl Game {
                 say(
                     &mut rng,
                     &[
-                        "Derrota por {score} com o {opp}. O que falhou?",
+                        "Derrota por {score} para o {opp}. O que deu errado?",
                         "O {opp} ganhou por {score}. Onde o jogo foi perdido?",
-                        "Uma derrota dura, {score} com o {opp}. Os torcedores merecem uma explicação?",
+                        "Uma derrota dura, {score} para o {opp}. Os torcedores merecem uma explicação?",
                     ],
                 ),
                 vec![
                     Answer { squad: 1, board: -1, ..answer("A responsabilidade é minha. Os jogadores deram tudo.") },
-                    Answer { squad: -2, board: 1, ..answer("Alguns jogadores não estiveram ao nível que exijo.") },
+                    Answer { squad: -2, board: 1, ..answer("Alguns jogadores não renderam o que eu cobro.") },
                     Answer { fans: 1, board: -1, ..answer("O árbitro decidiu o jogo.") },
                     answer("Vamos analisar com calma."),
                 ],
@@ -192,12 +192,12 @@ impl Game {
             (
                 say(
                     &mut rng,
-                    &["Empate a {score} com o {opp}. Um ponto ganho ou dois perdidos?", "{score} com o {opp}. O empate foi justo?"],
+                    &["Empate em {score} com o {opp}. Um ponto ganho ou dois perdidos?", "{score} com o {opp}. O empate foi justo?"],
                 ),
                 vec![
                     Answer { squad: 1, ..answer("Um bom ponto. O time mostrou caráter.") },
-                    Answer { squad: -1, board: 1, ..answer("Dois pontos perdidos. Tínhamos de ganhar.") },
-                    answer("Não há muito a dizer sobre o jogo."),
+                    Answer { squad: -1, board: 1, ..answer("Dois pontos perdidos. A gente tinha que ganhar.") },
+                    answer("Não tem muito o que falar do jogo."),
                 ],
             )
         };
@@ -220,12 +220,12 @@ impl Game {
         }
         if sent_off {
             questions.push(Question {
-                text: "Teve um jogador expulso. A arbitragem foi justa?".into(),
+                text: "Um jogador foi expulso. A arbitragem foi justa?".into(),
                 person: None,
                 answers: vec![
                     answer("Não comento as decisões do árbitro."),
                     Answer { fans: 1, board: -1, ..answer("Fomos claramente prejudicados.") },
-                    Answer { squad: -1, ..answer("O jogador tem de controlar os nervos.") },
+                    Answer { squad: -1, ..answer("O jogador tem que controlar os nervos.") },
                 ],
             });
         } else {
@@ -256,11 +256,14 @@ impl Game {
         let id = self.world.conn.last_insert_rowid();
         let (title, body) = if kind == "pre" {
             (
-                format!("Conferência antes do jogo com o {opp}"),
-                format!("Os jornalistas o esperam na conferência de imprensa antes do jogo com o {opp}. Pode ir ou mandar o auxiliar."),
+                format!("Entrevista coletiva antes do jogo com o {opp}"),
+                format!("Os jornalistas esperam você na entrevista coletiva antes do jogo com o {opp}. Você pode ir ou mandar o auxiliar."),
             )
         } else {
-            (format!("Conferência depois do jogo com o {opp}"), "Os jornalistas querem ouvir o treinador depois do jogo.".to_string())
+            (
+                format!("Entrevista coletiva depois do jogo com o {opp}"),
+                "Os jornalistas querem ouvir o treinador depois do jogo.".to_string(),
+            )
         };
         let mut n = self.news_item(*next_id, "press", title, body);
         n.link = Some(format!("press:{id}"));
@@ -307,19 +310,19 @@ impl Game {
             text: super::press_topics::pick(
                 rng,
                 &[
-                    "Como vê o jogo com o {opp}?",
-                    "O que espera do {opp} amanhã?",
-                    "O {opp} chega embalado. Como pretende pará-lo?",
-                    "Qual é o ponto forte do {opp} que mais o preocupa?",
+                    "Como você vê o jogo com o {opp}?",
+                    "O que você espera do {opp} amanhã?",
+                    "O {opp} chega embalado. Como parar esse time?",
+                    "Qual ponto forte do {opp} mais te preocupa?",
                 ],
             )
             .replace("{opp}", &name),
             person: None,
             answers: vec![
-                Answer { squad: 1, fans: 1, ..answer("Vamos ganhar. Somos melhores e vamos prová-lo.") },
-                answer(&format!("Será um jogo difícil. Temos de respeitar o {name}.")),
+                Answer { squad: 1, fans: 1, ..answer("Vamos ganhar. Somos melhores e vamos provar isso em campo.") },
+                answer(&format!("Vai ser um jogo difícil. Temos que respeitar o {name}.")),
                 answer("Prefiro não fazer previsões."),
-                Answer { squad: 1, fans: 2, board: -1, provoke: true, ..answer(&format!("O {name} não nos mete medo nenhum.")) },
+                Answer { squad: 1, fans: 2, board: -1, provoke: true, ..answer(&format!("O {name} não mete medo na gente.")) },
             ],
         })
     }
@@ -332,12 +335,12 @@ impl Game {
         }
         let name = self.club(opp).short_name;
         Ok(Some(Question {
-            text: format!("O que pensa do trabalho de {coach} no {name}?"),
+            text: format!("O que você acha do trabalho de {coach} no {name}?"),
             person: None,
             answers: vec![
                 answer(&format!("{coach} é um grande treinador. Temos muito respeito pelo {name}.")),
                 answer("Não comento o trabalho dos colegas."),
-                Answer { squad: 1, fans: 1, provoke: true, ..answer(&format!("Não percebo como {coach} ainda tem o lugar.")) },
+                Answer { squad: 1, fans: 1, provoke: true, ..answer(&format!("Não entendo como {coach} ainda não foi demitido.")) },
             ],
         }))
     }
@@ -375,22 +378,22 @@ impl Game {
         }
         Ok(Some(if wins <= 1 {
             Question {
-                text: format!("O time ganhou {wins} dos últimos {games} jogos. Está preocupado?"),
+                text: format!("O time ganhou {wins} dos últimos {games} jogos. Você está preocupado?"),
                 person: None,
                 answers: vec![
-                    Answer { squad: 1, board: 1, ..answer("Vamos dar a volta a isto. Confio nos meus jogadores.") },
-                    answer("Temos de trabalhar mais. Os resultados vão aparecer."),
-                    Answer { squad: -2, board: 1, ..answer("Os jogadores têm de fazer muito mais.") },
+                    Answer { squad: 1, board: 1, ..answer("Vamos virar essa situação. Confio nos meus jogadores.") },
+                    answer("Temos que trabalhar mais. Os resultados vão aparecer."),
+                    Answer { squad: -2, board: 1, ..answer("Os jogadores precisam fazer muito mais.") },
                     answer("Não vou falar disso."),
                 ],
             }
         } else {
             Question {
-                text: format!("O time ganhou {wins} dos últimos {games} jogos. O que explica a forma do time?"),
+                text: format!("O time ganhou {wins} dos últimos {games} jogos. O que explica essa boa fase?"),
                 person: None,
                 answers: vec![
                     Answer { squad: 1, ..answer("O trabalho dos jogadores. Estamos no caminho certo.") },
-                    answer("Ainda não ganhamos nada. Há muito a melhorar."),
+                    answer("Ainda não ganhamos nada. Tem muita coisa para melhorar."),
                     Answer { fans: 1, ..answer("Este time pode chegar muito longe.") },
                 ],
             }
@@ -406,21 +409,21 @@ impl Game {
         let name = self.person_name(person)?;
         Ok(Some(if best {
             Question {
-                text: format!("{name} tem estado em grande. Merece mais reconhecimento?"),
+                text: format!("{name} vive grande fase. Merece mais reconhecimento?"),
                 person: Some(person),
                 answers: vec![
-                    Answer { praise: Some(true), ..answer(&format!("{name} tem sido fantástico. Merece tudo o que lhe acontecer.")) },
-                    Answer { player: -1, ..answer("Ainda tem muito a provar.") },
+                    Answer { praise: Some(true), ..answer(&format!("{name} está jogando demais. Merece tudo de bom que vier.")) },
+                    Answer { player: -1, ..answer("Ele ainda tem muito a provar.") },
                     answer("Não falo de jogadores individualmente."),
                 ],
             }
         } else {
             Question {
-                text: format!("{name} tem estado abaixo do esperado. Continua contando com ele?"),
+                text: format!("{name} está abaixo do esperado. Você continua contando com ele?"),
                 person: Some(person),
                 answers: vec![
-                    Answer { praise: Some(true), ..answer(&format!("{name} tem a minha confiança total.")) },
-                    Answer { praise: Some(false), ..answer(&format!("{name} tem de fazer muito mais.")) },
+                    Answer { praise: Some(true), ..answer(&format!("{name} tem toda a minha confiança.")) },
+                    Answer { praise: Some(false), ..answer(&format!("{name} precisa fazer muito mais.")) },
                     answer("Não falo de jogadores individualmente."),
                 ],
             }
@@ -443,7 +446,7 @@ impl Game {
             let name = self.person_name(person)?;
             let buyer = self.club(buyer).short_name;
             return Ok(Some(Question {
-                text: format!("Fala-se do interesse do {buyer} em {name}. Vai vendê-lo?"),
+                text: format!("Dizem que o {buyer} quer {name}. Você vai vender?"),
                 person: Some(person),
                 answers: vec![
                     Answer { player: 1, fans: 1, ..answer(&format!("{name} não está à venda.")) },
@@ -455,10 +458,10 @@ impl Game {
         let confidence: i32 = self.world.conn.query_row("SELECT confidence FROM board WHERE id = 1", [], |r| r.get(0)).unwrap_or(50);
         if confidence < 40 {
             return Ok(Some(Question {
-                text: "Sente-se pressionado pela Diretoria?".into(),
+                text: "Você se sente pressionado pela Diretoria?".into(),
                 person: None,
                 answers: vec![
-                    Answer { board: 1, ..answer("Tenho a confiança da Diretoria e vou retribuí-la.") },
+                    Answer { board: 1, ..answer("Tenho a confiança da Diretoria e vou retribuir.") },
                     answer("Estou tranquilo. Só penso no próximo jogo."),
                     Answer { board: -2, fans: 1, ..answer("A Diretoria sabia o que estava fazendo quando me contratou.") },
                 ],
@@ -489,11 +492,11 @@ impl Game {
             .conn
             .query_row("SELECT kind, questions, status FROM press WHERE id = ?", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
             .optional()?
-            .ok_or_else(|| Error::Invalid("Conferência não encontrada.".into()))?;
+            .ok_or_else(|| Error::Invalid("Entrevista não encontrada.".into()))?;
         let questions: Vec<Question> = serde_json::from_str(&json).unwrap_or_default();
         Ok(PressView {
             id,
-            title: "Conferência de Imprensa".into(),
+            title: "Entrevista Coletiva".into(),
             intro: if kind == "pre" {
                 "Antes do jogo, os jornalistas querem saber:".into()
             } else {
@@ -515,9 +518,9 @@ impl Game {
             .conn
             .query_row("SELECT questions, status FROM press WHERE id = ?", [id], |r| Ok((r.get(0)?, r.get(1)?)))
             .optional()?
-            .ok_or_else(|| Error::Invalid("Conferência não encontrada.".into()))?;
+            .ok_or_else(|| Error::Invalid("Entrevista não encontrada.".into()))?;
         if status != "pending" {
-            return Err(Error::Invalid("Esta conferência já acabou.".into()));
+            return Err(Error::Invalid("Essa entrevista já acabou.".into()));
         }
         let questions: Vec<Question> = serde_json::from_str(&json).unwrap_or_default();
         if answers.len() != questions.len() {
@@ -532,7 +535,7 @@ impl Game {
         for (q, &i) in questions.iter().zip(answers) {
             let a = q.answers.get(i).ok_or_else(|| Error::Invalid("Resposta inválida.".into()))?;
             provoked |= a.provoke;
-            quotes.push(format!("«{}»", a.label.trim_end_matches('.')));
+            quotes.push(format!("\"{}\"", a.label));
             if a.squad != 0 {
                 for &p in &squad {
                     self.change_morale(p, a.squad);
@@ -556,7 +559,7 @@ impl Game {
         }
         self.world.conn.execute("UPDATE press SET status = 'done', provoked = ? WHERE id = ?", params![provoked, id])?;
         let club = self.club(self.club_id).short_name;
-        let mut body = format!("Na conferência de imprensa, o treinador do {club} disse: {}.", quotes.join(" "));
+        let mut body = format!("Na entrevista coletiva, o treinador do {club} disse: {}", quotes.join(" "));
         if provoked {
             body = format!(
                 "{body}
@@ -567,7 +570,7 @@ As palavras do treinador caíram mal no adversário, que promete dar uma respost
         for r in &reactions {
             body = format!("{body}\n\n{r}");
         }
-        fresh.push(self.news_item(next_id, "press", format!("O treinador do {club} fala à imprensa"), body.clone()));
+        fresh.push(self.news_item(next_id, "press", format!("Treinador do {club} dá entrevista coletiva"), body.clone()));
         self.fresh_ids(&mut fresh);
         for n in fresh {
             self.news.insert(0, n);
@@ -580,10 +583,10 @@ As palavras do treinador caíram mal no adversário, que promete dar uma respost
     pub fn skip_press(&mut self, id: i32) -> Result<String> {
         let n = self.world.conn.execute("UPDATE press SET status = 'skipped' WHERE id = ? AND status = 'pending'", [id])?;
         if n == 0 {
-            return Err(Error::Invalid("Esta conferência já acabou.".into()));
+            return Err(Error::Invalid("Essa entrevista já acabou.".into()));
         }
         self.unsaved = true;
-        Ok("O auxiliar foi à conferência de imprensa e respondeu sem comprometer ninguém.".into())
+        Ok("O auxiliar foi à entrevista coletiva e respondeu sem comprometer ninguém.".into())
     }
 
     fn club_of(&self, person: i32) -> Option<i32> {

@@ -229,13 +229,13 @@ impl Game {
     /// "Concorrer ao Lugar" de um clube sem treinador; devolve a frase para a tela.
     pub fn apply_job(&mut self, club: i32) -> Result<String> {
         if !self.managed_clubs()?.contains(&club) {
-            return Err(Error::Invalid("Só se concorre a clubes das ligas em jogo.".into()));
+            return Err(Error::Invalid("Só é possível se candidatar a clubes das ligas do jogo.".into()));
         }
         if club == self.club_id && !self.sacked() {
-            return Err(Error::Invalid("Já é o treinador deste clube.".into()));
+            return Err(Error::Invalid("Você já é o treinador deste clube.".into()));
         }
         if self.coach_of(club)?.is_some() && self.ai_confidence(club)? >= SHAKY {
-            return Err(Error::Invalid("O treinador deste clube está seguro no lugar.".into()));
+            return Err(Error::Invalid("O treinador deste clube está firme no cargo.".into()));
         }
         let open: bool = self
             .world
@@ -244,7 +244,7 @@ impl Game {
             .optional()?
             .is_some();
         if open {
-            return Err(Error::Invalid("Já concorreu a este lugar.".into()));
+            return Err(Error::Invalid("Você já se candidatou a esta vaga.".into()));
         }
         let answer = date::add_days(&self.date, APPLY_DAYS).unwrap_or_default();
         self.world.conn.execute(
@@ -253,7 +253,7 @@ impl Game {
         )?;
         self.unsaved = true;
         let name = self.club(club).name;
-        Ok(format!("Concorreu ao lugar de treinador do {name}. A resposta chega em {}.", cm_date(&answer)))
+        Ok(format!("Você se candidatou à vaga de treinador do {name}. A resposta chega em {}.", cm_date(&answer)))
     }
 
     /// Botões de uma proposta de emprego.
@@ -264,7 +264,7 @@ impl Game {
                 self.take_job(o.buyer)?;
             }
             ("pending", "reject") => self.set_status(o.id, "rejected", None)?,
-            _ => return Err(Error::Invalid("Esta proposta já não aceita essa resposta.".into())),
+            _ => return Err(Error::Invalid("Essa proposta não aceita mais essa resposta.".into())),
         }
         self.unsaved = true;
         Ok(())
@@ -321,7 +321,7 @@ impl Game {
         self.post_news_as(
             "jobs",
             format!("Novo treinador do {name}"),
-            format!("É o novo treinador do {name}. A Diretoria espera ver resultados."),
+            format!("Você é o novo treinador do {name}. A Diretoria espera ver resultados."),
         );
         self.unsaved = true;
         Ok(())
@@ -344,7 +344,7 @@ impl Game {
             if wants {
                 let until = date::add_days(&self.date, OFFER_DAYS).unwrap_or_default();
                 self.set_status(o.id, "pending", Some(&until))?;
-                let body = format!("O {name} quer contratá-lo para treinador. Responda até {}.", cm_date(&until));
+                let body = format!("O {name} quer contratar você como treinador. Responda até {}.", cm_date(&until));
                 self.offer_news(fresh, next_id, format!("Proposta do {name}"), body, o.id);
             } else {
                 self.set_status(o.id, "rejected", None)?;
@@ -458,7 +458,7 @@ impl Game {
         )?;
         let id = self.world.conn.last_insert_rowid() as i32;
         let name = self.club(club).name;
-        let body = format!("O {name} gostaria de tê-lo como treinador e lhe faz uma proposta. Responda até {}.", cm_date(&until));
+        let body = format!("O {name} quer ter você como treinador e fez uma proposta. Responda até {}.", cm_date(&until));
         self.offer_news(fresh, next_id, format!("Proposta do {name}"), body, id);
         Ok(())
     }
@@ -562,7 +562,7 @@ mod tests {
 
         // O treinador concorre; com reputação, o clube faz proposta e ele muda de clube
         g.world.conn.execute("INSERT OR REPLACE INTO manager_info (id, reputation) VALUES (1, 9000)", []).unwrap();
-        assert!(g.apply_job(target).unwrap().contains("Concorreu"));
+        assert!(g.apply_job(target).unwrap().contains("se candidatou"));
         assert!(g.apply_job(target).is_err());
         g.date = date::add_days(&g.date, APPLY_DAYS).unwrap();
         let (mut fresh, mut id) = (Vec::new(), 9000);

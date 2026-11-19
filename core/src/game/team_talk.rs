@@ -87,25 +87,25 @@ pub struct TalkReaction {
 
 const PRE: [(&str, &str); 4] = [
     ("expect_win", "Espero uma vitória"),
-    ("no_pressure", "Não há pressão, divirtam-se"),
+    ("no_pressure", "Sem pressão, se divirtam"),
     ("show_worth", "Mostrem o que valem"),
     ("calm", "Joguem com calma e concentração"),
 ];
 const HALF: [(&str, &str); 4] = [
     ("keep_going", "Continuem assim"),
     ("want_more", "Quero mais de vocês"),
-    ("disappointed", "Estou desiludido"),
-    ("no_pressure", "Não há pressão, divirtam-se"),
+    ("disappointed", "Estou decepcionado"),
+    ("no_pressure", "Sem pressão, se divirtam"),
 ];
 const FULL: [(&str, &str); 4] = [
     ("proud", "Estou orgulhoso"),
     ("well_done", "Bom trabalho"),
     ("not_happy", "Não estou contente"),
-    ("disappointed", "Estou desiludido"),
+    ("disappointed", "Estou decepcionado"),
 ];
 
 const SUB: [(&str, &str); 3] =
-    [("change_game", "Vai lá e muda o jogo"), ("stay_calm", "Entra com calma, faz o simples"), ("show_worth", "Mostra o que vales")];
+    [("change_game", "Vai lá e muda o jogo"), ("stay_calm", "Entra com calma, faz o simples"), ("show_worth", "Mostra o seu valor")];
 const TONES: [(&str, &str); 4] = [("calm", "Calmo"), ("assertive", "Assertivo"), ("aggressive", "Agressivo"), ("motivating", "Motivador")];
 /// Minutos depois de entrar em que ainda se fala ao suplente.
 const SUB_MINUTES: u8 = 5;
@@ -238,8 +238,8 @@ impl Game {
     /// O momento da palestra agora: antes do apito, ao intervalo, no fim ou depois de uma
     /// substituição (a palavra ao suplente).
     fn talk_moment(&self) -> Result<&'static str> {
-        let day = self.live.as_ref().ok_or_else(|| Error::Invalid("Não há nenhum jogo a decorrer.".into()))?;
-        let live = &day.games.get(day.user).ok_or_else(|| Error::Invalid("Não há nenhum jogo a decorrer.".into()))?.1;
+        let day = self.live.as_ref().ok_or_else(|| Error::Invalid("Nenhum jogo em andamento.".into()))?;
+        let live = &day.games.get(day.user).ok_or_else(|| Error::Invalid("Nenhum jogo em andamento.".into()))?.1;
         Ok(if live.finished() {
             "full"
         } else if !live.started() {
@@ -252,20 +252,22 @@ impl Game {
         } else if !self.waiting_subs()?.is_empty() {
             "sub"
         } else {
-            return Err(Error::Invalid("Só se fala ao time antes do jogo, no intervalo, no fim ou a quem acabou de entrar.".into()));
+            return Err(Error::Invalid(
+                "Só é possível falar com o time antes do jogo, no intervalo, no fim ou com quem acabou de entrar.".into(),
+            ));
         })
     }
 
     /// Os suplentes que entraram há pouco e ainda não ouviram nada.
     fn waiting_subs(&self) -> Result<Vec<(i32, String)>> {
-        let day = self.live.as_ref().ok_or_else(|| Error::Invalid("Não há nenhum jogo a decorrer.".into()))?;
+        let day = self.live.as_ref().ok_or_else(|| Error::Invalid("Nenhum jogo em andamento.".into()))?;
         let live = &day.games[day.user].1;
         Ok(live.recent_subs(SUB_MINUTES).into_iter().filter(|(id, _)| !day.talks.contains(&format!("sub:{id}"))).collect())
     }
 
     /// A situação para o clube do treinador: favoritismo e resultado.
     fn talk_situation(&self) -> Result<Situation> {
-        let day = self.live.as_ref().ok_or_else(|| Error::Invalid("Não há nenhum jogo a decorrer.".into()))?;
+        let day = self.live.as_ref().ok_or_else(|| Error::Invalid("Nenhum jogo em andamento.".into()))?;
         let live = &day.games[day.user].1;
         let side = live.user_side().unwrap_or(0);
         let (h, a) = live.score();
@@ -368,7 +370,9 @@ impl Game {
             None => moment.to_string(),
         };
         if self.live.as_ref().is_some_and(|d| d.talks.contains(&mark)) {
-            return Err(Error::Invalid(if person.is_some() { "Já falou com ele." } else { "Já falou ao time neste momento." }.into()));
+            return Err(Error::Invalid(
+                if person.is_some() { "Você já falou com ele." } else { "Você já falou com o time neste momento." }.into(),
+            ));
         }
         let s = self.talk_situation()?;
         let everyone = if moment == "sub" { self.waiting_subs()? } else { self.live_match_mut()?.talk_players() };

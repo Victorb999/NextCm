@@ -82,7 +82,7 @@ pub(super) fn write(conn: &Connection, id: i32, club: Option<i32>, c: &EditorCla
     if let Some(s) = &c.sell_on
         && !(1..=crate::game::MAX_SELL_ON as i64).contains(&s.amount)
     {
-        return Err(Error::Invalid(format!("Venda futura: a percentagem vai de 1 a {}.", crate::game::MAX_SELL_ON)));
+        return Err(Error::Invalid(format!("Venda futura: a porcentagem vai de 1 a {}.", crate::game::MAX_SELL_ON)));
     }
     for (label, b) in [("Valor por jogos", &c.apps_bonus), ("Valor por jogos pela seleção", &c.caps_bonus)] {
         if let Some(b) = b {
@@ -96,7 +96,7 @@ pub(super) fn write(conn: &Connection, id: i32, club: Option<i32>, c: &EditorCla
     };
     for b in [&c.sell_on, &c.apps_bonus, &c.caps_bonus].into_iter().flatten() {
         if b.club_id == club {
-            return Err(Error::Invalid("O clube que recebe a cláusula tem de ser outro que não o clube onde joga.".into()));
+            return Err(Error::Invalid("O clube que recebe a cláusula precisa ser diferente do clube onde ele joga.".into()));
         }
         let ok: bool = conn.query_row("SELECT COUNT(*) > 0 FROM clubs WHERE id = ?", [b.club_id], |r| r.get(0))?;
         if !ok {

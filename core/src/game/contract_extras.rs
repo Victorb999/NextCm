@@ -98,7 +98,7 @@ impl ContractExtras {
             out.push("cláusula de rescisão");
         }
         if asks.manager_job && !self.manager_job {
-            out.push("cláusula de dispensa por oferta de lugar de treinador");
+            out.push("cláusula de saída por proposta para ser treinador");
         }
         out
     }
@@ -185,7 +185,7 @@ impl ContractExtras {
             out.push("Rescisão se não subir".into());
         }
         if self.manager_job {
-            out.push("Dispensa por oferta de lugar de treinador".into());
+            out.push("Saída por proposta para ser treinador".into());
         }
         out
     }
@@ -333,7 +333,7 @@ impl Game {
             let name = self.person_name(o.person)?;
             let buyer = self.club(o.buyer).short_name;
             let body = format!(
-                "O {buyer} pagou a cláusula de venda de {name} ({}): o clube não pode recusar. O {buyer} negocia agora o contrato com o jogador; a resposta chega em {}.",
+                "O {buyer} pagou a cláusula de venda de {name} ({}): o clube não pode recusar. Agora o {buyer} negocia o contrato com o jogador; a resposta chega em {}.",
                 money_text(fee),
                 super::cm_date(&until)
             );

@@ -119,7 +119,7 @@ pub(super) fn paper_of(nation: &str) -> &'static str {
 fn prediction_text(p: [f64; 3], home: &str, away: &str) -> String {
     let [h, _, a] = p;
     if h >= 0.6 {
-        format!("O {home} é claro favorito e deve somar os três pontos frente ao {away}.")
+        format!("O {home} é claro favorito e deve somar os três pontos diante do {away}.")
     } else if a >= 0.55 {
         format!("O {away} chega como favorito e tem tudo para levar os três pontos.")
     } else if (h - a).abs() < 0.08 {
@@ -127,7 +127,7 @@ fn prediction_text(p: [f64; 3], home: &str, away: &str) -> String {
     } else if h > a {
         format!("Ligeira vantagem para o {home}, mas o {away} pode complicar.")
     } else {
-        format!("O {away} parte com alguma vantagem, mas o {home} tem argumentos.")
+        format!("O {away} começa com alguma vantagem, mas o {home} tem argumentos.")
     }
 }
 
@@ -142,15 +142,15 @@ fn review_text(p: [f64; 3], h: i32, a: i32, home: &str, away: &str) -> String {
     };
     match favourite {
         Some((fav, other, diff)) if diff >= 3 => {
-            format!("Previa a vitória do {fav}, mas não esperava {diff} gols de diferença. Uma noite difícil para o {other}.")
+            format!("Já se esperava a vitória do {fav}, mas não por {diff} gols de diferença. Uma noite difícil para o {other}.")
         }
-        Some((fav, other, diff)) if diff > 0 => format!("Como se previa, o {fav} ganhou ao {other}, sem grandes surpresas."),
+        Some((fav, other, diff)) if diff > 0 => format!("Como se esperava, o {fav} venceu o {other}, sem grandes surpresas."),
         Some((fav, other, 0)) => format!("Esperava a vitória do {fav}, mas o {other} conseguiu segurar o empate."),
         Some((fav, other, _)) => format!("Ninguém esperava: o {other} ganhou ao {fav}, que era o favorito."),
-        None if h == a => "Um jogo equilibrado, como se previa, e um empate justo.".into(),
+        None if h == a => "Um jogo equilibrado, como se esperava, e um empate justo.".into(),
         None => {
             let (w, l) = if h > a { (home, away) } else { (away, home) };
-            format!("Num jogo que se previa equilibrado, o {w} foi melhor e ganhou ao {l}.")
+            format!("Num jogo que parecia equilibrado, o {w} foi melhor e venceu o {l}.")
         }
     }
 }
@@ -291,7 +291,7 @@ impl Game {
                     8.. => format!("{name} fez um grande jogo (nota {rating}) {outcome} por {score} do {club}."),
                     7 => format!("{name} esteve bem (nota {rating}) {outcome} por {score} do {club}."),
                     6 => format!("{name} fez um jogo normal (nota {rating}) {outcome} por {score} do {club}."),
-                    _ => format!("{name} passou ao lado do jogo (nota {rating}) {outcome} por {score} do {club}."),
+                    _ => format!("{name} não apareceu no jogo (nota {rating}) {outcome} por {score} do {club}."),
                 };
                 if k.goals > 0 {
                     text.push_str(&format!(" Marcou {}.", if k.goals == 1 { "um gol".to_string() } else { format!("{} gols", k.goals) }));
@@ -316,7 +316,7 @@ impl Game {
                     let text = if apps == 0 && self.joined_in_game(pl.id)? {
                         Some("Estreou pelo clube".to_string())
                     } else if next >= 50 && next % 50 == 0 {
-                        Some(format!("Fez o {next}.º jogo pelo clube"))
+                        Some(format!("Fez o {next}º jogo pelo clube"))
                     } else if now / 25 > goals / 25 && now >= 25 {
                         Some(format!("Chegou aos {} gols pelo clube", now / 25 * 25))
                     } else {
@@ -345,7 +345,7 @@ impl Game {
             let text = if apps == 0 && self.joined_in_game(id)? {
                 Some("Pode estrear pelo clube".to_string())
             } else if next >= 50 && next % 50 == 0 {
-                Some(format!("Pode fazer o {next}.º jogo pelo clube"))
+                Some(format!("Pode fazer o {next}º jogo pelo clube"))
             } else {
                 let target = (goals / 25 + 1) * 25;
                 (goals >= 20 && target - goals <= 2).then(|| {

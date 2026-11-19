@@ -203,7 +203,7 @@ export default function NewGamePage() {
     return (
       <Overlay>
         <DialogFrame title={`Bem-vindo ao ${created.club.shortName}`} width={520}>
-          <div className="pb-2 text-center text-[15px] text-white">O seu auxiliar pergunta: o que quer fazer primeiro?</div>
+          <div className="pb-2 text-center text-[15px] text-white">O seu auxiliar pergunta: o que você quer fazer primeiro?</div>
           <div className="space-y-2 pb-1">
             {option('news', 'Ler as Mensagens', 'A Diretoria, a mídia e o relatório do elenco')}
             {option('auto', 'O Auxiliar Escolhe o Time', 'Ele monta o onze e o banco na tática do clube')}

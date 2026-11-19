@@ -111,7 +111,7 @@ export default function InstructionsDialog({
           ))}
         </div>
         <div className="px-2 pt-1 text-[12px] text-cm-dlgtext">
-          Durante um jogo, as instruções se mudam no botão Time da tela da partida.
+          Durante um jogo, as instruções são mudadas no botão Time da tela da partida.
         </div>
       </DialogFrame>
     </Overlay>

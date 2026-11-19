@@ -56,7 +56,7 @@ export default function JobsPage() {
       <div className="mx-2 flex min-h-0 flex-1 flex-col gap-2">
         <ErrorBox>{error}</ErrorBox>
         {view?.unemployed && (
-          <div className="shrink-0 rounded-md bg-[#3a1a4a] px-3 py-1.5 text-cm-magenta">Está sem clube: concorra a um lugar vago.</div>
+          <div className="shrink-0 rounded-md bg-[#3a1a4a] px-3 py-1.5 text-cm-magenta">Você está sem clube: se candidate a uma vaga.</div>
         )}
         {notice && <div className="shrink-0 rounded-md bg-cm-dlgdeep px-3 py-1.5 text-cm-yellow">{notice}</div>}
         <Panel title="Lugares vagos e treinadores em risco" className="mb-1 min-h-0 flex-1">
@@ -68,7 +68,7 @@ export default function JobsPage() {
             <span className="flex-1">Situação</span>
           </div>
           <div className="cm-zebra min-h-0 flex-1 overflow-auto">
-            {view && view.rows.length === 0 && <Empty className="py-6">Não há lugares vagos nem treinadores em risco neste país.</Empty>}
+            {view && view.rows.length === 0 && <Empty className="py-6">Não há vagas nem treinadores ameaçados neste país.</Empty>}
             {view?.rows.map((r) => (
               <div key={r.club.id} className="flex h-7 items-center gap-3 px-3 text-[14px]">
                 <span className={`w-56 truncate font-semibold ${r.vacant ? 'text-cm-purplelight' : 'text-white'}`}>

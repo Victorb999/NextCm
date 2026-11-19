@@ -215,7 +215,7 @@ export default function LiveTactics({
         <PurpleMenu
           label="Editar"
           align="right"
-          options={[{ key: 'reset', label: 'Repor as posições da tática' }]}
+          options={[{ key: 'reset', label: 'Restaurar as posições da tática' }]}
           disabled={!editable}
           onChange={() => {
             if (t) void preview({ ...selectionOf(t), positions: [] })
@@ -224,7 +224,7 @@ export default function LiveTactics({
       </div>
       {shootout && (
         <div className="mx-2 mt-2 rounded bg-cm-dlgdeep px-2 py-1 text-center font-bold text-cm-yellow">
-          Empate no fim do jogo: escolha a ordem dos batedores para a disputa de pênaltis.
+          Empate no fim do jogo: escolha a ordem dos cobradores para a disputa de pênaltis.
         </div>
       )}
       {notice && <div className="mx-2 mt-2 rounded bg-[#5a1414] px-2 py-1 text-center font-bold text-white">{notice}</div>}
@@ -326,7 +326,7 @@ export default function LiveTactics({
                 <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
                   {editable
                     ? 'Arraste para trocar (titular com suplente = substituição) ou para um lugar vazio · botão direito e arrastar faz a seta'
-                    : 'Só pode mexer no seu time.'}
+                    : 'Você só pode mexer no seu time.'}
                 </div>
               </div>
               {/* As Instruções à Equipa à vista, como na tela de Tácticas; Editar abre o diálogo */}

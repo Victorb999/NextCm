@@ -268,7 +268,7 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
                 {current.link?.startsWith('press:') && (
                   <div className="mt-4 flex gap-1 border-t border-cm-line pt-3">
                     <button className="cm-purple h-7 w-48" onClick={() => nav.go({ kind: 'press', id: Number(current.link!.slice(6)) })}>
-                      Ir à Conferência
+                      Ir à Entrevista
                     </button>
                   </div>
                 )}
@@ -295,7 +295,7 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
                     <button
                       className="cm-purple h-7 w-48"
                       disabled={!game.info?.numbersOpen}
-                      title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-temporada'}
+                      title={game.info?.numbersOpen ? undefined : 'Os números só podem ser mudados na pré-temporada'}
                       onClick={() => nav.go({ kind: 'squadNumbers' })}
                     >
                       Definir Números

@@ -94,7 +94,9 @@ function Overview({ sheet }: { sheet: MatchSheet }) {
         </div>
       )}
       {!v && (
-        <div className="mx-3 mb-3 mt-auto text-[13px] text-cm-dim">Partida de antes da versão que guarda os jogos: só há as notas.</div>
+        <div className="mx-3 mb-3 mt-auto text-[13px] text-cm-dim">
+          Partida de uma versão antiga, que não guardava os jogos: só tem as notas.
+        </div>
       )}
     </div>
   )

@@ -221,7 +221,7 @@ impl Game {
         for (name, reason) in ours {
             let body = format!(
                 "{name} anunciou que vai terminar a carreira no fim desta temporada, {}.\n\nSe quiser que ele continue, \
-                 pode propor uma renovação: talvez mude de ideias.",
+                 você pode propor uma renovação: talvez ele mude de ideia.",
                 reason_text(reason)
             );
             self.push_news(fresh, next_id, "message", format!("{name} vai terminar a carreira"), body);
@@ -567,11 +567,11 @@ impl Game {
         let year: i32 = self.date[0..4].parse().unwrap_or(0);
         let body = match self.vintage(self.club_id, year) {
             1 => {
-                "O responsável pela formação está entusiasmado: a geração de juniores que chega em março promete muito, \
+                "O coordenador da base está entusiasmado: a geração de juniores que chega em março promete muito, \
                   com vários jogadores de grande potencial."
             }
-            -1 => "O responsável pela formação avisa que a geração de juniores que chega em março é fraca: não espere grandes talentos.",
-            _ => "O responsável pela formação diz que a geração de juniores que chega em março é normal.",
+            -1 => "O coordenador da base avisa que a geração de juniores que chega em março é fraca: não espere grandes talentos.",
+            _ => "O coordenador da base diz que a geração de juniores que chega em março é normal.",
         };
         self.push_news(fresh, next_id, "message", "Os próximos juniores".into(), body.into());
         Ok(())

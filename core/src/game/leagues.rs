@@ -113,7 +113,7 @@ impl Game {
             && self.comp_nations.values().any(|&x| x == n)
             && !choices.iter().any(|c| c.nation_id == n && c.mode == LeagueMode::Play)
         {
-            return Err(Error::Invalid("O clube do treinador tem de ser de uma liga escolhida.".into()));
+            return Err(Error::Invalid("O clube do treinador precisa ser de uma das ligas escolhidas.".into()));
         }
         for c in choices {
             self.world

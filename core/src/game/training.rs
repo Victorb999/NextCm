@@ -691,7 +691,7 @@ impl Game {
     /// programa de cada jogador.
     pub fn set_training(&mut self, plan: &TrainingPlan) -> Result<TrainingView> {
         if plan.programs.is_empty() {
-            return Err(Error::Invalid("Tem de haver pelo menos um programa de treino.".into()));
+            return Err(Error::Invalid("É preciso ter pelo menos um programa de treino.".into()));
         }
         for p in &plan.programs {
             if p.name.trim().is_empty() {
@@ -711,7 +711,7 @@ impl Game {
                     return Err(Error::Invalid("O ala joga numa faixa: escolha o lado esquerdo ou o direito.".into()));
                 }
                 (Some("GR" | "L"), Some("E" | "D")) => {
-                    return Err(Error::Invalid("O goleiro e o líbero jogam ao centro.".into()));
+                    return Err(Error::Invalid("O goleiro e o líbero jogam pelo meio.".into()));
                 }
                 _ => {}
             }

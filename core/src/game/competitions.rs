@@ -920,7 +920,7 @@ impl Game {
             if a == self.club_id || b == self.club_id {
                 let when = if r.legs >= 2 {
                     format!(
-                        "A 1ª mão é em {} em casa do {}; a 2ª em {}.",
+                        "O jogo de ida é em {} na casa do {}; o de volta, em {}.",
                         cm_date(&dates[0]),
                         self.club(home).short_name,
                         cm_date(&dates[1])
@@ -928,7 +928,7 @@ impl Game {
                 } else if r.neutral {
                     format!("Será em {} em campo neutro.", cm_date(&dates[0]))
                 } else {
-                    format!("Será em {} em casa do {}.", cm_date(&dates[0]), self.club(home).short_name)
+                    format!("Será em {} na casa do {}.", cm_date(&dates[0]), self.club(home).short_name)
                 };
                 let body = format!(
                     "{} {}, {}: {} - {}.\n\n{when}",

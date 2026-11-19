@@ -118,7 +118,7 @@ pub fn write_list(dir: &Path, l: &SavedList) -> Result<SavedFile> {
 
 fn check(t: SavedTactic) -> Result<SavedTactic> {
     if t.positions.len() != 11 || t.runs.len() != 11 {
-        return Err(Error::Invalid("A tática tem de ter 11 posições.".into()));
+        return Err(Error::Invalid("A tática precisa ter 11 posições.".into()));
     }
     Ok(t)
 }

@@ -35,7 +35,7 @@ export default function CommandDialog({
       >
         {failed && (
           <div className="p-2 text-[13px] text-[#ff8080]">
-            Não foi possível ler os comandos ({failed}). Se o jogo corre no navegador, reinicie a ponte (web.ps1).
+            Não foi possível ler os comandos ({failed}). Se o jogo está rodando no navegador, reinicie a ponte (web.ps1).
           </div>
         )}
         <div className="max-h-[420px] overflow-auto">

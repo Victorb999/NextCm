@@ -190,9 +190,9 @@ impl Game {
 
     /// "Observar Jogador": o melhor olheiro vai vê-lo; devolve a frase com a data do relatório.
     pub fn scout_player(&mut self, person: i32) -> Result<String> {
-        let place = self.place(person)?.ok_or_else(|| Error::Invalid("Só se observam jogadores.".into()))?;
+        let place = self.place(person)?.ok_or_else(|| Error::Invalid("Só é possível observar jogadores.".into()))?;
         if place.club == Some(self.club_id) {
-            return Err(Error::Invalid("Já conhece os jogadores do seu elenco.".into()));
+            return Err(Error::Invalid("Você já conhece os jogadores do seu elenco.".into()));
         }
         if let Some(on) = self
             .world
@@ -312,7 +312,7 @@ impl Game {
         Ok((
             format!("{short} conclui relatório sobre {name}"),
             format!(
-                "O seu olheiro {scout_name} conseguiu fazer um relatório completo sobre {name}, como pediu.
+                "O seu olheiro {scout_name} conseguiu fazer um relatório completo sobre {name}, como você pediu.
 
 {}
 

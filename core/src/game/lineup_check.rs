@@ -48,11 +48,11 @@ impl Game {
         let needed = sel.starters.len().max(11);
         if chosen < needed {
             let start = if chosen == 0 {
-                "Não escolheu nenhum jogador de campo.".to_string()
+                "Você não escolheu nenhum jogador de campo.".to_string()
             } else {
-                format!("Só escolheu {} jogadores de campo.", number(chosen))
+                format!("Você só escolheu {} jogadores de campo.", number(chosen))
             };
-            let problem = format!("{start} Tem de escolher onze jogadores de campo, e pode convocar até vinte jogadores.");
+            let problem = format!("{start} Você precisa escolher onze jogadores de campo e pode relacionar até vinte.");
             return Ok(LineupCheck { problem: Some(problem), warnings: Vec::new() });
         }
         let mut warnings = Vec::new();
@@ -71,9 +71,9 @@ impl Game {
         }
         if sel.bench.len() < BENCH {
             warnings.push(match sel.bench.len() {
-                0 => "Não escolheu nenhum substituto.".to_string(),
-                1 => format!("Apenas escolheu um substituto entre {} possíveis.", number(BENCH)),
-                n => format!("Apenas escolheu {} substitutos entre {} possíveis.", number(n), number(BENCH)),
+                0 => "Você não escolheu nenhum substituto.".to_string(),
+                1 => format!("Você só escolheu um substituto entre {} possíveis.", number(BENCH)),
+                n => format!("Você só escolheu {} substitutos entre {} possíveis.", number(n), number(BENCH)),
             });
         }
         Ok(LineupCheck { problem: None, warnings })
@@ -116,12 +116,12 @@ mod tests {
         sel.starters.iter_mut().for_each(|s| *s = None);
         sel.bench.clear();
         g.selection = Some(sel);
-        assert!(g.lineup_check().unwrap().problem.unwrap().starts_with("Não escolheu nenhum jogador de campo"));
+        assert!(g.lineup_check().unwrap().problem.unwrap().starts_with("Você não escolheu nenhum jogador de campo"));
         let mut short = full.clone();
         short.bench.truncate(7);
         g.selection = Some(short);
         let c = g.lineup_check().unwrap();
-        assert!(c.problem.is_none() && c.warnings == vec!["Apenas escolheu sete substitutos entre nove possíveis.".to_string()]);
+        assert!(c.problem.is_none() && c.warnings == vec!["Você só escolheu sete substitutos entre nove possíveis.".to_string()]);
         g.selection = Some(full);
         assert!(g.lineup_check().unwrap().warnings.is_empty());
         drop(g);

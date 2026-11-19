@@ -569,7 +569,7 @@ impl Game {
                 news.push((
                     format!("Valor por jogos pela seleção de {name}"),
                     format!(
-                        "{name} chegou às {needed} jogos pela seleção combinadas: o clube {verb} {who} {}, como ficou na transferência.",
+                        "{name} chegou aos {needed} jogos pela seleção combinados: o clube {verb} {who} {}, como ficou na transferência.",
                         money_text(amount)
                     ),
                 ));
@@ -660,7 +660,7 @@ impl Game {
             return Err(Error::Invalid("A janela de transferências está fechada.".into()));
         }
         if self.open_offer(person)?.is_some() {
-            return Err(Error::Invalid("Já há um negócio em curso por este jogador.".into()));
+            return Err(Error::Invalid("Já existe uma negociação em andamento por este jogador.".into()));
         }
         self.check_budget(fee)?;
         let until = date::add_days(&self.date, super::deals::AGREED_DAYS).unwrap_or_default();
@@ -702,7 +702,7 @@ impl Game {
                 "message",
                 format!("Opção de compra de {name}"),
                 format!(
-                    "O empréstimo de {name} acaba em {}. Pode exercer a opção de compra ({} ao {}) na aba Transferência do perfil dele.",
+                    "O empréstimo de {name} acaba em {}. Você pode exercer a opção de compra ({} ao {}) na aba Transferência do perfil dele.",
                     cm_date(&day),
                     money_text(fee),
                     self.club(parent).short_name

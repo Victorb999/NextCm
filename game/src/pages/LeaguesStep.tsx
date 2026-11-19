@@ -19,7 +19,7 @@ const SEASONS: [StartSeason, string, string][] = [
   [
     'brazil',
     'Brasil 2026',
-    'Começa em 1/1/2026, com a Europa no meio de 2025/26. O 2º semestre de 2025 joga-se ao criar o jogo (demora um pouco).',
+    'Começa em 1/1/2026, com a Europa no meio de 2025/26. O 2º semestre de 2025 é simulado ao criar o jogo (demora um pouco).',
   ],
 ]
 
@@ -123,7 +123,7 @@ export default function LeaguesStep({
             Não Escolher Todos
           </button>
           <span className="ml-auto self-center text-[13px] text-cm-dlgtext">
-            Escolhido: joga-se com tudo e pode treinar lá. Fundo: só os resultados. Fora: não entra no jogo.
+            Escolhido: completo, e você pode treinar lá. Fundo: só os resultados. Fora: não entra no jogo.
           </span>
         </div>
       </Box>
@@ -144,7 +144,7 @@ export default function LeaguesStep({
               <SimNao value={options.masking} onChange={(v) => onOptions({ ...options, masking: v })} />
             </div>
             <div className="text-[12px] leading-snug text-cm-dlgtext">
-              Com a Definição Atributos, só se vê o que o clube conhece de cada jogador (os olheiros descobrem o resto).
+              Com a Definição Atributos, você só vê o que o clube conhece de cada jogador (os olheiros descobrem o resto).
             </div>
           </div>
         </Box>

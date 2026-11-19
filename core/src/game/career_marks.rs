@@ -99,12 +99,12 @@ impl Game {
             // Os da carreira contam só os dos clubes, como o Historial do banco
             apps += 1;
             if apps % APPS_STEP == 0 {
-                mark(&g.date, format!("{apps}.º jogo da carreira{against}"));
+                mark(&g.date, format!("{apps}º jogo da carreira{against}"));
             }
             let old = goals;
             goals += g.goals as i64;
             if goals / GOALS_STEP > old / GOALS_STEP {
-                mark(&g.date, format!("{}.º gol da carreira{against}", goals / GOALS_STEP * GOALS_STEP));
+                mark(&g.date, format!("{}º gol da carreira{against}", goals / GOALS_STEP * GOALS_STEP));
             }
         }
         marks.reverse();

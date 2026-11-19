@@ -6,7 +6,9 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 - **Língua:** responder e escrever docs em português do Brasil. A UI e os textos do jogo (notícias,
   mensagens, erros, nomes de competições e nações) também são em português do Brasil ("Táticas",
   "gol", "time", "elenco", "temporada", "rodada", "Diretoria", "Salvar"). As siglas das posições
-  (GR, D, M, A...) continuam as do CM, porque são chaves no core e nos saves.
+  (GR, D, M, A...) continuam as do CM, porque são chaves no core e nos saves. O tom e os termos
+  (time, elenco, torcedores, "tem que", "você", aspas "...") estão em `docs/glossario.md`: siga-o
+  em todo texto novo.
 - **Visual:** tem de parecer o CM 01/02 (coluna lateral, faixas com as cores do clube, abas escuras,
   botões roxos, diálogos e menus verdes). Sem animações, cards ou espaçamento de dashboard.
   Cantos levemente arredondados são permitidos (toque moderno); a densidade continua a do CM.

@@ -57,7 +57,7 @@ export default function DisciplineDialog({
             +
           </button>
         </div>
-        <div className="pb-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-cm-orange">Razão para a ação disciplinar</div>
+        <div className="pb-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-cm-orange">Motivo da ação disciplinar</div>
         <div className="cm-zebra overflow-hidden rounded bg-black/30">
           {options?.reasons.map((r) => (
             <button

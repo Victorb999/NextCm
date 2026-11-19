@@ -656,7 +656,7 @@ impl Game {
             .map(|r| format!("{} ({})", r.2, self.club_short(r.3)))
             .collect();
         if !names.is_empty() {
-            let body = format!("Recusaram renovar e estão livres para assinar por outro clube: {}.", join_names(&names));
+            let body = format!("Não quiseram renovar e estão livres para assinar com outro clube: {}.", join_names(&names));
             self.push_news(fresh, next_id, "contract", "Recusaram renovar".into(), body);
         }
         Ok(())

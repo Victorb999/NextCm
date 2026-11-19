@@ -270,10 +270,10 @@ impl Game {
             if let Some(avg) = league {
                 let comp = self.competition_name(div).to_string();
                 lines.push(match seen - avg {
-                    d if d >= 15.0 => format!("É da opinião de que {first} seria uma estrela na maioria dos clubes da {comp}."),
-                    d if d >= 3.0 => format!("É da opinião de que {first} seria titular na maioria dos clubes da {comp}."),
-                    d if d >= -8.0 => format!("É da opinião de que {first} teria lugar na maioria dos clubes da {comp}."),
-                    _ => format!("É da opinião de que {first} teria dificuldades para jogar na {comp}."),
+                    d if d >= 15.0 => format!("Na opinião dele, {first} seria uma estrela na maioria dos clubes da {comp}."),
+                    d if d >= 3.0 => format!("Na opinião dele, {first} seria titular na maioria dos clubes da {comp}."),
+                    d if d >= -8.0 => format!("Na opinião dele, {first} teria lugar na maioria dos clubes da {comp}."),
+                    _ => format!("Na opinião dele, {first} teria dificuldades para jogar na {comp}."),
                 });
             }
         }
@@ -283,7 +283,7 @@ impl Game {
         let top = seen + room.max(0.0);
         let pot_stars = stars_from(top - level);
         let line = if age >= 30 {
-            format!("{scout_name} acha que {first} já está no auge e só deve cair daqui para a frente.")
+            format!("{scout_name} acha que {first} já está no auge e só deve cair daqui para frente.")
         } else if room >= 25.0 {
             format!("{scout_name} acha que {first} tem muito potencial e pode se tornar um jogador bem melhor.")
         } else if room >= 10.0 {
@@ -394,7 +394,7 @@ impl Game {
                 if let Some(exp) = f.expires.as_deref() {
                     let from = date::add_days(exp, -(super::contracts::PRECONTRACT_DAYS as i32)).unwrap_or_default();
                     if from.as_str() <= self.date.as_str() {
-                        lines.push(format!("O contrato acaba em {}: já se pode propor um pré-contrato.", cm_date(exp)));
+                        lines.push(format!("O contrato acaba em {}: já é possível propor um pré-contrato.", cm_date(exp)));
                     } else {
                         lines.push(format!(
                             "O contrato acaba em {}: dá para propor um pré-contrato a partir de {}.",

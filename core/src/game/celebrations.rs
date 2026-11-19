@@ -154,13 +154,13 @@ impl Game {
                 c.short
             ),
             _ => {
-                format!("A torcida do {} saiu à rua para festejar {the_comp} {label}, com bandeiras e cânticos até de madrugada.", c.short)
+                format!("A torcida do {} foi às ruas para festejar {the_comp} {label}, com bandeiras e cânticos até de madrugada.", c.short)
             }
         };
         if let Some(opp) = &c.final_against {
             body += &match (v(2, 3), c.final_scorers.as_slice()) {
                 (_, []) => format!(" A vitória na final sobre o {opp} ainda era o assunto em cada esquina."),
-                (0, scorers) => format!(" Os gols de {} na final contra o {opp} foram revistos no telão vezes sem conta.", joined(scorers)),
+                (0, scorers) => format!(" Os gols de {} na final contra o {opp} foram reprisados no telão sem parar.", joined(scorers)),
                 (_, scorers) => format!(
                     " Na final contra o {opp}, {} {} decidir.",
                     joined(scorers),
@@ -189,8 +189,8 @@ impl Game {
         // Como no CM: a torcida canta em coro o nome do treinador
         body += &match v(3, 5) {
             0 => format!(" E houve música para o treinador: \"{manager}, {manager}!\" ecoou até o ônibus partir."),
-            1 => format!(" A torcida entoou em coro o nome do treinador {manager}, que teve de ir à varanda da sede para agradecer."),
-            _ => format!(" O coro para {manager} não parou a noite inteira, e numa das faixas lia-se: \"Fica, professor!\""),
+            1 => format!(" A torcida entoou em coro o nome do treinador {manager}, que precisou ir à sacada da sede para agradecer."),
+            _ => format!(" O coro para {manager} não parou a noite inteira, e numa das faixas estava escrito: \"Fica, professor!\""),
         };
         body += &match (title, v(2, 6)) {
             (Title::League, 0) => "\n\nO elenco deve desfilar em carro aberto pela cidade nos próximos dias, com a taça.".to_string(),
@@ -241,9 +241,7 @@ impl Game {
         let start = self.year_matches(comp, year).map(|m| m.date.clone()).min().unwrap_or_else(|| self.date.clone());
         let days = joined.and_then(|j| Some(crate::date::parse(&start)? - crate::date::parse(&j)?)).unwrap_or(0);
         let tenure = if days < 200 {
-            format!(
-                "Ao chegar ao título logo na primeira temporada no clube, {manager} provou que é um dos melhores técnicos do seu escalão."
-            )
+            format!("Ao chegar ao título logo na primeira temporada no clube, {manager} provou que é um técnico de primeira linha.")
         } else {
             format!(
                 "Na sua {}ª temporada no clube, {manager} vê o trabalho recompensado, e a Diretoria não esconde que acertou ao apostar nele.",
@@ -297,7 +295,7 @@ impl Game {
         let Some(city) = &c.city else { return Ok(String::new()) };
         Ok(match (&c.scorer, pick(3, comp, year, winner, 8)) {
             (Some((name, _)), 0) => format!("\n\nEm {city}, a torcida festejou noite adentro, gritando o nome de {name}."),
-            (_, 1) => format!("\n\nBuzinaço e fogos em {city}: a torcida do {} saiu à rua para comemorar.", c.short),
+            (_, 1) => format!("\n\nBuzinaço e fogos em {city}: a torcida do {} foi às ruas para comemorar.", c.short),
             _ => format!("\n\nA festa da torcida do {} tomou conta de {city}.", c.short),
         })
     }

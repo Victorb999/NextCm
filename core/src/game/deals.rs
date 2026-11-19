@@ -172,8 +172,8 @@ pub const SQUAD_ROLES: [(&str, &str, i32); 6] = [
     ("key", "Este jogador é indispensável ao clube", 0),
     ("important", "Este jogador é importante para o time principal", 1),
     ("rotation", "Este jogador é usado num sistema de rotação do elenco", 2),
-    ("backup", "Este jogador é um apoio ao primeiro time", 3),
-    ("prospect", "Este jogador tem uma excelente perspectiva futura", 2),
+    ("backup", "Este jogador é uma opção para o time principal", 3),
+    ("prospect", "Este jogador tem um futuro promissor", 2),
     ("youngster", "Este jogador é um jovem com valor", 3),
 ];
 /// A função de quem vai para a lista de transferências (ou o treinador põe de lado): fora
@@ -940,9 +940,10 @@ impl Game {
             note = Some(format!("Emprestado com opção de compra: {} ao {}.", money_text(fee), self.club(parent).short_name));
         } else if !mine && f.club.is_some() && !window {
             let opens = super::market::next_window(self.kind_of(self.club_id)?, &self.date);
-            note = Some(format!("A janela de transferências está fechada: um negócio fechado agora só se consuma em {}.", cm_date(&opens)));
+            note =
+                Some(format!("A janela de transferências está fechada: um negócio fechado agora só vale a partir de {}.", cm_date(&opens)));
         } else if loan.is_some() && !mine && f.club != Some(self.club_id) {
-            note = Some("Está emprestado: o clube onde joga não o pode vender.".into());
+            note = Some("Ele está emprestado: o clube onde ele joga não pode vender.".into());
         }
         let (availability, future) = self.availability(person, &f, mine, listing)?;
         let open = self.offers_where(
@@ -1046,11 +1047,11 @@ impl Game {
             Some(r) => r.1.to_string(),
             None if role.as_deref() == Some(NOT_NEEDED.0) => NOT_NEEDED.1.to_string(),
             None => match rank {
-                0..3 => "Pensa que é um membro essencial ao elenco".into(),
+                0..3 => "Acha que é peça essencial do elenco".into(),
                 3..11 => "Pensa que é importante para o time principal".into(),
-                11..16 => "Pensa que faz parte da rotação do elenco".into(),
-                _ if f.age <= PROSPECT_AGE => "Pensa que tem uma boa perspectiva futura no clube".into(),
-                _ => "Pensa que é um apoio ao primeiro time".into(),
+                11..16 => "Acha que faz parte da rotação do elenco".into(),
+                _ if f.age <= PROSPECT_AGE => "Acha que tem futuro no clube".into(),
+                _ => "Acha que é uma opção para o time principal".into(),
             },
         }];
         // O que mais lhe passa pela cabeça, pela personalidade e pelo lugar no plantel
@@ -1075,7 +1076,7 @@ impl Game {
         }
         let homesick = mine && self.unhappy_reasons(person)?.iter().any(|r| r == super::unhappy::reason_text("homesick"));
         if homesick || (!mine && abroad && adaptability.unwrap_or(10) <= 8) {
-            future.push("Tem saudades do seu país".into());
+            future.push("Está com saudade do seu país".into());
             // "... ao estilo de vida Italiano", pela nação do clube (as das ligas do jogo)
             let nation: Option<String> = self
                 .world
@@ -1083,15 +1084,15 @@ impl Game {
                 .query_row("SELECT n.name FROM clubs c JOIN nations n ON n.id = c.nation_id WHERE c.id = ?", [club], |r| r.get(0))
                 .optional()?;
             if let Some(adjective) = nation.as_deref().and_then(lifestyle) {
-                future.push(format!("Está tendo dificuldades em adaptar-se ao estilo de vida {adjective}"));
+                future.push(format!("Está tendo dificuldade para se adaptar ao estilo de vida {adjective}"));
             }
         }
         if young_reserve {
             future.push("Entende que o clube tem um bom ambiente no vestiário".into());
-            future.push("Contente com situação no clube".into());
+            future.push("Contente com a situação no clube".into());
         } else if reserve && !self.on_any_list(person)? {
             // Na lista (de transferências ou de empréstimos) o futuro já está esclarecido
-            future.push("Deseja ver o seu futuro esclarecido".into());
+            future.push("Quer uma definição sobre o futuro".into());
         } else if outside && f.age <= 23 {
             future.push("Está tentando conquistar um lugar no time principal".into());
         }
@@ -1133,7 +1134,7 @@ impl Game {
             out.push(format!("Está orgulhoso por jogar {}", self.club(club).short_name));
         }
         if form.is_some_and(|v| v >= 7.0) {
-            out.push("Está tendo prazer em jogar no clube".into());
+            out.push("Está gostando de jogar no clube".into());
         }
         // O clube nos três primeiros da liga (com quatro jogos ou mais)
         let division: Option<i32> = self.world.conn.query_row("SELECT division_id FROM clubs WHERE id = ?", [club], |r| r.get(0))?;
@@ -1155,7 +1156,7 @@ impl Game {
                 )
                 .optional()?;
             if let Some(b) = best.filter(|b| *b != person) {
-                out.push(format!("Pensa que {} é um membro essencial ao elenco", self.person_name(b)?));
+                out.push(format!("Acha que {} é peça essencial do elenco", self.person_name(b)?));
             }
         }
         if years_left >= 3 {
@@ -1179,7 +1180,7 @@ impl Game {
             }
         }
         if rank < 16 || f.age <= 21 {
-            out.push("Contente com situação no clube".into());
+            out.push("Contente com a situação no clube".into());
         }
         out.truncate(3);
         Ok(out)
@@ -1215,7 +1216,7 @@ impl Game {
             out.push("Sai livre se o clube não subir".into());
         }
         if e.manager_job {
-            out.push("Sai se lhe oferecerem um lugar de treinador".into());
+            out.push("Sai se receber proposta para ser treinador".into());
         }
         Ok(out)
     }
@@ -1292,9 +1293,9 @@ impl Game {
                 _ => ("Negociações terminadas.".into(), Vec::new()),
             },
             _ if o.kind == "job" => match o.status.as_str() {
-                "applied" => (format!("Concorreu ao lugar no {}; a resposta chega em {until}.", buyer.name), Vec::new()),
+                "applied" => (format!("Você se candidatou à vaga no {}; a resposta chega em {until}.", buyer.name), Vec::new()),
                 "pending" => (
-                    format!("O {} quer contratá-lo para treinador. Responda até {until}.", buyer.name),
+                    format!("O {} quer contratar você como treinador. Responda até {until}.", buyer.name),
                     vec![action("accept", "Aceitar"), action("reject", "Recusar")],
                 ),
                 "done" => (format!("É o treinador do {}.", buyer.name), Vec::new()),
@@ -1302,8 +1303,8 @@ impl Game {
             },
             _ if o.kind == "request" => match o.status.as_str() {
                 "pending" => (
-                    format!("{name} pede para ser posto na lista de transferências. Responda até {until}."),
-                    vec![action("accept", "Pôr na Lista"), action("reject", "Recusar")],
+                    format!("{name} pede para ser colocado na lista de transferências. Responda até {until}."),
+                    vec![action("accept", "Colocar na Lista"), action("reject", "Recusar")],
                 ),
                 "done" => (format!("{name} está na lista de transferências, a pedido dele."), Vec::new()),
                 _ => (format!("Recusou o pedido de {name} para sair."), Vec::new()),
@@ -1452,7 +1453,7 @@ impl Game {
     /// logo à negociação do contrato), com as condições do diálogo do CM. O clube responde
     /// em 1 a 4 dias.
     pub fn make_offer(&mut self, person: i32, terms: &DealTerms) -> Result<TransferView> {
-        let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só se fazem propostas por jogadores.".into()))?;
+        let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só é possível fazer propostas por jogadores.".into()))?;
         // Emprestado ao treinador: a proposta vai para o clube dono
         let loaned_in = self.loaned_in_from(person, &f)?;
         if f.club == Some(self.club_id) && loaned_in.is_none() {
@@ -1469,7 +1470,7 @@ impl Game {
         }
         let countered = self.countered(person, "transfer")?;
         if countered.is_none() && self.open_offer(person)?.is_some() {
-            return Err(Error::Invalid("Já há uma proposta em curso por este jogador.".into()));
+            return Err(Error::Invalid("Já existe uma proposta em andamento por este jogador.".into()));
         }
         let created = self.date.clone();
         match loaned_in.or(loaned_elsewhere).or(f.club) {
@@ -1552,9 +1553,9 @@ impl Game {
     /// Pedido de empréstimo de um jogador de outro clube, com as condições (duração, parte do
     /// salário, taxa mensal, opção de compra).
     pub fn ask_loan(&mut self, person: i32, terms: &LoanTerms) -> Result<TransferView> {
-        let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só se pedem jogadores emprestados.".into()))?;
+        let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só é possível pedir jogadores emprestados.".into()))?;
         let Some(seller) = f.club.filter(|&c| c != self.club_id) else {
-            return Err(Error::Invalid("Só se pedem emprestados jogadores de outros clubes.".into()));
+            return Err(Error::Invalid("Só é possível pedir emprestados jogadores de outros clubes.".into()));
         };
         if !self.window_open_for(self.club_id)? {
             return Err(Error::Invalid("A janela de transferências está fechada.".into()));
@@ -1621,7 +1622,7 @@ impl Game {
                 }
                 if self.facts(o.person)?.is_none_or(|f| f.club != Some(seller)) {
                     self.set_status(id, "collapsed", None)?;
-                    return Err(Error::Invalid("O jogador já não é deste clube.".into()));
+                    return Err(Error::Invalid("O jogador não é mais deste clube.".into()));
                 }
                 let until = self.execute_loan(o.person, seller, self.club_id, &o.loan_terms())?;
                 self.set_status(id, "done", None)?;
@@ -1649,7 +1650,7 @@ impl Game {
             (true, "confirm", "confirm") => {
                 if !self.window_open_for(o.buyer)? || self.facts(o.person)?.is_none_or(|f| f.club != Some(self.club_id)) {
                     self.set_status(id, "collapsed", None)?;
-                    return Err(Error::Invalid("O negócio já não se pode fazer.".into()));
+                    return Err(Error::Invalid("O negócio não pode mais ser feito.".into()));
                 }
                 let (title, body) = self.complete_sale(&o, o.fee)?;
                 self.post_news(title, body, Some(id));
@@ -1658,7 +1659,7 @@ impl Game {
                 self.set_status(id, "rejected", None)?;
                 if let Some(text) = self.letdown(&o)? {
                     let name = self.person_name(o.person)?;
-                    self.post_news(format!("{name} desiludido"), text, Some(id));
+                    self.post_news(format!("{name} decepcionado"), text, Some(id));
                 }
             }
             (true, "pending" | "countered", "reject" | "counter") if self.clause_paid(&o)? => {
@@ -1668,14 +1669,14 @@ impl Game {
                 self.set_status(id, "rejected", None)?;
                 if let Some(text) = self.letdown(&o)? {
                     let name = self.person_name(o.person)?;
-                    self.post_news(format!("{name} desiludido"), text, Some(id));
+                    self.post_news(format!("{name} decepcionado"), text, Some(id));
                 }
             }
             (true, "pending" | "countered", "counter") if o.kind == "transfer" => {
                 let asked = fee.filter(|&f| f > o.fee).ok_or_else(|| Error::Invalid("Peça mais do que a proposta.".into()))?;
                 return self.ask_terms(id, &DealTerms { fee: asked, ..o.deal_terms() });
             }
-            _ => return Err(Error::Invalid("Esta proposta já não aceita essa resposta.".into())),
+            _ => return Err(Error::Invalid("Essa proposta não aceita mais essa resposta.".into())),
         }
         let what = match (incoming, key) {
             (_, "withdraw") => "desistiu do negócio",
@@ -1720,7 +1721,7 @@ impl Game {
                 self.set_status(o.id, "rejected", None)?;
                 self.refuse_request(o.person)?;
             }
-            _ => return Err(Error::Invalid("Este pedido já não aceita essa resposta.".into())),
+            _ => return Err(Error::Invalid("Esse pedido não aceita mais essa resposta.".into())),
         }
         self.unsaved = true;
         self.offer_view(o.id)
@@ -1740,7 +1741,7 @@ impl Game {
         s.morale = (s.morale - personality::LETDOWN_MORALE).max(1);
         self.add_unhappy(o.person, "bigger")?;
         let name = self.person_name(o.person)?;
-        Ok(Some(format!("{name} queria muito jogar no {} e ficou desiludido com a recusa.", self.club(o.buyer).short_name)))
+        Ok(Some(format!("{name} queria muito jogar no {} e ficou decepcionado com a recusa.", self.club(o.buyer).short_name)))
     }
 
     /// Uma semana antes do fim da janela do país do treinador: o aviso, com a data do último dia.
@@ -1751,7 +1752,7 @@ impl Game {
             |r| r.get(0),
         )?;
         let body = format!(
-            "A janela de transferências para os clubes de {nation} fecha dentro de uma semana: o último dia para fechar negócios é {}.",
+            "A janela de transferências para os clubes de {nation} fecha em uma semana: o último dia para fechar negócios é {}.",
             cm_date(last)
         );
         self.offer_news_plain(fresh, next_id, "Uma semana para o fechamento do mercado".into(), body);
@@ -1813,7 +1814,7 @@ impl Game {
             let buyer = self.club(o.buyer).short_name;
             if !self.window_open_for(o.buyer)? || self.facts(o.person)?.is_none_or(|f| f.club != Some(self.club_id)) {
                 self.set_status(o.id, "collapsed", None)?;
-                let body = format!("A transferência de {name} para o {buyer} já não se pode fazer.");
+                let body = format!("A transferência de {name} para o {buyer} não pode mais ser feita.");
                 self.offer_news(fresh, next_id, format!("Negócio por {name} caiu"), body, o.id);
                 continue;
             }
@@ -1824,7 +1825,7 @@ impl Game {
             if refuses {
                 self.set_status(o.id, "collapsed", None)?;
                 let body = format!(
-                    "{name} recusou a proposta do {buyer}: não quer trocar de clube para um de menor dimensão, que vê como um passo atrás na carreira. O negócio caiu."
+                    "{name} recusou a proposta do {buyer}: não quer trocar de clube por um menor, que vê como um passo atrás na carreira. O negócio caiu."
                 );
                 self.offer_news(fresh, next_id, format!("{name} rejeita o {buyer}"), body, o.id);
                 continue;
@@ -1838,7 +1839,7 @@ impl Game {
             self.set_status(o.id, "confirm", Some(&until))?;
             // Como no CM: o comprador "prepara-se para comprar" e falta a confirmação do treinador
             let body = format!(
-                "O negócio da transferência no valor de {} que corresponde à mudança de {name} {} para {buyer} pode agora ser concretizado.
+                "O negócio de {} pela transferência de {name} {} para {buyer} já pode ser concluído.
 
 Confirme até {}.",
                 self.terms_text(&o.deal_terms())?,
@@ -1884,7 +1885,7 @@ Confirme até {}.",
                 body.push_str(&format!(
                     "
 
-É a maior venda de sempre do clube{}.",
+É a maior venda da história do clube{}.",
                     record_before(before)
                 ));
             }
@@ -1927,7 +1928,7 @@ Confirme até {}.",
         } else if loan.is_none() && days_left <= super::contracts::PRECONTRACT_DAYS {
             Party::Precontract
         } else {
-            return Err(Error::Invalid("Primeiro o clube dele tem de aceitar uma proposta.".into()));
+            return Err(Error::Invalid("Primeiro o clube dele precisa aceitar uma proposta.".into()));
         };
         if let Some(b) = self.blocked_until(person)? {
             return Err(Error::Invalid(format!("{name} não quer falar de contrato até {}.", cm_date(&b))));
@@ -2225,7 +2226,7 @@ Confirme até {}.",
             self.set_status(o.id, "rejected", None)?;
             self.refuse_request(o.person)?;
             let name = self.person_name(o.person)?;
-            let body = format!("O pedido de {name} para sair ficou sem resposta: ele sente que não o deixam sair.");
+            let body = format!("O pedido de {name} para sair ficou sem resposta: ele sente que está sendo impedido de sair.");
             self.offer_news(fresh, next_id, format!("{name} frustrado"), body, o.id);
         }
         self.release_clause_offers(fresh, next_id)?;
@@ -2288,7 +2289,7 @@ Confirme até {}.",
         let loaned_elsewhere = !loaned_to_buyer && self.loan_of(o.person)?.is_some_and(|l| l.0 == seller);
         let Some(f) = f.filter(|f| f.club == Some(seller) || loaned_to_buyer || loaned_elsewhere) else {
             self.set_status(o.id, "collapsed", None)?;
-            let body = format!("{name} já não é jogador do {seller_name}.");
+            let body = format!("{name} não é mais jogador do {seller_name}.");
             self.offer_news(fresh, next_id, format!("Proposta por {name}"), body, o.id);
             return Ok(());
         };
@@ -2391,7 +2392,7 @@ Confirme até {}.",
             SellerReply::Accept => {
                 self.set_status(o.id, "agreed", Some(&deadline))?;
                 let body = format!(
-                    "O {seller_name} aceitou a sua proposta por {name}: {}. Negocie agora o contrato com o jogador até {}.",
+                    "O {seller_name} aceitou a sua proposta por {name}: {}. Agora negocie o contrato com o jogador até {}.",
                     t.text(),
                     cm_date(&deadline)
                 );
@@ -2411,13 +2412,13 @@ Confirme até {}.",
             SellerReply::Reject => {
                 self.set_status(o.id, "rejected", None)?;
                 let body =
-                    format!("O {seller_name} recusou a sua proposta por {name} ({}): fica muito aquém do que o clube pretende.", t.text());
+                    format!("O {seller_name} recusou a sua proposta por {name} ({}): fica muito abaixo do que o clube quer.", t.text());
                 self.offer_news(fresh, next_id, format!("Proposta por {name} recusada"), body, o.id);
             }
             SellerReply::Bored => {
                 let until = self.bored(o.id)?;
                 let body = format!(
-                    "O {seller_name} rejeitou mais uma proposta por {name} e está farto das negociações: não quer ouvir falar de propostas por ele até {}.",
+                    "O {seller_name} rejeitou mais uma proposta por {name} e cansou das negociações: não quer ouvir falar de propostas por ele até {}.",
                     cm_date(&until)
                 );
                 self.offer_news(fresh, next_id, format!("{seller_name} rompe negociações por {name}"), body, o.id);
@@ -2476,7 +2477,7 @@ Confirme até {}.",
     pub fn ask_terms(&mut self, id: i32, terms: &DealTerms) -> Result<OfferView> {
         let o = self.offer(id)?;
         if o.kind != "transfer" || o.seller != Some(self.club_id) || !matches!(o.status.as_str(), "pending" | "countered") {
-            return Err(Error::Invalid("Esta proposta já não aceita essa resposta.".into()));
+            return Err(Error::Invalid("Essa proposta não aceita mais essa resposta.".into()));
         }
         terms.check()?;
         let value = self.facts(o.person)?.map_or(0, |f| f.value);
@@ -2645,7 +2646,7 @@ Confirme até {}.",
     /// de que ninguém quis). `fee` é o valor pedido (0 = o valor do jogador); no empréstimo
     /// não conta. As respostas ficam guardadas com o estado `faxed` até ao dia em que chegam.
     pub fn offer_to_clubs(&mut self, person: i32, loan: bool, fee: i64, exclude_rivals: bool) -> Result<String> {
-        let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só se oferecem jogadores.".into()))?;
+        let f = self.facts(person)?.ok_or_else(|| Error::Invalid("Só é possível oferecer jogadores.".into()))?;
         if f.club != Some(self.club_id) || self.loan_of(person)?.is_some() || self.is_ghost(person) {
             return Err(Error::Invalid("Só pode oferecer jogadores do seu elenco.".into()));
         }
@@ -2653,7 +2654,7 @@ Confirme até {}.",
             return Err(Error::Invalid("A janela de transferências está fechada.".into()));
         }
         if self.open_offer(person)?.is_some() {
-            return Err(Error::Invalid("Já há uma proposta em curso por este jogador.".into()));
+            return Err(Error::Invalid("Já existe uma proposta em andamento por este jogador.".into()));
         }
         let waiting: i64 =
             self.world.conn.query_row("SELECT COUNT(*) FROM offers WHERE person_id = ? AND status = 'faxed'", [person], |r| r.get(0))?;
@@ -2710,11 +2711,11 @@ Confirme até {}.",
         let name = self.person_name(person)?;
         Ok(if loan {
             format!(
-                "Os serviços administrativos do clube enviaram a todos os clubes a proposta de empréstimo de {name}. Será contatado nos próximos dias se houver interesse."
+                "O departamento administrativo enviou a todos os clubes a proposta de empréstimo de {name}. Você será avisado nos próximos dias se houver interesse."
             )
         } else {
             format!(
-                "Os serviços administrativos do clube enviaram a todos os clubes a proposta de transferência de {name} por {}. Será contatado nos próximos dias se houver interesse.",
+                "O departamento administrativo enviou a todos os clubes a proposta de transferência de {name} por {}. Você será avisado nos próximos dias se houver interesse.",
                 money_text(fee)
             )
         })
@@ -2729,7 +2730,7 @@ Confirme até {}.",
             let name = self.person_name(o.person)?;
             if o.kind == "shop" {
                 self.set_status(o.id, "done", None)?;
-                let body = format!("Nenhum clube mostrou interesse em {name} depois de o ter oferecido.");
+                let body = format!("Nenhum clube mostrou interesse em {name} depois que você o ofereceu.");
                 self.offer_news(fresh, next_id, format!("Sem interessados em {name}"), body, o.id);
                 continue;
             }
@@ -2772,7 +2773,7 @@ Confirme até {}.",
             return Ok(());
         }
         let body = format!(
-            "Os contratos destes jogadores acabam em {}: {}.\n\nOfereça-lhes um contrato novo no perfil (aba Transferência) ou saem livres.",
+            "Os contratos destes jogadores acabam em {}: {}.\n\nOfereça um contrato novo a eles no perfil (aba Transferência) ou eles saem de graça.",
             cm_date(cutoff),
             names.join(", ")
         );
@@ -3400,7 +3401,7 @@ Palmeiras fez uma nova proposta."
             g.answer_offer(id, "reject", None).unwrap();
             let after = g.squads.state(mine).morale;
             assert_eq!(after < before, letdown, "Ambição {ambition}: {before} → {after}");
-            assert_eq!(g.news().iter().any(|n| n.offer_id == Some(id) && n.title.contains("desiludido")), letdown);
+            assert_eq!(g.news().iter().any(|n| n.offer_id == Some(id) && n.title.contains("decepcionado")), letdown);
         }
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);

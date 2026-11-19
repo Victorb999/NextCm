@@ -254,7 +254,7 @@ impl Game {
             body += ".\n";
         }
         body += &format!(
-            "Para contratações há {} disponíveis, e a folha salarial pode ir até {} por semana.",
+            "Para contratações, você tem {} disponíveis, e a folha salarial pode ir até {} por semana.",
             money_text(transfer),
             money_text(wages)
         );
@@ -381,7 +381,7 @@ impl Game {
         text += &format!("O nosso ponto forte é {strong_name} ({}).", super::season::join_names(&ours[strong].1));
         if weak != strong {
             let (weak_name, one, _, _) = SECTORS[weak];
-            text += &format!(" O setor mais fraco é {weak_name}: recomendo contratar {one} se a diretoria o permitir.");
+            text += &format!(" O setor mais fraco é {weak_name}: recomendo contratar {one} se a diretoria permitir.");
         }
         if !young.is_empty() {
             text += &format!("\n\nVale a pena acompanhar {}: são jovens com muito potencial.", super::season::join_names(&young));

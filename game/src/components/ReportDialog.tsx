@@ -44,7 +44,7 @@ export default function ReportDialog({
   const confirm = async () => {
     try {
       const n = await api.staffReport(personId, kind, [...chosen])
-      onDone(n === 1 ? 'O relatório chegou às mensagens.' : `Os ${n} relatórios chegaram às mensagens.`)
+      onDone(n === 1 ? 'O relatório chegou nas mensagens.' : `Os ${n} relatórios chegaram nas mensagens.`)
     } catch (e) {
       setError(String(e))
     }
@@ -57,7 +57,7 @@ export default function ReportDialog({
       <DialogFrame title={title} width={600} cancelLabel="Cancelar" okLabel="Confirmar" onCancel={onClose} onOk={() => void confirm()}>
         <div className="flex items-start justify-between gap-2 pb-2">
           <div className="font-title text-[18px] text-white">
-            Especifique {who} que prefere para elaborar um relatório sobre {name}:
+            Escolha {who} que vai fazer o relatório sobre {name}:
           </div>
           <button className="cm-purple h-6 shrink-0 px-3" onClick={() => setChosen(new Set(staff.map((s) => s.id)))}>
             Escolher Todos

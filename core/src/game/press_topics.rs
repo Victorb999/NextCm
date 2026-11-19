@@ -48,7 +48,7 @@ impl Game {
                     &[
                         "É o clássico com o {opp}. O que este jogo significa para a cidade?",
                         "A torcida só fala do jogo com o {opp}. Vale mais do que três pontos?",
-                        "Clássico é jogo à parte. Como preparou o time para enfrentar o {opp}?",
+                        "Clássico é jogo à parte. Como você preparou o time para enfrentar o {opp}?",
                     ],
                 )
                 .replace("{opp}", &opp_name),
@@ -81,8 +81,8 @@ impl Game {
                             rng,
                             &[
                                 "A disputa do título com o {other} está ponto a ponto. Quem chega na frente?",
-                                "O {other} não larga o {us} na briga pelo título. Sente a pressão?",
-                                "Muitos dizem que o título se decide entre {us} e {other}. Concorda?",
+                                "O {other} não larga o {us} na briga pelo título. Você sente a pressão?",
+                                "Muitos dizem que o título se decide entre {us} e {other}. Você concorda?",
                             ],
                         )
                         .replace("{other}", name)
@@ -104,17 +104,17 @@ impl Game {
                         text: pick(
                             rng,
                             &[
-                                "O {us} está na zona de perigo. Acredita na permanência?",
-                                "Os torcedores temem o rebaixamento. O que diz a eles?",
+                                "O {us} está na zona de perigo. Você acredita que o time escapa?",
+                                "Os torcedores temem o rebaixamento. O que você diz a eles?",
                                 "A luta para não cair vai até o fim. O time tem estrutura para isso?",
                             ],
                         )
                         .replace("{us}", &us),
                         person: None,
                         answers: vec![
-                            Answer { squad: 1, fans: 1, ..answer("Vamos sair desta. Este grupo tem caráter.") },
+                            Answer { squad: 1, fans: 1, ..answer("Vamos sair dessa. Este grupo tem caráter.") },
                             Answer { board: 1, ..answer("Sabemos a situação. Cada jogo agora é uma final.") },
-                            Answer { squad: -1, board: 1, ..answer("Há jogadores que precisam entender o que está em jogo.") },
+                            Answer { squad: -1, board: 1, ..answer("Alguns jogadores precisam entender o que está em jogo.") },
                         ],
                     });
                 }
@@ -128,15 +128,15 @@ impl Game {
                 text: pick(
                     rng,
                     &[
-                        "Já há quem o coloque entre os melhores treinadores do país. Como recebe os elogios?",
+                        "Tem gente que já coloca você entre os melhores treinadores do país. Como você recebe os elogios?",
                         "O time joga um futebol que encanta. Qual é o segredo?",
-                        "Comentaristas falam de você para a seleção um dia. Pensa nisso?",
+                        "Comentaristas falam de você para a seleção um dia. Você pensa nisso?",
                     ],
                 )
                 .into(),
                 person: None,
                 answers: vec![
-                    Answer { squad: 1, ..answer("O mérito é dos jogadores. Eu só os ajudo a jogar.") },
+                    Answer { squad: 1, ..answer("O mérito é dos jogadores. Eu só dou uma ajuda.") },
                     answer("Elogios não ganham jogos. Seguimos trabalhando."),
                     Answer { fans: 1, board: 1, ..answer("Fico feliz. É o resultado de muito trabalho nesta casa.") },
                 ],
@@ -147,8 +147,8 @@ impl Game {
                     rng,
                     &[
                         "A torcida começa a pedir a sua saída. Como responde?",
-                        "Cinco jogos sem vencer. O seu trabalho está em causa?",
-                        "Os críticos dizem que o time perdeu o rumo. Ainda tem as respostas?",
+                        "Cinco jogos sem vencer. O seu trabalho está ameaçado?",
+                        "Os críticos dizem que o time perdeu o rumo. Você ainda tem as respostas?",
                     ],
                 )
                 .into(),
@@ -167,14 +167,17 @@ impl Game {
             out.push(Question {
                 text: pick(
                     rng,
-                    &["Que chances dá ao {us} na {comp} desta temporada?", "O clube sonha alto na {comp}. É realista pensar no título?"],
+                    &[
+                        "Que chances você dá ao {us} na {comp} desta temporada?",
+                        "O clube sonha alto na {comp}. É realista pensar no título?",
+                    ],
                 )
                 .replace("{us}", &us)
                 .replace("{comp}", &comp),
                 person: None,
                 answers: vec![
-                    Answer { squad: 1, fans: 1, ..answer("Viemos para ganhar. Não há outro objetivo.") },
-                    Answer { board: 1, ..answer("Jogo a jogo. Há times muito fortes nesta competição.") },
+                    Answer { squad: 1, fans: 1, ..answer("Viemos para ganhar. Não tem outro objetivo.") },
+                    Answer { board: 1, ..answer("Jogo a jogo. Tem times muito fortes nesta competição.") },
                     answer("A liga é a prioridade, mas vamos dar o máximo."),
                 ],
             });
@@ -196,7 +199,10 @@ impl Game {
             out.push(Question {
                 text: pick(
                     rng,
-                    &["Dizem que {name} anda descontente no clube. Como está essa situação?", "{name} não parece feliz. Há risco de sair?"],
+                    &[
+                        "Dizem que {name} anda descontente no clube. Como está essa situação?",
+                        "{name} não parece feliz. Existe risco de ele sair?",
+                    ],
                 )
                 .replace("{name}", &name),
                 person: Some(p),

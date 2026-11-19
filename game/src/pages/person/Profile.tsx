@@ -188,7 +188,7 @@ export default function Profile({ p }: { p: PersonProfile }) {
                       [
                         'Futuro',
                         <span key="r" className="text-cm-yellow">
-                          Termina a carreira no fim da temporada
+                          Vai se aposentar no fim da temporada
                         </span>,
                       ],
                     ] as [string, ReactNode][])
@@ -207,10 +207,10 @@ export default function Profile({ p }: { p: PersonProfile }) {
       {p.knowledge && p.knowledge !== 'known' && (
         <div className="shrink-0 rounded border border-cm-line bg-cm-panel px-3 py-1 text-center text-cm-yellow">
           {p.reportOn
-            ? `Os seus olheiros estão a observá-lo: o relatório chega a ${cmDate(p.reportOn)}.`
+            ? `Os seus olheiros estão observando o jogador: o relatório chega em ${cmDate(p.reportOn)}.`
             : p.knowledge === 'unknown'
-              ? 'O seu clube não conhece este jogador. Mande observá-lo (Ação → Observar Jogador).'
-              : 'O seu clube conhece este jogador só em parte. Mande observá-lo para ver tudo.'}
+              ? 'O seu clube não conhece este jogador. Mande observar (Ação → Observar Jogador).'
+              : 'O seu clube conhece este jogador só em parte. Mande observar para ver tudo.'}
         </div>
       )}
       {pl && p.seasons[0]?.byKind.length ? (

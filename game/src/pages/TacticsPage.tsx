@@ -224,7 +224,7 @@ export default function TacticsPage({ id }: { id: number }) {
           align="right"
           options={[
             { key: 'auto', label: 'Auxiliar escolhe o time' },
-            { key: 'reset', label: 'Repor as posições da tática' },
+            { key: 'reset', label: 'Restaurar as posições da tática' },
           ]}
           disabled={!editable}
           onChange={(k) => {
@@ -304,7 +304,7 @@ export default function TacticsPage({ id }: { id: number }) {
                     >
                       <span className="w-8 shrink-0" />
                       <span className="w-12 shrink-0 text-[11px] font-bold text-cm-yellow">{shortRole(s.role)}</span>
-                      <span className="italic text-[#8a8a8a]">— vazio: arraste alguém para aqui —</span>
+                      <span className="italic text-[#8a8a8a]">— vazio: arraste alguém para cá —</span>
                     </div>
                   )
                 })}
@@ -421,7 +421,7 @@ export default function TacticsPage({ id }: { id: number }) {
                   editable && (
                     <span
                       className="cursor-help text-cm-dim"
-                      title="Arraste, ⇄ ou Substituir para trocar · botão direito e arrastar faz a seta (atacar/recuar) · clique no número para pôr/tirar · botão direito num jogador da lista: instruções individuais"
+                      title="Arraste, ⇄ ou Substituir para trocar · botão direito e arrastar faz a seta (atacar/recuar) · clique no número para colocar/tirar · botão direito num jogador da lista: instruções individuais"
                     >
                       Como mexer ?
                     </span>

@@ -78,7 +78,9 @@ impl Game {
         let Some(club) = club else { return Ok(None) };
         Ok(match self.reserve_mode()? {
             ReserveMode::BTeam(b) if club == b && self.loan_of(person)?.is_none() => Some(("promote", "Promover ao Time 'A'")),
-            ReserveMode::BTeam(_) if club == self.club_id && self.loan_of(person)?.is_none() => Some(("demote", "Relegar para Time 'B'")),
+            ReserveMode::BTeam(_) if club == self.club_id && self.loan_of(person)?.is_none() => {
+                Some(("demote", "Rebaixar para o Time 'B'"))
+            }
             ReserveMode::BTeam(_) => None,
             _ if club != self.club_id => None,
             _ if self.squads.state(person).reserve => Some(("promote", "Promover ao Elenco Principal")),
@@ -317,7 +319,7 @@ impl Game {
         let text = if down {
             let rank = squad.iter().position(|&id| id == person).unwrap_or(squad.len());
             self.demoted_morale(person, rank);
-            format!("{name} foi relegado para o time B.")
+            format!("{name} foi rebaixado para o time B.")
         } else {
             self.change_morale(person, PROMOTED_MORALE);
             format!("{name} foi promovido ao time A.")
@@ -521,7 +523,7 @@ mod tests {
             g.world.conn.query_row("SELECT contract_expires FROM people WHERE id = ?", [id], |r| r.get(0)).unwrap()
         };
         let before = contract(&g);
-        assert_eq!(g.squad_move(id).unwrap(), Some(("demote", "Relegar para Time 'B'")));
+        assert_eq!(g.squad_move(id).unwrap(), Some(("demote", "Rebaixar para o Time 'B'")));
         assert!(g.set_reserve(id, true).unwrap().contains("time B"));
         assert!(players_of(&g.world.conn, b).contains(&id) && !g.own_squad().unwrap().contains(&id));
         assert_eq!(contract(&g), before);
