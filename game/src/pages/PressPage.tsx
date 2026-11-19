@@ -45,7 +45,7 @@ export default function PressPage({ id }: { id: number }) {
       <ScreenHeader
         icon={<Mic size={22} />}
         eyebrow={q ? `Pergunta ${answers.length + 1} de ${view!.questions.length}` : undefined}
-        title={view?.title ?? 'Conferência de Imprensa'}
+        title={view?.title ?? 'Entrevista Coletiva'}
         right={
           q && (
             <button className="cm-purple h-8 px-4" onClick={() => void finish(() => api.skipPress(id))}>
@@ -56,7 +56,7 @@ export default function PressPage({ id }: { id: number }) {
       />
       <div className="mx-2 flex min-h-0 flex-1 flex-col gap-2">
         <ErrorBox>{error}</ErrorBox>
-        {view && view.status !== 'pending' && !result && <Empty>Esta conferência de imprensa já acabou.</Empty>}
+        {view && view.status !== 'pending' && !result && <Empty>Essa entrevista coletiva já acabou.</Empty>}
         {q && (
           <>
             <div className="shrink-0 rounded-md bg-cm-surface px-4 py-3">

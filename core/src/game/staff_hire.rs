@@ -182,7 +182,7 @@ impl Game {
                 },
             )
             .optional()?
-            .ok_or_else(|| Error::Invalid("Só se contrata quem é do staff.".into()))
+            .ok_or_else(|| Error::Invalid("Só é possível contratar membros do staff.".into()))
     }
 
     /// Quantos o clube tem de uma função.
@@ -251,8 +251,8 @@ impl Game {
             (Some(c), _) if c == self.club_id && f.job.is_some_and(|j| !HIRE_JOBS.contains(&j)) => {
                 Some("Essa função não depende do treinador.".into())
             }
-            (Some(c), Some(MANAGER | INTERIM)) if c != self.club_id => Some("Não pode tirar o treinador a outro clube.".into()),
-            (Some(c), Some(1..=4)) if c != self.club_id => Some("Os diretores dos clubes não se contratam.".into()),
+            (Some(c), Some(MANAGER | INTERIM)) if c != self.club_id => Some("Você não pode tirar o treinador de outro clube.".into()),
+            (Some(c), Some(1..=4)) if c != self.club_id => Some("Não é possível contratar diretores de clubes.".into()),
             _ => None,
         }
     }
@@ -314,7 +314,7 @@ impl Game {
             return Err(Error::Invalid(why));
         }
         if !HIRE_JOBS.contains(&job) {
-            return Err(Error::Invalid("Essa função não se pode oferecer.".into()));
+            return Err(Error::Invalid("Não é possível oferecer essa função.".into()));
         }
         // Quem já é nosso nessa função não conta para o máximo
         let same = f.club == Some(self.club_id) && f.job == Some(job);
@@ -346,7 +346,7 @@ impl Game {
         let f = self.staff_facts(person)?;
         let name = self.person_name(person)?;
         if self.open_staff_offer(person)?.is_some_and(|o| o.status == "pending") {
-            return Err(Error::Invalid(format!("Já fez uma proposta a {name}: a resposta chega amanhã.")));
+            return Err(Error::Invalid(format!("Você já fez uma proposta a {name}: a resposta chega amanhã.")));
         }
         let blocked: Option<String> =
             self.world.conn.query_row("SELECT blocked_until FROM talks WHERE person_id = ?", [person], |r| r.get(0)).optional()?.flatten();
@@ -370,7 +370,7 @@ impl Game {
             params![person, offer, job, wage, years, fee],
         )?;
         self.unsaved = true;
-        Ok(format!("A proposta foi enviada a {name}. A resposta chega amanhã às mensagens."))
+        Ok(format!("A proposta foi enviada a {name}. A resposta chega amanhã nas mensagens."))
     }
 
     /// Recusa por princípio: clube menor (pesa a Ambição), uma função abaixo da que tem ou a
@@ -386,7 +386,7 @@ impl Game {
         let short = self.club(club).short_name;
         let smaller = SMALLER_REP - 100 * (f.ambition - 10);
         if gain < -smaller.clamp(500, 2500) {
-            return Ok(Some(format!("{name} não está interessado em trocar o {short} por um clube de menor dimensão.")));
+            return Ok(Some(format!("{name} não está interessado em trocar o {short} por um clube menor.")));
         }
         let steps = f.job.map_or(0, |j| job_rank(j) - job_rank(job));
         if steps >= 1 && gain < STEP_REP * steps {
@@ -416,7 +416,7 @@ impl Game {
             // Mudou de clube entretanto
             if f.club != o.seller && f.club != Some(self.club_id) {
                 self.set_status(o.id, "collapsed", None)?;
-                let body = format!("As negociações com {name} acabaram: já não está no mesmo clube.");
+                let body = format!("As negociações com {name} acabaram: ele não está mais no mesmo clube.");
                 self.offer_news(fresh, next_id, format!("Negociações com {name}"), body, o.id);
                 continue;
             }
@@ -477,7 +477,7 @@ impl Game {
         match (o.status.as_str(), key) {
             ("pending" | "agreed" | "countered", "withdraw") => self.set_status(o.id, "withdrawn", None),
             ("agreed", "confirm") | ("countered", "accept") => self.sign_staff(o),
-            _ => Err(Error::Invalid("Esta proposta já não aceita essa resposta.".into())),
+            _ => Err(Error::Invalid("Essa proposta não aceita mais essa resposta.".into())),
         }
     }
 
@@ -487,7 +487,7 @@ impl Game {
         let f = self.staff_facts(o.person)?;
         if f.club != o.seller && f.club != Some(self.club_id) {
             self.set_status(o.id, "collapsed", None)?;
-            return Err(Error::Invalid("Já não está no mesmo clube.".into()));
+            return Err(Error::Invalid("Ele não está mais no mesmo clube.".into()));
         }
         self.check_staff_hire(&f, t.job, t.wage, t.fee)?;
         let name = self.person_name(o.person)?;
@@ -533,7 +533,7 @@ impl Game {
     pub fn sack_staff(&mut self, person: i32) -> Result<String> {
         let f = self.staff_facts(person)?;
         if f.club != Some(self.club_id) || !f.job.is_some_and(|j| HIRE_JOBS.contains(&j)) {
-            return Err(Error::Invalid("Só se demite o staff técnico do seu clube.".into()));
+            return Err(Error::Invalid("Só é possível demitir o staff técnico do seu clube.".into()));
         }
         let cost = self.sack_cost_of(&f);
         self.book(self.club_id, "other_expenses", cost)?;

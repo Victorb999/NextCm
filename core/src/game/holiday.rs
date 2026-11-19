@@ -127,10 +127,10 @@ impl Game {
     /// Começa as férias com as opções do diálogo.
     pub fn start_holiday(&mut self, plan: &HolidayPlan) -> Result<HolidayView> {
         if self.holiday.is_some() {
-            return Err(Error::Invalid("Já está de férias.".into()));
+            return Err(Error::Invalid("Você já está de férias.".into()));
         }
         if self.live.is_some() {
-            return Err(Error::Invalid("Não pode sair de férias no dia de um jogo.".into()));
+            return Err(Error::Invalid("Você não pode sair de férias no dia de um jogo.".into()));
         }
         let until = match (&plan.until, plan.days) {
             (Some(d), _) => {
@@ -190,7 +190,7 @@ impl Game {
     /// Passa um dia de férias: o adjunto trata das propostas e das candidaturas e o dia corre
     /// sem o treinador. Pára na data de volta, ao ser despedido ou num evento das opções.
     pub fn holiday_day(&mut self) -> Result<HolidayView> {
-        let Some(h) = &self.holiday else { return Err(Error::Invalid("Não está de férias.".into())) };
+        let Some(h) = &self.holiday else { return Err(Error::Invalid("Você não está de férias.".into())) };
         if h.done {
             return self.holiday_view();
         }
@@ -209,14 +209,14 @@ impl Game {
         let mut stop = None;
         let h = self.holiday.as_ref().expect("de férias");
         if sacked && !h.sacked {
-            stop = Some("Foi demitido pela Diretoria.".to_string());
+            stop = Some("Você foi demitido pela Diretoria.".to_string());
         } else if plan.return_on_warning && warning > h.warning {
-            stop = Some("A Diretoria está descontente e quer falar consigo.".to_string());
+            stop = Some("A Diretoria está descontente e quer falar com você.".to_string());
         } else if plan.return_on_job
             && let Some(&id) = jobs.iter().find(|id| !h.jobs.contains(id))
         {
             let club: i32 = self.world.conn.query_row("SELECT buyer FROM offers WHERE id = ?", [id], |r| r.get(0))?;
-            stop = Some(format!("Recebeu uma proposta de emprego do {}.", self.club(club).name));
+            stop = Some(format!("Você recebeu uma proposta de emprego do {}.", self.club(club).name));
         }
         let reached = h.until.as_ref().is_some_and(|u| self.date.as_str() >= u.as_str());
         let h = self.holiday.as_mut().expect("de férias");
@@ -231,7 +231,7 @@ impl Game {
     /// Volta das férias (no fim ou pelo botão): a escolha do treinador volta e chega o resumo.
     pub fn end_holiday(&mut self) -> Result<GameInfo> {
         let view = self.holiday_view()?;
-        let h = self.holiday.take().ok_or_else(|| Error::Invalid("Não está de férias.".into()))?;
+        let h = self.holiday.take().ok_or_else(|| Error::Invalid("Você não está de férias.".into()))?;
         self.watch = h.watch;
         // A escolha do treinador volta (sem os que saíram entretanto)
         if !self.sacked() {
@@ -256,7 +256,7 @@ impl Game {
     }
 
     pub fn holiday_view(&self) -> Result<HolidayView> {
-        let h = self.holiday.as_ref().ok_or_else(|| Error::Invalid("Não está de férias.".into()))?;
+        let h = self.holiday.as_ref().ok_or_else(|| Error::Invalid("Você não está de férias.".into()))?;
         let days = date::parse(&self.date).zip(date::parse(&h.start)).map_or(0, |(a, b)| a - b);
         Ok(HolidayView {
             date: self.date.clone(),
@@ -324,7 +324,7 @@ impl Game {
                 continue;
             }
             if self.apply_job(club).is_ok() {
-                notes.push(format!("Concorreu ao lugar de treinador do {}.", self.club(club).name));
+                notes.push(format!("Você se candidatou à vaga de treinador do {}.", self.club(club).name));
             }
         }
         Ok(())
@@ -366,8 +366,8 @@ impl Game {
     /// o que o adjunto fez.
     fn holiday_summary(&self, h: &Holiday, view: &HolidayView) -> Result<String> {
         let mut parts = vec![match &h.stop {
-            Some(why) => format!("Voltou das férias em {}, depois de {} dias. {why}", cm_date(&self.date), view.days),
-            None => format!("Voltou das férias em {}, depois de {} dias.", cm_date(&self.date), view.days),
+            Some(why) => format!("Você voltou das férias em {}, depois de {} dias. {why}", cm_date(&self.date), view.days),
+            None => format!("Você voltou das férias em {}, depois de {} dias.", cm_date(&self.date), view.days),
         }];
         if view.games.is_empty() {
             parts.push("O time não jogou durante as férias.".into());

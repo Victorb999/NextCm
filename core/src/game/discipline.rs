@@ -19,11 +19,11 @@ pub const ACTIONS: [(&str, i64); 3] =
 
 /// As razões do CM ("Sem Razões" é sempre injusta).
 const REASONS: [(&str, &str); 5] = [
-    ("none", "Sem Razões"),
+    ("none", "Sem Motivo"),
     ("unprofessional", "Comportamento Pouco Profissional"),
     ("sent_off", "Expulsão em jogo anterior"),
     ("violent", "Comportamento Violento"),
-    ("poor", "Fraca Exibição"),
+    ("poor", "Atuação Fraca"),
 ];
 
 /// Dias em que uma expulsão ou uma má exibição ainda justificam um castigo.
@@ -136,10 +136,10 @@ impl Game {
         self.own_player(person)?;
         let (label, weeks) = *ACTIONS.get(action).ok_or_else(|| Error::Invalid("Punição desconhecida.".into()))?;
         if !REASONS.iter().any(|r| r.0 == reason) {
-            return Err(Error::Invalid("Razão desconhecida.".into()));
+            return Err(Error::Invalid("Motivo desconhecido.".into()));
         }
         if self.logged_since(person, &["discipline"], DISCIPLINE_DAYS)? {
-            return Err(Error::Invalid("Já o puniu há poucos dias.".into()));
+            return Err(Error::Invalid("Você já puniu esse jogador há poucos dias.".into()));
         }
         let name = self.person_name(person)?;
         let m = self.mind(person)?;
@@ -152,7 +152,7 @@ impl Game {
         let fair = self.reason_happened(person, reason)?;
         let (delta, reaction) = if !fair {
             self.add_unhappy(person, "unfair")?;
-            (-4 - weeks as i32, format!("{name} não entende a punição e sente que foi tratado injustamente."))
+            (-4 - weeks as i32, format!("{name} não entendeu a punição e se sentiu injustiçado."))
         } else if m.professionalism >= 15 {
             (1, format!("{name} aceitou a punição e promete dar a volta por cima."))
         } else if m.temperament <= 7 {
@@ -179,7 +179,7 @@ impl Game {
             return Err(Error::Invalid("Comentário desconhecido.".into()));
         }
         if self.logged_since(person, &["praise", "criticise"], PRESS_DAYS)? {
-            return Err(Error::Invalid("Já falou dele à imprensa há pouco tempo.".into()));
+            return Err(Error::Invalid("Você já falou dele para a imprensa há pouco tempo.".into()));
         }
         let (title, reaction) = self.press_reaction(person, kind == "praise")?;
         self.world.conn.execute("INSERT INTO player_log (person_id, kind, date) VALUES (?, ?, ?)", params![person, kind, self.date])?;
@@ -196,7 +196,11 @@ impl Game {
         let st = self.squads.state(person);
         let (delta, title, reaction) = if praise {
             if st.morale >= 18 {
-                (0, format!("{name} elogiado"), format!("{name} agradeceu o elogio, mas já anda nas nuvens: se arrisca a facilitar."))
+                (
+                    0,
+                    format!("{name} elogiado"),
+                    format!("{name} agradeceu o elogio, mas já está se achando demais e pode acabar relaxando."),
+                )
             } else {
                 // Vale mais para quem está em baixo ou joga pouco
                 let boost = if st.morale <= 8 || st.missed >= 3 { 4 } else { 2 };
@@ -288,7 +292,7 @@ mod tests {
         g.discipline(calm, 0, "none").unwrap();
         assert!(morale(&g, calm) <= c0 - 4);
         let o0 = morale(&g, other);
-        assert!(g.discipline(other, 0, "violent").unwrap().contains("injustamente"));
+        assert!(g.discipline(other, 0, "violent").unwrap().contains("injustiçado"));
         assert!(morale(&g, other) <= o0 - 4);
         g.date = date::add_days(&g.date, PRESS_DAYS + 1).unwrap();
 

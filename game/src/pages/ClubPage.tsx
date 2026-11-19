@@ -541,7 +541,7 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
             <button
               className="cm-purple h-6 w-40"
               disabled={!game.info?.numbersOpen}
-              title={game.info?.numbersOpen ? undefined : 'Os números só se mudam na pré-temporada'}
+              title={game.info?.numbersOpen ? undefined : 'Os números só podem ser mudados na pré-temporada'}
               onClick={() => nav.go({ kind: 'squadNumbers' })}
             >
               Números
@@ -606,16 +606,16 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
                     )
                   })}
                   <span className="ml-2 self-center text-[11px] text-cm-dim">
-                    Arraste para trocar · clique no número ou na casa para pôr/tirar
+                    Arraste para trocar · clique no número ou na casa para colocar/tirar
                   </span>
                 </>
               )}
               {reserveView && (
                 <span className="ml-2 self-center text-[11px] text-cm-dim">
                   {reserveLineup.picks.length
-                    ? `Escolheu ${reserveLineup.picks.length} · o auxiliar completa o onze`
+                    ? `Você escolheu ${reserveLineup.picks.length} · o auxiliar completa o onze`
                     : 'O auxiliar escolhe o onze'}{' '}
-                  · clique no número ou na casa para pôr/tirar do time das reservas
+                  · clique no número ou na casa para colocar/tirar do time das reservas
                 </span>
               )}
               {reserveView && (

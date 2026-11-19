@@ -88,7 +88,7 @@ impl Game {
     pub fn staff_report(&mut self, person: i32, kind: &str, staff: &[i32]) -> Result<usize> {
         let club: Option<i32> = self.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [person], |r| r.get(0))?;
         if club != Some(self.club_id) {
-            return Err(Error::Invalid("Só se pedem relatórios sobre os jogadores do elenco.".into()));
+            return Err(Error::Invalid("Só é possível pedir relatórios sobre os jogadores do elenco.".into()));
         }
         let allowed: Vec<i32> = self.report_staff(kind)?.iter().map(|s| s.id).collect();
         let chosen: Vec<i32> = staff.iter().copied().filter(|s| allowed.contains(s)).collect();
@@ -118,7 +118,7 @@ impl Game {
             let day = crate::date::parse(&self.date).unwrap_or(0) as u64;
             let mut rng = ChaCha8Rng::seed_from_u64((self.seed as u64) ^ (s as u64) << 20 ^ (person as u64) << 40 ^ day);
             let (title, body) = if kind == "medical" {
-                (format!("{who} faz ponto da situação de {short}"), self.medical_text(person, &name, &p.name, physio, &mut rng)?)
+                (format!("{who} atualiza a situação de {short}"), self.medical_text(person, &name, &p.name, physio, &mut rng)?)
             } else {
                 let skill = (coaching + judgement) / 2;
                 (
@@ -148,11 +148,11 @@ impl Game {
         let spread = (20 - skill.clamp(1, 20)) as f64 * 6.0 / 19.0;
         let seen = prone as f64 + ((rng.next_u64() % 2001) as f64 / 1000.0 - 1.0) * spread;
         let mut text = if seen >= 15.0 {
-            format!("{physio} alerta no seu relatório que {name} tem tendência para se lesionar e aconselha a poupá-lo em jogos seguidos.")
+            format!("{physio} alerta no relatório que {name} tem tendência a se lesionar e recomenda poupar o jogador em jogos seguidos.")
         } else if seen >= 11.0 {
-            format!("{physio} refere no seu relatório que {name} está bem fisicamente, mas convém vigiá-lo.")
+            format!("{physio} diz no relatório que {name} está bem fisicamente, mas é bom ficar de olho.")
         } else {
-            format!("{physio} mencionou no seu relatório que não tem qualquer tipo de preocupação sobre a situação física de {name}.")
+            format!("{physio} diz no relatório que não tem nenhuma preocupação com a parte física de {name}.")
         };
         if st.condition < 80 {
             text.push_str(&format!("\n\nAcrescenta que {name} está cansado ({}% de condição) e precisa de descanso.", st.condition));
@@ -188,7 +188,7 @@ impl Game {
         let seen = ca as f64 + ((rng.next_u64() % 2001) as f64 / 1000.0 - 1.0) * spread;
         let rank = cas.iter().filter(|c| c.0 != person && c.1 as f64 > seen).count();
         let (opening, role) = match rank {
-            0..=2 => ("é um grande admirador das qualidades de", "um elemento chave do elenco atual"),
+            0..=2 => ("é um grande admirador das qualidades de", "uma peça-chave do elenco atual"),
             3..=10 => ("aprecia as qualidades de", "um titular no elenco atual"),
             11..=17 => ("vê com bons olhos", "uma boa opção para o elenco"),
             _ => ("tem dúvidas sobre", "alguém com pouco lugar no elenco atual"),
@@ -202,13 +202,10 @@ impl Game {
         ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
         let mut text = format!("{coach} {opening} {name}.\n\nEle vê o {pos} como {role}.");
         if ranked.len() >= 2 && ranked[0].1 >= 13 {
-            text.push_str(&format!(
-                "\n\nO relatório também referencia favoravelmente {name} em termos de {} e ainda {}.",
-                ranked[0].0, ranked[1].0
-            ));
+            text.push_str(&format!("\n\nO relatório também elogia {name} em {} e em {}.", ranked[0].0, ranked[1].0));
         }
         if let Some(weak) = ranked.iter().rev().find(|r| r.1 <= 8) {
-            text.push_str(&format!(" Aponta, no entanto, que tem de melhorar a {}.", weak.0));
+            text.push_str(&format!(" Mas aponta que ele precisa melhorar a {}.", weak.0));
         }
         Ok(text)
     }
@@ -267,7 +264,7 @@ mod tests {
         let ids: Vec<i32> = coaches.iter().map(|c| c.id).collect();
         assert_eq!(g.staff_report(star, "fitness", &ids).unwrap(), coaches.len());
         assert_eq!(g.news().len(), before + 1 + coaches.len());
-        let medical = g.news().iter().find(|n| n.title.contains("faz ponto da situação")).unwrap();
+        let medical = g.news().iter().find(|n| n.title.contains("atualiza a situação")).unwrap();
         assert!(medical.body.contains("relatório"), "{}", medical.body);
         let fitness = g.news().iter().find(|n| n.title.contains("apresenta relatório")).unwrap();
         // O melhor do plantel: o preparador acha-o pelo menos titular

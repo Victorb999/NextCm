@@ -259,7 +259,7 @@ impl Game {
                 format!("As reservas do {} empataram {place} com as do {}: {gf}-{ga}.", ours.short_name, theirs.short_name)
             }
             std::cmp::Ordering::Less => {
-                format!("As reservas do {} perderam {place} com as do {} por {gf}-{ga}.", ours.short_name, theirs.short_name)
+                format!("As reservas do {} perderam {place} para as do {} por {gf}-{ga}.", ours.short_name, theirs.short_name)
             }
         };
         let mut scorers = String::new();
@@ -294,7 +294,7 @@ impl Game {
             .query_row("SELECT date, home_id, away_id, home_goals, away_goals FROM reserve_matches WHERE fixture = ?", [fixture], |r| {
                 Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
             })
-            .map_err(|_| crate::Error::Invalid("Este jogo das reservas ainda não se jogou.".into()))?;
+            .map_err(|_| crate::Error::Invalid("Este jogo das reservas ainda não foi disputado.".into()))?;
         let league = self.matches.iter().find(|m| m.id == fixture);
         let competition = league.map(|m| m.competition_id).or(self.division_of(home)?).unwrap_or(0);
         let round = league.map(|m| m.round).unwrap_or(0);
@@ -689,7 +689,7 @@ impl Game {
                     .conn
                     .query_row("SELECT club_id = ? FROM people WHERE id = ?", params![self.club_id, id], |r| r.get::<_, bool>(0))?
             {
-                return Err(crate::Error::Invalid("Só jogam nas reservas os jogadores que estão nelas.".into()));
+                return Err(crate::Error::Invalid("Só os jogadores das reservas podem jogar nas reservas.".into()));
             }
         }
         self.world.conn.execute("DELETE FROM reserve_picks", [])?;

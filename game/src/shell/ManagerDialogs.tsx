@@ -111,7 +111,7 @@ export default function ManagerDialogs({
                 </div>
                 {saves.length === 0 && <Empty className="p-3">Sem jogos salvos.</Empty>}
               </div>
-              <div className="pt-1 text-[13px] text-cm-dlgtext">Escolha um jogo da lista para o substituir, ou escreva um nome novo.</div>
+              <div className="pt-1 text-[13px] text-cm-dlgtext">Escolha um jogo da lista para substituir ou escreva um nome novo.</div>
             </>
           )}
         </DialogFrame>
@@ -148,7 +148,7 @@ export default function ManagerDialogs({
       >
         <div className={TEXT}>
           {resign
-            ? `Rescindir o contrato com o ${game.info?.club.name ?? 'clube'}? Fica sem clube e terá de procurar outro.`
+            ? `Rescindir o contrato com o ${game.info?.club.name ?? 'clube'}? Você fica sem clube e vai ter que procurar outro.`
             : 'Aposentar-se do futebol? O jogo é salvo e termina aqui.'}
         </div>
       </DialogFrame>

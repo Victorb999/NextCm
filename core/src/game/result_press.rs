@@ -89,7 +89,7 @@ impl Game {
                 format!("Goleada do {us} sobre o {them} impressiona"),
                 format!(
                     "O {gf}-{ga} sobre o {them}, um dos times da parte de cima da tabela, é o assunto da rodada na {comp}. \
-                     O {us} chega a {} pontos e é {}º colocado.",
+                     O {us} chega a {} pontos e está em {}º lugar.",
                     ours.points, ours.position
                 ),
             ));

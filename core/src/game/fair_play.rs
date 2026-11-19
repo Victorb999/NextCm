@@ -252,7 +252,7 @@ impl Game {
                 Some((
                     "Proibição de contratar",
                     format!(
-                        "O clube perdeu {loss} nas últimas três temporadas, acima do limite de {limit} do fair-play financeiro, pela segunda temporada seguida.\n\nAté as contas voltarem ao limite, só pode contratar jogadores livres ou por empréstimo."
+                        "O clube perdeu {loss} nas últimas três temporadas, acima do limite de {limit} do fair-play financeiro, pela segunda temporada seguida.\n\nAté as contas voltarem ao limite, o clube só pode contratar jogadores livres ou por empréstimo."
                     ),
                 ))
             } else if over && !now_banned {

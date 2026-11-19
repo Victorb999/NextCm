@@ -1324,7 +1324,7 @@ impl Game {
     /// Chamar de volta um jogador emprestado pelo clube do treinador: volta já ao plantel.
     pub fn recall_loan(&mut self, person: i32) -> Result<String> {
         if self.sacked() {
-            return Err(crate::Error::Invalid("Não tem clube.".into()));
+            return Err(crate::Error::Invalid("Você está sem clube.".into()));
         }
         let loan: Option<i32> =
             self.world.conn.query_row("SELECT parent_id FROM loans WHERE person_id = ?", [person], |r| r.get(0)).optional()?;
@@ -1338,7 +1338,7 @@ impl Game {
             |r| r.get(0),
         )?;
         if open > 0 {
-            return Err(crate::Error::Invalid("Há um negócio em curso por este jogador.".into()));
+            return Err(crate::Error::Invalid("Já existe uma negociação em andamento por este jogador.".into()));
         }
         self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![self.club_id, self.date, person])?;
         self.number_after_move(person, Some(self.club_id))?;
@@ -1356,7 +1356,7 @@ impl Game {
     /// empréstimo acaba hoje (a parte do salário e as taxas mensais por pagar também).
     pub fn send_back_loan(&mut self, person: i32) -> Result<String> {
         if self.sacked() {
-            return Err(crate::Error::Invalid("Não tem clube.".into()));
+            return Err(crate::Error::Invalid("Você está sem clube.".into()));
         }
         let parent: Option<i32> =
             self.world.conn.query_row("SELECT parent_id FROM loans WHERE person_id = ?", [person], |r| r.get(0)).optional()?;
@@ -1370,7 +1370,7 @@ impl Game {
             |r| r.get(0),
         )?;
         if open > 0 {
-            return Err(crate::Error::Invalid("Há um negócio em curso por este jogador.".into()));
+            return Err(crate::Error::Invalid("Já existe uma negociação em andamento por este jogador.".into()));
         }
         self.world.conn.execute("UPDATE people SET club_id = ?, club_joined = ? WHERE id = ?", params![parent, self.date, person])?;
         self.number_after_move(person, Some(parent))?;
@@ -1557,12 +1557,14 @@ impl Game {
                         .query_row("SELECT complete_on FROM ai_agreements WHERE person_id = ?", [d.person_id], |r| r.get(0))
                         .optional()?;
                     let when = on
-                        .map(|o| format!(" A transferência só é assinada a {}: até lá ainda pode fazer uma proposta.", cm_date(&o)))
+                        .map(|o| {
+                            format!(" A transferência só será assinada em {}: até lá, você ainda pode fazer uma proposta.", cm_date(&o))
+                        })
                         .unwrap_or_default();
                     (
                         format!("Proposta por {name}"),
                         format!(
-                            "{name}, da sua Lista Preferencial, recebeu uma proposta: o {to} chegou a acordo com o {from} por {}.{when}",
+                            "{name}, da sua Lista Preferencial, recebeu uma proposta: o {to} chegou a um acordo com o {from} por {}.{when}",
                             money_text(d.fee)
                         ),
                     )
@@ -1573,7 +1575,7 @@ impl Game {
                     format!("{name}, da sua Lista Preferencial, foi dispensado pelo {from} e está sem clube."),
                 ),
                 "free" => {
-                    (format!("{name} assina pelo {to}"), format!("{name}, da sua Lista Preferencial, assinou pelo {to} a custo zero."))
+                    (format!("{name} assina pelo {to}"), format!("{name}, da sua Lista Preferencial, assinou com o {to} a custo zero."))
                 }
                 _ => (
                     format!("{name} vendido ao {to}"),

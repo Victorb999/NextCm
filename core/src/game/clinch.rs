@@ -104,7 +104,7 @@ impl Game {
                         ("promotion", _) => (format!("{club} garante o acesso"), format!("O {club} garantiu o acesso {early}.")),
                         (_, Some(l)) => (
                             format!("{club} garante vaga na {l}"),
-                            format!("O {club} já não sai da zona de classificação para a {l} ({early})."),
+                            format!("O {club} não sai mais da zona de classificação para a {l} ({early})."),
                         ),
                         _ => continue,
                     };

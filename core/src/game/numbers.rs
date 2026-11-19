@@ -227,7 +227,7 @@ impl Game {
             if number.is_none() {
                 let name = self.person_name(id)?;
                 return Err(crate::Error::Invalid(format!(
-                    "{name} não tem número de camisa: dê um número a ele em Números Elenco antes de escalá-lo."
+                    "{name} não tem número de camisa: dê um número para ele em Números Elenco antes de escalar."
                 )));
             }
         }
@@ -248,7 +248,7 @@ impl Game {
     /// jogadores sem número).
     pub fn squad_numbers(&self) -> Result<SquadNumbers> {
         if !self.numbers_open()? {
-            return Err(Error::Invalid("Os números do elenco só se mudam na pré-temporada.".into()));
+            return Err(Error::Invalid("Os números do elenco só podem ser mudados na pré-temporada.".into()));
         }
         self.numbers_screen()
     }
@@ -291,7 +291,7 @@ impl Game {
     /// número fica com ele.
     pub fn set_squad_numbers(&mut self, numbers: &[NumberAssign]) -> Result<SquadNumbers> {
         if !self.numbers_open()? {
-            return Err(Error::Invalid("Os números do elenco só se mudam na pré-temporada.".into()));
+            return Err(Error::Invalid("Os números do elenco só podem ser mudados na pré-temporada.".into()));
         }
         let pre_season = self.pre_season();
         let squad: std::collections::HashMap<i32, Option<i32>> =
@@ -302,7 +302,7 @@ impl Game {
                 return Err(Error::Invalid("Só os jogadores do seu elenco.".into()));
             };
             if !pre_season && had.is_some() && a.number != had {
-                return Err(Error::Invalid("Com a temporada a decorrer, só se numeram os jogadores sem número.".into()));
+                return Err(Error::Invalid("Com a temporada em andamento, só é possível numerar os jogadores sem número.".into()));
             }
             if let Some(n) = a.number {
                 if !(1..=99).contains(&n) {

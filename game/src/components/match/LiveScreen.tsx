@@ -442,7 +442,7 @@ export function LiveScreen({
             </div>
             {waiting && (
               <div className="flex h-6 shrink-0 items-center justify-center rounded bg-black/70 text-[13px] font-bold text-cm-yellow">
-                Táticas {(waiting.side === 0 ? view.home : view.away).club.shortName}: à espera que a bola saia…
+                Táticas {(waiting.side === 0 ? view.home : view.away).club.shortName}: esperando a bola sair…
               </div>
             )}
             <div className="flex shrink-0 gap-1.5">

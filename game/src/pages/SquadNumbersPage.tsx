@@ -178,7 +178,7 @@ export default function SquadNumbersPage() {
             <span
               className={`rounded px-1.5 tracking-wider ${saved.preSeason ? 'bg-cm-dlgdeep text-cm-mint' : 'bg-[#3a2508] text-cm-orange'}`}
             >
-              {saved.preSeason ? 'Pré-temporada' : 'Temporada a decorrer'}
+              {saved.preSeason ? 'Pré-temporada' : 'Temporada em andamento'}
             </span>
           )
         }
@@ -189,7 +189,7 @@ export default function SquadNumbersPage() {
           <span className="font-bold text-cm-yellow">i</span>
           {saved.preSeason
             ? 'Os números ficam fixos a partir do primeiro jogo oficial.'
-            : 'Com a temporada a decorrer, só os jogadores sem número recebem um.'}
+            : 'Com a temporada em andamento, só os jogadores sem número recebem um.'}
           <span className="text-cm-faint">·</span>
           <span>
             Total no elenco: <b>{saved.players.length} jogadores</b>
@@ -207,7 +207,7 @@ export default function SquadNumbersPage() {
           className="cm-purple h-7 w-32"
           disabled={clearable.length === 0}
           onClick={clearAll}
-          title={saved?.preSeason ? 'Tira os números a todos' : 'Tira os números que ainda se podem mudar'}
+          title={saved?.preSeason ? 'Tira os números de todos' : 'Tira os números que ainda podem mudar'}
         >
           Limpar Tudo
         </button>
@@ -234,7 +234,7 @@ export default function SquadNumbersPage() {
                 <div
                   key={p.id}
                   onClick={() => !locked(p.id) && setSelected(p.id)}
-                  title={locked(p.id) ? 'Com a temporada a decorrer, este número está fixo' : undefined}
+                  title={locked(p.id) ? 'Com a temporada em andamento, este número está fixo' : undefined}
                   className={`flex h-[30px] items-center gap-3 px-4 text-[14.5px] ${sel ? '!bg-cm-sel' : ''} ${
                     locked(p.id) ? 'opacity-45' : 'cursor-pointer hover:bg-white/[0.06]'
                   }`}

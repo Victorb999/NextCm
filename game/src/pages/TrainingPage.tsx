@@ -272,7 +272,7 @@ export default function TrainingPage() {
                       e.dataTransfer.effectAllowed = 'move'
                       setSelected(i)
                     }}
-                    title="Arraste para a aba de um programa para o mudar"
+                    title="Arraste para a aba de um programa para mudar"
                     className={`flex h-6 cursor-grab items-center gap-2 px-2 ${i === selected ? '!bg-cm-sel' : ''}`}
                   >
                     {/* O programa na linha: um clique abre a lista para o mudar */}

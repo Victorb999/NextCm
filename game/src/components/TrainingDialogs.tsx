@@ -128,7 +128,7 @@ export function ProgramDialog({
           </DialogRow>
           <div className="flex items-center gap-3 pt-1">
             <span className="flex-1 text-[12px] text-cm-dlgtext">
-              A Prep. Física intensiva cansa e aumenta o risco de lesão; uma posição nova se aprende em meses.
+              A Prep. Física intensiva cansa e aumenta o risco de lesão; aprender uma posição nova leva meses.
             </span>
             {canDelete && (
               <button className="cm-purple h-7 px-3" onClick={onDelete}>

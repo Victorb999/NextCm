@@ -215,7 +215,8 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
               </div>
             )}
             <div className="px-4 pb-1 text-center text-[12px] text-[#8a8a8a]">
-              O melhor dos dois a verde; <span className={UNKNOWN}>-</span> é o que o clube ainda não conhece (precisa de mais observações).
+              O melhor dos dois em verde; <span className={UNKNOWN}>-</span> é o que o clube ainda não conhece (precisa de mais
+              observações).
             </div>
           </div>
         </Panel>

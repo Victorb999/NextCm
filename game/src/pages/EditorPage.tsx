@@ -230,7 +230,7 @@ export default function EditorPage() {
         hits.map((h) => h.id),
       ),
     )
-    if (path) setNotice(`Exportado para ${path}${dirty ? ' (sem as alterações por salvar)' : ''}`)
+    if (path) setNotice(`Exportado para ${path}${dirty ? ' (sem as alterações não salvas)' : ''}`)
   }
 
   /** Corre o Comando Personalizado (gravando antes o que estiver por gravar) e reabre o jogador aberto. */
@@ -415,16 +415,16 @@ export default function EditorPage() {
                   <StaffPanel file={file} id={selected} edit={edits.staff[selected]} onEdit={onStaffEdit} run={run} />
                 ) : (
                   <div className="p-8 text-center text-cm-lilac">
-                    Procure um treinador, olheiro ou fisioterapeuta pelo nome (ou deixe vazio para os melhores) e escolha-o na lista.
+                    Procure um treinador, olheiro ou fisioterapeuta pelo nome (ou deixe vazio para os melhores) e escolha na lista.
                   </div>
                 )
               ) : kind === 'clubs' ? (
                 <div className="p-8 text-center text-cm-lilac">
-                  Procure um clube pelo nome e escolha-o na lista: abre o diálogo Editar Clube.
+                  Procure um clube pelo nome e escolha na lista: abre o diálogo Editar Clube.
                 </div>
               ) : !pe || !p || !view ? (
                 <div className="p-8 text-center text-cm-lilac">
-                  Procure um jogador pelo nome (ou deixe vazio para os melhores), use os filtros se quiser, e escolha-o na lista.
+                  Procure um jogador pelo nome (ou deixe vazio para os melhores), use os filtros se quiser, e escolha na lista.
                 </div>
               ) : (
                 <>
@@ -624,7 +624,7 @@ export default function EditorPage() {
                         </div>
                       </div>
                       <div className="pt-1.5 text-[12px] text-[#8a8a8a]">
-                        Os valores são os que o jogo mostra (1 a 20); à direita, o valor salvo no save. Os destacados a branco o jogo
+                        Os valores são os que o jogo mostra (1 a 20); à direita, o valor salvo no save. Os destacados em branco o jogo
                         esconde.
                       </div>
                     </>
@@ -681,7 +681,7 @@ export default function EditorPage() {
         <Overlay>
           <DialogFrame title="Alterações por Salvar" width={560}>
             <div className="text-[15px] text-white">
-              Há alterações por salvar em: <span className="text-cm-yellow">{pending.join(', ')}</span>.
+              Há alterações não salvas em: <span className="text-cm-yellow">{pending.join(', ')}</span>.
             </div>
             <div className="mt-3 flex gap-1">
               <button className="cm-purple h-9 flex-1" onClick={() => setLeaving(null)}>

@@ -36,7 +36,7 @@ function Row({
         onClick={onToggle}
         disabled={!onToggle}
         className={`w-96 shrink-0 text-left text-[15px] font-semibold ${on ? 'text-white' : 'text-cm-purplelight'} enabled:hover:underline`}
-        title={onToggle ? (on ? 'Clique para tirar da proposta' : 'Clique para pôr na proposta') : undefined}
+        title={onToggle ? (on ? 'Clique para tirar da proposta' : 'Clique para colocar na proposta') : undefined}
       >
         {label}
       </button>
@@ -136,7 +136,7 @@ export default function ContractExtrasPanel({
       {tab === 'clauses' && (
         <>
           <div className="px-4 pt-1 text-[14px] text-cm-muted">Cláusulas de Rescisão:</div>
-          <div className="cm-zebra py-1">{flag('managerJob', 'Cláusula de dispensa por oferta de lugar de treinador')}</div>
+          <div className="cm-zebra py-1">{flag('managerJob', 'Cláusula de saída por proposta para ser treinador')}</div>
         </>
       )}
       <div className="px-4 pb-2 pt-1 text-[13px] font-semibold text-cm-orange">* Exigido pelo jogador</div>

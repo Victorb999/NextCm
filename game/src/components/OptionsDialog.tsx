@@ -149,7 +149,7 @@ export default function OptionsDialog({ onClose }: { onClose: () => void }) {
           <span className="size-2 rounded-full bg-cm-mint" />
           <span className="font-mono font-bold uppercase tracking-[0.12em] text-white">Configurações do Jogo</span>
           <span className="ml-auto text-[12px] text-cm-dim">Versão {VERSION}</span>
-          <button className="cm-purple h-7 w-28" onClick={() => setS(DEFAULT_SETTINGS)} title="Voltar às configurações de origem">
+          <button className="cm-purple h-7 w-28" onClick={() => setS(DEFAULT_SETTINGS)} title="Voltar às configurações padrão">
             Anular
           </button>
         </div>

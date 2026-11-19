@@ -1024,7 +1024,7 @@ impl Game {
             crate::progress::set("Sorteando os calendários…", 0.35);
             game.schedule_season(SeasonKind::Calendar, year, &mut fresh, &mut next_id)?;
             game.schedule_season(SeasonKind::European, year, &mut fresh, &mut next_id)?;
-            crate::progress::set("Tratando dos empréstimos e dos contratos…", 0.5);
+            crate::progress::set("Cuidando dos empréstimos e dos contratos…", 0.5);
             // Os empréstimos em curso de 2025/26 (o banco do CM não os tem)
             game.start_loans(if new.start == StartSeason::Europe { 1 } else { 0 })?;
             // O resto do player_setup.cfg: lesões, transferências acertadas, reformas e castigos
@@ -2263,7 +2263,7 @@ impl Game {
         if !internationals_played.is_empty() {
             let title = match internationals_played.as_slice() {
                 [one] => format!("{} jogou pela seleção", one.split(':').next().unwrap_or_default()),
-                _ => "Os internacionais do clube em campo".to_string(),
+                _ => "Os jogadores do clube nas seleções".to_string(),
             };
             let body = format!("Jogaram hoje pelas seleções:\n\n{}", internationals_played.join("\n"));
             fresh.push(self.news_item(next_id, "message", title, body));
@@ -2898,7 +2898,7 @@ impl Game {
         let standing = table
             .iter()
             .find(|r| r.club.id == self.club_id)
-            .map(|r| format!("\n\nCom este resultado, o {} é {}º classificado com {} pontos.", ours.short_name, r.position, r.points))
+            .map(|r| format!("\n\nCom este resultado, o {} está em {}º lugar com {} pontos.", ours.short_name, r.position, r.points))
             .unwrap_or_default();
         let extra = if m.extra_time { " O jogo foi para a prorrogação." } else { "" };
         let pens = m
@@ -3193,7 +3193,7 @@ impl Game {
     }
 
     fn live_day(&self) -> Result<&LiveDay> {
-        self.live.as_ref().filter(|d| d.user < d.games.len()).ok_or_else(|| Error::Invalid("Não há nenhum jogo a decorrer.".into()))
+        self.live.as_ref().filter(|d| d.user < d.games.len()).ok_or_else(|| Error::Invalid("Nenhum jogo em andamento.".into()))
     }
 
     fn live_match_mut(&mut self) -> Result<&mut LiveMatch> {
@@ -4456,7 +4456,7 @@ mod tests {
         let mut programs = v.programs.clone();
         programs.push(TrainingProgram {
             id: 0,
-            name: "Avançados novos".into(),
+            name: "Atacantes novos".into(),
             fitness: 3,
             tactics: 3,
             shooting: 3,
@@ -4473,7 +4473,7 @@ mod tests {
             coaches: None,
         };
         let v = g.set_training(&plan).unwrap();
-        let new_id = v.programs.iter().find(|p| p.name == "Avançados novos").unwrap().id;
+        let new_id = v.programs.iter().find(|p| p.name == "Atacantes novos").unwrap().id;
         assert!(v.assign.iter().any(|a| a.person == defender && a.program == new_id));
 
         // Mais evolução com treino intensivo do que sem treino

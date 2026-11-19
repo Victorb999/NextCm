@@ -356,7 +356,7 @@ impl Game {
             self.world.conn.query_row("SELECT confidence, fans FROM board WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?)))?;
         let club = self.club(self.club_id);
         let mood = match confidence {
-            85.. => "está deliciada com o seu desempenho como treinador",
+            85.. => "está encantada com o seu desempenho como treinador",
             70..=84 => "está muito satisfeita com o seu desempenho como treinador",
             55..=69 => "está satisfeita com o seu desempenho como treinador",
             40..=54 => "considera aceitável o seu desempenho como treinador",
@@ -373,7 +373,7 @@ impl Game {
             _ => "preocupante",
         };
         let supporters = match fans {
-            75.. => "Estamos satisfeitos por constatar que você conseguiu construir uma relação positiva com os torcedores.",
+            75.. => "Ficamos felizes em ver que você construiu uma boa relação com os torcedores.",
             50..=74 => "Os torcedores estão contentes com o rumo do clube.",
             30..=49 => "Os torcedores começam a ficar impacientes.",
             _ => "Os torcedores estão descontentes e a pressão sobre o clube é grande.",
@@ -396,8 +396,8 @@ impl Game {
             self.valuable_players()?.iter().map(|&id| Ok((id, self.person_name(id)?))).collect::<Result<_>>()?;
         let text = match idols.as_slice() {
             [] => None,
-            [(_, one)] => Some(format!("A diretoria acredita que {one} é um elemento valioso do elenco.")),
-            [(_, a), (_, b), ..] => Some(format!("A diretoria acredita que {a} e {b} são elementos valiosos do elenco.")),
+            [(_, one)] => Some(format!("A diretoria acredita que {one} é uma peça valiosa do elenco.")),
+            [(_, a), (_, b), ..] => Some(format!("A diretoria acredita que {a} e {b} são peças valiosas do elenco.")),
         };
         if let Some(text) = text {
             lines.push(BoardLine { players: idols, ..line("players", "Jogadores-chave", text, None) });
@@ -485,7 +485,7 @@ impl Game {
             self.change_manager_rep(super::jobs::REP_SACKED)?;
             self.career_leave()?;
             let body = format!(
-                "A Diretoria do {club} perdeu a confiança no seu trabalho e decidiu dispensá-lo do cargo de treinador, com efeitos imediatos.\n\nProcure um novo clube em Informação de Empregos."
+                "A Diretoria do {club} perdeu a confiança no seu trabalho e decidiu demitir você do cargo de treinador, com efeito imediato.\n\nProcure um novo clube em Informação de Empregos."
             );
             fresh.push(self.news_item(*next_id, "message", "Demitido".into(), body));
             *next_id += 1;
@@ -495,7 +495,7 @@ impl Game {
         if new < ULTIMATUM_AT && warning < 2 {
             warning = 2;
             let body = format!(
-                "A Diretoria do {club} está muito descontente com os resultados. Se a situação não mudar depressa, será dispensado."
+                "A Diretoria do {club} está muito descontente com os resultados. Se a situação não mudar logo, você será demitido."
             );
             fresh.push(self.news_item(*next_id, "message", "Ultimato da Diretoria".into(), body));
             *next_id += 1;
@@ -594,7 +594,7 @@ impl Game {
         } else if position <= target {
             (12, "A Diretoria está satisfeita: o objetivo da temporada foi cumprido.")
         } else if position > target + 3 {
-            (-15, "A Diretoria está desiludida: o time ficou longe do objetivo.")
+            (-15, "A Diretoria está decepcionada: o time ficou longe do objetivo.")
         } else {
             (0, "A temporada ficou perto do que a Diretoria esperava.")
         };
@@ -716,7 +716,7 @@ mod tests {
         // Confiança da Direcção: os quatro parágrafos; vender um dos valiosos custa confiança e adeptos
         let view = g.board_confidence().unwrap();
         assert_eq!(view.lines.len(), 4, "{:?}", view.lines);
-        assert!(view.lines[0].text.contains(&view.club.name) && view.lines[3].text.contains("valiosos"));
+        assert!(view.lines[0].text.contains(&view.club.name) && view.lines[3].text.contains("valiosa"));
         assert_eq!(view.lines[3].players.len(), 2);
         assert!(view.lines[..3].iter().all(|l| l.level.is_some_and(|v| (0..=100).contains(&v))));
         let idol = g.valuable_players().unwrap()[0];

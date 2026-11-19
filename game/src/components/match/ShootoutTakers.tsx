@@ -52,7 +52,7 @@ export function ShootoutTakers({
       </div>
       <div className="shrink-0 px-2 py-1 text-center text-[12px] text-[#aab3c4]">
         {picked === null
-          ? 'Clique num batedor e depois noutro para trocar a ordem · Ok começa a disputa'
+          ? 'Clique num cobrador e depois em outro para trocar a ordem · Ok começa a disputa'
           : `Trocar ${name(order[picked] ?? 0)} com...`}
       </div>
     </div>

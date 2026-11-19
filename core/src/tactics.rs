@@ -814,7 +814,7 @@ impl World {
             .ok_or_else(|| Error::Invalid("Formação desconhecida.".into()))?;
         let layout = layout_for(sel);
         if sel.starters.len() != layout.len() {
-            return Err(Error::Invalid(format!("O time tem de ter {} titulares.", layout.len())));
+            return Err(Error::Invalid(format!("O time precisa ter {} titulares.", layout.len())));
         }
         if sel.bench.len() > BENCH {
             return Err(Error::Invalid(format!("No máximo {BENCH} suplentes.")));

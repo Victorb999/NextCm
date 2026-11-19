@@ -479,7 +479,7 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
           >
             <div className="py-6 text-center font-title text-[19px] text-white">
               Demitir {hire.name}?{' '}
-              {hire.sackCost ? `O clube paga ${money(hire.sackCost)} do resto do contrato.` : 'Não tem custos para o clube.'}
+              {hire.sackCost ? `O clube paga ${money(hire.sackCost)} do resto do contrato.` : 'Sem custos para o clube.'}
             </div>
           </DialogFrame>
         </Overlay>

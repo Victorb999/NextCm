@@ -108,12 +108,12 @@ export default function ClausesBox({
       </div>
       {check('Sai livre se o clube for rebaixado', e.relegation, (v) => setE({ relegation: v }))}
       {check('Sai livre se o clube não subir', e.nonPromotion, (v) => setE({ nonPromotion: v }))}
-      {check('Sai se lhe oferecerem lugar de treinador', e.managerJob, (v) => setE({ managerJob: v }))}
+      {check('Sai se receber proposta para ser treinador', e.managerJob, (v) => setE({ managerJob: v }))}
 
       <div className="mt-1.5">
         <Header>Cláusulas da transferência</Header>
       </div>
-      {transfer('sellOn', 'Venda futura', 'Percentagem da próxima venda (%)', 50, false)}
+      {transfer('sellOn', 'Venda futura', 'Porcentagem da próxima venda (%)', 50, false)}
       {transfer('appsBonus', 'Valor por jogos', 'Valor', 1000000000, true)}
       {transfer('capsBonus', 'Valor por jogos pela seleção', 'Valor', 1000000000, true)}
     </div>

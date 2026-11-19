@@ -374,7 +374,7 @@ impl Game {
                                 next_id,
                                 "injury",
                                 format!("{name} dispensado da seleção"),
-                                format!("{name} foi dispensado da seleção de {team_name} devido à lesão e volta ao clube."),
+                                format!("{name} foi dispensado da seleção de {team_name} por causa da lesão e volta ao clube."),
                             );
                         }
                     }
@@ -481,7 +481,7 @@ impl Game {
                 next_id,
                 "injury",
                 format!("{name} expulso a serviço da seleção"),
-                format!("{name} foi expulso{first} no {score}, {context}. A suspensão se cumpre nos jogos da seleção."),
+                format!("{name} foi expulso{first} no {score}, {context}. Ele cumpre a suspensão nos jogos da seleção."),
             );
         }
         Ok(())

@@ -59,7 +59,7 @@ fn role_label(role: usize) -> &'static str {
         Some("key") => "indispensável",
         Some("important") => "importante para o time",
         Some("rotation") => "da rotação do elenco",
-        Some("backup") => "um apoio ao primeiro time",
+        Some("backup") => "uma opção para o time principal",
         Some("prospect") => "uma jovem promessa",
         _ => "um jovem com valor",
     }
@@ -161,7 +161,7 @@ impl Game {
             return Err(Error::Invalid(format!("{name} não quer renovar: quer sair do clube.")));
         }
         if self.open_contract(person)?.is_some_and(|o| o.status == "pending") {
-            return Err(Error::Invalid(format!("Já fez uma proposta a {name}: a resposta chega amanhã.")));
+            return Err(Error::Invalid(format!("Você já fez uma proposta a {name}: a resposta chega amanhã.")));
         }
         let (wage, bonus) = (wage.max(0), bonus.max(0));
         self.check_contract(&party, role_i, f.wage, wage, bonus)?;
@@ -179,7 +179,7 @@ impl Game {
             && !favourite
             && personality::move_steps_down(&self.player_move(person, f.ca, f.age, f.ambition, club, self.club_id)?)
         {
-            Some(format!("{name} não está interessado em mudar-se para um clube de menor dimensão."))
+            Some(format!("{name} não tem interesse em ir para um clube menor."))
         } else if let (Party::Transfer(_), Some(club)) = (&party, f.club)
             && !favourite
             && self.stays_in_europe(person, &f, club)?
@@ -190,7 +190,7 @@ impl Game {
             && self.are_rivals(club, self.club_id)?
             && !self.joins_rival(person, &f)?
         {
-            Some(format!("{name} não quer mudar-se para um rival do {}.", self.club(club).short_name))
+            Some(format!("{name} não quer se transferir para um rival do {}.", self.club(club).short_name))
         } else {
             None
         };
@@ -246,7 +246,7 @@ impl Game {
                 "A proposta foi enviada a {name}, que tem outras propostas e vai pensar: a resposta chega em {}.",
                 cm_date(&answer_on)
             ),
-            None => format!("A proposta foi enviada a {name}. A resposta chega amanhã às mensagens."),
+            None => format!("A proposta foi enviada a {name}. A resposta chega amanhã nas mensagens."),
         };
         Ok(ContractReply { accepted: false, over: false, pending: true, wage, bonus, years, text })
     }
@@ -317,7 +317,7 @@ impl Game {
                     fresh,
                     next_id,
                     format!("Negociações com {name}"),
-                    format!("As negociações com {name} acabaram: o negócio já não é possível."),
+                    format!("As negociações com {name} acabaram: o negócio não é mais possível."),
                     o.id,
                 );
                 continue;
@@ -325,7 +325,7 @@ impl Game {
             // Anunciou a reforma: a renovação faz-o mudar de ideias ou não (4.5)
             if matches!(party, Party::Renewal) && self.retiring(o.person)?.is_some() && !self.stays_on(o.person)? {
                 self.set_status(o.id, "collapsed", None)?;
-                let body = format!("{name} agradece a proposta, mas está decidido: termina mesmo a carreira no fim da temporada.");
+                let body = format!("{name} agradece a proposta, mas está decidido: vai mesmo encerrar a carreira no fim da temporada.");
                 self.offer_news(fresh, next_id, format!("{name} mantém a aposentadoria"), body, o.id);
                 continue;
             }
@@ -375,7 +375,7 @@ impl Game {
                     continue;
                 }
                 let club = self.club(self.club_id).short_name;
-                let body = format!("{name} está muito satisfeito por ter assinado pelo {club} ({terms}).");
+                let body = format!("{name} está muito satisfeito por ter assinado com o {club} ({terms}).");
                 self.push_news(fresh, next_id, "contract", format!("{name} aceita proposta {club}"), body);
                 // Já com a proposta: o Confirmar da contratação aparece nesta mensagem também
                 if let Some(n) = fresh.last_mut() {
@@ -383,13 +383,13 @@ impl Game {
                 }
                 let body = match &party {
                     Party::Transfer(d) => format!(
-                        "O negócio da transferência no valor de {} que corresponde à mudança de {name} {} para {club} pode agora ser concretizado.\n\nConfirme até {}.",
+                        "O negócio de {} pela transferência de {name} {} para {club} já pode ser concluído.\n\nConfirme até {}.",
                         self.terms_text(&d.deal_terms())?,
                         d.seller.map(|s| self.club(s).short_name).unwrap_or_default(),
                         cm_date(&deadline)
                     ),
                     _ => {
-                        format!("A contratação de {name} a custo zero pode agora ser concretizada.\n\nConfirme até {}.", cm_date(&deadline))
+                        format!("A contratação de {name} a custo zero já pode ser concluída.\n\nConfirme até {}.", cm_date(&deadline))
                     }
                 };
                 self.offer_news(fresh, next_id, format!("{club} se prepara para contratar {name}"), body, o.id);
@@ -429,7 +429,7 @@ impl Game {
                 self.set_talk_extras(o.person, &offered.with_asks(&asks))?;
                 self.set_status(o.id, "countered", Some(&deadline))?;
                 let demands = if package && !hard.is_empty() {
-                    format!(" O dinheiro está bem, mas não abre mão de: {}.", hard.join(", "))
+                    format!(" O dinheiro está bom, mas ele não abre mão de: {}.", hard.join(", "))
                 } else if missing.is_empty() {
                     String::new()
                 } else {
@@ -485,7 +485,7 @@ impl Game {
         } else {
             let kind = self.kind_of(rival)?;
             self.execute_move(o.person, None, Some(rival), 0, rival_wage, t.years, "free", kind)?;
-            format!("{name} preferiu a proposta do {club} ({} por semana) e assinou por eles.", money_text(rival_wage))
+            format!("{name} preferiu a proposta do {club} ({} por semana) e assinou com eles.", money_text(rival_wage))
         };
         self.offer_news(fresh, next_id, format!("{name} escolhe o {club}"), body, o.id);
         Ok(())
@@ -506,7 +506,7 @@ impl Game {
                 self.world.conn.execute("DELETE FROM contract_talks WHERE person_id = ?", [o.person])?;
                 self.note_action(o.id, "desistiu do negócio");
             }
-            _ => return Err(Error::Invalid("Esta proposta já não aceita essa resposta.".into())),
+            _ => return Err(Error::Invalid("Essa proposta não aceita mais essa resposta.".into())),
         }
         self.unsaved = true;
         Ok(())
@@ -653,7 +653,7 @@ impl Game {
         // A contratação mais cara da história do clube (no jogo)
         if let Some(before) = self.beats_club_record(person, fee, true)? {
             let body = format!(
-                "A contratação de {name} por {} é a mais cara de sempre do {club}{}.",
+                "A contratação de {name} por {} é a mais cara da história do {club}{}.",
                 money_text(fee),
                 super::deals::record_before(before)
             );
@@ -666,7 +666,7 @@ impl Game {
                 |r| r.get(0),
             )?;
             let body = format!(
-                "Os torcedores do {club} se juntaram nas imediações do estádio do clube depois de o treinador {manager} ter confirmado a transferência de {name}.\n\nUm porta-voz da torcida sublinhou a importância das contratações sonantes, vistas como um sinal da ambição do clube."
+                "Os torcedores do {club} se reuniram em frente ao estádio depois que o treinador {manager} confirmou a contratação de {name}.\n\nUm representante da torcida destacou a importância de contratações de peso, vistas como um sinal da ambição do clube."
             );
             self.post_news_as("press", format!("Torcedores festejam contratação de {name}"), body);
             self.change_fans(BIG_SIGNING_FANS)?;
@@ -685,10 +685,11 @@ impl Game {
             let name = self.person_name(o.person)?;
             if let Err(e) = self.finalize_contract(&o) {
                 self.set_status(o.id, "collapsed", None)?;
-                let body = format!("A transferência de {name} não se consumou: {e}");
+                let body = format!("A transferência de {name} não foi concluída: {e}");
                 self.offer_news(fresh, next_id, format!("Negócio por {name} caiu"), body, o.id);
             } else if self.offer(o.id)?.status == "done" {
-                let body = format!("A janela de transferências abriu e a transferência de {name} se consumou: já está no seu elenco.");
+                let body =
+                    format!("A janela de transferências abriu e a transferência de {name} foi concluída: ele já está no seu elenco.");
                 self.offer_news(fresh, next_id, format!("{name} chega ao clube"), body, o.id);
             }
         }

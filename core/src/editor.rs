@@ -141,9 +141,7 @@ pub(crate) fn open_save(saves: &Path, file: &str) -> Result<World> {
         .query_row("SELECT version FROM game", [], |r| r.get(0))
         .map_err(|_| Error::Invalid("Este arquivo não é um jogo do NextCM.".into()))?;
     if version != SAVE_VERSION {
-        return Err(Error::Invalid(format!(
-            "Este jogo é de uma versão anterior ({version}): abra-o e salve-o primeiro no jogo para o editar."
-        )));
+        return Err(Error::Invalid(format!("Este jogo é de uma versão anterior ({version}): abra e salve no jogo antes de editar.")));
     }
     Ok(world)
 }
@@ -158,7 +156,7 @@ fn hit_name(world: &World, id: i32) -> Result<(String, Option<String>, Option<i3
 
 fn build(world: &World, id: i32) -> Result<EditorPlayer> {
     let profile = world.get_person(id)?;
-    let player = profile.player.ok_or_else(|| Error::Invalid("Só se editam jogadores.".into()))?;
+    let player = profile.player.ok_or_else(|| Error::Invalid("Só é possível editar jogadores.".into()))?;
     let (name, club, club_id) = hit_name(world, id)?;
     let mut attributes = Vec::new();
     let mut push = |key: &str, group: &str| {
@@ -237,7 +235,7 @@ fn apply_values(world: &World, id: i32, values: &[EditorValue]) -> Result<()> {
         }
     }
     let profile = world.get_person(id)?;
-    let player = profile.player.ok_or_else(|| Error::Invalid("Só se editam jogadores.".into()))?;
+    let player = profile.player.ok_or_else(|| Error::Invalid("Só é possível editar jogadores.".into()))?;
     let known = |k: &str| TECHNICAL.contains(&k) || OTHER.contains(&k) || EXTRA.contains(&k) || GOALKEEPING.contains(&k);
     if let Some(bad) = values.iter().find(|v| !known(&v.key) && !RELATIVE.contains(&v.key.as_str()) && !MENTAL.contains(&v.key.as_str())) {
         return Err(Error::Invalid(format!("Atributo desconhecido: {}.", bad.key)));
@@ -597,7 +595,7 @@ fn profile_view(world: &World, id: i32) -> Result<EditorProfileView> {
     use rusqlite::OptionalExtension;
     let ok: i64 = world.conn.query_row("SELECT COUNT(*) FROM players WHERE person_id = ?", [id], |r| r.get(0))?;
     if ok == 0 {
-        return Err(Error::Invalid("Só se editam jogadores.".into()));
+        return Err(Error::Invalid("Só é possível editar jogadores.".into()));
     }
     let pos_cols = POSITIONS.iter().map(|p| format!("COALESCE(pl.pos_{p}, 1)")).collect::<Vec<_>>().join(", ");
     let sql = format!(
@@ -833,7 +831,7 @@ fn apply_profile(world: &World, id: i32, p: &EditorProfile) -> Result<()> {
             return Err(Error::Invalid("Sem clube, não pode estar emprestado.".into()));
         };
         if l.parent_id == club {
-            return Err(Error::Invalid("O clube dono do passe tem de ser outro que não o clube onde joga.".into()));
+            return Err(Error::Invalid("O clube dono do passe precisa ser diferente do clube onde ele joga.".into()));
         }
         if person_or_club_name(world, "club", l.parent_id).is_none() {
             return Err(Error::Invalid("Empréstimo: clube desconhecido.".into()));
@@ -1142,7 +1140,7 @@ fn apply_club(world: &World, c: &EditorClub) -> Result<()> {
             return Err(Error::Invalid("Só o clube do treinador tem orçamento salarial da diretoria.".into()));
         }
         if !(0..=10_000_000_000).contains(&v) {
-            return Err(Error::Invalid("Folha permitida: o valor vai de 0 a 10 mil milhões.".into()));
+            return Err(Error::Invalid("Folha permitida: o valor vai de 0 a 10 bilhões.".into()));
         }
     }
     if let Some(v) = c.max_wage {

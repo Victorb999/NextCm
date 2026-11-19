@@ -268,7 +268,7 @@ impl Game {
             "home" | "away" if games.len() == 1 => {}
             "tour" if (1..=TOUR_MAX).contains(&games.len()) => {}
             "home" | "away" => return Err(Error::Invalid("Um amistoso é um jogo.".into())),
-            "tour" => return Err(Error::Invalid(format!("Uma excursão tem de 1 a {TOUR_MAX} jogos."))),
+            "tour" => return Err(Error::Invalid(format!("Uma excursão tem de 1 até {TOUR_MAX} jogos."))),
             _ => return Err(Error::Invalid("Tipo de amistoso desconhecido.".into())),
         }
         let days = self.match_days();
@@ -346,10 +346,10 @@ impl Game {
         let i = self.matches.iter().position(|m| m.id == fixture).ok_or_else(|| Error::NotFound(format!("jogo {fixture}")))?;
         let m = &self.matches[i];
         if m.competition_id != CLUB_FRIENDLY || (m.home_id != self.club_id && m.away_id != self.club_id) {
-            return Err(Error::Invalid("Só se cancelam os amistosos do clube.".into()));
+            return Err(Error::Invalid("Só é possível cancelar os amistosos do clube.".into()));
         }
         if m.result.is_some() || m.date <= self.date {
-            return Err(Error::Invalid("Esse amistoso já não se pode cancelar.".into()));
+            return Err(Error::Invalid("Esse amistoso não pode mais ser cancelado.".into()));
         }
         self.matches.remove(i);
         self.unsaved = true;
@@ -487,7 +487,7 @@ impl Game {
     pub fn answer_friendly_invite(&mut self, id: i32, accept: bool) -> Result<FriendlyInvite> {
         let inv = self.friendly_invite(id)?;
         if inv.status != "pending" {
-            return Err(Error::Invalid("Este convite já não está à espera de resposta.".into()));
+            return Err(Error::Invalid("Esse convite não está mais esperando resposta.".into()));
         }
         if accept {
             self.friendly_owner()?;
@@ -495,7 +495,7 @@ impl Game {
             let mine = days.get(&self.club_id).cloned().unwrap_or_default();
             let d = date::parse(&inv.date).unwrap_or(0);
             if !self.day_free(&mine, d, &[]) || !Self::opponent_free(&days, inv.club.id, d) {
-                return Err(Error::Invalid(format!("Já não há data livre em {} para este amistoso.", cm_date(&inv.date))));
+                return Err(Error::Invalid(format!("Não há mais data livre em {} para este amistoso.", cm_date(&inv.date))));
             }
             let (home, away) = if inv.at_home { (self.club_id, inv.club.id) } else { (inv.club.id, self.club_id) };
             self.add_friendly(&inv.date, home, away, 0)?;

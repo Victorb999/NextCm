@@ -104,9 +104,9 @@ impl Game {
         };
         let diff = level(opp)? - level(self.club_id)?;
         let strength = match diff {
-            d if d >= STRONGER_BY * 2 => "bastante mais forte do que nós",
+            d if d >= STRONGER_BY * 2 => "bem mais forte do que nós",
             d if d >= STRONGER_BY => "um pouco mais forte do que nós",
-            d if d <= -STRONGER_BY * 2 => "bastante mais fraco do que nós",
+            d if d <= -STRONGER_BY * 2 => "bem mais fraco do que nós",
             d if d <= -STRONGER_BY => "um pouco mais fraco do que nós",
             _ => "do nosso nível",
         };

@@ -37,10 +37,10 @@ export default function ExitDialog({
         <div className="py-3 text-center text-[16px] leading-snug text-white">
           {restart
             ? unsaved
-              ? 'Começar um jogo novo? Há alterações por salvar neste.'
+              ? 'Começar um jogo novo? Este tem alterações não salvas.'
               : 'Deixar este jogo e começar um novo?'
             : unsaved
-              ? 'Há alterações por salvar. Salvar o jogo antes de sair?'
+              ? 'Há alterações não salvas. Salvar o jogo antes de sair?'
               : 'Sair deste jogo?'}
         </div>
         <div className="flex gap-1 pb-1">

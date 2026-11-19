@@ -58,7 +58,7 @@ pub struct ScoutList {
     /// Quantos olheiros o clube tem (as abas a mais ficam apagadas).
     pub scouts: i32,
     pub scout: Option<String>,
-    /// "Olheiro X indicado para espiar próximo adversário".
+    /// "Olheiro X indicado para espiar o próximo adversário".
     pub task: Option<String>,
     pub finds: Vec<ScoutFind>,
 }
@@ -125,7 +125,7 @@ impl Game {
         let target = t.target.unwrap_or(0);
         Ok(match t.kind.as_str() {
             "club" => format!("Olheiro {scout} indicado para observar o {}", self.club(target).short_name),
-            "opponent" => format!("Olheiro {scout} indicado para espiar próximo adversário"),
+            "opponent" => format!("Olheiro {scout} indicado para espiar o próximo adversário"),
             "youth" => format!("Olheiro {scout} indicado para procurar jogadores jovens"),
             "nation" => {
                 let n: String = self.world.conn.query_row("SELECT name FROM nations WHERE id = ?", [target], |r| r.get(0))?;
@@ -202,7 +202,7 @@ impl Game {
             _ => return Err(Error::Invalid("Tarefa de olheiro desconhecida.".into())),
         };
         if kind == "club" && target == Some(self.club_id) {
-            return Err(Error::Invalid("Já conhece os jogadores do seu elenco.".into()));
+            return Err(Error::Invalid("Você já conhece os jogadores do seu elenco.".into()));
         }
         self.world.conn.execute("DELETE FROM scout_finds WHERE slot = ?", [slot])?;
         self.world.conn.execute(

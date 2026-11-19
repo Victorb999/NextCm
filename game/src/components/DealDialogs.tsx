@@ -547,13 +547,13 @@ export function ShopDialog({
         </div>
         <div className="mt-3 rounded bg-black/30 px-3 py-2 text-[15px] leading-snug text-cm-green">
           {loan ? (
-            <div>- Um empréstimo: o clube que o quiser diz que parte do salário paga.</div>
+            <div>- Um empréstimo: o clube interessado diz quanto do salário vai pagar.</div>
           ) : (
             <div>- Valor potencial da transferência: {money(fee > 0 ? fee : value)}.</div>
           )}
           <div>
-            - Os serviços administrativos do clube vão enviar esta proposta a todos os clubes
-            {rivals ? ' (menos os rivais)' : ''}. Será contatado nos próximos dias se houver interesse.
+            - O departamento administrativo vai enviar esta proposta a todos os clubes
+            {rivals ? ' (menos os rivais)' : ''}. Você será avisado nos próximos dias se houver interesse.
           </div>
         </div>
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
@@ -627,7 +627,7 @@ export function LoanDialog({
           </DialogRow>
         </div>
         <div className="pt-2 text-[15px] text-white">
-          Sem opção de compra, deixe o valor a zero. O {club} responde dentro de alguns dias.
+          Sem opção de compra, deixe o valor em zero. O {club} responde dentro de alguns dias.
         </div>
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
       </DialogFrame>

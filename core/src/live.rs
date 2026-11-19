@@ -977,7 +977,7 @@ impl LiveMatch {
         }
         let on: Vec<i32> = self.teams[side].on_pitch().into_iter().map(|i| self.teams[side].players[i].info.id).collect();
         if ids.iter().any(|id| !on.contains(id)) || (1..ids.len()).any(|k| ids[..k].contains(&ids[k])) {
-            return Err(Error::Invalid("Os batedores têm de ser jogadores em campo, cada um uma vez.".into()));
+            return Err(Error::Invalid("Os cobradores precisam ser jogadores em campo, cada um uma vez.".into()));
         }
         self.pen_order[side] = ids;
         Ok(())
@@ -1287,7 +1287,7 @@ impl LiveMatch {
                 0 => format!("GOL! {name} marca para o {club}! ({score})"),
                 1 => format!("GOL! Chute certeiro de {name}! {score}"),
                 2 => format!("GOL! {name} não perdoa e faz o {score}!"),
-                _ => format!("GOL do {club}! {name} atira para o fundo das redes! ({score})"),
+                _ => format!("GOL do {club}! {name} manda para o fundo da rede! ({score})"),
             };
             let mut text = outcome.clone();
             let buildup = match (set_piece, assist) {
@@ -1297,7 +1297,7 @@ impl LiveMatch {
                 }
                 (Some(_), _) => {
                     text += " De falta.";
-                    format!("Livre perigoso para o {club} à entrada da área")
+                    format!("Falta perigosa para o {club} na entrada da área")
                 }
                 (None, Some(a)) if corner => {
                     let p = self.name(side, a);
@@ -1352,16 +1352,16 @@ impl LiveMatch {
                 self.teams[side].stats.corners += 1;
             }
             let text = match variant(4, m, id) {
-                0 => format!("{name} chuta por cima da barra."),
-                1 => format!("{name} atira ao lado."),
+                0 => format!("{name} chuta por cima do gol."),
+                1 => format!("{name} chuta para fora."),
                 2 => format!("Chute de {name} bloqueado pela defesa."),
-                _ => format!("Boa jogada do {}, mas {name} falha o alvo.", self.short(side)),
+                _ => format!("Boa jogada do {}, mas {name} erra o alvo.", self.short(side)),
             };
             let outcome = match variant(4, m, id + 5) {
                 0 => "Mas passou por cima do travessão".to_string(),
                 1 => "A bola saiu ao lado".to_string(),
                 2 => "A defesa bloqueou o chute".to_string(),
-                _ => "Rasteiro, ao lado do poste".to_string(),
+                _ => "Rasteiro, rente à trave".to_string(),
             };
             let buildup = match variant(3, m, id + 2) {
                 0 => format!("{} procurou {name} na área", self.mate(side, shooter)),
@@ -1409,7 +1409,7 @@ impl LiveMatch {
             if booked && uniform(&mut self.rng) < 0.5 {
             } else if booked {
                 self.teams[side].stats.yellows += 1;
-                let text = format!("Segundo amarelo para {name}! O {} fica reduzido a dez.", self.short(side));
+                let text = format!("Segundo amarelo para {name}! O {} fica com dez.", self.short(side));
                 self.push("red", Some(side), Some(id), text);
                 self.send_off(side, i);
             } else {
@@ -1419,7 +1419,7 @@ impl LiveMatch {
                 self.teams[side].stats.yellows += 1;
                 let text = match variant(3, self.minute, id) {
                     0 => format!("Cartão amarelo para {name} ({}).", self.short(side)),
-                    1 => format!("Entrada dura de {name}, que vê o amarelo."),
+                    1 => format!("Entrada dura de {name}, que leva o amarelo."),
                     _ => format!("O árbitro mostra o amarelo a {name}."),
                 };
                 let lines = vec![format!("{name} entrou duro"), format!("Cartão amarelo para {name}")];
@@ -1592,7 +1592,7 @@ impl LiveMatch {
             return Err(Error::Invalid("O jogo já acabou.".into()));
         }
         if self.awaiting {
-            return Err(Error::Invalid("Na disputa de pênaltis só se escolhem os batedores.".into()));
+            return Err(Error::Invalid("Na disputa de pênaltis só dá para escolher os cobradores.".into()));
         }
         self.user.ok_or_else(|| Error::Invalid("Este jogo não é do seu time.".into()))
     }
@@ -1657,7 +1657,7 @@ impl LiveMatch {
         let t = &mut self.teams[side];
         let find = |id: i32| t.players.iter().position(|p| p.info.id == id && p.slot.is_some());
         let (Some(a), Some(b)) = (find(a), find(b)) else {
-            return Err(Error::Invalid("Os dois jogadores têm de estar em campo.".into()));
+            return Err(Error::Invalid("Os dois jogadores precisam estar em campo.".into()));
         };
         let (sa, sb) = (t.players[a].slot, t.players[b].slot);
         t.players[a].slot = sb;
@@ -1675,7 +1675,7 @@ impl LiveMatch {
         if self.teams[side].tactics.instructions != instructions {
             self.user_takes_over()?;
             self.teams[side].tactics.instructions = instructions;
-            let text = format!("O {} muda as instruções ao time.", self.short(side));
+            let text = format!("O {} muda as instruções do time.", self.short(side));
             self.push("tactics", Some(side), None, text);
         }
         Ok(())
@@ -1737,7 +1737,7 @@ impl LiveMatch {
             ));
         }
         if new_on.len() != on.len() {
-            return Err(Error::Invalid(format!("Tem de ter {} jogadores em campo.", on.len())));
+            return Err(Error::Invalid(format!("O time precisa ter {} jogadores em campo.", on.len())));
         }
         let entering: Vec<i32> = new_on.iter().filter(|p| !on.contains(p)).copied().collect();
         let leaving: Vec<i32> = on.iter().filter(|p| !new_on.contains(p)).copied().collect();

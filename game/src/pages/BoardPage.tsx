@@ -24,13 +24,13 @@ const MEETINGS: Record<
 > = {
   board: {
     title: 'Reunião com a Diretoria',
-    prompt: 'Especificar os detalhes das exigências à diretoria:',
+    prompt: 'Escolha o que pedir à diretoria:',
     list: api.boardRequests,
     ask: api.boardRequest,
   },
   league: {
     title: 'Reunião com a Federação',
-    prompt: 'Especifique as questões que deseja discutir com a Liga',
+    prompt: 'Escolha o assunto para discutir com a Liga',
     list: api.leagueRequests,
     ask: api.leagueRequest,
   },
