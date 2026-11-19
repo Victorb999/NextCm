@@ -406,6 +406,7 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
   const filterChecked = (key: string) => {
     if (key === 'seniors') return filter.seniors
     if (key === 'reserves') return filter.reserves
+    if (key === 'ghosts') return filter.ghosts
     const [group, value = ''] = key.split(':')
     return group === 'line' ? filter.line === value : group === 'side' ? filter.side === value : filter.avail === value
   }
@@ -416,15 +417,17 @@ export default function ClubPage({ id, reserves, initialTab }: { id: number; res
         ? { ...f, seniors: !f.seniors }
         : key === 'reserves'
           ? { ...f, reserves: !f.reserves }
-          : group === 'line'
-            ? { ...f, line: value }
-            : group === 'side'
-              ? { ...f, side: value }
-              : // Disponíveis / Indisponíveis: um clique marca, outro desmarca
-                {
-                  ...f,
-                  avail: f.avail === value ? '' : (value as Filter['avail']),
-                },
+          : key === 'ghosts'
+            ? { ...f, ghosts: !f.ghosts }
+            : group === 'line'
+              ? { ...f, line: value }
+              : group === 'side'
+                ? { ...f, side: value }
+                : // Disponíveis / Indisponíveis: um clique marca, outro desmarca
+                  {
+                    ...f,
+                    avail: f.avail === value ? '' : (value as Filter['avail']),
+                  },
     )
     setSelected(0)
   }
