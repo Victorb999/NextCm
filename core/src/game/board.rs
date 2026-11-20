@@ -116,6 +116,11 @@ pub struct BoardView {
     /// Quanto custa nos fundos €1 a mais por semana na folha (a pré-visualização da barra).
     #[ts(type = "number")]
     pub shift_weeks: i64,
+    /// Os fundos sem a troca: o saldo menos a reserva, mais o adiantamento das receitas.
+    /// Negativo quando o clube gastou mais do que a direção tem: a troca para os fundos só
+    /// dá dinheiro depois de cobrir isso. `None` com dívidas grandes ou proibido de contratar.
+    #[ts(type = "number | null")]
+    pub base_funds: Option<i64>,
 }
 
 /// O que a direção espera de um clube na divisão dele, pela reputação: a posição alvo e o
@@ -210,6 +215,13 @@ impl Game {
     /// adianta ([`SEASON_FUNDS`]), arredondado como no CM; nada com dívidas grandes ou proibido
     /// de contratar pelo fair-play.
     fn funds_now(&self) -> Result<i64> {
+        let Some(base) = self.base_funds()? else { return Ok(0) };
+        Ok(round_funds((base - self.wage_shift()? * SHIFT_WEEKS).max(0)))
+    }
+
+    /// Os fundos antes da troca do treinador (podem ser negativos); `None` com dívidas grandes
+    /// ou proibido de contratar.
+    fn base_funds(&self) -> Result<Option<i64>> {
         let base = self.club_base(self.club_id)?;
         let (cash, reserve): (i64, i64) = self.world.conn.query_row(
             "SELECT COALESCE((SELECT cash FROM clubs WHERE id = ?), 0), budget_reserve FROM board WHERE id = 1",
@@ -217,10 +229,9 @@ impl Game {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
         if (cash as f64) < -NO_SIGNINGS_DEBT * base || self.fair_play_banned(self.club_id)? {
-            return Ok(0);
+            return Ok(None);
         }
-        let funds = (cash - reserve + (SEASON_FUNDS * base) as i64).min(self.fair_play_spend(self.club_id)? as i64);
-        Ok(round_funds((funds - self.wage_shift()? * SHIFT_WEEKS).max(0)))
+        Ok(Some((cash - reserve + (SEASON_FUNDS * base) as i64).min(self.fair_play_spend(self.club_id)? as i64)))
     }
 
     /// O que o treinador passou dos fundos para a folha semanal (negativo: ao contrário).
@@ -265,8 +276,11 @@ impl Game {
         let shift = shift.clamp(min, max);
         let spent = (shift - self.wage_shift()?) * SHIFT_WEEKS;
         self.world.conn.execute("UPDATE board SET wage_shift = ? WHERE id = 1", [shift])?;
-        // Os fundos mudam já (o que se gastou este mês continua gasto)
+        // Os fundos mudam já (o que se gastou este mês continua gasto), mas nunca acima do que o
+        // saldo cobre: senão o dia 1 do mês tirava-os de volta
         self.spend_budget(spent)?;
+        let cap = self.funds_now()?;
+        self.world.conn.execute("UPDATE board SET transfer_budget = MIN(transfer_budget, ?) WHERE id = 1", [cap])?;
         self.refresh_wage_budget()?;
         self.unsaved = true;
         self.board_view()
@@ -346,6 +360,7 @@ impl Game {
             shift_min,
             shift_max,
             shift_weeks: SHIFT_WEEKS,
+            base_funds: if sacked { None } else { self.base_funds()? },
         })
     }
 
@@ -702,6 +717,22 @@ mod tests {
         assert!(back.wage_budget >= back.wage_bill && back.wage_shift == back.shift_min, "{back:?}");
         assert!(back.shift_min == 0 || back.transfer_budget > b.transfer_budget, "{back:?} {b:?}");
         g.set_wage_shift(0).unwrap();
+
+        // Saldo abaixo da reserva (gastou-se demais): tirar da folha não dá fundos que o dia 1
+        // do mês levaria de volta, e a vista mostra o buraco
+        let reserve: i64 = g.world.conn.query_row("SELECT budget_reserve FROM board WHERE id = 1", [], |r| r.get(0)).unwrap();
+        let hole = g.base_funds().unwrap().unwrap() + 50_000_000;
+        g.world.conn.execute("UPDATE board SET budget_reserve = budget_reserve + ? WHERE id = 1", [hole]).unwrap();
+        g.sync_funds().unwrap();
+        let deep = g.board_view().unwrap();
+        assert!(deep.base_funds.unwrap() < 0 && deep.transfer_budget == 0, "{deep:?}");
+        let small = g.set_wage_shift(deep.shift_min.max(-10_000)).unwrap();
+        assert_eq!(small.transfer_budget, 0, "{small:?}");
+        g.sync_funds().unwrap();
+        assert_eq!(g.board_view().unwrap().transfer_budget, 0);
+        g.set_wage_shift(0).unwrap();
+        g.world.conn.execute("UPDATE board SET budget_reserve = ? WHERE id = 1", [reserve]).unwrap();
+        g.sync_funds().unwrap();
 
         // Os fundos são metade do saldo acima de 10% das receitas mais 17% delas; as vendas voltam
         // inteiras e os gastos descontam

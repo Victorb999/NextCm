@@ -24,4 +24,10 @@ wageShift: number, shiftMin: number, shiftMax: number,
 /**
  * Quanto custa nos fundos €1 a mais por semana na folha (a pré-visualização da barra).
  */
-shiftWeeks: number, };
+shiftWeeks: number, 
+/**
+ * Os fundos sem a troca: o saldo menos a reserva, mais o adiantamento das receitas.
+ * Negativo quando o clube gastou mais do que a direção tem: a troca para os fundos só
+ * dá dinheiro depois de cobrir isso. `None` com dívidas grandes ou proibido de contratar.
+ */
+baseFunds: number | null, };

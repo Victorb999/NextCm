@@ -159,7 +159,9 @@ function BudgetBalance({ onChange }: { onChange: () => void }) {
     }
   }
   const moved = value - b.wageShift
-  const funds = b.transferBudget - moved * b.shiftWeeks
+  // Nunca acima do que o saldo cobre (o core corta igual ao gravar)
+  const covered = b.baseFunds === null ? 0 : b.baseFunds - value * b.shiftWeeks
+  const funds = Math.max(0, Math.min(b.transferBudget - moved * b.shiftWeeks, covered))
   const wages = b.wageBudget + moved
   const step = Math.max(100, moneyStep(b.wageBudget) / 5)
   return (
@@ -186,6 +188,18 @@ function BudgetBalance({ onChange }: { onChange: () => void }) {
         onPointerUp={() => commit(value)}
         onKeyUp={() => commit(value)}
       />
+      {b.baseFunds === null ? (
+        <span className="normal-case tracking-normal text-cm-yellow">
+          Com as dívidas do clube (ou o fair-play), a Diretoria não libera fundos para transferências.
+        </span>
+      ) : (
+        b.baseFunds < 0 && (
+          <span className="normal-case tracking-normal text-cm-yellow">
+            O saldo do clube está {money(-b.baseFunds)} abaixo da reserva da Diretoria: tirar da folha só dá fundos depois de cobrir isso.
+            As receitas da temporada vão diminuindo esse buraco.
+          </span>
+        )
+      )}
       {error && <span className="normal-case text-cm-red">{error}</span>}
     </div>
   )
