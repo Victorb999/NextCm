@@ -454,3 +454,20 @@ body {
     transition: none !important;
   }
 }
+
+/* Selects: no Tauri do Linux (WebKitGTK) o select nativo vem branco do tema GTK e ignora o fundo.
+   Sem a aparência nativa, ficam com o fundo de cada classe e a seta desenhada aqui. */
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  color-scheme: dark;
+  padding-right: 1.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23d9d9d9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.45rem center;
+  background-size: 10px 6px;
+}
+select option {
+  background-color: #000;
+  color: rgb(var(--c-yellow));
+}

@@ -10,6 +10,6 @@ export type ScoutList = { slot: number,
  */
 scouts: number, scout: string | null, 
 /**
- * "Olheiro X indicado para espiar próximo adversário".
+ * "Olheiro X indicado para espiar o próximo adversário".
  */
 task: string | null, finds: Array<ScoutFind>, };
