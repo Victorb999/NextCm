@@ -824,7 +824,9 @@ impl Game {
     pub(super) fn check_budget(&self, amount: i64) -> Result<()> {
         let budget = self.transfer_budget()?;
         if amount > budget {
-            return Err(Error::Invalid(format!("A sua diretoria autoriza transferências até {}.", money_text(budget))));
+            let text =
+                self.no_funds_text()?.unwrap_or_else(|| format!("A sua diretoria autoriza transferências até {}.", money_text(budget)));
+            return Err(Error::Invalid(text));
         }
         Ok(())
     }
@@ -989,7 +991,7 @@ impl Game {
             window_open: window,
             cash: self.cash_of(self.club_id)?,
             budget: if mine { self.transfer_budget()? } else { self.budget_for(person)?.0 },
-            budget_note: if mine { None } else { self.budget_for(person)?.1 },
+            budget_note: if mine { self.no_funds_text()? } else { self.budget_for(person)?.1 },
             // Um emprestado ao treinador compra-se ao clube dono
             can_offer: !ghost
                 && !busy
@@ -2619,6 +2621,20 @@ Confirme até {}.",
             ))?
             .query_map([self.club_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
             .collect::<rusqlite::Result<_>>()?;
+        // O nível de cada clube (a média dos 11 melhores) numa consulta só
+        let levels: HashMap<i32, f64> = self
+            .world
+            .conn
+            .prepare_cached(&format!(
+                "SELECT club_id, AVG(ca) FROM (SELECT p.club_id, pl.current_ability AS ca,
+                   ROW_NUMBER() OVER (PARTITION BY p.club_id ORDER BY pl.current_ability DESC) AS n
+                 FROM people p JOIN players pl ON pl.person_id = p.id
+                 WHERE p.is_player = 1 AND p.club_id IN (SELECT id FROM clubs WHERE division_id IN ({})))
+                 WHERE n <= 11 GROUP BY club_id",
+                self.managed_ids()
+            ))?
+            .query_map([], |r| Ok((r.get(0)?, r.get::<_, Option<f64>>(1)?.unwrap_or(0.0))))?
+            .collect::<rusqlite::Result<_>>()?;
         let mut buyers: Vec<Buyer> = Vec::new();
         let bonus = self.continental_bonuses();
         for (id, rep, cash, division) in clubs {
@@ -2627,14 +2643,7 @@ Confirme até {}.",
             if !window_open(self.club_kind(division), &md) {
                 continue;
             }
-            let level: f64 = self
-                .world
-                .conn
-                .prepare_cached(
-                    "SELECT COALESCE(AVG(ca), 0) FROM (SELECT pl.current_ability AS ca FROM people p JOIN players pl ON pl.person_id = p.id
-                 WHERE p.club_id = ? AND p.is_player = 1 ORDER BY pl.current_ability DESC LIMIT 11)",
-                )?
-                .query_row([id], |r| r.get(0))?;
+            let level = levels.get(&id).copied().unwrap_or(0.0);
             let budget = self.ai_budget(id, cash)?;
             buyers.push((id, rep, budget, level as i32));
         }
@@ -2670,7 +2679,7 @@ Confirme até {}.",
             self.world.conn.query_row("SELECT COALESCE(current_ability, 1) FROM players WHERE person_id = ?", [person], |r| r.get(0))?;
         let my_rep = self.club_pull(self.club_id)?;
         let buyers = self.bid_clubs()?;
-        let mut fits = self.willing_buyers(person, &f, fitting_buyers(&buyers, ca, loan, fee, my_rep), loan)?;
+        let mut fits = fitting_buyers(&buyers, ca, loan, fee, my_rep);
         if exclude_rivals {
             fits.retain(|c| !rivals.contains(&Some(*c)));
         }
@@ -2682,7 +2691,8 @@ Confirme até {}.",
         let mut picked = Vec::new();
         while !fits.is_empty() && picked.len() < SHOP_MAX {
             let c = fits.swap_remove((rng.next_u64() % fits.len() as u64) as usize);
-            if uniform(&mut rng) < chance {
+            // Se o jogador aceita ir só se vê nos sorteados (eram centenas de contas da cidade)
+            if uniform(&mut rng) < chance && !self.willing_buyers(person, &f, vec![c], loan)?.is_empty() {
                 picked.push(c);
             }
         }

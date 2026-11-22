@@ -500,28 +500,32 @@ export function ShopDialog({
   name,
   value,
   error,
+  busy,
   onCancel,
   onOk,
 }: {
   name: string
   value: number
   error?: string | null
+  /** A proposta a caminho dos clubes: o botão espera. */
+  busy?: boolean
   onCancel: () => void
   onOk: (loan: boolean, fee: number, excludeRivals: boolean) => void
 }) {
   const [loan, setLoan] = useState(false)
   const [fee, setFee] = useState(value)
   const [rivals, setRivals] = useState(true)
-  useDialogKeys(onCancel, () => onOk(loan, fee, rivals))
+  const send = () => !busy && onOk(loan, fee, rivals)
+  useDialogKeys(onCancel, send)
   return (
     <Overlay>
       <DialogFrame
         title="Oferecer a Clubes"
         width={680}
         onCancel={onCancel}
-        onOk={() => onOk(loan, fee, rivals)}
+        onOk={busy ? undefined : send}
         cancelLabel="Atrás"
-        okLabel="Fazer Proposta"
+        okLabel={busy ? 'Enviando…' : 'Fazer Proposta'}
       >
         <div className="pb-2 text-[17px] leading-tight text-white">
           {name} está avaliado em {money(value)}.

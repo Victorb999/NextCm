@@ -467,6 +467,21 @@ impl Game {
         Ok(self.world.conn.query_row("SELECT transfer_budget FROM board WHERE id = 1", [], |r| r.get(0))?)
     }
 
+    /// Sem orçamento de transferências: a frase da direção com o motivo (dívidas, o saldo abaixo
+    /// da reserva ou tudo passado para a folha).
+    pub(super) fn no_funds_text(&self) -> Result<Option<String>> {
+        if self.transfer_budget()? > 0 {
+            return Ok(None);
+        }
+        let why = match self.base_funds()? {
+            None => "por causa das dívidas do clube (ou do fair-play)".to_string(),
+            Some(b) if b < 0 => format!("porque o saldo do clube está {} abaixo da reserva da temporada", super::market::money_text(-b)),
+            Some(_) if self.wage_shift()? > 0 => "porque o orçamento passou para a folha salarial".to_string(),
+            Some(_) => "porque o orçamento desta janela já foi gasto".to_string(),
+        };
+        Ok(Some(format!("A sua diretoria não libera dinheiro para transferências {why}.")))
+    }
+
     /// Gastar (positivo) ou devolver (negativo) orçamento de transferências.
     pub(super) fn spend_budget(&self, amount: i64) -> Result<()> {
         self.world.conn.execute("UPDATE board SET transfer_budget = MAX(0, transfer_budget - ?) WHERE id = 1", [amount])?;

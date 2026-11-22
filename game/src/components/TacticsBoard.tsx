@@ -246,7 +246,7 @@ export function Pitch({
   bind: (s: Spot, label: string) => Bind
   /** Seta a ser desenhada agora (botão direito em curso). */
   run: Run | null
-  onRunStart: (index: number) => void
+  onRunStart: (index: number, pitch: Element | null) => void
 }) {
   return (
     // O campo mantém a proporção de um campo a sério (68 x 105) e fica centrado no espaço que tiver
@@ -272,7 +272,7 @@ export function Pitch({
               onMouseDown={(e) => {
                 if (e.button === 2 && t.editable && s.role !== 'GR') {
                   e.preventDefault()
-                  onRunStart(i)
+                  onRunStart(i, e.currentTarget.closest('[data-pitch]'))
                 } else b.onMouseDown(e)
               }}
               className={`cm-slide absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 ${t.editable ? 'cursor-grab' : ''}`}

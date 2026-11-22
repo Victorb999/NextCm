@@ -162,6 +162,9 @@ impl Game {
     /// quando ela não o conhece bem.
     pub(super) fn budget_for(&self, person: i32) -> Result<(i64, Option<String>)> {
         let budget = self.transfer_budget()?;
+        if let Some(text) = self.no_funds_text()? {
+            return Ok((0, Some(text)));
+        }
         let (share, why) = match self.knowledge(person)? {
             Knowledge::Known => return Ok((budget, None)),
             Knowledge::Partial => (PARTIAL_BUDGET, "sabe pouco"),

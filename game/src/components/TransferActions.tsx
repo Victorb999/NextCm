@@ -29,6 +29,8 @@ export default function TransferActions({
 }) {
   const game = useGame()
   const [error, setError] = useState<string | null>(null)
+  // O Oferecer a Clubes a caminho: o botão mostra e não aceita outro clique
+  const [sending, setSending] = useState(false)
   // A troca: o plantel do treinador e quem dele o clube vendedor aceita (decide o core)
   const [squad, setSquad] = useState<ExchangeOption[]>([])
   const [exchangeable, setExchangeable] = useState<ExchangeCandidate[] | null>(null)
@@ -75,14 +77,18 @@ export default function TransferActions({
         name={name}
         value={view.value}
         error={error}
+        busy={sending}
         onCancel={onClose}
         onOk={(loan, fee, rivals) =>
           void (async () => {
+            setSending(true)
             try {
               const message = await api.offerToClubs(id, loan, fee, rivals)
               onDone(await api.transferView(id), message)
             } catch (e) {
               setError(String(e))
+            } finally {
+              setSending(false)
             }
           })()
         }

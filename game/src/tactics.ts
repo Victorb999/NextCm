@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ClubTactics } from './bindings/ClubTactics'
 import type { Marking } from './bindings/Marking'
 import type { Mentality } from './bindings/Mentality'
@@ -272,9 +272,11 @@ export type Run = { index: number; x: number; y: number }
  * com a seta nova (soltar em cima do próprio jogador apaga-a). */
 export function useRunArrow(t: ClubTactics | null, apply: (sel: Selection) => void) {
   const [run, setRun] = useState<Run | null>(null)
+  // O campo onde a seta começou: a meio do jogo há outro por baixo (a tela de onde se veio)
+  const field = useRef<Element | null>(null)
   useEffect(() => {
     if (!run) return
-    const pitch = document.querySelector('[data-pitch]')
+    const pitch = field.current
     if (!pitch) return
     const at = (e: MouseEvent) => {
       const r = pitch.getBoundingClientRect()
@@ -304,9 +306,10 @@ export function useRunArrow(t: ClubTactics | null, apply: (sel: Selection) => vo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run?.index])
-  const start = (index: number) => {
+  const start = (index: number, pitch: Element | null) => {
     const s = t?.starters[index]
-    if (s) setRun({ index, x: s.x, y: s.y })
+    field.current = pitch
+    if (s && pitch) setRun({ index, x: s.x, y: s.y })
   }
   return { run, start }
 }
