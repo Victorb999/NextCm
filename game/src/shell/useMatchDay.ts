@@ -21,15 +21,21 @@ export function useMatchDay() {
   // A navegação quando o dia de jogo foi aberto: qualquer navegação depois (mesmo para a
   // tela onde já se estava) esconde-o
   const screen = useRef<number | null>(null)
+  // Do Pré-Jogo em diante: a tela de baixo quando travou. Um nome clicado na partida (o perfil)
+  // esconde o dia de jogo, parado; voltar a esta tela traz a partida de volta
+  const base = useRef<string | null>(null)
 
   useEffect(() => {
     if (!match) {
       screen.current = null
+      base.current = null
       return
     }
+    if (!locked) base.current = null
+    else if (base.current === null) base.current = JSON.stringify(nav.current)
     if (screen.current === null) screen.current = nav.seq
-    else if (screen.current !== nav.seq && !locked) setHidden(true)
-  }, [match, nav.seq, locked])
+    else if (screen.current !== nav.seq) setHidden(!locked || JSON.stringify(nav.current) !== base.current)
+  }, [match, nav, locked])
 
   const close = useCallback(() => {
     // Depois dos resultados do dia, como no CM: a caixa de mensagens (com a notícia do jogo)
