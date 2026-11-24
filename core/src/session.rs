@@ -60,6 +60,19 @@ impl Session {
         })
     }
 
+    /// A sessão partilhada pelos comandos. Se um comando entrou em pânico com ela na mão, o jogo pode ter
+    /// ficado a meio: fecha-o (o SQLite desfaz o que não foi salvo) e o app volta a funcionar.
+    pub fn lock(m: &std::sync::Mutex<Session>) -> std::result::Result<std::sync::MutexGuard<'_, Session>, String> {
+        match m.lock() {
+            Ok(s) => Ok(s),
+            Err(poisoned) => {
+                poisoned.into_inner().close_game();
+                m.clear_poison();
+                Err("O jogo encontrou um erro: carregue o último save.".into())
+            }
+        }
+    }
+
     /// Banco para as consultas: o do jogo aberto (vê o treinador no clube) ou o mundo base.
     pub fn db(&self) -> &World {
         self.game.as_ref().map_or(&self.world, |g| g.world())
@@ -434,6 +447,7 @@ impl Session {
                 return Err(Error::Invalid("Arquivo Existe".into()));
             }
             // O save aberto fica como estava (o Salvar Como do CM): só a cópia leva o jogo de agora
+            crate::game::remove_stale_journal(&target)?;
             self.game_mut()?.save_copy(&target)?;
             let copy = rusqlite::Connection::open(&target)?;
             copy.execute("UPDATE game SET name = ?", [name.trim()])?;
@@ -952,6 +966,24 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_panic_does_not_lock_the_session_for_good() {
+        let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let m = std::sync::Mutex::new(Session::open(&path, &std::env::temp_dir()).unwrap());
+        // Um comando entra em pânico com a sessão na mão
+        std::thread::scope(|s| {
+            let _ = s
+                .spawn(|| {
+                    let _guard = m.lock().unwrap();
+                    panic!("erro a meio de um comando");
+                })
+                .join();
+        });
+        assert!(m.is_poisoned());
+        assert_eq!(Session::lock(&m).err().as_deref(), Some("O jogo encontrou um erro: carregue o último save."));
+        assert!(Session::lock(&m).is_ok_and(|s| s.game.is_none()));
+    }
 
     #[test]
     fn save_as_copies_and_continues_in_the_new_file() {

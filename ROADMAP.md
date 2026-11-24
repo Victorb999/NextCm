@@ -183,6 +183,7 @@ Dividida em marcos pequenos. Cada marco termina com algo jogável e testável, e
 | ✅ **4.6** Copas nacionais | As copas das ligas jogáveis (FA Cup e Copa da Liga, Copa do Rei, Copa da Itália, Copa da Alemanha, Copa da França, Taça de Portugal e Taça da Liga, Copa da Holanda, Copa Argentina, Copa do Rei Saudita), as supertaças, o Mundial de Clubes, a Liga Conferência, as duas da Ásia, a Copa do Nordeste, a Copa Verde, o Troféu dos Campeões e a Copa Intercontinental; preliminar para os menores, sorteio aberto, jogos da liga adiados quando batem e a vaga continental do campeão | Numa temporada cada país tem a sua copa com campeão, nenhum clube joga duas vezes em menos de 3 dias e o campeão leva a vaga |
 | **4.2** Treinar uma selecção | Acumular uma selecção com o clube: convite pela reputação, candidatura ou Novo Jogo; convocatória, Tácticas e jogos ao vivo; a federação avalia; anfitriões em casa | O treinador aceita uma selecção sem largar o clube, convoca e joga uma janela FIFA, e as médias continuam na CLI |
 | **4.7** Vários treinadores | Vários treinadores humanos no mesmo save, cada um com o seu clube, no mesmo computador (hotseat): Novo Jogo com Adicionar Treinador, password opcional, a vez de cada um antes de o dia avançar, as partidas de cada um ao vivo, propostas entre treinadores e notícias por treinador | Dois treinadores jogam uma temporada no mesmo save, negociam um jogador entre eles e o save grava e carrega os dois |
+| **4.8** Desempenho e saves | Os dias mais rápidos (mercado da IA, fim dos jogos, contratos, prémios) e os saves protegidos (journal órfão, erro a meio de um comando, fechar sem salvar) | Na CLI os 400 dias ficam bem abaixo dos 345 s de 24/11 e nenhum caminho conhecido estraga ou perde um save |
 
 #### Detalhe de cada marco
 
@@ -232,6 +233,7 @@ O detalhe (regras, números, decisões e o que ficou feito) está em `docs/roadm
 - [Marco 4.5 — Aposentadoria e regens (feito a 14/11, save 63)](docs/roadmap/4.5-aposentadoria-e-regens.md)
 - [Marco 4.6 — Copas nacionais](docs/roadmap/4.6-copas-nacionais.md)
 - [Marco 4.7 — Vários treinadores](docs/roadmap/4.7-varios-treinadores.md)
+- [Marco 4.8 — Desempenho e saves (auditoria de 24/11)](docs/roadmap/4.8-desempenho-e-saves.md)
 
 ---
 

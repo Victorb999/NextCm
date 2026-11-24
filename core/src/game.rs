@@ -859,6 +859,7 @@ impl Game {
             return Err(Error::Invalid(format!("Já existe um jogo chamado \"{}\".", new.save_name.trim())));
         }
         crate::progress::set("Copiando a base de dados…", 0.02);
+        remove_stale_journal(&path)?;
         std::fs::copy(world_path, &path)?;
         // Um world.sqlite de antes do esquema 8 não tem as instalações nem o aquecimento
         add_world_columns(&rusqlite::Connection::open(&path)?, world_path)?;
@@ -3754,7 +3755,18 @@ pub fn delete_save(dir: &Path, file: &str) -> Result<()> {
         return Err(Error::Invalid("Esse jogo salvo não existe.".into()));
     }
     std::fs::remove_file(&path)?;
-    Ok(())
+    remove_stale_journal(&path)
+}
+
+/// Apaga o `-journal` que um app morto a meio deixou ao lado de `path`. Só para um save que vai ser
+/// escrito do zero ou apagado: num save novo com o mesmo nome o SQLite aplicava-o e estragava-o.
+pub(crate) fn remove_stale_journal(path: &Path) -> Result<()> {
+    let mut journal = path.as_os_str().to_owned();
+    journal.push("-journal");
+    match std::fs::remove_file(journal) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
+        _ => Ok(()),
+    }
 }
 
 /// Jogos gravados em `dir`, do mais recente para o mais antigo. Arquivos que não são
@@ -3847,6 +3859,36 @@ mod tests {
             experience: 0,
             favourite_club: None,
         }
+    }
+
+    #[test]
+    fn stale_journal_does_not_touch_a_new_save() {
+        let dir = std::env::temp_dir().join(format!("nextcm-journal-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("x.sqlite");
+        let journal = dir.join("x.sqlite-journal");
+        let fill = |p: &Path, table: &str| {
+            let c = rusqlite::Connection::open(p).unwrap();
+            c.execute_batch(&format!("CREATE TABLE {table}(v); WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 2000) INSERT INTO {table} SELECT randomblob(400) FROM n;")).unwrap();
+        };
+        // Um journal quente, como o de um app morto a meio de um jogo
+        fill(&path, "velho");
+        {
+            let c = rusqlite::Connection::open(&path).unwrap();
+            c.execute_batch("PRAGMA cache_size = 2; BEGIN; UPDATE velho SET v = randomblob(400);").unwrap();
+            std::fs::copy(&journal, dir.join("quente")).unwrap();
+        }
+        std::fs::rename(dir.join("quente"), &journal).unwrap();
+        delete_save(&dir, "x.sqlite").unwrap();
+        assert!(!journal.exists());
+        // O save novo com o mesmo nome abre inteiro
+        fill(&dir.join("novo.sqlite"), "novo");
+        std::fs::copy(dir.join("novo.sqlite"), &path).unwrap();
+        let c = rusqlite::Connection::open(&path).unwrap();
+        assert_eq!(c.query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0)).unwrap(), "ok");
+        drop(c);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

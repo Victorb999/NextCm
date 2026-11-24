@@ -723,7 +723,8 @@ impl Game {
         // Quem detesta um colega do plantel (as Preferências)
         let feuds: HashSet<i32> = conn
             .prepare_cached(
-                "SELECT f.person_id FROM preferences f JOIN people a ON a.id = f.person_id JOIN people b ON b.id = f.target_id
+                // CROSS JOIN: a partir do plantel; senão o SQLite varre as preferências todas (~77x mais lento)
+                "SELECT f.person_id FROM people a CROSS JOIN preferences f ON f.person_id = a.id JOIN people b ON b.id = f.target_id
                  WHERE f.kind = 'person' AND f.liked = 0 AND a.club_id = ?1 AND b.club_id = ?1 AND b.is_player = 1",
             )?
             .query_map([club], |r| r.get(0))?

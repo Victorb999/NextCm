@@ -55,13 +55,13 @@ async fn creation_progress() -> nextcm_core::progress::CreationProgress {
 
 #[tauri::command]
 async fn squad_more(state: State<'_, AppState>, id: i32, kind: String) -> Result<Vec<nextcm_core::SquadMore>, String> {
-    let session = state.session.lock().map_err(|e| e.to_string())?;
+    let session = Session::lock(&state.session)?;
     session.squad_more(id, &kind).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn search_people(state: State<'_, AppState>, query: SearchQuery) -> Result<SearchResult, String> {
-    let session = state.session.lock().map_err(|e| e.to_string())?;
+    let session = Session::lock(&state.session)?;
     session.search_people(&query).map_err(|e| e.to_string())
 }
 
@@ -70,7 +70,7 @@ macro_rules! world_command {
     ($name:ident ( $($arg:ident : $ty:ty),* ) -> $out:ty) => {
         #[tauri::command]
         async fn $name(state: State<'_, AppState>, $($arg: $ty),*) -> Result<$out, String> {
-            let session = state.session.lock().map_err(|e| e.to_string())?;
+            let session = Session::lock(&state.session)?;
             session.db().$name($($arg),*).map_err(|e| e.to_string())
         }
     };
@@ -89,7 +89,7 @@ macro_rules! session_command {
         #[tauri::command]
         async fn $name(state: State<'_, AppState>, $($arg: $ty),*) -> Result<$out, String> {
             #[allow(unused_mut)]
-            let mut session = state.session.lock().map_err(|e| e.to_string())?;
+            let mut session = Session::lock(&state.session)?;
             session.$name($($arg),*).map_err(|e| e.to_string())
         }
     };
@@ -234,97 +234,97 @@ session_command!(live_tactics(side: i32) -> ClubTactics);
 
 #[tauri::command]
 async fn live_preview_tactics(state: State<'_, AppState>, selection: Selection) -> Result<ClubTactics, String> {
-    let session = state.session.lock().map_err(|e| e.to_string())?;
+    let session = Session::lock(&state.session)?;
     session.live_preview_tactics(&selection).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn live_set_tactics(state: State<'_, AppState>, selection: Selection) -> Result<LiveView, String> {
-    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    let mut session = Session::lock(&state.session)?;
     session.live_set_tactics(selection).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn new_game(state: State<'_, AppState>, game: NewGame) -> Result<GameInfo, String> {
-    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    let mut session = Session::lock(&state.session)?;
     session.new_game(&game).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn start_holiday(state: State<'_, AppState>, plan: nextcm_core::HolidayPlan) -> Result<nextcm_core::HolidayView, String> {
-    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    let mut session = Session::lock(&state.session)?;
     session.start_holiday(&plan).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn preview_tactics(state: State<'_, AppState>, selection: Selection) -> Result<ClubTactics, String> {
-    let session = state.session.lock().map_err(|e| e.to_string())?;
+    let session = Session::lock(&state.session)?;
     session.preview_tactics(&selection).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn list_tactics(state: State<'_, AppState>) -> Result<Vec<SavedFile>, String> {
-    let session = state.session.lock().map_err(|e| e.to_string())?;
+    let session = Session::lock(&state.session)?;
     Ok(session.list_tactics())
 }
 
 #[tauri::command]
 async fn list_lists(state: State<'_, AppState>) -> Result<Vec<SavedFile>, String> {
-    let session = state.session.lock().map_err(|e| e.to_string())?;
+    let session = Session::lock(&state.session)?;
     Ok(session.list_lists())
 }
 
 #[tauri::command]
 async fn save_list(state: State<'_, AppState>, slot: i32, name: String) -> Result<SavedFile, String> {
-    let session = state.session.lock().map_err(|e| e.to_string())?;
+    let session = Session::lock(&state.session)?;
     session.save_list(slot, &name).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn load_list(state: State<'_, AppState>, slot: i32, file: String) -> Result<(), String> {
-    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    let mut session = Session::lock(&state.session)?;
     session.load_list(slot, &file).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn save_tactic(state: State<'_, AppState>, selection: Selection, name: String) -> Result<SavedFile, String> {
-    let session = state.session.lock().map_err(|e| e.to_string())?;
+    let session = Session::lock(&state.session)?;
     session.save_tactic(&selection, &name).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn load_tactic(state: State<'_, AppState>, selection: Selection, file: String) -> Result<Selection, String> {
-    let session = state.session.lock().map_err(|e| e.to_string())?;
+    let session = Session::lock(&state.session)?;
     session.load_tactic(&selection, &file).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn toggle_player(state: State<'_, AppState>, selection: Selection, player: i32) -> Result<ClubTactics, String> {
-    let session = state.session.lock().map_err(|e| e.to_string())?;
+    let session = Session::lock(&state.session)?;
     session.toggle_player(&selection, player).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn set_tactics(state: State<'_, AppState>, selection: Selection) -> Result<ClubTactics, String> {
-    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    let mut session = Session::lock(&state.session)?;
     session.set_tactics(selection).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn load_game(state: State<'_, AppState>, file: String) -> Result<GameInfo, String> {
-    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    let mut session = Session::lock(&state.session)?;
     session.load_game(&file).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn delete_save(state: State<'_, AppState>, file: String) -> Result<(), String> {
-    let mut session = state.session.lock().map_err(|e| e.to_string())?;
+    let mut session = Session::lock(&state.session)?;
     session.delete_save(&file).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn close_game(state: State<'_, AppState>) -> Result<(), String> {
-    state.session.lock().map_err(|e| e.to_string())?.close_game();
+    Session::lock(&state.session)?.close_game();
     Ok(())
 }
 
