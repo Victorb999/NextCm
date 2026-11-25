@@ -170,6 +170,9 @@ mod tests {
         let ours = rows.iter().find(|r| r.club.id == PALMEIRAS).unwrap();
         assert_eq!(ours.clinched.as_deref(), Some("champion"));
         assert!(rows.iter().filter(|r| r.club.id != PALMEIRAS).all(|r| r.clinched.as_deref() != Some("champion")));
+        // A aba Classificação (as fases) marca o mesmo
+        let stage = &g.competition_stages(SERIE_A)[0].tables[0].rows;
+        assert_eq!(stage.iter().find(|r| r.club.id == PALMEIRAS).unwrap().clinched.as_deref(), Some("champion"));
         let (mut fresh, mut id) = (Vec::new(), 1);
         g.clinch_news(&mut fresh, &mut id);
         assert!(

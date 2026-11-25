@@ -429,7 +429,7 @@ export function LiveScreen({
                 club={view.home.club}
                 goals={goalsSaid(0)}
                 side="home"
-                detail={['Casa', view.venue, pens && `Pênaltis ${pens[0]}`].filter(Boolean).join(' · ')}
+                detail={[view.fixture.neutral ? 'Neutro' : 'Casa', view.venue, pens && `Pênaltis ${pens[0]}`].filter(Boolean).join(' · ')}
                 onClick={view.finished ? undefined : () => openTactics(0)}
               />
               <ScoreBand

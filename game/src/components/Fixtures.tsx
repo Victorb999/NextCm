@@ -273,7 +273,7 @@ function MatchPreviewRows({ fixture, clubId, preview: p }: { fixture: Fixture; c
   return (
     <>
       <div className="shrink-0 py-2 text-center font-title text-[22px] font-bold text-cm-yellow">
-        <ClubName club={them} className="!text-[22px] !text-cm-yellow" /> ({home ? 'Casa' : 'Fora'})
+        <ClubName club={them} className="!text-[22px] !text-cm-yellow" /> ({fixture.neutral ? 'Neutro' : home ? 'Casa' : 'Fora'})
       </div>
       <div className="min-h-0 flex-1 overflow-auto pb-2">
         <div className="cm-zebra">

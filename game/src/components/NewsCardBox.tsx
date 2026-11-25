@@ -15,7 +15,16 @@ export default function NewsCardBox({ card }: { card: NewsCard }) {
   const rows: [string, ReactNode][] =
     card.kind === 'club'
       ? [
-          ['Divisão', card.division ?? '-'],
+          [
+            'Divisão',
+            card.divisionId === null ? (
+              (card.division ?? '-')
+            ) : (
+              <button key="div" className="hover:underline" onClick={() => nav.go({ kind: 'competition', id: card.divisionId! })}>
+                {card.division}
+              </button>
+            ),
+          ],
           ['Posição', card.position === null ? '-' : `${card.position}º`],
           ['Gols Pró', num(card.goalsFor)],
           ['Gols Contra', num(card.goalsAgainst)],

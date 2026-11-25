@@ -224,6 +224,36 @@ impl Game {
         self.world.conn.query_row("SELECT 1 FROM ghosts WHERE person_id = ?", [person], |_| Ok(())).is_ok()
     }
 
+    /// Apaga os de enchimento que ficaram sem clube: são temporários e criam-se outros quando
+    /// faltar gente (senão o save só cresce). Sai de todas as tabelas com `person_id`.
+    pub(super) fn purge_free_ghosts(&mut self) -> Result<usize> {
+        let conn = &self.world.conn;
+        let ids: Vec<i32> = conn
+            .prepare("SELECT g.person_id FROM ghosts g LEFT JOIN people p ON p.id = g.person_id WHERE p.club_id IS NULL")?
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        if ids.is_empty() {
+            return Ok(0);
+        }
+        let tables: Vec<String> = conn
+            .prepare(
+                "SELECT m.name FROM sqlite_master m, pragma_table_info(m.name) c
+                 WHERE m.type = 'table' AND c.name = 'person_id' AND m.name <> 'ghosts' ORDER BY m.name",
+            )?
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        for &id in &ids {
+            for t in &tables {
+                conn.execute(&format!("DELETE FROM {t} WHERE person_id = ?"), [id])?;
+            }
+            conn.execute("DELETE FROM people WHERE id = ?", [id])?;
+            conn.execute("DELETE FROM ghosts WHERE person_id = ?", [id])?;
+            self.squads.states.remove(&id);
+        }
+        self.unsaved = true;
+        Ok(ids.len())
+    }
+
     pub(super) fn complete_squads(&mut self) -> Result<usize> {
         let year = self.season();
         let mut clubs: Vec<i32> =

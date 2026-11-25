@@ -24,4 +24,4 @@ apps: number | null, goals: number | null, rating: number | null,
 /**
  * Clube: a divisão, o lugar na classificação, gols pró e contra e a média de público.
  */
-division: string | null, position: number | null, goalsFor: number | null, goalsAgainst: number | null, attendance: number | null, };
+division: string | null, divisionId: number | null, position: number | null, goalsFor: number | null, goalsAgainst: number | null, attendance: number | null, };

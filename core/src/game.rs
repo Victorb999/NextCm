@@ -2803,12 +2803,39 @@ impl Game {
     /// O estádio, a cidade, o tempo e o gramado de uma partida (o tempo é um sorteio fixo por
     /// partida, pela estação do ano no Brasil).
     fn venue_and_weather(&self, m: &Match) -> Result<(Option<String>, Option<String>, String, &'static str)> {
-        let (venue, city, roof): (Option<String>, Option<String>, bool) = self.world.conn.query_row(
-            "SELECT s.name, ci.name, COALESCE(s.retractable_roof, 0) <> 0 FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id
+        // Campo neutro (finais): um dos maiores estádios do país da competição (o maior) ou do
+        // continente (um dos 8, fixo por partida), sem ser o de nenhum dos dois clubes
+        let neutral: Vec<(Option<String>, Option<String>, bool, bool)> = if m.neutral {
+            let mut st = self.world.conn.prepare_cached(
+                "SELECT s.name, ci.name, COALESCE(s.retractable_roof, 0) <> 0, k.nation_id IS NOT NULL
+                 FROM competitions k JOIN stadiums s JOIN cities ci ON ci.id = s.city_id JOIN nations n ON n.id = ci.nation_id
+                 WHERE k.id = ?1 AND (ci.nation_id = k.nation_id OR (k.nation_id IS NULL AND n.continent_id = k.continent_id))
+                   AND s.id NOT IN (SELECT stadium_id FROM clubs WHERE id IN (?2, ?3) AND stadium_id IS NOT NULL)
+                 ORDER BY s.capacity DESC LIMIT 8",
+            )?;
+            st.query_map([m.competition_id, m.home_id, m.away_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+                .collect::<rusqlite::Result<_>>()?
+        } else {
+            Vec::new()
+        };
+        let pick = match neutral.first() {
+            Some(&(_, _, _, true)) => Some(0),
+            Some(_) => {
+                Some((rand_core::RngCore::next_u64(&mut engine::match_rng(self.seed ^ 0x4E37_7241, m.id)) % neutral.len() as u64) as usize)
+            }
+            None => None,
+        };
+        let (venue, city, roof): (Option<String>, Option<String>, bool) = if let Some(i) = pick {
+            let (v, c, r, _) = neutral[i].clone();
+            (v, c, r)
+        } else {
+            self.world.conn.query_row(
+                "SELECT s.name, ci.name, COALESCE(s.retractable_roof, 0) <> 0 FROM clubs c LEFT JOIN stadiums s ON s.id = c.stadium_id
              LEFT JOIN cities ci ON ci.id = s.city_id WHERE c.id = ?",
-            [m.home_id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )?;
+                [m.home_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )?
+        };
         // Tempo: estação do ano no Brasil e um sorteio fixo por partida
         let mut rng = engine::match_rng(self.seed ^ 0x7E47_4E52, m.id);
         let roll = |rng: &mut ChaCha8Rng| engine::uniform(rng);
@@ -4938,6 +4965,17 @@ mod tests {
         assert_eq!(p.weather, g.match_preview(first.id).unwrap().weather, "o tempo não muda ao reabrir");
         let odds = p.odds.expect("jogo por jogar: com odds");
         assert!(odds.iter().all(|o| *o > 1.0), "{odds:?}");
+        // Campo neutro: um estádio grande do país (o Maracanã na Copa do Brasil), não o do mandante
+        let mut g = g;
+        let i = g.matches.iter().position(|m| m.id == first.id).unwrap();
+        g.matches[i].neutral = true;
+        g.matches[i].competition_id = 68;
+        let n = g.match_preview(first.id).unwrap();
+        assert_ne!(n.venue, p.venue);
+        assert_eq!(
+            n.venue.as_deref(),
+            Some(if p.venue.as_deref() == Some("Maracanã") { "Estádio Nacional Mané Garrincha" } else { "Maracanã" })
+        );
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }

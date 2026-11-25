@@ -47,6 +47,7 @@ pub struct NewsCard {
     pub rating: Option<f64>,
     /// Clube: a divisão, o lugar na classificação, gols pró e contra e a média de público.
     pub division: Option<String>,
+    pub division_id: Option<i32>,
     pub position: Option<i32>,
     pub goals_for: Option<i32>,
     pub goals_against: Option<i32>,
@@ -68,6 +69,7 @@ impl NewsCard {
             goals: None,
             rating: None,
             division: None,
+            division_id: None,
             position: None,
             goals_for: None,
             goals_against: None,
@@ -105,6 +107,7 @@ impl Game {
         card.attendance = attendance.filter(|&a| a > 0);
         if let Some(d) = division {
             card.division = Some(self.competition_name(d).to_string());
+            card.division_id = Some(d);
             if let Some(row) = self.table(d).into_iter().find(|r| r.club.id == id) {
                 card.position = Some(row.position);
                 card.goals_for = Some(row.goals_for);

@@ -189,7 +189,7 @@ impl Game {
     }
 
     /// Completa as reservas do treinador com jogadores de enchimento, como o CM faz.
-    fn reserve_ghosts(&mut self) -> Result<()> {
+    pub(super) fn reserve_ghosts(&mut self) -> Result<()> {
         let positions = [GK, DEF, MID, ATT];
         let mut have = [0usize; 4];
         for id in self.own_squad()? {

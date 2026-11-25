@@ -1183,7 +1183,17 @@ impl Game {
                 StageKind::League | StageKind::LeaguePhase => StageView {
                     name,
                     kind: "league".into(),
-                    tables: vec![GroupTable { name: String::new(), rows: self.stage_table(comp, year, i, None) }],
+                    tables: vec![GroupTable {
+                        name: String::new(),
+                        rows: {
+                            let mut rows = self.stage_table(comp, year, i, None);
+                            // Uma liga de fase única: o que já está garantido (campeão, vagas, rebaixamento)
+                            if reg.stages.len() == 1 && st.kind == StageKind::League {
+                                self.mark_clinched(comp, &mut rows);
+                            }
+                            rows
+                        },
+                    }],
                     rounds: Vec::new(),
                 },
                 StageKind::Groups => StageView {

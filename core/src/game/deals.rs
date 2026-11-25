@@ -2769,13 +2769,14 @@ Confirme até {}.",
     }
 
     /// Mensagem com os contratos do plantel que acabam até `cutoff` (sem adjunto a renovar).
-    fn contract_warning(&mut self, cutoff: &str, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+    pub(super) fn contract_warning(&mut self, cutoff: &str, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         let names: Vec<String> = self
             .world
             .conn
             .prepare_cached(
                 "SELECT display_name FROM people WHERE club_id = ? AND is_player = 1 AND contract_expires IS NOT NULL
-                   AND contract_expires <= ? AND id NOT IN (SELECT person_id FROM loans) ORDER BY display_name",
+                   AND contract_expires <= ? AND id NOT IN (SELECT person_id FROM loans)
+                   AND id NOT IN (SELECT person_id FROM ghosts) ORDER BY display_name",
             )?
             .query_map(params![self.club_id, cutoff], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;

@@ -508,6 +508,9 @@ impl Game {
             .prepare("SELECT DISTINCT person_id FROM unhappy")?
             .query_map([], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
+        // Os de enchimento são temporários: no fim do contrato saem sem aviso e são apagados
+        let ghosts: HashSet<i32> =
+            self.world.conn.prepare("SELECT person_id FROM ghosts")?.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
         let managed = self.managed_clubs()?;
         let unmanaged: Vec<i32> = self
             .world
@@ -573,6 +576,12 @@ impl Game {
                     Some(e) if e > cutoff => continue,
                     None if !year_end || !playable => continue,
                     _ => {}
+                }
+                if ghosts.contains(&r.id) {
+                    self.world
+                        .conn
+                        .execute("UPDATE people SET club_id = NULL, club_job = NULL, contract_expires = NULL WHERE id = ?", [r.id])?;
+                    continue;
                 }
                 let age = age_on(r.birth.as_deref(), r.birth_year, &today);
                 // Fica quem é dos melhores do plantel; os veteranos só se forem titulares e os
@@ -646,6 +655,14 @@ impl Game {
         // As ligas não jogáveis não contratam: quem ficou abaixo de 18 recebe jogadores de enchimento
         if !short.is_empty() {
             self.top_up_squads(short)?;
+        }
+        // Os de enchimento que saíram somem do save; as reservas do treinador, se ficaram curtas,
+        // recebem outros (com uma "B" não há reservas)
+        self.purge_free_ghosts()?;
+        // Ao começar o jogo, as reservas do treinador ainda vão ser feitas (`start_reserves`)
+        if !start && !self.sacked() && !matches!(self.reserve_mode()?, super::reserves::ReserveMode::BTeam(_)) {
+            self.reserve_ghosts()?;
+            self.clean_selection()?;
         }
         // Os nomes maiores que recusaram renovar, numa notícia para o mercado
         refused.sort_by_key(|r| (std::cmp::Reverse(r.0), r.1));
@@ -1157,6 +1174,45 @@ mod tests {
         assert!(draws.iter().all(|n| !n.body.contains("clube ") && n.title != "Sorteio da Liga"), "{:?}", draws[0].body);
         // Eliminatórias empatadas foram a penáltis
         assert!(year.iter().any(|m| m.pens.is_some()));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn filler_players_have_no_contract_to_end() {
+        let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = temp_dir("enchimento");
+        let mut g = Game::create(&world, &dir, &new_game(7568), 3).unwrap();
+        let ghost: i32 = g
+            .world
+            .conn
+            .query_row("SELECT p.id FROM people p JOIN ghosts x ON x.person_id = p.id WHERE p.club_id = 7568 LIMIT 1", [], |r| r.get(0))
+            .expect("as reservas têm jogadores de enchimento");
+        let today = g.date.clone();
+        g.world.conn.execute("UPDATE people SET contract_expires = ? WHERE id = ?", params![today, ghost]).unwrap();
+        let name = g.person_name(ghost).unwrap();
+        // Não aparece nos contratos a acabar
+        let (mut fresh, mut id) = (Vec::new(), 1);
+        g.contract_warning(&today, &mut fresh, &mut id).unwrap();
+        assert!(fresh.iter().all(|n| !n.body.contains(&name)), "{:?}", fresh.iter().map(|n| &n.body).collect::<Vec<_>>());
+        // No fim do contrato sai sem mensagem, e as reservas recebem outro se ficaram curtas
+        g.contracts(&mut fresh, &mut id, &today, false).unwrap();
+        let club: Option<i32> =
+            g.world.conn.query_row("SELECT club_id FROM people WHERE id = ?", [ghost], |r| r.get(0)).optional().unwrap().flatten();
+        let left: i64 = g.world.conn.query_row("SELECT COUNT(*) FROM players WHERE person_id = ?", [ghost], |r| r.get(0)).unwrap();
+        assert_eq!(left, 0);
+        assert_eq!(club, None, "apagado do save");
+        assert!(fresh.iter().all(|n| !n.body.contains(&name)));
+        let refill: i64 = g
+            .world
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM people p JOIN ghosts x ON x.person_id = p.id WHERE p.club_id = 7568 AND p.id <> ?",
+                [ghost],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(refill > 0, "as reservas voltam a ter enchimento");
         drop(g);
         let _ = std::fs::remove_dir_all(&dir);
     }
