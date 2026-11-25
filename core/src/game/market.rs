@@ -1757,7 +1757,7 @@ mod tests {
 
     #[test]
     fn window_opening_message() {
-        let dir = std::env::temp_dir().join(format!("nextcm-janela-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-janela-{}", std::process::id()));
         let Some(mut g) = summer_game(&dir, "2025-07-01") else { return };
         // O Palmeiras (época de calendário): janela de 1/1 a 15/3
         let titles = |g: &mut Game, day: &str| {
@@ -1801,7 +1801,7 @@ mod tests {
     /// os empréstimos esquecidos de saves antigos e os de quem ficou sem clube limpam-se.
     #[test]
     fn signing_ends_the_loan() {
-        let dir = std::env::temp_dir().join(format!("nextcm-emprestimo-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-emprestimo-{}", std::process::id()));
         let Some(mut g) = summer_game(&dir, "2025-07-01") else { return };
         let loaned = |g: &Game, id: i32| -> bool {
             g.world.conn.query_row("SELECT COUNT(*) > 0 FROM loans WHERE person_id = ?", [id], |r| r.get(0)).unwrap()
@@ -1856,7 +1856,7 @@ mod tests {
 
     #[test]
     fn summer_window_moves_players_and_is_deterministic() {
-        let base = std::env::temp_dir().join(format!("nextcm-mercado-{}", std::process::id()));
+        let base = crate::TempDir::new(format!("nextcm-mercado-{}", std::process::id()));
         let Some(mut g) = summer_game(&base.join("a"), "2025-07-15") else { return };
         let other = summer_game(&base.join("b"), "2025-07-15").unwrap();
         let first = all_transfers(&g);
@@ -1995,7 +1995,7 @@ mod shortlist_tests {
     #[test]
     fn shortlist_players_get_their_own_message() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-lista-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-lista-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Lista".into(),

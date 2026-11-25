@@ -605,7 +605,7 @@ mod tests {
     #[test]
     fn a_veteran_announces_retires_and_leaves_an_heir() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-reformas-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-reformas-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "Aposentadorias".into(),
@@ -707,7 +707,7 @@ mod tests {
     #[test]
     fn the_vintage_is_the_same_in_february_and_march() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-safra-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-safra-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "Safra".into(),

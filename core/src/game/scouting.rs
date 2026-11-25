@@ -339,7 +339,7 @@ mod tests {
     #[test]
     fn scouts_reveal_unknown_players() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-olheiros-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-olheiros-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Olheiros".into(),

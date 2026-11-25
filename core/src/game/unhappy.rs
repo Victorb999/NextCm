@@ -943,7 +943,7 @@ mod tests {
     #[test]
     fn unhappy_players_ask_to_leave() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-insatisfeitos-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-insatisfeitos-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Insatisfeitos".into(),
@@ -1043,7 +1043,7 @@ mod tests {
     #[test]
     fn reserves_homesickness_and_leave() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-saudades-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-saudades-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Saudades".into(),
@@ -1153,7 +1153,7 @@ mod tests {
     #[test]
     fn club_and_personal_moods() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-queixas-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-queixas-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Reclamações".into(),

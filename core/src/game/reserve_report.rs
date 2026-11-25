@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn assistant_picks_the_reserves_and_reports() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-relatorio-reservas-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-relatorio-reservas-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Relatório das reservas".into(),

@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn path_of_club_person_and_competition() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-barra-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-barra-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "Barra".into(),

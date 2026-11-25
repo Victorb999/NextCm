@@ -1304,7 +1304,7 @@ mod tests {
     #[test]
     fn edit_attributes_by_shown_value() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-editor-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-editor-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Editor".into(),

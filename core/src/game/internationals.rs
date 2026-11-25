@@ -708,7 +708,7 @@ mod tests {
     #[test]
     fn september_window_calls_up_plays_and_sends_back() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-test-int-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-test-int-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let mut g = Game::create(&world, &dir, &bayern(), 11).unwrap();
         let caps = "SELECT COALESCE(SUM(international_apps), 0) FROM people WHERE club_id = 1350";
@@ -803,7 +803,7 @@ mod tests {
     #[ignore]
     fn mundial_2026() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-test-wc-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-test-wc-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let mut g = Game::create(&world, &dir, &bayern(), 5).unwrap();
         while g.date() < "2026-06-11" {
@@ -847,7 +847,7 @@ mod tests {
     #[test]
     fn hosts_known_then_drawn_years_before() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-test-hosts-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-test-hosts-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let mut g = Game::create(&world, &dir, &bayern(), 3).unwrap();
         g.settle_hosts(2025).unwrap();
@@ -884,7 +884,7 @@ mod tests {
     #[test]
     fn retired_from_the_national_team_is_not_called() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-test-intret-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-test-intret-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let g = Game::create(&world, &dir, &bayern(), 3).unwrap();
         // O Courtois, o de mais CA da Bélgica, retirou-se da selecção no player_setup.cfg

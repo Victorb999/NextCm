@@ -3294,10 +3294,13 @@ impl Game {
         let nation: Option<i32> = self.world.conn.query_row("SELECT nation_id FROM clubs WHERE id = ?", [m.home_id], |r| r.get(0))?;
         // Um id ao acaso na faixa dos da nação e o primeiro com nome a partir dele (pelo índice da
         // nação; um OFFSET varria a tabela a cada jogo)
-        let (low, high): (Option<i32>, Option<i32>) =
-            self.world
-                .conn
-                .query_row("SELECT MIN(id), MAX(id) FROM people WHERE nation_id IS ?", [nation], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        // Os dois extremos pelo índice (o MIN/MAX juntos liam a nação inteira: ~1 ms por jogo, 11x mais)
+        let (low, high): (Option<i32>, Option<i32>) = self.world.conn.query_row(
+            "SELECT (SELECT id FROM people WHERE nation_id IS ?1 ORDER BY id LIMIT 1),
+                    (SELECT id FROM people WHERE nation_id IS ?1 ORDER BY id DESC LIMIT 1)",
+            [nation],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
         let mut name_at = |col: &str| -> Result<Option<String>> {
             let (Some(low), Some(high)) = (low, high) else { return Ok(None) };
             let from = low + (rand_core::RngCore::next_u64(&mut rng) % (high - low + 1).max(1) as u64) as i32;
@@ -3413,6 +3416,11 @@ impl Game {
 
     pub fn date(&self) -> &str {
         &self.date
+    }
+
+    /// Onde está o dia (data, parte e se há um dia de jogo por acabar): mostra se um erro o deixou a meio.
+    pub(crate) fn day_mark(&self) -> (String, i32, bool) {
+        (self.date.clone(), self.part, self.live.is_some())
     }
 }
 
@@ -3837,10 +3845,8 @@ mod tests {
     use crate::league::SERIE_A;
     use training::{CoachAreas, ProgramAssign, TrainingPlan, TrainingProgram};
 
-    fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nextcm-test-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        dir
+    fn temp_dir(name: &str) -> crate::TempDir {
+        crate::TempDir::new(format!("nextcm-test-{name}-{}", std::process::id()))
     }
 
     fn new_game(club_id: i32) -> NewGame {
@@ -3863,7 +3869,7 @@ mod tests {
 
     #[test]
     fn stale_journal_does_not_touch_a_new_save() {
-        let dir = std::env::temp_dir().join(format!("nextcm-journal-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-journal-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("x.sqlite");
@@ -4168,7 +4174,7 @@ mod tests {
 
     /// Avança até o jogo do Palmeiras começar (com `watch`) e devolve o jogo.
     /// `manual`: o treinador escolhe a equipa (o adjunto não faz substituições tácticas).
-    fn until_kickoff(world: &Path, name: &str, seed: i64, watch: bool, manual: bool) -> (Game, PathBuf) {
+    fn until_kickoff(world: &Path, name: &str, seed: i64, watch: bool, manual: bool) -> (crate::TempDir, Game) {
         let dir = temp_dir(name);
         let mut g = Game::create(world, &dir, &new_game(7568), seed).unwrap();
         g.set_watch(watch);
@@ -4182,13 +4188,13 @@ mod tests {
         while g.date() < first.date.as_str() || (g.live.is_none() && g.matches.iter().any(|m| m.id == first.id && m.result.is_none())) {
             g.advance_to_next_event().unwrap();
         }
-        (g, dir)
+        (dir, g)
     }
 
     #[test]
     fn match_day_takes_the_latest_selection() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (mut g, dir) = until_kickoff(&world, "escolha-no-dia", 3, true, true);
+        let (dir, mut g) = until_kickoff(&world, "escolha-no-dia", 3, true, true);
         assert!(g.info().unwrap().live);
         let side = g.live_day().unwrap().games[g.live_day().unwrap().user].1.user_side().unwrap() as i32;
         // No dia do jogo, antes do apito, o treinador muda a equipa no Plantel: três reservas
@@ -4219,7 +4225,7 @@ mod tests {
     #[test]
     fn orders_belong_to_the_position() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (mut g, dir) = until_kickoff(&world, "ordens-da-posicao", 6, true, false);
+        let (dir, mut g) = until_kickoff(&world, "ordens-da-posicao", 6, true, false);
         let side = g.live_day().unwrap().games[g.live_day().unwrap().user].1.user_side().unwrap() as i32;
         // Remates de longe na posição 9 (o avançado)
         let mut sel = g.live_tactics(side).unwrap().selection();
@@ -4242,7 +4248,7 @@ mod tests {
     #[test]
     fn injured_in_the_managers_team_wait_for_him() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (mut g, dir) = until_kickoff(&world, "lesoes-ao-vivo", 4, true, false);
+        let (dir, mut g) = until_kickoff(&world, "lesoes-ao-vivo", 4, true, false);
         let side = g.live_day().unwrap().games[g.live_day().unwrap().user].1.user_side().unwrap();
         // Os dois lados a partirem-se: o adjunto da IA troca, o treinador decide
         g.live_match_mut().unwrap().make_fragile(0);
@@ -4264,7 +4270,7 @@ mod tests {
     #[test]
     fn match_day_save_resumes_the_same_day() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (mut a, d1) = until_kickoff(&world, "dia-gravado", 8, true, false);
+        let (d1, mut a) = until_kickoff(&world, "dia-gravado", 8, true, false);
         let today = a.date().to_string();
         a.save().unwrap();
         let path = a.path().to_path_buf();
@@ -4291,8 +4297,8 @@ mod tests {
     #[test]
     fn pre_match_and_review_do_not_change_the_result() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (mut plain, d1) = until_kickoff(&world, "pre-sem", 7, true, false);
-        let (mut seen, d2) = until_kickoff(&world, "pre-com", 7, true, false);
+        let (d1, mut plain) = until_kickoff(&world, "pre-sem", 7, true, false);
+        let (d2, mut seen) = until_kickoff(&world, "pre-com", 7, true, false);
         // O Pré-Jogo: odds coerentes, um homem-chave de cada lado e a frase do jornal
         let a = seen.match_analysis().unwrap();
         assert!(a.odds.iter().all(|o| *o > 1.0));
@@ -4375,7 +4381,8 @@ mod tests {
     #[test]
     fn deciding_match_goes_to_extra_time_and_penalties() {
         let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let g = Game::create(&path, &temp_dir("prorrogacao"), &new_game(7568), 1).unwrap();
+        let dir = temp_dir("prorrogacao");
+        let g = Game::create(&path, &dir, &new_game(7568), 1).unwrap();
         let w = &g.world;
         // Dortmund x Roma, como na Supercopa
         let (home, away) = (w.get_club(3025).unwrap().club, w.get_club(8609).unwrap().club);
@@ -4467,8 +4474,8 @@ mod tests {
     #[test]
     fn watched_match_is_the_same_match() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (mut quick, d1) = until_kickoff(&world, "live-quick", 5, false, false);
-        let (mut g, d2) = until_kickoff(&world, "live-watch", 5, true, false);
+        let (d1, mut quick) = until_kickoff(&world, "live-quick", 5, false, false);
+        let (d2, mut g) = until_kickoff(&world, "live-watch", 5, true, false);
         assert!(quick.live.is_none());
         assert!(g.info().unwrap().live, "o jogo do treinador fica por jogar");
         g.save().unwrap(); // antes do apito grava
@@ -4521,7 +4528,7 @@ mod tests {
     #[test]
     fn manager_changes_the_team_at_half_time() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (mut g, dir) = until_kickoff(&world, "live-subs", 8, true, true);
+        let (dir, mut g) = until_kickoff(&world, "live-subs", 8, true, true);
         let v = g.live_step(45).unwrap();
         let side = v.user_side.unwrap();
         let ours = if side == 0 { &v.home } else { &v.away };
@@ -4675,7 +4682,7 @@ mod tests {
     #[test]
     fn squad_views_after_a_match() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (mut g, dir) = until_kickoff(&world, "squad-views", 5, true, false);
+        let (dir, mut g) = until_kickoff(&world, "squad-views", 5, true, false);
         g.live_step(90).unwrap();
         g.live_finish().unwrap();
         // A ficha da partida: os titulares com minuto 0, quem entrou depois, e quem saiu
@@ -4766,7 +4773,7 @@ mod tests {
     #[test]
     fn tactics_screen_during_the_match() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (mut g, dir) = until_kickoff(&world, "live-tactics", 12, true, true);
+        let (dir, mut g) = until_kickoff(&world, "live-tactics", 12, true, true);
         let side = g.live_view().unwrap().user_side.unwrap();
         let t = g.live_tactics(side).unwrap();
         assert!(t.editable && t.reserves.is_empty());

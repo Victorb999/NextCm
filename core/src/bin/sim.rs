@@ -29,7 +29,7 @@ use nextcm_core::{
 /// `sim -- <clube> fundo <seed>`: a Premier League a jogar e de fundo, lado a lado.
 fn background(world: &Path, club_id: i32, seed: i64) {
     for mode in [LeagueMode::Play, LeagueMode::Background] {
-        let dir = std::env::temp_dir().join(format!("nextcm-fundo-{}-{mode:?}", std::process::id()));
+        let dir = nextcm_core::TempDir::new(format!("nextcm-fundo-{}-{mode:?}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "fundo".into(),
@@ -75,7 +75,7 @@ fn background(world: &Path, club_id: i32, seed: i64) {
 
 /// `sim -- <clube> carreira <seed> <épocas>`: um só jogo por várias épocas seguidas (marco 3.5).
 fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
-    let dir = std::env::temp_dir().join(format!("nextcm-carreira-{}", std::process::id()));
+    let dir = nextcm_core::TempDir::new(format!("nextcm-carreira-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let new = NewGame {
         save_name: "carreira".into(),
@@ -196,7 +196,7 @@ fn career(world: &Path, club_id: i32, seed: i64, seasons: i64) {
 /// `sim -- <clube> treino <seed> [dias]`: o mesmo jogo com os programas todos a uma intensidade.
 fn training(world: &Path, club_id: i32, seed: i64, days: u32) {
     for (level, label) in [(0, "Nenhum"), (2, "Médio"), (3, "Intensivo")] {
-        let dir = std::env::temp_dir().join(format!("nextcm-treino-{}-{level}", std::process::id()));
+        let dir = nextcm_core::TempDir::new(format!("nextcm-treino-{}-{level}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "treino".into(),
@@ -281,7 +281,7 @@ fn training(world: &Path, club_id: i32, seed: i64, days: u32) {
 
 /// `sim -- <clube> economia <seed> [meses]`: as finanças mês a mês, para comparar com o CM.
 fn economy(world: &Path, club_id: i32, seed: i64, months: i64) {
-    let dir = std::env::temp_dir().join(format!("nextcm-economia-{}", std::process::id()));
+    let dir = nextcm_core::TempDir::new(format!("nextcm-economia-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let new = NewGame {
         save_name: "economia".into(),
@@ -407,7 +407,7 @@ fn main() {
     let world = World::locate(&std::env::current_dir().unwrap())
         .or_else(|| World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))))
         .expect("data/world.sqlite não encontrado");
-    let dir = std::env::temp_dir().join(format!("nextcm-sim-{}", std::process::id()));
+    let dir = nextcm_core::TempDir::new(format!("nextcm-sim-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
 
     // id do clube → (nome, soma dos pontos, soma das posições, títulos)

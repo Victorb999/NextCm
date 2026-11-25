@@ -435,8 +435,8 @@ mod tests {
 
     use crate::{Game, NewGame, World};
 
-    fn create(world: &Path, name: &str, seed: i64) -> (Game, std::path::PathBuf) {
-        let dir = std::env::temp_dir().join(format!("nextcm-regen-{name}-{}", std::process::id()));
+    fn create(world: &Path, name: &str, seed: i64) -> (crate::TempDir, Game) {
+        let dir = crate::TempDir::new(format!("nextcm-regen-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "Atributos".into(),
@@ -453,13 +453,14 @@ mod tests {
             experience: 0,
             favourite_club: None,
         };
-        (Game::create(world, &dir, &new, seed).unwrap(), dir)
+        let g = Game::create(world, &dir, &new, seed).unwrap();
+        (dir, g)
     }
 
     #[test]
     fn invented_names_and_no_masking() {
         let Some(world) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-regen-nomes-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-regen-nomes-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "Nomes".into(),
@@ -507,7 +508,7 @@ mod tests {
     #[test]
     fn missing_attributes_are_generated() {
         let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (g, dir) = create(&path, "a", 4);
+        let (dir, g) = create(&path, "a", 4);
         let count = |sql: &str| -> i64 { g.world.conn.query_row(sql, [], |r| r.get(0)).unwrap() };
         assert_eq!(
             count(
@@ -547,7 +548,7 @@ mod tests {
         // Mesma seed, mesmos atributos gerados
         let sum = "SELECT SUM(finishing * 7 + consistency * 3 + pace) FROM players";
         let first = count(sum);
-        let (again, dir2) = create(&path, "b", 4);
+        let (dir2, again) = create(&path, "b", 4);
         assert_eq!(again.world.conn.query_row(sum, [], |r| r.get::<_, i64>(0)).unwrap(), first);
         drop((g, again));
         let _ = std::fs::remove_dir_all(&dir);
@@ -557,7 +558,7 @@ mod tests {
     #[test]
     fn filler_players_are_ghosts() {
         let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let (g, dir) = create(&path, "fantasmas", 4);
+        let (dir, g) = create(&path, "fantasmas", 4);
         let ghost: Option<i32> = g.world.conn.query_row("SELECT person_id FROM ghosts LIMIT 1", [], |r| r.get(0)).ok();
         let ghost = ghost.expect("os elencos pequenos têm jogadores de enchimento");
         assert!(g.is_ghost(ghost));

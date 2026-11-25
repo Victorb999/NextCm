@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn shortlist_filters_the_search() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-lista-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-lista-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Lista".into(),

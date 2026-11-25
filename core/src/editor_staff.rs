@@ -330,7 +330,7 @@ mod tests {
     #[test]
     fn edit_staff_attributes_contract_and_club() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-editor-staff-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-editor-staff-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Staff".into(),

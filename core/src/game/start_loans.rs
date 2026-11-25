@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn known_loans_start_at_the_loan_club() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-emprestimos-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-emprestimos-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Empréstimos".into(),
@@ -123,7 +123,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
 
         // Começando em 2026/27, os empréstimos continuam, um ano mais tarde
-        let dir = std::env::temp_dir().join(format!("nextcm-emprestimos-2026-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-emprestimos-2026-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let g = Game::create(&path, &dir, &crate::NewGame { start: crate::StartSeason::Europe, ..new }, 3).unwrap();
         assert_eq!(at(&g, 26601), (Some(10294), 6271, "2027-06-15".to_string()));

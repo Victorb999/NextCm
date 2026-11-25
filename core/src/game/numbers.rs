@@ -385,7 +385,7 @@ mod tests {
     #[test]
     fn a_match_needs_numbered_players() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-numeros-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-numeros-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Números".into(),

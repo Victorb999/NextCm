@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn comments_on_an_offer() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-comentarios-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-comentarios-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "Comentários".into(),

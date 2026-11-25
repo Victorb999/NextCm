@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn clinched_title_is_marked_and_announced_once() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-garantido-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-garantido-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Garantido".into(),
@@ -197,7 +197,7 @@ mod bench_tests {
     #[test]
     fn assistant_bench_never_passes_nine_with_the_backup_keeper_out() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-banco-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-banco-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Banco".into(),

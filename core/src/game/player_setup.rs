@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn player_setup_events() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-player-setup-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-player-setup-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Player setup".into(),

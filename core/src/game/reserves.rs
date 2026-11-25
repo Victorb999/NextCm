@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn reserves_leave_the_first_team() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-reservas-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-reservas-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Reservas".into(),
@@ -438,9 +438,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    fn start(club: i32, name: &str) -> Option<(Game, std::path::PathBuf)> {
+    fn start(club: i32, name: &str) -> Option<(crate::TempDir, Game)> {
         let path = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR")))?;
-        let dir = std::env::temp_dir().join(format!("nextcm-{name}-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: name.into(),
@@ -457,7 +457,8 @@ mod tests {
             experience: 0,
             favourite_club: None,
         };
-        Some((Game::create(&path, &dir, &new, 31).unwrap(), dir))
+        let g = Game::create(&path, &dir, &new, 31).unwrap();
+        Some((dir, g))
     }
 
     fn players_of(conn: &rusqlite::Connection, club: i32) -> Vec<i32> {
@@ -486,7 +487,7 @@ mod tests {
             .unwrap();
         drop(world);
         assert!(!amateure.is_empty());
-        let (mut g, dir) = start(BAYERN, "reservas-bayern").unwrap();
+        let (dir, mut g) = start(BAYERN, "reservas-bayern").unwrap();
         // A Regionalliga não é jogada: a Amateure faz de reservas, com o nome dela
         assert_eq!(g.reserve_mode().unwrap(), ReserveMode::Second(b.club));
         assert_eq!(g.reserves_name().unwrap(), Some(g.club(b.club).name));
@@ -510,7 +511,7 @@ mod tests {
     #[test]
     fn b_team_is_another_club() {
         const BENFICA: i32 = 1427;
-        let Some((mut g, dir)) = start(BENFICA, "reservas-benfica") else { return };
+        let Some((dir, mut g)) = start(BENFICA, "reservas-benfica") else { return };
         let ReserveMode::BTeam(b) = g.reserve_mode().unwrap() else { panic!("o Benfica tem o time B") };
         // Sem reservas, sem corte e sem jogos das reservas
         let squad = g.own_squad().unwrap();

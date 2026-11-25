@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn chosen_background_and_off_leagues() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-ligas-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-ligas-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let choice = |nation_id, mode| LeagueChoice { nation_id, mode };
         let mut new = crate::NewGame {

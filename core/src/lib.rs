@@ -126,3 +126,49 @@ impl From<rusqlite::Error> for Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// Uma pasta no %TEMP% para os testes e a CLI que se apaga ao sair, também quando um teste falha
+/// (cada cópia do world tem ~86 MB e as que ficavam enchiam o disco). Com um jogo, declare a pasta
+/// antes dele: as variáveis largam-se ao contrário, e no Windows não se apaga um save aberto.
+#[doc(hidden)]
+pub struct TempDir(std::path::PathBuf);
+
+impl TempDir {
+    /// A pasta `name` em `%TEMP%/nextcm-tests`, vazia. Um Ctrl+C não chama o `Drop`: uma vez por processo
+    /// apagam-se as pastas com mais de um dia (as de outro processo a correr agora mexem-se e ficam).
+    pub fn new(name: String) -> TempDir {
+        static SWEEP: std::sync::Once = std::sync::Once::new();
+        let root = std::env::temp_dir().join("nextcm-tests");
+        SWEEP.call_once(|| {
+            let day = std::time::Duration::from_secs(24 * 3600);
+            for entry in std::fs::read_dir(&root).into_iter().flatten().flatten() {
+                let old = entry.metadata().and_then(|m| m.modified()).is_ok_and(|t| t.elapsed().is_ok_and(|age| age > day));
+                if old {
+                    let _ = std::fs::remove_dir_all(entry.path());
+                }
+            }
+        });
+        let path = root.join(name);
+        let _ = std::fs::remove_dir_all(&path);
+        TempDir(path)
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+impl std::ops::Deref for TempDir {
+    type Target = std::path::PathBuf;
+    fn deref(&self) -> &std::path::PathBuf {
+        &self.0
+    }
+}
+
+impl AsRef<std::path::Path> for TempDir {
+    fn as_ref(&self) -> &std::path::Path {
+        &self.0
+    }
+}

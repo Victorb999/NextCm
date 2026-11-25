@@ -2870,7 +2870,7 @@ mod tests {
     #[test]
     fn loans_bought_from_the_owner_and_sent_back() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-emprestimos-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-emprestimos-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Empréstimos".into(),
@@ -2927,7 +2927,7 @@ mod tests {
     #[test]
     fn no_bids_for_filler_players() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-enchimento-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-enchimento-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Enchimento".into(),
@@ -2986,7 +2986,7 @@ mod tests {
     #[test]
     fn listing_and_squad_roles() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-funcoes-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-funcoes-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Funções".into(),
@@ -3041,7 +3041,7 @@ mod tests {
     #[test]
     fn manager_buys_sells_and_renews() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-negocios-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-negocios-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Negócios".into(),
@@ -3346,7 +3346,7 @@ Palmeiras fez uma nova proposta."
     #[test]
     fn personality_in_the_market() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-personalidade-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-personalidade-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Personalidade".into(),
@@ -3420,7 +3420,7 @@ Palmeiras fez uma nova proposta."
     #[test]
     fn a_player_without_contract_signs_as_a_free_agent() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-sem-contrato-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-sem-contrato-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Sem contrato".into(),
@@ -3466,7 +3466,7 @@ Palmeiras fez uma nova proposta."
     #[test]
     fn players_weigh_role_money_minutes_and_the_city() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-vontades-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-vontades-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Vontades".into(),

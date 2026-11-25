@@ -444,9 +444,9 @@ impl Game {
 mod tests {
     use super::*;
 
-    fn game(tag: &str) -> Option<(Game, std::path::PathBuf)> {
+    fn game(tag: &str) -> Option<(crate::TempDir, Game)> {
         let path = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR")))?;
-        let dir = std::env::temp_dir().join(format!("nextcm-ferias-{tag}-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-ferias-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Férias".into(),
@@ -463,12 +463,13 @@ mod tests {
             experience: 0,
             favourite_club: None,
         };
-        Some((Game::create(&path, &dir, &new, 23).unwrap(), dir))
+        let g = Game::create(&path, &dir, &new, 23).unwrap();
+        Some((dir, g))
     }
 
     #[test]
     fn holiday_days_return_button_and_summary() {
-        let Some((mut g, dir)) = game("dias") else { return };
+        let Some((dir, mut g)) = game("dias") else { return };
         g.set_watch(true);
         let start = g.date.clone();
         // Data no passado e duração fora dos limites
@@ -513,7 +514,7 @@ mod tests {
 
     #[test]
     fn holiday_assistant_answers_offers() {
-        let Some((mut g, dir)) = game("propostas") else { return };
+        let Some((dir, mut g)) = game("propostas") else { return };
         // Um jogador do plantel com duas propostas: uma ao valor exigido, outra muito abaixo
         let ids: Vec<i32> = g
             .world

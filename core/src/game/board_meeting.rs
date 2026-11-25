@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn requests_to_the_board() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-reuniao-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-reuniao-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Reunião".into(),
@@ -429,7 +429,7 @@ mod tests {
     #[test]
     fn rich_ai_club_grows_its_stadium_quietly() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-obras-ia-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-obras-ia-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Obras".into(),

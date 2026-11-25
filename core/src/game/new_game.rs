@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn first_messages_experience_and_favourite_club() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-newgame-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-newgame-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Novo".into(),

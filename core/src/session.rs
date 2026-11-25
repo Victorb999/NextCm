@@ -320,10 +320,27 @@ impl Session {
         self.game = None;
     }
 
-    pub fn advance_day(&mut self) -> Result<GameInfo> {
+    /// Faz o dia andar. Um erro depois de o dia já ter mexido no jogo deixa-o a meio (resultados, salários,
+    /// negócios por metade): fecha o jogo, e o SQLite desfaz o que não foi salvo, em vez de deixar gravar isso.
+    fn advancing<T>(&mut self, step: impl FnOnce(&mut Game) -> Result<T>) -> Result<T> {
         let game = self.game_mut()?;
-        game.advance_day()?;
-        game.info()
+        let before = game.day_mark();
+        let result = step(game);
+        if let Err(e) = &result
+            && game.day_mark() != before
+        {
+            let msg = format!("{e} O dia ficou a meio: carregue o último save.");
+            self.game = None;
+            return Err(Error::Invalid(msg));
+        }
+        result
+    }
+
+    pub fn advance_day(&mut self) -> Result<GameInfo> {
+        self.advancing(|game| {
+            game.advance_day()?;
+            game.info()
+        })
     }
 
     pub fn set_nickname(&mut self, id: i32, nickname: String) -> Result<()> {
@@ -494,17 +511,19 @@ impl Session {
 
     /// "Continuar Jogo": avança até o próximo evento (jogo do treinador, notícia...).
     pub fn continue_game(&mut self) -> Result<GameInfo> {
-        let game = self.game_mut()?;
-        game.advance_to_next_event()?;
-        game.info()
+        self.advancing(|game| {
+            game.advance_to_next_event()?;
+            game.info()
+        })
     }
 
     /// Um dia do Continuar Jogo: a tela repete-o até `stop`, com os resultados do dia na barra
     /// do "Processando" (`idle` = dias que já passaram sem nada).
     pub fn continue_step(&mut self, idle: i32) -> Result<ContinueStep> {
-        let game = self.game_mut()?;
-        let (_, stop) = game.advance_step(idle)?;
-        Ok(ContinueStep { stop, results: game.day_results(), info: game.info()? })
+        self.advancing(|game| {
+            let (_, stop) = game.advance_step(idle)?;
+            Ok(ContinueStep { stop, results: game.day_results(), info: game.info()? })
+        })
     }
 
     /// O jogo do treinador a decorrer (tela da partida).
@@ -557,9 +576,10 @@ impl Session {
 
     /// Acaba o jogo do treinador e fecha o dia (resultados, notícias).
     pub fn live_finish(&mut self) -> Result<GameInfo> {
-        let game = self.game_mut()?;
-        game.live_finish()?;
-        game.info()
+        self.advancing(|game| {
+            game.live_finish()?;
+            game.info()
+        })
     }
 
     /// Classificação real de uma competição viva; vazia sem jogo ou numa competição parada.
@@ -986,9 +1006,44 @@ mod tests {
     }
 
     #[test]
+    fn an_error_mid_day_closes_the_game_instead_of_saving_half_a_day() {
+        let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = crate::TempDir::new(format!("nextcm-meio-dia-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut s = Session::open(&path, &dir).unwrap();
+        let new = NewGame {
+            save_name: "Meio dia".into(),
+            first_name: "A".into(),
+            last_name: "B".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: 7568,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        let start = s.new_game(&new).unwrap().date;
+        s.save_game().unwrap();
+        // A manhã apaga da lista de transferências quem ficou sem clube: sem a tabela, falha já com o dia novo
+        s.game.as_ref().unwrap().world().conn.execute_batch("DROP TABLE transfer_list").unwrap();
+        let err = (0..3).find_map(|_| s.advance_day().err()).expect("a manhã falha");
+        assert!(err.to_string().contains("carregue o último save"), "{err}");
+        assert!(s.game.is_none(), "o jogo a meio fecha");
+        // O save continua como foi gravado
+        assert_eq!(s.load_game("Meio dia.sqlite").unwrap().date, start);
+        drop(s);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn save_as_copies_and_continues_in_the_new_file() {
         let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-gravar-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-gravar-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let mut s = Session::open(&path, &dir).unwrap();

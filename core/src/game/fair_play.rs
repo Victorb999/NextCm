@@ -283,9 +283,9 @@ mod tests {
     use crate::{Game, World};
     use rusqlite::params;
 
-    fn new_game(club_id: i32, tag: &str) -> (Game, std::path::PathBuf) {
+    fn new_game(club_id: i32, tag: &str) -> (crate::TempDir, Game) {
         let path = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
-        let dir = std::env::temp_dir().join(format!("nextcm-ffp-{tag}-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-ffp-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: format!("FFP {tag}"),
@@ -302,7 +302,8 @@ mod tests {
             experience: 0,
             favourite_club: None,
         };
-        (Game::create(&path, &dir, &new, 41).unwrap(), dir)
+        let g = Game::create(&path, &dir, &new, 41).unwrap();
+        (dir, g)
     }
 
     #[test]
@@ -310,7 +311,7 @@ mod tests {
         if World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).is_none() {
             return;
         }
-        let (g, dir) = new_game(6271, "amortizacao");
+        let (dir, g) = new_game(6271, "amortizacao");
         let today = crate::date::parse(&g.date).unwrap();
         let log = |days: i32, person: i32, from: Option<i32>, to: Option<i32>, fee: i64, kind: &str| {
             g.world
@@ -341,7 +342,7 @@ mod tests {
             return;
         }
         for (club, low, high) in [(8383, 180, 260), (6271, 130, 190), (2587, 5, 60)] {
-            let (g, dir) = new_game(club, &format!("orcamento-{club}"));
+            let (dir, g) = new_game(club, &format!("orcamento-{club}"));
             let b = g.board_view().unwrap();
             let funds = b.transfer_budget / 1_000_000;
             println!("{club}: fundos €{funds}M, folha {} limite {} por semana", b.wage_bill, b.wage_budget);

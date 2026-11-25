@@ -663,7 +663,7 @@ mod tests {
     #[test]
     fn missing_board_is_recreated_on_load() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-sem-direcao-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-sem-direcao-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Sem diretoria".into(),
@@ -695,7 +695,7 @@ mod tests {
     #[test]
     fn budgets_warnings_and_the_sack() {
         let Some(path) = World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-direcao-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-direcao-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Diretoria".into(),

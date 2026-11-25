@@ -438,7 +438,7 @@ mod tests {
     #[test]
     fn start_wages_follow_value_and_age() {
         let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-salarios-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-salarios-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "Salários".into(),
@@ -507,7 +507,7 @@ mod tests {
     #[test]
     fn dividends_on_the_first_of_july() {
         let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-dividendos-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-dividendos-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "Dividendos".into(),
@@ -559,7 +559,7 @@ mod tests {
     #[test]
     fn books_add_up_after_two_months() {
         let Some(path) = World::locate(Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-finances-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-finances-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = NewGame {
             save_name: "Contas".into(),

@@ -445,7 +445,7 @@ mod tests {
     #[test]
     fn bonuses_and_clauses_in_a_contract() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-clausulas-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-clausulas-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Cláusulas".into(),

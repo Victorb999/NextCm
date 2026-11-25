@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn expected_goals_in_stats_sheet_and_analysis() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-golos-esperados-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-golos-esperados-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Gols esperados".into(),

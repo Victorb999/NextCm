@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn requests_to_the_league() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-liga-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-liga-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Liga".into(),

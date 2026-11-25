@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn saves_and_lists() {
-        let dir = std::env::temp_dir().join(format!("nextcm-tacticas-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-tacticas-{}", std::process::id()));
         let t = SavedTactic {
             name: "Pressão alta".into(),
             positions: vec![[50, 50]; 11],

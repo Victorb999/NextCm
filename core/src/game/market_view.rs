@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn tags_filters_and_world_transfers() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = std::env::temp_dir().join(format!("nextcm-inf-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-inf-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Inf".into(),
@@ -291,7 +291,7 @@ mod tests {
         assert_eq!(world.club_preference(RONALDO, BARCELONA).unwrap(), Some(false));
         drop(world);
         let unwilling = |club: i32, name: &str| -> bool {
-            let dir = std::env::temp_dir().join(format!("nextcm-pref-{name}-{}", std::process::id()));
+            let dir = crate::TempDir::new(format!("nextcm-pref-{name}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
             let new = crate::NewGame {
                 save_name: name.into(),
