@@ -488,9 +488,18 @@ impl Game {
         Ok(())
     }
 
-    /// Uma venda do treinador devolve metade ao orçamento.
+    /// Uma venda do treinador volta inteira ao orçamento e lá fica: com o saldo abaixo da reserva
+    /// da temporada, a Diretoria fica com o prejuízo (a reserva desce o que falta), para o
+    /// recálculo do dia 1 não levar a venda de volta.
     pub(super) fn sale_to_budget(&self, fee: i64) -> Result<()> {
-        self.spend_budget(-((fee as f64 * SALES_BACK) as i64))
+        self.spend_budget(-((fee as f64 * SALES_BACK) as i64))?;
+        if let Some(base) = self.base_funds()? {
+            let target = self.transfer_budget()? + self.wage_shift()? * SHIFT_WEEKS;
+            if base < target {
+                self.world.conn.execute("UPDATE board SET budget_reserve = budget_reserve - ? WHERE id = 1", [target - base])?;
+            }
+        }
+        Ok(())
     }
 
     /// Mexe na confiança, com os avisos e o despedimento.
@@ -745,6 +754,12 @@ mod tests {
         assert_eq!(small.transfer_budget, 0, "{small:?}");
         g.sync_funds().unwrap();
         assert_eq!(g.board_view().unwrap().transfer_budget, 0);
+        // Uma venda cai inteira nos fundos e fica lá no dia 1: o buraco é prejuízo da Diretoria
+        g.sale_to_budget(5_000_000).unwrap();
+        assert_eq!(g.transfer_budget().unwrap(), 5_000_000);
+        g.sync_funds().unwrap();
+        assert_eq!(g.transfer_budget().unwrap(), 5_000_000);
+        g.spend_budget(5_000_000).unwrap();
         g.set_wage_shift(0).unwrap();
         g.world.conn.execute("UPDATE board SET budget_reserve = ? WHERE id = 1", [reserve]).unwrap();
         g.sync_funds().unwrap();
