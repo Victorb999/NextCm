@@ -267,7 +267,11 @@ impl Game {
             let list: Vec<String> = lines
                 .iter()
                 .filter(|l| l.goals > 0)
-                .map(|l| if l.goals > 1 { format!("{} ({})", l.name, l.goals) } else { l.name.clone() })
+                .map(|l| {
+                    // O nome completo: o curto ("Victor") liga a outro jogador
+                    let name = self.person_name(l.id).unwrap_or_else(|_| l.name.clone());
+                    if l.goals > 1 { format!("{name} ({})", l.goals) } else { name }
+                })
                 .collect();
             if !list.is_empty() {
                 scorers += &format!("\n{}: {}", club.short_name, list.join(", "));

@@ -179,12 +179,14 @@ impl Game {
         }
         let conn = &self.world.conn;
         let away: std::collections::HashSet<i32> = self.away_internationals().into_iter().collect();
+        // "Sus" só para a competição do próximo jogo, como nas Táticas
+        let next = self.next_competition(id);
         for p in &mut c.players {
             p.ghost = self.is_ghost(p.id);
             if let Some(st) = self.player_status(p.id) {
                 p.condition = Some(st.condition);
                 p.injured = st.injury.is_some();
-                p.suspended = st.suspended > 0;
+                p.suspended = self.squads.state(p.id).suspended_in(next) > 0;
                 p.reserve |= st.reserve;
                 p.morale = Some(st.morale_label);
             }

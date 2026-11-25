@@ -299,6 +299,25 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
                     <button className="cm-purple h-7 w-48" onClick={() => nav.go({ kind: 'press', id: Number(current.link!.slice(6)) })}>
                       Ir à Entrevista
                     </button>
+                    {current.awaiting && (
+                      <button
+                        className="cm-purple h-7 w-48"
+                        onClick={() =>
+                          api.skipPress(Number(current.link!.slice(6))).then(
+                            () => {
+                              api.listNews().then(setNews, () => {})
+                              api.gameInfo().then(
+                                (info) => info && game.update(info),
+                                () => {},
+                              )
+                            },
+                            () => {},
+                          )
+                        }
+                      >
+                        Mandar o Auxiliar
+                      </button>
+                    )}
                   </div>
                 )}
                 {current.link?.startsWith('sheet:') && (

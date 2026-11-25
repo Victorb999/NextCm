@@ -127,7 +127,7 @@ impl Game {
             questions.extend(self.rival_coach_question(opp, m.id)?);
         }
         if questions.len() < 3 {
-            questions.extend(self.form_question()?);
+            questions.extend(self.form_question(&mut rng)?);
         }
         if questions.len() < 3 {
             questions.extend(self.third_question()?);
@@ -154,31 +154,74 @@ impl Game {
         let mut rng = self.press_rng(fixture, 2);
         let say =
             |rng: &mut _, options: &[&str]| super::press_topics::pick(rng, options).replace("{score}", &score).replace("{opp}", &opp_name);
-        let (text, answers) = if ours > theirs {
+        let game = self.matches.iter().find(|m| m.id == fixture).cloned();
+        let margin = ours - theirs;
+        let (text, answers) = if let Some(q) = game.as_ref().and_then(|m| self.knockout_result(m, (ours, theirs), &mut rng)) {
+            // Mata-mata: a ida, a classificação ou a eliminação, nunca "pontos"
+            (q.text, q.answers)
+        } else if margin >= 3 {
+            (
+                say(
+                    &mut rng,
+                    &[
+                        "Goleada de {score} sobre o {opp}. O time está voando?",
+                        "{score} sobre o {opp}. Foi a melhor exibição do time na temporada?",
+                        "Um passeio contra o {opp}. Dá para tirar algum defeito desse {score}?",
+                    ],
+                ),
+                vec![
+                    Answer { squad: 1, fans: 2, ..answer("Quando o time joga assim, ninguém segura.") },
+                    answer("Goleada é bom, mas vale os mesmos três pontos."),
+                    Answer { fans: 2, board: -1, ..answer("Hoje calamos a boca de muita gente.") },
+                    Answer { squad: -1, board: 1, ..answer("Mesmo com o placar, cometemos erros que me incomodam.") },
+                ],
+            )
+        } else if margin > 0 {
             (
                 say(
                     &mut rng,
                     &[
                         "Vitória por {score} sobre o {opp}. Satisfeito com a exibição?",
-                        "{score} sobre o {opp}. Foi a melhor exibição do time na temporada?",
                         "O time venceu o {opp} por {score}. O que mais te agradou?",
+                        "Mais três pontos contra o {opp}. O time está no caminho certo?",
+                        "Uma vitória por {score}, mas o {opp} deu trabalho. O time sofreu mais do que devia?",
+                        "{score} sobre o {opp}. Foi a vitória do coletivo ou do talento individual?",
                     ],
                 ),
                 vec![
                     Answer { squad: 1, fans: 1, ..answer("Merecemos ganhar, fomos melhores do começo ao fim.") },
                     answer("Foi só um jogo. Ainda não ganhamos nada."),
-                    Answer { fans: 2, board: -1, ..answer("Hoje calamos a boca de muita gente.") },
+                    Answer { squad: -1, board: 1, ..answer("Ganhamos, mas jogando assim não vamos longe.") },
                     answer("Prefiro não falar do jogo."),
                 ],
             )
-        } else if ours < theirs {
+        } else if margin <= -3 {
+            (
+                say(
+                    &mut rng,
+                    &[
+                        "Goleada sofrida, {score} para o {opp}. É o pior momento do seu trabalho?",
+                        "O {opp} fez {score}. Os torcedores merecem uma explicação?",
+                        "Um {score} desses deixa marcas. Como o time se levanta?",
+                    ],
+                ),
+                vec![
+                    Answer { fans: 1, board: -1, ..answer("Foi vergonhoso. Peço desculpas aos nossos torcedores.") },
+                    Answer { squad: 1, board: -1, ..answer("A responsabilidade é minha. Os jogadores deram tudo.") },
+                    Answer { squad: -2, board: 1, ..answer("Alguns jogadores não honraram a camisa hoje.") },
+                    answer("Vamos analisar com calma."),
+                ],
+            )
+        } else if margin < 0 {
             (
                 say(
                     &mut rng,
                     &[
                         "Derrota por {score} para o {opp}. O que deu errado?",
                         "O {opp} ganhou por {score}. Onde o jogo foi perdido?",
-                        "Uma derrota dura, {score} para o {opp}. Os torcedores merecem uma explicação?",
+                        "{score} para o {opp}. O resultado preocupa?",
+                        "A torcida não gostou do {score}. O que você diz a ela?",
+                        "Faltou pouco contra o {opp}? O {score} foi justo?",
                     ],
                 ),
                 vec![
@@ -188,15 +231,37 @@ impl Game {
                     answer("Vamos analisar com calma."),
                 ],
             )
+        } else if ours == 0 {
+            (
+                say(
+                    &mut rng,
+                    &[
+                        "Nenhum gol contra o {opp}. Faltou criatividade no ataque?",
+                        "Um 0-0 com o {opp}. A defesa foi bem ou o ataque foi mal?",
+                        "Empate sem gols. Um ponto ganho ou dois perdidos?",
+                    ],
+                ),
+                vec![
+                    Answer { squad: 1, ..answer("A defesa foi perfeita. É daí que se constrói um time.") },
+                    Answer { squad: -1, board: 1, ..answer("Faltou coragem no ataque. Tem que melhorar.") },
+                    answer("O adversário fechou bem. Não é fácil furar uma retranca."),
+                ],
+            )
         } else {
             (
                 say(
                     &mut rng,
-                    &["Empate em {score} com o {opp}. Um ponto ganho ou dois perdidos?", "{score} com o {opp}. O empate foi justo?"],
+                    &[
+                        "Empate em {score} com o {opp}. Um ponto ganho ou dois perdidos?",
+                        "{score} com o {opp}. O empate foi justo?",
+                        "O time ficou no {score} com o {opp}. Faltou o quê para vencer?",
+                        "Um jogo aberto, {score} com o {opp}. Você gostou do que viu?",
+                    ],
                 ),
                 vec![
                     Answer { squad: 1, ..answer("Um bom ponto. O time mostrou caráter.") },
                     Answer { squad: -1, board: 1, ..answer("Dois pontos perdidos. A gente tinha que ganhar.") },
+                    Answer { fans: 1, ..answer("Foi um bom jogo para quem assistiu. O resultado podia ser outro.") },
                     answer("Não tem muito o que falar do jogo."),
                 ],
             )
@@ -314,6 +379,8 @@ impl Game {
                     "O que você espera do {opp} amanhã?",
                     "O {opp} chega embalado. Como parar esse time?",
                     "Qual ponto forte do {opp} mais te preocupa?",
+                    "Qual vai ser a chave do jogo contra o {opp}?",
+                    "Que jogo você espera amanhã contra o {opp}?",
                 ],
             )
             .replace("{opp}", &name),
@@ -371,14 +438,23 @@ impl Game {
         (wins, last.len())
     }
 
-    fn form_question(&self) -> Result<Option<Question>> {
+    fn form_question(&self, rng: &mut impl rand_core::RngCore) -> Result<Option<Question>> {
         let (wins, games) = self.recent_wins();
         if games < 3 {
             return Ok(None);
         }
         Ok(Some(if wins <= 1 {
             Question {
-                text: format!("O time ganhou {wins} dos últimos {games} jogos. Você está preocupado?"),
+                text: super::press_topics::pick(
+                    rng,
+                    &[
+                        "O time ganhou {wins} dos últimos {games} jogos. Você está preocupado?",
+                        "O time venceu {wins} dos últimos {games} jogos. O que está faltando?",
+                        "A fase não é boa: {wins} de {games} jogos ganhos. O grupo está unido?",
+                    ],
+                )
+                .replace("{wins}", &wins.to_string())
+                .replace("{games}", &games.to_string()),
                 person: None,
                 answers: vec![
                     Answer { squad: 1, board: 1, ..answer("Vamos virar essa situação. Confio nos meus jogadores.") },
@@ -389,7 +465,16 @@ impl Game {
             }
         } else {
             Question {
-                text: format!("O time ganhou {wins} dos últimos {games} jogos. O que explica essa boa fase?"),
+                text: super::press_topics::pick(
+                    rng,
+                    &[
+                        "O time ganhou {wins} dos últimos {games} jogos. O que explica essa boa fase?",
+                        "{wins} vitórias nos últimos {games} jogos. O time encontrou o seu melhor futebol?",
+                        "A fase é boa: {wins} vitórias em {games} jogos. Dá para manter esse ritmo?",
+                    ],
+                )
+                .replace("{wins}", &wins.to_string())
+                .replace("{games}", &games.to_string()),
                 person: None,
                 answers: vec![
                     Answer { squad: 1, ..answer("O trabalho dos jogadores. Estamos no caminho certo.") },

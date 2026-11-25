@@ -972,7 +972,7 @@ impl Game {
     }
 
     /// Quem passou numa eliminatória (golos no total e, empatado, penáltis).
-    fn tie_winner(games: &[&Match]) -> Option<i32> {
+    pub(super) fn tie_winner(games: &[&Match]) -> Option<i32> {
         let last = games.last()?;
         let (x, y) = (last.home_id, last.away_id);
         let (gx, gy) = Self::aggregate(games, x)?;

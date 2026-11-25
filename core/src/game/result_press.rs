@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn big_results_reach_the_press() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = crate::TempDir::new(format!("nextcm-imprensa-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-imprensa-resultados-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Imprensa".into(),

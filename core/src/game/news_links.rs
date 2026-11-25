@@ -121,15 +121,17 @@ impl Game {
         let names = candidates(&format!("{}\n{}", n.title, n.body));
         let conn = &self.world.conn;
         // As pessoas perto do treinador: o plantel e o staff, as das propostas, as das
-        // transferências desse dia e as das listas dos olheiros
+        // transferências desse dia, as das listas dos olheiros e as do jogo das reservas da notícia
+        let reserve_fixture = n.link.as_deref().and_then(|l| l.strip_prefix("sheet:-")).and_then(|f| f.parse::<i32>().ok()).unwrap_or(0);
         let near: HashMap<String, i32> = conn
             .prepare_cached(
                 "SELECT id, display_name FROM people WHERE club_id = ?1
                  UNION SELECT p.id, p.display_name FROM people p JOIN offers o ON o.person_id = p.id
                  UNION SELECT p.id, p.display_name FROM people p JOIN transfers t ON t.person_id = p.id WHERE t.date = ?2
-                 UNION SELECT p.id, p.display_name FROM people p JOIN scout_finds f ON f.person_id = p.id",
+                 UNION SELECT p.id, p.display_name FROM people p JOIN scout_finds f ON f.person_id = p.id
+                 UNION SELECT p.id, p.display_name FROM people p JOIN reserve_apps a ON a.person_id = p.id WHERE a.fixture = ?3",
             )?
-            .query_map(rusqlite::params![self.club_id, n.date], |r| Ok((r.get::<_, String>(1)?, r.get(0)?)))?
+            .query_map(rusqlite::params![self.club_id, n.date, reserve_fixture], |r| Ok((r.get::<_, String>(1)?, r.get(0)?)))?
             .collect::<rusqlite::Result<_>>()?;
         // Os clubes pelo nome e pelo nome curto (num nome repetido, o de mais reputação)
         let mut clubs: HashMap<String, (i32, i32)> = HashMap::new();
@@ -148,11 +150,11 @@ impl Game {
                 }
             }
         }
-        // As competições pelo nome do regulamento ("Liga Europa") e pelo do banco
+        // As competições pelo nome que o jogo escreve (do regulamento ou o curto: "Serie A") e pelo do banco
         let mut comps: HashMap<String, i32> = HashMap::new();
-        for r in crate::regulation::all() {
-            if let Some(name) = r.name.as_ref().filter(|n| names.contains(*n)) {
-                comps.entry(name.clone()).or_insert(r.competition);
+        for (&id, name) in &self.competitions {
+            if names.contains(name) {
+                comps.entry(name.clone()).or_insert(id);
             }
         }
         let mut stmt = conn.prepare_cached("SELECT id, name FROM competitions")?;

@@ -11,7 +11,7 @@ use super::Game;
 use super::press::{Answer, Question, answer};
 use crate::engine;
 use crate::league::{CHAMPIONS_LEAGUE, EUROPA_LEAGUE, LIBERTADORES, Match, SUL_AMERICANA};
-use crate::{Result, date};
+use crate::{Result, date, regulation};
 
 /// Pontos de distância que fazem uma disputa (do título, da permanência).
 const RACE_GAP: i32 = 4;
@@ -183,6 +183,13 @@ impl Game {
             });
         }
 
+        // O mata-mata antes do jogo: jogo único, ida ou volta (com o placar da ida)
+        if m.result.is_none()
+            && let Some(q) = self.knockout_preview(m, &us, &opp_name, rng)
+        {
+            out.push(q);
+        }
+
         // O jogador insatisfeito do plantel
         let unhappy: Option<i32> = self
             .world
@@ -269,6 +276,189 @@ impl Game {
         }
         Ok(out)
     }
+
+    /// A ida de uma eliminatória já jogada: os gols a favor menos os contra do treinador.
+    fn first_leg_lead(&self, m: &Match) -> Option<i32> {
+        let year = regulation::season_of(m.competition_id, &m.date);
+        let games = self.tie_games(m.competition_id, year, m.stage as usize, m.round, m.tie?);
+        let first = games.iter().find(|g| g.leg == 1)?;
+        let (h, a) = first.result?;
+        let (h, a) = (h as i32, a as i32);
+        Some(if first.home_id == self.club_id { h - a } else { a - h })
+    }
+
+    /// Antes de um jogo de mata-mata: a pressão do jogo único, a ida ou a volta com o placar da ida.
+    fn knockout_preview(&self, m: &Match, us: &str, opp: &str, rng: &mut impl RngCore) -> Option<Question> {
+        m.tie?;
+        let goals = |n: i32| if n.abs() == 1 { "um gol".to_string() } else { format!("{} gols", n.abs()) };
+        let (texts, answers): (&[&str], Vec<Answer>) = match (m.leg, self.first_leg_lead(m)) {
+            (2, Some(lead)) if lead > 0 => (
+                &[
+                    "O {us} leva {gols} de vantagem para a volta. Dá para administrar?",
+                    "Com {gols} de frente, o {us} joga pelo empate?",
+                    "Vantagem de {gols} sobre o {opp}. Existe o risco de relaxar?",
+                ],
+                vec![
+                    Answer { board: 1, ..answer("Não tem nada decidido. Vamos jogar para ganhar.") },
+                    Answer { squad: 1, fans: 1, ..answer("Fizemos o mais difícil. Agora é confirmar.") },
+                    Answer { fans: 1, provoke: true, ..answer(&format!("O {opp} vai precisar de um milagre.")) },
+                ],
+            ),
+            (2, Some(lead)) if lead < 0 => (
+                &[
+                    "O {us} precisa tirar {gols} de desvantagem. Você acredita na virada?",
+                    "Perdendo por {gols} no agregado, o que o time precisa fazer contra o {opp}?",
+                    "A torcida ainda acredita na classificação. E você?",
+                ],
+                vec![
+                    Answer { squad: 1, fans: 2, ..answer("Acredito, e muito. Com a torcida do nosso lado, tudo é possível.") },
+                    answer("Vai ser difícil, mas já vimos viradas maiores."),
+                    Answer { board: 1, ..answer("Temos que ser pacientes. Um gol cedo muda tudo.") },
+                ],
+            ),
+            (2, _) => (
+                &[
+                    "Tudo igual na eliminatória com o {opp}. Quem tem mais nervos?",
+                    "A vaga se decide nos 90 minutos de amanhã. Como o time está?",
+                    "Empate no agregado. O time está preparado até para os pênaltis?",
+                ],
+                vec![
+                    Answer { squad: 1, ..answer("Estamos prontos. Treinamos tudo, até os pênaltis.") },
+                    answer("Vai ser decidido nos detalhes. Quem errar menos passa."),
+                    Answer { fans: 1, provoke: true, ..answer(&format!("A pressão é toda do {opp}.")) },
+                ],
+            ),
+            (1, _) => (
+                &[
+                    "Primeiro jogo da eliminatória com o {opp}. Um empate já serve?",
+                    "Como o time vai encarar a ida contra o {opp}?",
+                    "Na ida, vale mais atacar ou não sofrer gols?",
+                ],
+                vec![
+                    Answer { squad: 1, fans: 1, ..answer("Queremos resolver já na ida. Vamos para cima.") },
+                    answer("São 180 minutos. Não dá para decidir nada amanhã, mas dá para perder."),
+                    Answer { board: 1, ..answer("Não sofrer gols é tão importante quanto marcar.") },
+                ],
+            ),
+            _ => (
+                &[
+                    "Jogo único contra o {opp}, sem margem para erro. Como o time encara o mata-mata?",
+                    "Quem perder está fora. O time aguenta essa pressão?",
+                    "Uma noite pode decidir a temporada. O que você diz aos jogadores?",
+                ],
+                vec![
+                    Answer { squad: 1, fans: 1, ..answer("É para esses jogos que estamos aqui. O time está pronto.") },
+                    answer("Mata-mata não tem favorito. Vamos respeitar o adversário."),
+                    Answer { squad: -1, board: 1, ..answer("Quem não aguentar a pressão não vai jogar.") },
+                ],
+            ),
+        };
+        let lead = self.first_leg_lead(m).unwrap_or(0);
+        Some(Question {
+            text: pick(rng, texts).replace("{us}", us).replace("{opp}", opp).replace("{gols}", &goals(lead)),
+            person: None,
+            answers,
+        })
+    }
+
+    /// Depois de um jogo de mata-mata, a pergunta do resultado: a ida, a classificação ou a
+    /// eliminação (também nos pênaltis). `None` fora do mata-mata.
+    pub(super) fn knockout_result(&self, m: &Match, (ours, theirs): (i32, i32), rng: &mut impl RngCore) -> Option<Question> {
+        m.tie?;
+        let us = self.club(self.club_id).short_name;
+        let opp = self.club(if m.home_id == self.club_id { m.away_id } else { m.home_id }).short_name;
+        let (texts, answers): (&[&str], Vec<Answer>) = if m.leg == 1 {
+            match ours.cmp(&theirs) {
+                std::cmp::Ordering::Greater => (
+                    &[
+                        "Vitória por {score} na ida. O {opp} ainda pode reagir na volta?",
+                        "{score} sobre o {opp} no primeiro jogo. A vaga está encaminhada?",
+                        "O {us} sai na frente na eliminatória. Que vantagem é essa?",
+                    ],
+                    vec![
+                        Answer { squad: 1, fans: 1, ..answer("Fizemos metade do trabalho. Agora é terminar na volta.") },
+                        answer(&format!("Nada está decidido. O {opp} vai vir com tudo.")),
+                        Answer { fans: 1, provoke: true, ..answer(&format!("Se o {opp} jogar como hoje, não passa.")) },
+                    ],
+                ),
+                std::cmp::Ordering::Less => (
+                    &[
+                        "Derrota por {score} na ida. Dá para virar na volta?",
+                        "O {opp} venceu o primeiro jogo por {score}. A eliminatória ficou difícil?",
+                        "O {us} vai precisar de uma virada. O que tem que mudar?",
+                    ],
+                    vec![
+                        Answer { squad: 1, fans: 1, ..answer("Dá para virar. Acredito neste grupo.") },
+                        answer("Vamos precisar de um jogo perfeito na volta."),
+                        Answer { squad: -1, board: 1, ..answer("Erramos demais hoje. Se não melhorarmos, estamos fora.") },
+                    ],
+                ),
+                std::cmp::Ordering::Equal => (
+                    &["{score} na ida com o {opp}. Fica tudo para a volta?", "Empate no primeiro jogo. O resultado foi bom para o {us}?"],
+                    vec![
+                        answer("Resultado aberto. Vamos decidir na volta."),
+                        Answer { squad: 1, ..answer("O time está vivo na disputa. Saio confiante.") },
+                        Answer { squad: -1, board: 1, ..answer("Podíamos ter resolvido mais hoje.") },
+                    ],
+                ),
+            }
+        } else {
+            let year = regulation::season_of(m.competition_id, &m.date);
+            let games = self.tie_games(m.competition_id, year, m.stage as usize, m.round, m.tie?);
+            let pens = games.last().is_some_and(|g| g.pens.is_some());
+            let through = Self::tie_winner(&games)? == self.club_id;
+            match (through, pens) {
+                (true, true) => (
+                    &[
+                        "Classificação nos pênaltis contra o {opp}. Sofrimento até o fim?",
+                        "O {us} passou nos pênaltis. O goleiro foi o herói?",
+                    ],
+                    vec![
+                        Answer { squad: 1, ..answer("Pênalti também se treina. Estávamos preparados.") },
+                        answer("Sofremos mais do que devíamos. Temos que matar o jogo antes."),
+                        Answer { fans: 1, ..answer("Este grupo não desiste nunca. Os torcedores merecem.") },
+                    ],
+                ),
+                (true, false) => (
+                    &[
+                        "O {us} passou pelo {opp}. Qual foi o segredo da classificação?",
+                        "Vaga garantida contra o {opp}. Até onde o time pode ir?",
+                        "{score} e o {us} segue em frente. Dá para sonhar com o título?",
+                    ],
+                    vec![
+                        Answer { squad: 1, fans: 1, ..answer("O grupo mereceu. Agora é pensar na próxima fase.") },
+                        Answer { fans: 2, board: -1, ..answer("Este time pode ganhar a competição.") },
+                        answer("Passamos, mas ainda temos muito a melhorar."),
+                    ],
+                ),
+                (false, true) => (
+                    &[
+                        "Eliminado nos pênaltis pelo {opp}. Dá para culpar a sorte?",
+                        "O {us} caiu nos pênaltis. O que você diz aos jogadores que erraram?",
+                    ],
+                    vec![
+                        Answer { squad: 1, ..answer("Pênalti é loteria. Não dá para cobrar ninguém.") },
+                        answer("Não foi nos pênaltis que perdemos. Foi antes, quando não matamos o jogo."),
+                        Answer { squad: -1, board: 1, ..answer("Quem bate pênalti tem que ter frieza. Faltou.") },
+                    ],
+                ),
+                (false, false) => (
+                    &[
+                        "O {us} está eliminado pelo {opp}. Qual o tamanho da decepção?",
+                        "Fim da linha na competição. O que faltou contra o {opp}?",
+                        "A eliminação para o {opp} mancha a temporada?",
+                    ],
+                    vec![
+                        Answer { squad: 1, board: -1, ..answer("A responsabilidade é minha. Os jogadores deram tudo.") },
+                        Answer { squad: -2, board: 1, ..answer("Faltou atitude de alguns jogadores.") },
+                        answer("Vamos levantar a cabeça e focar no campeonato."),
+                    ],
+                ),
+            }
+        };
+        let text = pick(rng, texts).replace("{us}", &us).replace("{opp}", &opp).replace("{score}", &format!("{ours}-{theirs}"));
+        Some(Question { text, person: None, answers })
+    }
 }
 
 #[cfg(test)]
@@ -298,7 +488,8 @@ mod tests {
             experience: 0,
             favourite_club: None,
         };
-        let g = Game::create(&path, &dir, &new, 3).unwrap();
+        let mut g = Game::create(&path, &dir, &new, 3).unwrap();
+        let today = g.date.clone();
         let rival: i32 = g.world.conn.query_row("SELECT rival1_id FROM clubs WHERE id = ?", [PALMEIRAS], |r| r.get(0)).unwrap();
         let rival_name = g.club(rival).short_name;
         let game = |id: i32| Match {
@@ -310,7 +501,7 @@ mod tests {
             tie: None,
             leg: 0,
             neutral: false,
-            date: g.date.clone(),
+            date: today.clone(),
             home_id: PALMEIRAS,
             away_id: rival,
             result: None,
@@ -333,6 +524,24 @@ mod tests {
             })
             .collect();
         assert!(texts.len() >= 3, "{texts:?}");
+
+        // Mata-mata: nunca se fala de pontos; nos pênaltis, a classificação nos pênaltis
+        let ko = |id: i32, leg: u8, result: (u8, u8), pens: Option<(u8, u8)>| Match {
+            tie: Some(0),
+            stage: 9,
+            leg,
+            result: Some(result),
+            pens,
+            ..game(id)
+        };
+        let first_leg = ko(900_001, 1, (1, 1), None);
+        let q = g.knockout_result(&first_leg, (1, 1), &mut rng).expect("ida");
+        assert!(!q.text.contains("ponto") && q.answers.iter().all(|a| !a.label.contains("ponto")), "{}", q.text);
+        let decider = ko(900_002, 0, (1, 1), Some((4, 2)));
+        g.matches.push(decider.clone());
+        let q = g.knockout_result(&decider, (1, 1), &mut rng).expect("jogo único");
+        assert!(q.text.contains("pênaltis") && !q.text.contains("ponto"), "{}", q.text);
+        assert!(g.knockout_result(&game(900_003), (1, 1), &mut rng).is_none(), "fora do mata-mata");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
