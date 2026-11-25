@@ -56,7 +56,9 @@ export default function JobsPage() {
       <div className="mx-2 flex min-h-0 flex-1 flex-col gap-2">
         <ErrorBox>{error}</ErrorBox>
         {view?.unemployed && (
-          <div className="shrink-0 rounded-md bg-[#3a1a4a] px-3 py-1.5 text-cm-magenta">Você está sem clube: se candidate a uma vaga.</div>
+          <div className="shrink-0 rounded-md bg-cm-magenta/15 px-3 py-1.5 text-cm-magenta">
+            Você está sem clube: se candidate a uma vaga.
+          </div>
         )}
         {notice && <div className="shrink-0 rounded-md bg-cm-dlgdeep px-3 py-1.5 text-cm-yellow">{notice}</div>}
         <Panel title="Lugares vagos e treinadores em risco" className="mb-1 min-h-0 flex-1">

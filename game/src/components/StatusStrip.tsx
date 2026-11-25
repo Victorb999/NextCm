@@ -64,7 +64,7 @@ export default function StatusStrip() {
   if (!date || !bar) return null
   return (
     <div className="flex min-w-0 flex-[3] flex-col justify-center rounded-[4px] bg-black/45 px-3 text-[13px] leading-[17px]">
-      <div className="truncate text-[#c8c8c8]">
+      <div className="truncate text-cm-muted">
         {bar.path.map((p, i) => {
           const to = p.kind && p.id != null ? target(p.kind, p.id) : null
           const last = i === bar.path.length - 1
@@ -83,7 +83,7 @@ export default function StatusStrip() {
         })}
       </div>
       <div className="truncate text-cm-yellow tabular-nums" title={bar.results.join('\n')}>
-        {bar.results[at] ?? <span className="text-[#8a8a8a]">Sem resultados ainda</span>}
+        {bar.results[at] ?? <span className="text-cm-dim">Sem resultados ainda</span>}
       </div>
     </div>
   )

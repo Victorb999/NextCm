@@ -7,7 +7,7 @@ export function AttributeRow({ a, value, onChange }: { a: EditorAttribute; value
   const changed = value !== a.shown
   return (
     <div
-      className={`flex h-7 items-center gap-1.5 px-1.5 text-[14px] ${a.hidden ? 'rounded bg-white/90 text-black' : 'even:bg-black/20 text-white'}`}
+      className={`flex h-7 items-center gap-1.5 px-1.5 text-[14px] ${a.hidden ? 'rounded bg-snow/90 text-ink' : 'even:bg-black/20 text-white'}`}
     >
       <span className="min-w-0 flex-1 truncate" title={LABELS[a.key] ?? a.key}>
         {LABELS[a.key] ?? a.key}
@@ -20,7 +20,7 @@ export function AttributeRow({ a, value, onChange }: { a: EditorAttribute; value
         onChange={(e) => onChange(Math.min(20, Math.max(1, Number(e.target.value) || 1)))}
         className={`cm-field h-6 w-12 text-center text-[14px] ${changed ? '!text-cm-yellow' : ''}`}
       />
-      <span className="w-6 text-right font-mono text-[12px] text-[#8a8a8a]" title="Valor salvo no save (só leitura)">
+      <span className="w-6 text-right font-mono text-[12px] text-cm-dim" title="Valor salvo no save (só leitura)">
         {a.relative ? a.stored : ''}
       </span>
     </div>
@@ -178,7 +178,7 @@ export function RefList({
           </div>
         ))}
         {Array.from({ length: empty }, (_, i) => (
-          <div key={`e${i}`} className="flex h-6 items-center px-2 text-[14px] text-[#8a8a8a]">
+          <div key={`e${i}`} className="flex h-6 items-center px-2 text-[14px] text-cm-dim">
             &lt;nenhum&gt;
           </div>
         ))}

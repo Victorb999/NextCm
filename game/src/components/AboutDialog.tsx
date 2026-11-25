@@ -42,7 +42,7 @@ export default function AboutDialog({ onClose }: { onClose: () => void }) {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`h-8 flex-1 rounded font-title text-[15px] ${t === tab ? 'bg-cm-purple text-cm-yellow' : 'bg-[#01010166] hover:bg-[#010101aa]'}`}
+              className={`h-8 flex-1 rounded font-title text-[15px] ${t === tab ? 'bg-cm-purple text-cm-yellow' : 'bg-black/40 hover:bg-black/70'}`}
             >
               {t}
             </button>
@@ -83,7 +83,7 @@ export default function AboutDialog({ onClose }: { onClose: () => void }) {
                 este jogo não teria elencos.
               </p>
               <p>Feito em Rust, Tauri, React e SQLite. Projeto aberto e sem fins comerciais.</p>
-              <p className="text-[#999]">
+              <p className="text-cm-dim">
                 Championship Manager é uma marca dos seus donos. O NextCM é um projeto de fãs independente, sem ligação à Sports
                 Interactive, à Eidos ou à Square Enix.
               </p>

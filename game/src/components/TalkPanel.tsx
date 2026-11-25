@@ -143,7 +143,7 @@ export default function TalkPanel({
                   </thead>
                   <tbody>
                     {view.players.map((p) => (
-                      <tr key={p.id} className={`h-7 ${p.listens ? 'text-white' : 'text-[#6c6c78]'}`}>
+                      <tr key={p.id} className={`h-7 ${p.listens ? 'text-white' : 'text-cm-dim'}`}>
                         <td className="px-2 text-center">
                           <span
                             className={`inline-block w-8 rounded text-[12px] font-bold ${p.listens ? 'bg-cm-dlgline text-white' : 'bg-white/5'}`}

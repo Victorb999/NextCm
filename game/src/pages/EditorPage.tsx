@@ -569,7 +569,7 @@ export default function EditorPage() {
                           ))}
                           <div className="flex w-36 shrink-0 flex-col gap-1">
                             <div className="flex items-center gap-2 text-[13px] text-white">
-                              <span className="h-5 w-8 rounded bg-white/90" /> = Oculto
+                              <span className="h-5 w-8 rounded bg-snow/90" /> = Oculto
                             </div>
                             <button className="cm-purple h-7 text-[13px]" onClick={() => setAll(playingOf, 'equal')}>
                               Igualar Todos
@@ -623,7 +623,7 @@ export default function EditorPage() {
                           />
                         </div>
                       </div>
-                      <div className="pt-1.5 text-[12px] text-[#8a8a8a]">
+                      <div className="pt-1.5 text-[12px] text-cm-dim">
                         Os valores são os que o jogo mostra (1 a 20); à direita, o valor salvo no save. Os destacados em branco o jogo
                         esconde.
                       </div>

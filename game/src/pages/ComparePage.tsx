@@ -52,7 +52,7 @@ const GROUPS: [string, string[]][] = [
 
 const GREEN = 'font-bold text-cm-green'
 const NEUTRAL = 'text-cm-orange'
-const UNKNOWN = 'text-[#777]'
+const UNKNOWN = 'text-cm-dim'
 
 /** Cor do valor: o melhor dos dois a verde, o que o clube não conhece a cinza. */
 function tone(v: number | null | undefined, other: number | null | undefined, lowerIsBetter = false): string {
@@ -211,10 +211,10 @@ export default function ComparePage({ a, b }: { a: number; b: number }) {
                   const show = (v: number) => (label === 'Nota média' ? (v ? v.toFixed(2) : '-') : String(v))
                   return <InfoRow key={label} label={label} a={[show(x), tone(x, y)]} b={[show(y), tone(y, x)]} />
                 })}
-                <div className="px-4 pt-2 text-center text-[12px] text-[#8a8a8a]">Jogos oficiais da temporada no clube.</div>
+                <div className="px-4 pt-2 text-center text-[12px] text-cm-dim">Jogos oficiais da temporada no clube.</div>
               </div>
             )}
-            <div className="px-4 pb-1 text-center text-[12px] text-[#8a8a8a]">
+            <div className="px-4 pb-1 text-center text-[12px] text-cm-dim">
               O melhor dos dois em verde; <span className={UNKNOWN}>-</span> é o que o clube ainda não conhece (precisa de mais
               observações).
             </div>

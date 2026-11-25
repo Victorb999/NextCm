@@ -304,7 +304,7 @@ export default function TacticsPage({ id }: { id: number }) {
                     >
                       <span className="w-8 shrink-0" />
                       <span className="w-12 shrink-0 text-[11px] font-bold text-cm-yellow">{shortRole(s.role)}</span>
-                      <span className="italic text-[#8a8a8a]">— vazio: arraste alguém para cá —</span>
+                      <span className="italic text-cm-dim">— vazio: arraste alguém para cá —</span>
                     </div>
                   )
                 })}

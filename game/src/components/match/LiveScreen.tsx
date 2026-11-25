@@ -360,7 +360,7 @@ export function LiveScreen({
   // janela). Escondida, o `hidden` do Shell não chega cá
   const stage = document.getElementById('stage')
   const screen = (
-    <div className={`absolute inset-x-0 bottom-0 top-11 z-50 flex bg-[#121318] ${active ? '' : 'hidden'}`}>
+    <div className={`absolute inset-x-0 bottom-0 top-11 z-50 flex bg-cm-panel ${active ? '' : 'hidden'}`}>
       <aside className="flex w-[196px] shrink-0 flex-col gap-1.5 border-r border-cm-line bg-cm-deep p-2">
         <div className="flex flex-col items-center rounded bg-cm-raised py-2">
           <span className="text-[11px] font-bold font-mono uppercase tracking-widest text-cm-dim">Minuto de Jogo</span>

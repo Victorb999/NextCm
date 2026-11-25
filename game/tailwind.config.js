@@ -4,6 +4,12 @@ export default {
   theme: {
     extend: {
       colors: {
+        // O branco e o preto seguem o tema (no Claro trocam: texto escuro, véus claros);
+        // snow e ink ficam sempre branco e preto (campo, casas coloridas)
+        white: 'rgb(var(--c-white) / <alpha-value>)',
+        black: 'rgb(var(--c-black) / <alpha-value>)',
+        snow: '#ffffff',
+        ink: '#000000',
         // Paleta do CM 01/02 em variáveis: os valores de cada tema estão em index.css
         cm: {
           // Coluna esquerda: a cor do tema ou a escolhida em Opções Jogo (settings.ts)

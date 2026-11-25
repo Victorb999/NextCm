@@ -32,10 +32,10 @@ function Competitions({ c }: { c: ClubProfile }) {
                 {h.competition.name}
               </Link>
               {h.won.length > 0 && <span className="font-bold text-cm-yellow">{h.won.length}× campeão</span>}
-              {h.runnerUp.length > 0 && <span className="text-[#aab3c4]">{h.runnerUp.length}× vice</span>}
+              {h.runnerUp.length > 0 && <span className="text-cm-muted">{h.runnerUp.length}× vice</span>}
             </div>
             {h.won.length > 0 && <div className="text-[13px] text-cm-yellow">Campeão: {h.won.join(', ')}</div>}
-            {h.runnerUp.length > 0 && <div className="text-[13px] text-[#aab3c4]">Vice: {h.runnerUp.join(', ')}</div>}
+            {h.runnerUp.length > 0 && <div className="text-[13px] text-cm-muted">Vice: {h.runnerUp.join(', ')}</div>}
           </div>
         ))}
       </div>

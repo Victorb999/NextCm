@@ -176,7 +176,7 @@ export default function SquadNumbersPage() {
         eyebrow={
           saved && (
             <span
-              className={`rounded px-1.5 tracking-wider ${saved.preSeason ? 'bg-cm-dlgdeep text-cm-mint' : 'bg-[#3a2508] text-cm-orange'}`}
+              className={`rounded px-1.5 tracking-wider ${saved.preSeason ? 'bg-cm-dlgdeep text-cm-mint' : 'bg-cm-orange/20 text-cm-orange'}`}
             >
               {saved.preSeason ? 'Pré-temporada' : 'Temporada em andamento'}
             </span>

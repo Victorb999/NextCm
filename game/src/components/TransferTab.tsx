@@ -110,7 +110,7 @@ export function OfferButtons({
           >
             <div
               className="flex h-12 shrink-0 items-center justify-center rounded
-      bg-[#01010166] font-sans font-bold text-2xl text-white uppercase "
+      bg-black/40 font-sans font-bold text-2xl text-white uppercase "
             >
               Confirmar Proposta Transferência
             </div>

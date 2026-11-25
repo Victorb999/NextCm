@@ -38,7 +38,7 @@ function LineCard({ view, line }: { view: LiveView; line: Line }) {
   return (
     <div
       className={`relative w-full max-w-[760px] overflow-hidden rounded-lg px-5 pb-3.5 pt-4
-        shadow-[0_12px_32px_rgba(0,0,0,0.8)] ${goal ? 'cm-goal-in' : 'cm-line-in bg-white text-[#141414]'}`}
+        shadow-[0_12px_32px_rgba(0,0,0,0.8)] ${goal ? 'cm-goal-in' : 'cm-line-in bg-snow text-[#141414]'}`}
       style={team ? clubBand(team.club) : { background: stripe }}
     >
       {!goal && <div className="absolute inset-x-0 top-0 h-1" style={{ background: stripe }} />}

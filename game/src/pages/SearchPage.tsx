@@ -434,7 +434,7 @@ export default function SearchPage({ active }: { active: boolean }) {
                 value={filters.text}
                 onChange={(e) => applyFilters({ ...filters, text: e.target.value })}
                 placeholder="Filtrar por nome…"
-                className="h-8 w-56 rounded-[4px] border border-white/15 bg-[#0d0e13] px-2.5 text-cm-yellow outline-none placeholder:text-cm-faint focus:border-cm-mint"
+                className="h-8 w-56 rounded-[4px] border border-white/15 bg-cm-panel px-2.5 text-cm-yellow outline-none placeholder:text-cm-faint focus:border-cm-mint"
               />
             </label>
             <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">

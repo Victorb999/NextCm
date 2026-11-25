@@ -24,10 +24,10 @@ export type Bind = { 'data-spot': string; onMouseDown: (e: React.MouseEvent) => 
 
 /** Cor da casa da função, pela linha do campo (como no Stitch): GR, defesa, meio, ataque. */
 function roleChip(place: string) {
-  if (place.startsWith('SB')) return 'bg-[#2a1450] text-cm-lilac'
+  if (place.startsWith('SB')) return 'bg-cm-lilac/15 text-cm-lilac'
   if (place.startsWith('GR')) return 'bg-[#12323a] text-[#5ad1e6]'
   if (place.startsWith('D') || place.startsWith('AL')) return 'bg-[#16244a] text-[#7aa2ff]'
-  if (place.startsWith('M')) return 'bg-[#3a2508] text-cm-orange'
+  if (place.startsWith('M')) return 'bg-cm-orange/20 text-cm-orange'
   return 'bg-[#3d0f1c] text-[#ff6b8a]'
 }
 
@@ -108,7 +108,7 @@ export function Row({
   /** O Vêr: o valor no lugar da posição (`on` a amarelo, como o "Sim" do CM). */
   column?: { text: string; on: boolean }
 }) {
-  const text = kind === 'reserve' ? 'text-[#9a9aa6]' : 'text-white'
+  const text = kind === 'reserve' ? 'text-cm-dim' : 'text-white'
   const toggle =
     onToggle &&
     ((e: React.MouseEvent) => {
@@ -151,7 +151,7 @@ export function Row({
             onClick={toggle}
             className={`inline-block min-w-[38px] rounded-[3px] px-1 text-center text-[11px] font-bold leading-[18px] tracking-wide ${
               barred
-                ? `${barred.red ? 'bg-[#e01010]' : 'bg-[#1f5fbf]'} text-white ring-1 ring-white/60`
+                ? `${barred.red ? 'bg-[#e01010]' : 'bg-[#1f5fbf]'} text-snow ring-1 ring-snow/60`
                 : out
                   ? 'bg-[#7a3d00] text-cm-orange'
                   : roleChip(place)
@@ -163,7 +163,9 @@ export function Row({
         )}
       </span>
       <span className={`flex min-w-0 flex-1 items-center gap-1.5 ${text}`}>
-        {captain && <span className="shrink-0 rounded-[3px] bg-[#4a3300] px-1 text-[11px] font-bold leading-[16px] text-cm-yellow">C</span>}
+        {captain && (
+          <span className="shrink-0 rounded-[3px] bg-cm-yellow/20 px-1 text-[11px] font-bold leading-[16px] text-cm-yellow">C</span>
+        )}
         <span
           className={`truncate ${onOpen ? 'cursor-pointer hover:text-cm-yellow hover:underline' : ''}`}
           onMouseDown={(e) => onOpen && e.stopPropagation()}
@@ -181,7 +183,7 @@ export function Row({
         </span>
         {ordered && (
           <span
-            className="shrink-0 rounded-[3px] bg-[#3a1840] px-1 text-[11px] font-bold leading-[16px] text-cm-magenta"
+            className="shrink-0 rounded-[3px] bg-cm-magenta/20 px-1 text-[11px] font-bold leading-[16px] text-cm-magenta"
             title="Tem instruções individuais (as ordens próprias do jogador, no diálogo dele)"
           >
             Instr.
@@ -199,7 +201,7 @@ export function Row({
       <span className={COL.stat}>
         {off ? (
           <span
-            className={`rounded-[3px] px-1.5 text-[11px] font-bold text-white ${off.red ? 'bg-[#9c0000]' : 'bg-[#1f5fbf]'}`}
+            className={`rounded-[3px] px-1.5 text-[11px] font-bold text-snow ${off.red ? 'bg-[#9c0000]' : 'bg-[#1f5fbf]'}`}
             title={off.title}
           >
             {off.label}
@@ -285,9 +287,9 @@ export function Pitch({
                     ? 'bg-cm-mint text-cm-onmint'
                     : s.player
                       ? colours
-                        ? 'ring-1 ring-black/40'
-                        : 'bg-white text-[#141414]'
-                      : 'border-2 border-dashed border-white/50 text-white'
+                        ? 'ring-1 ring-ink/40'
+                        : 'bg-snow text-[#141414]'
+                      : 'border-2 border-dashed border-snow/50 text-snow'
                 }`}
                 style={s.role !== 'GR' && s.player && colours ? { background: colours.bg, color: colours.fg } : undefined}
               >
@@ -295,7 +297,7 @@ export function Pitch({
               </span>
               {barred && (
                 <span
-                  className={`absolute -top-1.5 left-1/2 ml-2.5 rounded-[3px] px-1 text-[10px] font-bold leading-[14px] text-white shadow-[0_1px_3px_rgba(0,0,0,0.6)] ${
+                  className={`absolute -top-1.5 left-1/2 ml-2.5 rounded-[3px] px-1 text-[10px] font-bold leading-[14px] text-snow shadow-[0_1px_3px_rgba(0,0,0,0.6)] ${
                     barred.red ? 'bg-[#9c0000]' : 'bg-[#1f5fbf]'
                   }`}
                   title={barred.title}
@@ -304,7 +306,7 @@ export function Pitch({
                 </span>
               )}
               <span
-                className={`whitespace-nowrap rounded bg-black/75 px-1.5 text-[12px] font-bold leading-[18px] ${
+                className={`whitespace-nowrap rounded bg-ink/75 px-1.5 text-[12px] font-bold leading-[18px] ${
                   barred
                     ? barred.red
                       ? 'text-[#ff6b6b]'
@@ -312,8 +314,8 @@ export function Pitch({
                     : outOfPosition(s.player)
                       ? 'text-cm-orange'
                       : s.player
-                        ? 'text-white'
-                        : 'text-white/60'
+                        ? 'text-snow'
+                        : 'text-snow/60'
                 }`}
               >
                 {s.player ? surname(s.player.listName) : shortRole(s.role)}

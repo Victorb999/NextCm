@@ -116,7 +116,7 @@ export default function LoadGamePage() {
                   <td className="px-3 text-cm-pink">{s.managerName}</td>
                   <td className="px-3 text-cm-magenta">{s.clubName}</td>
                   <td className="px-3 text-cm-yellow">{cmDate(s.date)}</td>
-                  <td className="px-3 text-[#aab3c4]">{savedAt(s.savedAt)}</td>
+                  <td className="px-3 text-cm-muted">{savedAt(s.savedAt)}</td>
                 </tr>
               ))}
             </tbody>

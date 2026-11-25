@@ -18,7 +18,7 @@ export default function PersonHeader({ p, action, tabs }: { p: PersonProfile | n
   const colours = club?.fg && club?.bg ? { fg: club.fg, bg: club.bg } : DEFAULT_COLOURS
   const pl = p?.player
   const born = p?.birthDate ? cmDate(p.birthDate) : p?.birthYear ? String(p.birthYear) : '?'
-  const dot = <span className="text-[#5a5a66]"> · </span>
+  const dot = <span className="text-cm-dim"> · </span>
   // O ▸ do canto, como no CM: os outros jogadores do plantel do clube, por ordem alfabética
   const [squadMenu, setSquadMenu] = useState<{ x: number; y: number; items: MenuNode[] } | null>(null)
   const openSquadMenu = (e: React.MouseEvent) => {

@@ -33,7 +33,7 @@ const TH = 'bg-cm-headdeep px-2 text-[11px] font-bold uppercase tracking-[0.1em]
 
 function ClubLink({ club }: { club: ClubRef | null }) {
   const nav = useNav()
-  if (!club) return <span className="text-[#666]">-</span>
+  if (!club) return <span className="text-cm-dim">-</span>
   return (
     <Link onClick={() => nav.go({ kind: 'club', id: club.id })} className="text-cm-magenta">
       {club.shortName}
@@ -231,7 +231,7 @@ function Tie({ tie, own }: { tie: TieView; own?: number }) {
     <Link
       onClick={() => nav.go({ kind: 'club', id: c.id })}
       className={`block truncate font-title text-[16px] ${align} ${tie.winner === c.id ? 'font-bold' : ''} ${
-        c.id === own ? 'text-cm-pink' : tie.winner !== null && tie.winner !== c.id ? 'text-[#9aa0aa]' : 'text-white'
+        c.id === own ? 'text-cm-pink' : tie.winner !== null && tie.winner !== c.id ? 'text-cm-dim' : 'text-white'
       }`}
     >
       {c.shortName}

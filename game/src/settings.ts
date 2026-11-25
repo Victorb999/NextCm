@@ -24,7 +24,7 @@ export type TextFont = 'inter' | 'tahoma' | 'googleSans' | 'roboto' | 'robotoCon
 export type ScreenMode = 'window' | 'fullscreen'
 export type Resolution = '1280x720' | '1366x768' | '1600x900' | '1920x1080'
 export type Background = 'default' | 'plain' | 'photo' | 'image'
-export type Theme = 'coalizao' | 'dracula' | 'monokai' | 'cyberpunk'
+export type Theme = 'coalizao' | 'dracula' | 'monokai' | 'cyberpunk' | 'classico' | 'claro'
 export type MatchSpeed = 'veryFast' | 'fast' | 'normal' | 'slow' | 'verySlow'
 export type AutoSave = 'off' | 'weekly' | 'monthly'
 
@@ -168,11 +168,13 @@ export const TEXT_FONTS: NonEmpty<{ key: TextFont; label: string; family: string
 ]
 
 /** Os temas (item 22 do 3.19.1): a paleta vem de index.css, a coluna esquerda daqui. */
-export const THEMES: NonEmpty<{ key: Theme; label: string; side: string }> = [
+export const THEMES: NonEmpty<{ key: Theme; label: string; side: string; light?: boolean }> = [
   { key: 'coalizao', label: 'Coalizão', side: '#45526a' },
   { key: 'dracula', label: 'Dracula', side: '#3b3e54' },
   { key: 'monokai', label: 'Monokai', side: '#3e3d32' },
   { key: 'cyberpunk', label: 'Cyberpunk', side: '#2a0f1c' },
+  { key: 'classico', label: 'Clássico CM', side: '#2828c8' },
+  { key: 'claro', label: 'Claro', side: '#c9cec3', light: true },
 ]
 
 /** As outras cores da coluna esquerda (por defeito, a do tema). */
@@ -253,12 +255,14 @@ export function applySettings(s: Settings) {
   const theme = THEMES.find((t) => t.key === s.theme) ?? THEMES[0]
   document.documentElement.dataset.theme = theme.key
   const base = SIDE_PRESETS.some((p) => p.colour === s.sideColour) ? s.sideColour : theme.side
+  // No tema claro os relevos invertem: o fundo da coluna fica mais claro, não mais escuro
+  const k = theme.light ? -1 : 1
   root.setProperty('--cm-side', base)
-  root.setProperty('--cm-side-top', shade(base, 0.12))
-  root.setProperty('--cm-sidebtn', shade(base, -0.17))
-  root.setProperty('--cm-sidelight', shade(base, 0.38))
-  root.setProperty('--cm-sidedark', shade(base, -0.58))
-  root.setProperty('--cm-side-mark', shade(base, 0.2))
+  root.setProperty('--cm-side-top', shade(base, 0.12 * k))
+  root.setProperty('--cm-sidebtn', shade(base, -0.17 * k))
+  root.setProperty('--cm-sidelight', shade(base, 0.38 * k))
+  root.setProperty('--cm-sidedark', shade(base, -0.58 * k))
+  root.setProperty('--cm-side-mark', shade(base, 0.2 * k))
   root.setProperty('--cm-title-font', (FONTS.find((f) => f.key === s.font) ?? FONTS[0]).family)
   root.setProperty('--cm-text-font', (TEXT_FONTS.find((f) => f.key === s.textFont) ?? TEXT_FONTS[0]).family)
 

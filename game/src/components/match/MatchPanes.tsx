@@ -38,11 +38,11 @@ export function Stats({ view }: { view: LiveView }) {
     <div className="px-2 py-1.5">
       {rows.map(([label, x, y, colour]) => (
         <div key={label} className="flex h-6 items-center gap-1">
-          <span className="flex h-[25px] w-24 shrink-0 items-center justify-center bg-[#1a1a1a] font-title text-[18px] text-cm-magenta">
+          <span className="flex h-[25px] w-24 shrink-0 items-center justify-center bg-cm-panel font-title text-[18px] text-cm-magenta">
             {x}
           </span>
           <span className={`flex-1 text-center font-title text-[20px] ${colour ?? 'text-cm-text'}`}>{label}</span>
-          <span className="flex h-[25px] w-24 shrink-0 items-center justify-center bg-[#1a1a1a] font-title text-[18px] text-cm-magenta">
+          <span className="flex h-[25px] w-24 shrink-0 items-center justify-center bg-cm-panel font-title text-[18px] text-cm-magenta">
             {y}
           </span>
         </div>
@@ -75,7 +75,7 @@ export function Zones({ view }: { view: LiveView }) {
             className={`relative flex flex-1 flex-col items-center justify-center ${i < 2 ? 'border-r border-dashed border-white/80' : ''}`}
           >
             <span className="font-title text-[26px] font-bold text-cm-yellow">{view.zones[i]}%</span>
-            <div className="absolute bottom-2 left-2 right-2 flex h-4 border-2 border-[#3a1470] bg-white">
+            <div className="absolute bottom-2 left-2 right-2 flex h-4 border-2 border-[#3a1470] bg-snow">
               <div
                 style={{
                   width: `${view.zonePossession[i]}%`,
@@ -191,7 +191,7 @@ function DataBox({ title, rows }: { title: string; rows: [string, ReactNode][] }
       <div className="cm-zebra">
         {rows.map(([label, value]) => (
           <div key={label} className="flex h-[19px] items-center gap-2 px-2 text-[13px]">
-            <span className="truncate text-[#c9c9d6]">{label}</span>
+            <span className="truncate text-cm-muted">{label}</span>
             <span className="ml-auto shrink-0 truncate text-cm-yellow">{value}</span>
           </div>
         ))}
@@ -224,7 +224,7 @@ export function TeamData({ team }: { team: LiveTeam }) {
     return (
       <div key={p.id} className="flex h-[19px] items-center gap-1 text-[13px]">
         <span
-          className={`h-full w-7 shrink-0 text-center leading-[19px] ${played ? 'bg-[#262626] text-white' : 'bg-[#161660] text-cm-lilac'}`}
+          className={`h-full w-7 shrink-0 text-center leading-[19px] ${played ? 'bg-cm-tab text-white' : 'bg-[#161660] text-cm-lilac'}`}
         >
           {p.squadNumber ?? ''}
         </span>
@@ -392,7 +392,7 @@ export function Results({ view, own }: { view: LiveView; own: number }) {
   const name = (c: ClubRef) => (
     <span className={`flex-1 truncate font-title text-[20px] ${c.id === own ? 'text-cm-yellow' : 'text-white'}`}>{c.shortName}</span>
   )
-  if (view.others.length === 0) return <div className="p-4 text-[#aab3c4]">Não há outros jogos hoje.</div>
+  if (view.others.length === 0) return <div className="p-4 text-cm-muted">Não há outros jogos hoje.</div>
   return (
     <div className="px-6 pt-3 cm-zebra">
       <div className="mb-2 text-center text-[13px] text-cm-pink">
@@ -469,7 +469,7 @@ export function Highlights({ team }: { team: LiveTeam }) {
             {shortListName(p.listName)} <span className="text-cm-dim">({p.role ?? p.position})</span>
           </span>
           <span className={`shrink-0 font-bold ${conditionColour(p.condition)}`}>{p.condition}%</span>
-          <span className="w-6 shrink-0 rounded bg-[#34343a] text-center font-bold text-white">{p.rating ?? '-'}</span>
+          <span className="w-6 shrink-0 rounded bg-cm-hover text-center font-bold text-white">{p.rating ?? '-'}</span>
         </div>
       ))}
     </div>

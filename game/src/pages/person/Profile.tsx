@@ -134,7 +134,7 @@ export default function Profile({ p }: { p: PersonProfile }) {
   const list = pl ? PLAYER_ATTRIBUTES : STAFF_ATTRIBUTES
   const items: { label: string; value: ReactNode; color?: string; sep?: boolean }[] = list.map(([key, label]) => {
     const v = attrs[key]
-    return { label, value: v ?? '-', color: v ? valueColor(v) : 'text-[#777]' }
+    return { label, value: v ?? '-', color: v ? valueColor(v) : 'text-cm-dim' }
   })
   if (pl) {
     items.push(

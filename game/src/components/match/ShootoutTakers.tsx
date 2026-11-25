@@ -50,7 +50,7 @@ export function ShootoutTakers({
           </div>
         ))}
       </div>
-      <div className="shrink-0 px-2 py-1 text-center text-[12px] text-[#aab3c4]">
+      <div className="shrink-0 px-2 py-1 text-center text-[12px] text-cm-muted">
         {picked === null
           ? 'Clique num cobrador e depois em outro para trocar a ordem · Ok começa a disputa'
           : `Trocar ${name(order[picked] ?? 0)} com...`}

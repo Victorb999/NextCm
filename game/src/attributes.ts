@@ -39,5 +39,5 @@ export function valueColor(v: number) {
   if (v >= 16) return 'text-[#ff3b3b]'
   if (v >= 11) return 'text-cm-orange'
   if (v >= 6) return 'text-[#f5e663]'
-  return 'text-[#8f8fa0]'
+  return 'text-cm-dim'
 }

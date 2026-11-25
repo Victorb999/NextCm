@@ -258,7 +258,7 @@ export default function LiveTactics({
                     <div key={`s${i}`} {...drag.bind(spot, s.role)} className="flex h-[19px] items-center gap-2 px-1 text-[13px]">
                       <span className="w-7 shrink-0" />
                       <span className="cm-cell w-9 shrink-0 text-center text-[11px] text-cm-yellow">{shortRole(s.role)}</span>
-                      <span className="italic text-[#8a8a8a]">— sem jogador (expulso) —</span>
+                      <span className="italic text-cm-dim">— sem jogador (expulso) —</span>
                     </div>
                   )
                 })}
@@ -304,7 +304,7 @@ export default function LiveTactics({
                 <PanelTitle title="Já Saíram" chip={`${team.out.length}`} />
                 <div className="cm-zebra">
                   {team.out.map((p) => (
-                    <div key={`o${p.id}`} className="flex h-[30px] items-center gap-2 px-3 text-[14px] text-[#6a6a6a]">
+                    <div key={`o${p.id}`} className="flex h-[30px] items-center gap-2 px-3 text-[14px] text-cm-dim">
                       <span className="w-8 shrink-0 text-center">{p.squadNumber ?? ''}</span>
                       <span className="w-12 shrink-0 text-[11px] font-bold">{p.red ? 'Exp' : 'Saiu'}</span>
                       <span className="flex-1 truncate">{p.listName.split(', ').reverse().join(' ')}</span>
@@ -323,7 +323,7 @@ export default function LiveTactics({
                 <div className="flex min-h-0 flex-1 flex-col">
                   <Pitch t={t} colours={colours} bind={drag.bind} run={arrow.run} onRunStart={arrow.start} />
                 </div>
-                <div className="shrink-0 pt-1 text-center text-[12px] text-[#aab3c4]">
+                <div className="shrink-0 pt-1 text-center text-[12px] text-cm-muted">
                   {editable
                     ? 'Arraste para trocar (titular com suplente = substituição) ou para um lugar vazio · botão direito e arrastar faz a seta'
                     : 'Você só pode mexer no seu time.'}

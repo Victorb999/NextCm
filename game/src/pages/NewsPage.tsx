@@ -47,10 +47,10 @@ type Label = [string, string, LucideIcon]
 const KIND_LABEL: Record<string, Label> & { message: Label } = {
   message: ['Mensagem', 'bg-cm-hover text-cm-muted', Mail],
   competition: ['Competição', 'bg-[#0f2a3a] text-[#5bc0f0]', Trophy],
-  injury: ['Lesões', 'bg-[#3a1010] text-cm-red', HeartPulse],
+  injury: ['Lesões', 'bg-cm-red/20 text-cm-red', HeartPulse],
   transfer: ['Transferências', 'bg-cm-headdeep text-cm-purplelight', ArrowLeftRight],
-  deal: ['Negócio', 'bg-[#3a2508] text-cm-orange', Handshake],
-  contract: ['Contrato', 'bg-[#3a2508] text-cm-orange', FileSignature],
+  deal: ['Negócio', 'bg-cm-orange/20 text-cm-orange', Handshake],
+  contract: ['Contrato', 'bg-cm-orange/20 text-cm-orange', FileSignature],
   press: ['Imprensa', 'bg-cm-hover text-cm-muted', Newspaper],
   jobs: ['Empregos', 'bg-cm-dlgdeep text-cm-mint', Briefcase],
 }

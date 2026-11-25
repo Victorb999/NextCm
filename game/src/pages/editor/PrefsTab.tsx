@@ -46,7 +46,7 @@ export default function PrefsTab({
             </div>
           </div>
         ))}
-        <div className="text-[12px] text-[#8a8a8a]">
+        <div className="text-[12px] text-cm-dim">
           Os clubes favoritos atraem o jogador, e ele se recusa a ir para os detestados; as pessoas contam nas relações do elenco.
         </div>
       </div>

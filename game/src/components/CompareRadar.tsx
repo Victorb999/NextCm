@@ -105,7 +105,7 @@ export default function CompareRadar({ people }: { people: [PersonProfile, Perso
             const [x, y] = [values[0]?.[i] ?? null, values[1]?.[i] ?? null]
             const cell = (v: number | null, o: number | null) => (
               <span
-                className={`text-right ${v == null ? 'text-[#777]' : o != null && v > o + 0.05 ? 'font-bold text-cm-green' : 'text-cm-orange'}`}
+                className={`text-right ${v == null ? 'text-cm-dim' : o != null && v > o + 0.05 ? 'font-bold text-cm-green' : 'text-cm-orange'}`}
               >
                 {v == null ? '-' : v.toFixed(1)}
               </span>

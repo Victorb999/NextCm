@@ -20,7 +20,7 @@ export const VIEW_TITLE: Record<SquadView, string> = {
 /** Cor do nome: emprestado (por ou a outro clube) a azul, de enchimento a cinza (contrasta com
  * os emprestados). Os sem contrato ficam a branco, com "Ctr" na coluna Inf. */
 export function nameClass(p: SquadPlayer) {
-  return p.ghost ? 'text-[#8c8c8c]' : p.loaned || p.loanedOut ? 'text-[#3aa0ff]' : 'text-white'
+  return p.ghost ? 'text-cm-dim' : p.loaned || p.loanedOut ? 'text-[#3aa0ff]' : 'text-white'
 }
 
 /** O "Competições" do Vêr Mais Dados (o `kind` do core). */

@@ -10,11 +10,11 @@ export default function StartScreen({ onOptions }: { onOptions: () => void }) {
   const item = (label: string, onClick: () => void, hint: string) => (
     <button
       onClick={onClick}
-      className="bg-[#01010199] flex h-14 rounded hover:bg-[#010101cc] transition
+      className="bg-black/60 flex h-14 rounded hover:bg-black/80 transition
       w-full flex-col items-center justify-center font-title text-[22px] leading-tight"
     >
       {label}
-      <span className="font-sans text-[12px] text-[#666]">{hint}</span>
+      <span className="font-sans text-[12px] text-cm-dim">{hint}</span>
     </button>
   )
   return (
@@ -32,7 +32,7 @@ export default function StartScreen({ onOptions }: { onOptions: () => void }) {
             {item('Opções', onOptions, 'Moeda, salários, cores e fundo')}
             {item('Sobre o NextCM', () => setAbout(true), 'Versão, novidades e créditos')}
           </div>
-          <div className="text-right text-[11px] text-[#666]">versão {__APP_VERSION__}</div>
+          <div className="text-right text-[11px] text-cm-dim">versão {__APP_VERSION__}</div>
         </DialogFrame>
       </div>
       {about && <AboutDialog onClose={() => setAbout(false)} />}

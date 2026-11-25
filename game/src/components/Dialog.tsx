@@ -42,7 +42,7 @@ export function DialogFrame({
     >
       <div
         className="relative flex h-12 shrink-0 items-center justify-center rounded
-      bg-[#01010166] font-sans font-bold text-2xl text-white uppercase "
+      bg-black/40 font-sans font-bold text-2xl text-white uppercase "
       >
         {title}
         {onClose && (
@@ -57,7 +57,7 @@ export function DialogFrame({
         )}
       </div>
       {header}
-      <div className="mt-1.5 min-h-0 flex-1 overflow-auto  px-3 py-2  bg-[#013220ff] rounded">{children}</div>
+      <div className="mt-1.5 min-h-0 flex-1 overflow-auto  px-3 py-2  bg-cm-dlgfield rounded">{children}</div>
       {footer && <div className="mt-2 flex shrink-0 gap-1">{footer}</div>}
       {!footer && (onCancel || onOk) && (
         <div className="mt-2 flex shrink-0 gap-1">

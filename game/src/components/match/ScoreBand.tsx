@@ -33,7 +33,7 @@ export function ScoreBand({
       {/* O número muda com o golo e dá um pulo (o 0 do início, não) */}
       <span
         key={goals ?? '-'}
-        className={`flex h-12 min-w-[54px] shrink-0 items-center justify-center rounded bg-[#0d0e13]/90 px-2 font-title text-[34px] font-bold leading-none text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] ${goals ? 'cm-score-pop' : ''}`}
+        className={`flex h-12 min-w-[54px] shrink-0 items-center justify-center rounded bg-cm-panel/90 px-2 font-title text-[34px] font-bold leading-none text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] ${goals ? 'cm-score-pop' : ''}`}
       >
         {goals ?? ''}
       </span>

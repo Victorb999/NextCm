@@ -46,7 +46,7 @@ const INF_TAB: Record<string, string> = {
  * clique abre o perfil na aba que explica a sigla (o "Ins" mostra a insatisfação). */
 export function InfBadge({ info, person }: { info: string | null; person?: number }) {
   const nav = useNav()
-  if (!info) return <span className="text-[#5a5a66]">-</span>
+  if (!info) return <span className="text-cm-dim">-</span>
   const colour =
     info === 'Les'
       ? 'bg-[#b8560c] text-white'
@@ -132,7 +132,7 @@ export default function SquadTable({
                 title={toggle ? 'Clique para pôr/tirar do time' : undefined}
                 className={`w-10 shrink-0 text-center font-mono text-[12px] font-bold ${place ? 'cm-chip' : 'text-cm-mint'} ${toggle ? 'cursor-pointer' : ''}`}
               >
-                {place ?? <span className="text-[#5a5a66]">-</span>}
+                {place ?? <span className="text-cm-dim">-</span>}
               </span>
               <span className="w-10 shrink-0 text-center font-mono text-[12px]">
                 <InfBadge info={p.info} person={p.id} />

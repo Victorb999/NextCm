@@ -45,6 +45,8 @@
   --c-dlgtext: 214 239 228;
   --c-lilac: 208 188 255;
   --c-faint: 85 86 95;
+  --c-white: 255 255 255;
+  --c-black: 0 0 0;
 }
 
 [data-theme='dracula'] {
@@ -176,6 +178,97 @@
   --c-faint: 58 66 88;
 }
 
+/* Clássico CM: o CM 01/02 sem patch (azul-marinho, abas azuis, botões cinza, menus verdes) */
+[data-theme='classico'] {
+  --c-screen: 8 8 40;
+  --c-panel: 4 4 32;
+  --c-surface: 14 14 62;
+  --c-line: 36 36 130;
+  --c-tab: 22 14 92;
+  --c-tabline: 70 70 170;
+  --c-raised: 26 18 106;
+  --c-hover: 38 30 140;
+  --c-deep: 10 10 50;
+  --c-text: 255 255 255;
+  --c-muted: 205 212 235;
+  --c-dim: 135 145 200;
+  --c-purple: 138 138 142;
+  --c-purplelight: 192 192 196;
+  --c-purpledim: 92 92 100;
+  --c-purplehover: 158 158 162;
+  --c-purpledown: 110 110 116;
+  --c-head: 0 0 176;
+  --c-headdeep: 0 0 120;
+  --c-sel: 170 0 0;
+  --c-yellow: 255 255 0;
+  --c-magenta: 255 92 255;
+  --c-pink: 255 128 255;
+  --c-orange: 255 150 0;
+  --c-green: 0 210 0;
+  --c-red: 255 60 60;
+  --c-pitch: 15 90 22;
+  --c-mint: 64 224 255;
+  --c-mintlight: 150 240 255;
+  --c-mintdim: 20 70 100;
+  --c-onmint: 0 0 64;
+  --c-dlg: 0 96 0;
+  --c-dlgdeep: 0 120 0;
+  --c-dlgfield: 0 72 0;
+  --c-dlgborder: 70 210 70;
+  --c-dlgline: 0 150 0;
+  --c-dlghover: 0 150 0;
+  --c-dlgtext: 255 255 255;
+  --c-lilac: 160 200 255;
+  --c-faint: 60 60 120;
+}
+
+/* Claro: base nos prints do FM08 (painéis cinza-claros, texto escuro, destaques verdes). O
+   branco e o preto trocam: text-white vira texto escuro e bg-black/N vira véu claro. */
+[data-theme='claro'] {
+  --c-screen: 190 195 186;
+  --c-panel: 222 225 218;
+  --c-surface: 234 236 230;
+  --c-line: 176 181 172;
+  --c-tab: 212 215 208;
+  --c-tabline: 150 156 146;
+  --c-raised: 216 219 212;
+  --c-hover: 200 205 196;
+  --c-deep: 208 211 203;
+  --c-text: 28 30 28;
+  --c-muted: 58 62 58;
+  --c-dim: 105 110 103;
+  --c-purple: 196 200 192;
+  --c-purplelight: 140 146 136;
+  --c-purpledim: 150 152 148;
+  --c-purplehover: 182 187 178;
+  --c-purpledown: 166 171 162;
+  --c-head: 172 178 168;
+  --c-headdeep: 150 156 146;
+  --c-sel: 160 205 150;
+  --c-yellow: 22 110 22;
+  --c-magenta: 140 30 140;
+  --c-pink: 170 40 120;
+  --c-orange: 185 90 0;
+  --c-green: 20 130 30;
+  --c-red: 200 30 30;
+  --c-pitch: 60 130 60;
+  --c-mint: 34 136 84;
+  --c-mintlight: 46 156 98;
+  --c-mintdim: 150 180 165;
+  --c-onmint: 255 255 255;
+  --c-dlg: 236 238 233;
+  --c-dlgdeep: 222 226 219;
+  --c-dlgfield: 250 251 249;
+  --c-dlgborder: 120 126 117;
+  --c-dlgline: 188 193 185;
+  --c-dlghover: 210 215 206;
+  --c-dlgtext: 28 30 28;
+  --c-lilac: 80 60 140;
+  --c-faint: 172 176 168;
+  --c-white: 28 30 28;
+  --c-black: 255 255 255;
+}
+
 :root {
   /* Valores padrão; Opções Jogo sobrescreve (settings.ts) */
   --cm-side: #45526a;
@@ -187,7 +280,7 @@
   --cm-title-font: 'Trebuchet MS', Tahoma, sans-serif;
   --cm-text-font: Tahoma, Verdana, sans-serif;
   --cm-surface-alpha: 1;
-  --cm-row-hover: rgba(255, 255, 255, 0.11);
+  --cm-row-hover: rgb(var(--c-white) / 0.11);
   /* Saída rápida das animações curtas (plans/README.md) */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
@@ -217,7 +310,7 @@ body {
   height: 16px;
 }
 ::-webkit-scrollbar-track {
-  background: #111;
+  background: rgb(var(--c-panel));
 }
 ::-webkit-scrollbar-thumb {
   background: rgb(var(--c-purple));
@@ -247,9 +340,9 @@ body {
   .cm-backdrop {
     background-color: rgb(var(--c-screen));
     background-image:
-      radial-gradient(ellipse at 30% 35%, rgba(255, 255, 255, 0.05), transparent 45%),
-      radial-gradient(ellipse at 75% 60%, rgba(255, 255, 255, 0.04), transparent 40%),
-      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 4px);
+      radial-gradient(ellipse at 30% 35%, rgb(var(--c-white) / 0.05), transparent 45%),
+      radial-gradient(ellipse at 75% 60%, rgb(var(--c-white) / 0.04), transparent 40%),
+      repeating-linear-gradient(0deg, rgb(var(--c-white) / 0.015) 0 1px, transparent 1px 4px);
   }
   /* Fundo escolhido em Opções Jogo */
   [data-bg='plain'] .cm-backdrop {
@@ -280,12 +373,12 @@ body {
      Nas tabelas é automático; nas listas feitas de divs, a classe cm-zebra no contentor. */
   :where(tbody) > tr:nth-child(even) > td,
   .cm-zebra > :nth-child(even) {
-    background-image: linear-gradient(rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.045));
+    background-image: linear-gradient(rgb(var(--c-white) / 0.045), rgb(var(--c-white) / 0.045));
   }
   /* Listas em duas colunas (plantel, PickList): a zebra vai por pares de linhas */
   .cm-zebra-2 > :nth-child(4n + 3),
   .cm-zebra-2 > :nth-child(4n + 4) {
-    background-image: linear-gradient(rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.045));
+    background-image: linear-gradient(rgb(var(--c-white) / 0.045), rgb(var(--c-white) / 0.045));
   }
   /* Linha debaixo do rato: um véu mais claro que a zebra, sem transição (a selecionada mantém a cor) */
   :where(tbody) > tr:hover > td,

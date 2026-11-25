@@ -68,7 +68,7 @@ export default function Shell() {
         />
         <main className="cm-backdrop relative min-w-0 flex-1">
           {!hasBackend && (
-            <div className="p-6 text-[#aab3c4]">
+            <div className="p-6 text-cm-muted">
               Esta tela lê o banco pelo Rust. Abra pelo app desktop: <code className="text-cm-yellow">npm run tauri dev</code>
             </div>
           )}

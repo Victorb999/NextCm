@@ -59,7 +59,7 @@ function Attributes({ clubId, personId }: { clubId: number; personId: number }) 
             return (
               <div key={key} className="flex h-[26px] items-center justify-between text-[14px]">
                 <span className="truncate text-cm-text">{label}</span>
-                <span className={`font-bold tabular-nums ${v ? valueColor(v) : 'text-[#777]'}`}>{attrs ? (v ?? '-') : ''}</span>
+                <span className={`font-bold tabular-nums ${v ? valueColor(v) : 'text-cm-dim'}`}>{attrs ? (v ?? '-') : ''}</span>
               </div>
             )
           })}

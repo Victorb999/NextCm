@@ -194,7 +194,7 @@ export default function NewGamePage() {
       <button
         key={key}
         onClick={() => void begin(key)}
-        className="flex h-14 w-full flex-col items-center justify-center rounded bg-[#01010199] font-title text-[21px] leading-tight hover:bg-[#010101cc]"
+        className="flex h-14 w-full flex-col items-center justify-center rounded bg-black/60 font-title text-[21px] leading-tight hover:bg-black/80"
       >
         {label}
         <span className="font-sans text-[12px] text-cm-dlgtext">{hint}</span>

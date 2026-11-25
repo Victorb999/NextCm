@@ -10,7 +10,7 @@ export default function PitchField({
   landscape,
   ...rest
 }: HTMLAttributes<HTMLDivElement> & { children?: ReactNode; landscape?: boolean }) {
-  const line = 'pointer-events-none absolute border-white/25'
+  const line = 'pointer-events-none absolute border-snow/25'
   return (
     <div
       {...rest}
@@ -26,7 +26,7 @@ export default function PitchField({
         <>
           <div className={`${line} bottom-[4%] left-1/2 top-[4%] border-l-2`} />
           <div className={`${line} left-1/2 top-1/2 aspect-square h-[26%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2`} />
-          <div className={`${line} left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/40`} />
+          <div className={`${line} left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-snow/40`} />
           <div className={`${line} left-[4%] top-1/2 h-[54%] w-[16%] -translate-y-1/2 border-2 border-l-0`} />
           <div className={`${line} left-[4%] top-1/2 h-[26%] w-[6%] -translate-y-1/2 border-2 border-l-0`} />
           <div className={`${line} left-[20%] top-1/2 aspect-[1/2] h-[20%] -translate-y-1/2 rounded-r-full border-2 border-l-0`} />
@@ -38,7 +38,7 @@ export default function PitchField({
         <>
           <div className={`${line} left-[4%] right-[4%] top-1/2 border-t-2`} />
           <div className={`${line} left-1/2 top-1/2 aspect-square w-[26%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2`} />
-          <div className={`${line} left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/40`} />
+          <div className={`${line} left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-snow/40`} />
           <div className={`${line} left-1/2 top-[4%] h-[16%] w-[54%] -translate-x-1/2 border-2 border-t-0`} />
           <div className={`${line} left-1/2 top-[4%] h-[6%] w-[26%] -translate-x-1/2 border-2 border-t-0`} />
           <div className={`${line} left-1/2 top-[20%] aspect-[2/1] w-[20%] -translate-x-1/2 rounded-b-full border-2 border-t-0`} />
