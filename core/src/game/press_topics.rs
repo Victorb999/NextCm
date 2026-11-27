@@ -407,6 +407,44 @@ impl Game {
             let games = self.tie_games(m.competition_id, year, m.stage as usize, m.round, m.tie?);
             let pens = games.last().is_some_and(|g| g.pens.is_some());
             let through = Self::tie_winner(&games)? == self.club_id;
+            let final_ = regulation::get(m.competition_id)
+                .and_then(|r| r.stages.get(m.stage as usize)?.rounds.get(m.round as usize - 1).map(|r| r.name == "Final"))
+                .unwrap_or(false);
+            let comp = self.competition_name(m.competition_id).to_string();
+            if final_ {
+                let (texts, answers): (&[&str], Vec<Answer>) = if through {
+                    (
+                        &[
+                            "O {us} é campeão da {comp}! O que significa esta conquista?",
+                            "Título da {comp} contra o {opp}. Qual é a sensação?",
+                            "{score} na final e a taça é do {us}. Para quem vai este título?",
+                        ],
+                        vec![
+                            Answer { squad: 2, fans: 1, ..answer("O título é dos jogadores. Deram tudo a temporada inteira.") },
+                            Answer { fans: 2, ..answer("É para os torcedores. Eles mereciam esta noite.") },
+                            Answer { board: 1, ..answer("Missão cumprida. Agora é pensar em ganhar de novo.") },
+                        ],
+                    )
+                } else {
+                    (
+                        &[
+                            "O {us} perdeu a final da {comp} para o {opp}. Qual o tamanho da frustração?",
+                            "Tão perto do título. O que faltou na final contra o {opp}?",
+                        ],
+                        vec![
+                            Answer { squad: 1, ..answer("Chegar à final já mostra o valor deste grupo.") },
+                            Answer { squad: 1, board: -1, ..answer("A responsabilidade é minha. Os jogadores deram tudo.") },
+                            answer("Dói muito, mas vamos voltar mais fortes."),
+                        ],
+                    )
+                };
+                let text = pick(rng, texts)
+                    .replace("{us}", &us)
+                    .replace("{opp}", &opp)
+                    .replace("{comp}", &comp)
+                    .replace("{score}", &format!("{ours}-{theirs}"));
+                return Some(Question { text, person: None, answers });
+            }
             match (through, pens) {
                 (true, true) => (
                     &[
