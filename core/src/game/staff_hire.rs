@@ -558,13 +558,28 @@ impl Game {
     /// O staff do treinador cujo contrato acabou sai do clube; os clubes da IA que perderam
     /// alguém para o treinador contratam um livre da mesma função.
     pub(super) fn staff_day(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        // Só o staff que o treinador contrata e renova (não ele mesmo nem a diretoria)
+        let jobs = HIRE_JOBS.map(|j| j.to_string()).join(",");
+        let staff = format!("club_id = ? AND is_player = 0 AND id <> ? AND club_job IN ({jobs}) AND contract_expires");
+        // O aviso, um mês antes do fim do contrato
+        if let Some(month) = crate::date::add_days(&self.date, 30) {
+            let ending: Vec<(i32, String)> = self
+                .world
+                .conn
+                .prepare_cached(&format!("SELECT id, contract_expires FROM people WHERE {staff} = ? ORDER BY id"))?
+                .query_map(params![self.club_id, self.manager_id, month], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<_>>()?;
+            for (id, until) in ending {
+                let name = self.person_name(id)?;
+                let body = format!("O contrato de {name} acaba em {}. Se quiser mantê-lo, renove antes disso.", cm_date(&until));
+                self.push_news(fresh, next_id, "contract", format!("Contrato de {name} está acabando"), body);
+            }
+        }
         let ended: Vec<i32> = self
             .world
             .conn
-            .prepare_cached(
-                "SELECT id FROM people WHERE club_id = ? AND is_player = 0 AND contract_expires IS NOT NULL AND contract_expires < ? ORDER BY id",
-            )?
-            .query_map(params![self.club_id, self.date], |r| r.get(0))?
+            .prepare_cached(&format!("SELECT id FROM people WHERE {staff} < ? ORDER BY id"))?
+            .query_map(params![self.club_id, self.manager_id, self.date], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
         for id in ended {
             self.world
@@ -647,7 +662,7 @@ mod tests {
     #[test]
     fn hire_counter_fee_refill_and_sack() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
-        let dir = crate::TempDir::new(format!("nextcm-staff-{}", std::process::id()));
+        let dir = crate::TempDir::new(format!("nextcm-staff-hire-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let new = crate::NewGame {
             save_name: "Staff".into(),

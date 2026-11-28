@@ -1725,6 +1725,16 @@ impl Game {
             game.board_setup()?;
             game.unsaved = true;
         }
+        // Saves em que o fim do contrato do staff tirou o treinador do clube: ele volta
+        if !game.sacked()
+            && game.world.conn.execute(
+                "UPDATE people SET club_id = ?, club_job = 5, club_joined = COALESCE(club_joined, ?) WHERE id = ? AND club_id IS NULL
+                   AND id NOT IN (SELECT person_id FROM retired)",
+                params![club_id, game.date, manager_id],
+            )? > 0
+        {
+            game.unsaved = true;
+        }
         if redraw {
             let (mut fresh, mut next_id) = (Vec::new(), game.news.iter().map(|n| n.id).max().unwrap_or(0) + 1);
             let year = game.season();
@@ -3048,6 +3058,16 @@ impl Game {
                 }
                 b + "."
             }
+            // Seleções sem artigo ("Portugal", não "o Portugal")
+            _ if internationals::is_national_comp(competition_id) => match second {
+                Some(s) => format!(
+                    "{champion} venceu {} {label}, na final contra {}{}.",
+                    self.the_competition(competition_id),
+                    self.club(s).short_name,
+                    self.final_decided(competition_id, year, winner, s)
+                ),
+                None => format!("{champion} venceu {} {label}.", self.the_competition(competition_id)),
+            },
             _ => match second {
                 Some(s) => format!(
                     "O {champion} venceu {} {label}: na final bateu o {}{}.",

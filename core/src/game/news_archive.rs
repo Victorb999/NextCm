@@ -1,6 +1,6 @@
 //! O arquivo das notícias: as das temporadas anteriores saem da caixa de mensagens (e da
 //! memória) para a tabela `news_archive` do save, na virada da temporada do clube do
-//! treinador. Ficam as não lidas e as que têm uma proposta por responder.
+//! treinador. Ficam as do último mês, as não lidas e as que têm uma proposta por responder.
 
 use rusqlite::{OptionalExtension, params};
 
@@ -25,9 +25,12 @@ impl Game {
         }
     }
 
-    /// Arquiva as notícias de antes do começo da temporada (as lidas e sem proposta aberta).
+    /// Arquiva as notícias de antes do último mês da temporada passada (as lidas e sem proposta
+    /// aberta): o fim da temporada continua na caixa.
     pub(super) fn archive_news(&mut self) -> Result<()> {
-        let start = self.own_season_start();
+        let season = self.own_season_start();
+        let year: i32 = season[..4].parse().unwrap_or(2025);
+        let start = if &season[5..7] == "01" { format!("{}-12-01", year - 1) } else { format!("{year}-06-01") };
         let mut keep = Vec::with_capacity(self.news.len());
         let mut moved = 0;
         for n in std::mem::take(&mut self.news) {

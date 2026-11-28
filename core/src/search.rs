@@ -402,6 +402,10 @@ impl World {
         if has("retired")? {
             wheres.push("p.id NOT IN (SELECT person_id FROM retired)".into());
         }
+        // Os de enchimento não servem para nada fora do clube deles
+        if has("ghosts")? {
+            wheres.push("p.id NOT IN (SELECT person_id FROM ghosts)".into());
+        }
         match q.status {
             None => {}
             Some(MarketStatus::Free) => wheres.push("p.is_player = 1 AND p.club_id IS NULL".into()),

@@ -174,6 +174,7 @@ impl Game {
              ORDER BY ability DESC LIMIT 1",
         )?;
         let mut links: Vec<NewsLink> = Vec::new();
+        let mut loose: Vec<usize> = Vec::new();
         for name in names {
             let link = if let Some(&id) = near.get(&name) {
                 Some(("person", id))
@@ -182,10 +183,27 @@ impl Game {
             } else if let Some(&id) = comps.get(&name) {
                 Some(("competition", id))
             } else {
-                anyone.query_row([&name], |r| r.get(0)).optional()?.map(|id| ("person", id))
+                let found = anyone.query_row([&name], |r| r.get(0)).optional()?.map(|id| ("person", id));
+                if found.is_some() {
+                    loose.push(links.len());
+                }
+                found
             };
             if let Some((kind, id)) = link {
                 links.push(NewsLink { text: name, kind: kind.into(), id });
+            }
+        }
+        // Um pedaço do nome de quem a notícia cita ("Williams" de "David Williams") é essa pessoa,
+        // não outra qualquer com esse nome
+        for i in loose {
+            let short = &links[i].text;
+            let full = links.iter().find(|l| {
+                l.kind == "person"
+                    && l.text.len() > short.len()
+                    && l.text.split(' ').collect::<Vec<_>>().windows(short.split(' ').count()).any(|w| w.join(" ") == *short)
+            });
+            if let Some(id) = full.map(|l| l.id) {
+                links[i].id = id;
             }
         }
         links.sort_by(|a, b| b.text.chars().count().cmp(&a.text.chars().count()).then(a.text.cmp(&b.text)));
