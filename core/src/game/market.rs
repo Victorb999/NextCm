@@ -85,6 +85,8 @@ struct SellContext {
     debt: i32,
     /// O peso do clube (a reputação e as continentais).
     pull: i32,
+    /// Os que o clube não deixou sair (`blocked_move`): pedem para sair.
+    frustrated: HashSet<i32>,
 }
 const MAX_LOAN_LISTED: usize = 2;
 /// Nos primeiros dias da janela ([`early_window`]) um negócio a partir disto só passa com
@@ -258,6 +260,9 @@ impl Market {
         }
         self.listings[i].club = to;
         self.listings[i].recent = true;
+        // No clube novo já não está à venda nem pede para sair (senão voltava a ser vendido)
+        self.listed.remove(&id);
+        self.requested.remove(&id);
         if let Some(t) = to {
             self.by_club.entry(t).or_default().push(i);
             self.resort(t);
@@ -538,6 +543,7 @@ impl Game {
 
     pub(super) fn market_day(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
         self.window_news(fresh, next_id)?;
+        self.blocked_news(fresh, next_id)?;
         let mut moved = self.return_loans()?;
         // Os acordos da IA que chegam hoje à assinatura (todos os dias, não só nos de mercado)
         let signed = self.complete_agreements()?;
@@ -574,6 +580,7 @@ impl Game {
             .prepare_cached("SELECT person_id FROM transfer_list WHERE requested = 1")?
             .query_map([], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
+        market.requested.extend(self.frustrated_ids(0)?);
         market.rivals = self.rival_map()?;
         market.nations = self.nation_names()?;
         let mut deals: Vec<TransferItem> = signed;
@@ -733,17 +740,10 @@ impl Game {
             .prepare_cached("SELECT id, COALESCE(temperament, 10) FROM people WHERE club_id = ? AND is_player = 1")?
             .query_map([club], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<rusqlite::Result<_>>()?;
-        let base = self.club_base(club)?;
-        let cash = self.cash_of(club)? as f64;
-        let debt = if cash < -0.1 * base {
-            2
-        } else if cash < 0.0 {
-            1
-        } else {
-            0
-        };
+        let debt = self.debt_level(club)? as i32;
         let pull = self.club_rep(club)? + bonus.get(&club).copied().unwrap_or(0);
-        Ok(SellContext { coach_likes, hates_coach, feuds, temper, debt, pull })
+        let frustrated = self.frustrated_ids(club)?;
+        Ok(SellContext { coach_likes, hates_coach, feuds, temper, debt, pull, frustrated })
     }
 
     /// A vontade de vender um jogador (pontos; vende a partir de [`SELL_AT`]) e se ele pediu
@@ -796,7 +796,7 @@ impl Game {
         // grande demais para o clube (pela reputação dele), ou quem quer jogar e não joga
         let too_big = l.ambition >= 14.0 && l.rep * 50 > ctx.pull + personality::step_down(l.ambition);
         let wants_games = rank >= 16 && (23..=30).contains(&l.age) && l.ambition >= 13.0 && l.ca >= 100;
-        let wants_out = too_big || wants_games;
+        let wants_out = too_big || wants_games || ctx.frustrated.contains(&l.id);
         if wants_out {
             score += 35;
         }
@@ -1065,6 +1065,8 @@ impl Game {
         let mut candidates: Vec<(&Listing, i64, i64)> = Vec::new();
         // O valor do plantel de cada clube que vende (para o indispensável) e o dia da janela
         let mut cores: HashMap<i32, f64> = HashMap::new();
+        // A janela e o saldo de cada clube que vende (uma consulta por clube)
+        let mut sellers: HashMap<i32, (bool, u8)> = HashMap::new();
         for &i in &market.by_role[role] {
             let l = &market.listings[i];
             if l.ca > ceiling {
@@ -1115,9 +1117,9 @@ impl Game {
             {
                 continue;
             }
-            // O clube que vende não fica abaixo do mínimo nem faz mais negócios do que o limite
+            // O clube que vende não faz mais negócios do que o limite
             if let Some(seller) = l.club
-                && (done.get(&seller).copied().unwrap_or(0) >= MAX_DEALS || market.role_count(seller, role) <= MIN_ROLE[role])
+                && done.get(&seller).copied().unwrap_or(0) >= MAX_DEALS
             {
                 continue;
             }
@@ -1126,10 +1128,16 @@ impl Game {
             // do treinador): o listado sai por 90% e quase sempre; o titular custa mais 40%; o
             // indispensável, o acabado de chegar e a venda ao rival muito mais e raramente; um
             // leal até mais 20%
+            // A resistência do clube que vende, à parte (para a frustração do jogador)
+            let mut held = 1.0;
             let (price, mut chance) = match l.club {
                 None => (0.0, 1.0),
                 Some(seller) => {
                     let core = *cores.entry(seller).or_insert_with(|| core_value(market.squad(seller)));
+                    let (little_time, debt) = match sellers.get(&seller) {
+                        Some(&s) => s,
+                        None => *sellers.entry(seller).or_insert((self.little_time(seller)?, self.debt_level(seller)?)),
+                    };
                     let sale = willingness::Sale {
                         listed: market.listed.contains(&l.id),
                         unhappy: market.requested.contains(&l.id),
@@ -1137,8 +1145,12 @@ impl Game {
                         star: l.value() as f64 >= STAR_SHARE * core,
                         recent: false,
                         rival: market.is_rival(club, seller),
+                        // Sem gente na posição: vende na mesma, mas não com a janela a fechar
+                        short: market.role_count(seller, role) <= MIN_ROLE[role] && little_time,
+                        debt,
                     };
                     let (price, chance) = willingness::sale_terms(&sale);
+                    held = chance;
                     let loyal = if sale.listed { 1.0 } else { personality::loyalty_fee(l.loyalty) };
                     (price * loyal, chance)
                 }
@@ -1172,6 +1184,12 @@ impl Game {
                 }
             }
             if chance < 1.0 && uniform(rng) >= chance {
+                // O clube não vendeu quem queria vir: ele pode ficar frustrado
+                if held < 1.0
+                    && let Some(seller) = l.club
+                {
+                    self.block_move(l.id, seller, club, l.ambition, l.loyalty)?;
+                }
                 continue;
             }
             candidates.push((l, fee, wage));

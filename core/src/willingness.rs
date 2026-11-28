@@ -18,6 +18,10 @@ pub struct Sale {
     pub recent: bool,
     /// O comprador é rival do clube.
     pub rival: bool,
+    /// O clube fica sem gente na posição e a janela fecha antes de ele poder repor.
+    pub short: bool,
+    /// O saldo: 0 positivo, 1 no vermelho, 2 em dívida grande. Só aumenta a chance de vender.
+    pub debt: u8,
 }
 
 /// Porque é que o clube resiste à venda (o texto da recusa, como no CM).
@@ -26,6 +30,7 @@ pub enum Holdout {
     Star,
     Recent,
     Rival,
+    Short,
 }
 
 impl Holdout {
@@ -34,6 +39,7 @@ impl Holdout {
             Holdout::Star => "O clube considera o jogador uma peça indispensável do elenco.",
             Holdout::Recent => "O clube acabou de contratar o jogador e aposta nele para o futuro.",
             Holdout::Rival => "O clube não quer reforçar um rival.",
+            Holdout::Short => "O clube não teria tempo de repor o jogador antes de a janela fechar.",
         }
     }
 }
@@ -42,7 +48,9 @@ impl Holdout {
 /// Listado: 90% e quase sempre (ao rival, +20%). Pediu para sair: 15% de desconto e o
 /// "indispensável" pesa metade. Titular: +40%. Indispensável: +15% e 35% (raro, não caro: com
 /// +60% os negócios de €100M+ triplicavam na CLI); acabado de chegar:
-/// +25% e 30%; rival: o dobro e 30%. As resistências multiplicam-se; nunca abaixo de 5%.
+/// +25% e 30%; rival: o dobro e 30%; sem tempo para repor: o mesmo preço e 30% (tudo tem
+/// preço). As resistências multiplicam-se; o clube no vermelho vende 30% mais vezes, em dívida
+/// grande 60%; nunca abaixo de 5%.
 pub fn sale_terms(s: &Sale) -> (f64, f64) {
     if s.listed {
         return if s.rival { (0.9 * 1.2, 0.85) } else { (0.9, 0.97) };
@@ -61,10 +69,14 @@ pub fn sale_terms(s: &Sale) -> (f64, f64) {
         price *= 2.0;
         chance *= 0.3;
     }
+    if s.short {
+        chance *= 0.3;
+    }
     if s.unhappy {
         price *= 0.85;
         chance = (chance * 1.5).min(1.0);
     }
+    chance = (chance * [1.0, 1.3, 1.6][s.debt.min(2) as usize]).min(1.0);
     (price, chance.max(0.05))
 }
 
@@ -77,6 +89,8 @@ pub fn holdout(s: &Sale) -> Option<Holdout> {
         Some(Holdout::Rival)
     } else if s.star && !s.unhappy {
         Some(Holdout::Star)
+    } else if s.short {
+        Some(Holdout::Short)
     } else if s.recent {
         Some(Holdout::Recent)
     } else {
@@ -140,5 +154,16 @@ mod tests {
         assert!((rival_move_chance(20.0, false) - 0.05).abs() < 1e-9);
         assert!((rival_move_chance(1.0, false) - 0.6).abs() < 1e-9);
         assert!(rival_move_chance(10.0, true) > rival_move_chance(10.0, false));
+    }
+
+    #[test]
+    fn short_and_debt_change_only_the_chance() {
+        let short = Sale { short: true, ..Default::default() };
+        assert_eq!(sale_terms(&short), (1.0, 0.3), "sem tempo para repor: o mesmo preço, mais raro");
+        assert_eq!(holdout(&short), Some(Holdout::Short));
+        let broke = Sale { debt: 2, ..short };
+        assert_eq!(sale_terms(&broke).0, 1.0);
+        assert!((sale_terms(&broke).1 - 0.48).abs() < 1e-9);
+        assert!(sale_terms(&Sale { debt: 1, ..short }).1 < sale_terms(&broke).1);
     }
 }

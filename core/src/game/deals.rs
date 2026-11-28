@@ -234,6 +234,8 @@ const BONUS_WEEKS: f64 = 10.0;
 const FREE_BONUS_WEEKS: f64 = 30.0;
 /// Dias antes do fim da janela em que chega o aviso.
 const WINDOW_WARNING_DAYS: i32 = 7;
+/// Com a janela a fechar nestes dias, o clube sem gente na posição já não tem como repor.
+const REPLACE_DAYS: i32 = 14;
 
 /// Uma função da lista "Definir Função No Clube".
 #[derive(Debug, Clone, Serialize, TS)]
@@ -564,6 +566,27 @@ impl Game {
         Ok(window_open(self.kind_of(club)?, &self.date[5..]))
     }
 
+    /// O clube não teria tempo de contratar um substituto: a janela dele fecha nos próximos
+    /// `REPLACE_DAYS` dias (com a janela fechada, a venda só se faz quando ela abrir).
+    pub(super) fn little_time(&self, club: i32) -> Result<bool> {
+        let kind = self.kind_of(club)?;
+        let later = date::add_days(&self.date, REPLACE_DAYS).unwrap_or_default();
+        Ok(window_open(kind, &self.date[5..]) && !window_open(kind, &later[5..]))
+    }
+
+    /// O saldo do clube para a venda: 0 positivo, 1 no vermelho, 2 em dívida grande (mais de
+    /// 10% da receita de referência).
+    pub(super) fn debt_level(&self, club: i32) -> Result<u8> {
+        let cash = self.cash_of(club)? as f64;
+        Ok(if cash < -0.1 * self.club_base(club)? {
+            2
+        } else if cash < 0.0 {
+            1
+        } else {
+            0
+        })
+    }
+
     /// Posição de um jogador no plantel pelo CA (0 = o melhor) e quantos há no papel dele.
     /// O valor médio dos 11 melhores (pelo CA) de um clube.
     pub(super) fn core_value(&self, club: i32) -> Result<f64> {
@@ -604,7 +627,7 @@ impl Game {
         Ok(same.iter().position(|&id| id == person).unwrap_or(same.len()))
     }
 
-    fn squad_rank(&self, club: i32, person: i32, role: usize) -> Result<(usize, usize)> {
+    pub(super) fn squad_rank(&self, club: i32, person: i32, role: usize) -> Result<(usize, usize)> {
         let rows: Vec<(i32, [i32; 4])> = self
             .world
             .conn
@@ -638,14 +661,17 @@ impl Game {
             })
             .optional()?
             .unwrap_or((false, false));
-        let (rank, _) = self.squad_rank(club, person, f.role)?;
+        let (rank, count) = self.squad_rank(club, person, f.role)?;
         Ok(willingness::Sale {
             listed,
-            unhappy: requested,
+            // Pediu para sair, ou ficou frustrado porque o clube não o deixou sair
+            unhappy: requested || self.frustrated(person, club)?,
             starter: rank < 11,
             star: f.value as f64 >= super::market::STAR_SHARE * self.core_value(club)?,
             recent: self.recent(f),
             rival: self.are_rivals(club, self.club_id)?,
+            short: count <= MIN_ROLE[f.role] && self.little_time(club)?,
+            debt: self.debt_level(club)?,
         })
     }
 
@@ -2295,6 +2321,25 @@ Confirme até {}.",
         Ok(())
     }
 
+    /// O clube recusou uma proposta a sério (pelo menos 90% do valor) por quem aceitaria vir:
+    /// a frase para a notícia, se ele ficou frustrado (`blocked_move`).
+    fn blocked_line(&self, person: i32, f: &Facts, seller: i32, fee: i64) -> Result<String> {
+        if (fee as f64) < 0.9 * f.value as f64 {
+            return Ok(String::new());
+        }
+        let unwilling = match self.unwilling_sql()? {
+            Some(sql) => self.world.conn.query_row(&format!("SELECT COUNT(*) > 0 FROM ({sql}) WHERE id = ?"), [person], |r| r.get(0))?,
+            None => false,
+        };
+        if unwilling || !self.block_move(person, seller, self.club_id, f.ambition, f.loyalty)? {
+            return Ok(String::new());
+        }
+        // A notícia é esta (a da Lista Preferencial é para os da IA)
+        self.world.conn.execute("UPDATE blocked_moves SET told = 1 WHERE person_id = ?", [person])?;
+        let name = self.person_name(person)?;
+        Ok(format!(" {name} queria vir e ficou insatisfeito por não o deixarem sair: deve pedir para sair do clube."))
+    }
+
     /// O clube que vende responde a uma proposta do treinador: aceita, faz uma contraproposta
     /// com as condições dele, recusa, ou farta-se depois de várias rondas.
     fn seller_answers(&mut self, o: &Offer, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
@@ -2312,7 +2357,7 @@ Confirme até {}.",
             self.offer_news(fresh, next_id, format!("Proposta por {name}"), body, o.id);
             return Ok(());
         };
-        let (rank, count) = self.squad_rank(seller, o.person, f.role)?;
+        let (rank, _) = self.squad_rank(seller, o.person, f.role)?;
         let on_loan = self.loan_of(o.person)?.is_some() && !loaned_to_buyer;
         let deadline = date::add_days(&self.date, AGREED_DAYS).unwrap_or_default();
         let asking = self.asking_price(o.person, &f, seller)?;
@@ -2367,7 +2412,9 @@ Confirme até {}.",
             return Ok(());
         }
         // O emprestado (ao comprador ou a outro clube) já não conta no plantel do dono
-        if (on_loan && !loaned_elsewhere) || (!loaned_to_buyer && !loaned_elsewhere && count <= MIN_ROLE[f.role]) {
+        // Sem gente na posição o clube vende na mesma (tudo tem preço); sem tempo para repor
+        // resiste (`willingness`)
+        if on_loan && !loaned_elsewhere {
             self.set_status(o.id, "rejected", None)?;
             let body = format!("O {seller_name} recusou a proposta por {name}: não está à venda.");
             self.offer_news(fresh, next_id, format!("Proposta por {name} recusada"), body, o.id);
@@ -2396,8 +2443,9 @@ Confirme até {}.",
             let chance = willingness::sale_chance_for(base, t.fee as f64, asking as f64);
             if uniform(&mut self.deal_rng(o.person, 0x401D ^ o.rounds as u64)) >= chance {
                 self.set_status(o.id, "rejected", None)?;
-                let body =
+                let mut body =
                     format!("O {seller_name} rejeitou a proposta de {} por {name}. {}", super::market::money_text(t.fee), why.text());
+                body.push_str(&self.blocked_line(o.person, &f, seller, t.fee)?);
                 self.offer_news(fresh, next_id, format!("Proposta de transferência de {name} rejeitada"), body, o.id);
                 return Ok(());
             }
@@ -2430,16 +2478,18 @@ Confirme até {}.",
             }
             SellerReply::Reject => {
                 self.set_status(o.id, "rejected", None)?;
-                let body =
+                let mut body =
                     format!("O {seller_name} recusou a sua proposta por {name} ({}): fica muito abaixo do que o clube quer.", t.text());
+                body.push_str(&self.blocked_line(o.person, &f, seller, t.fee)?);
                 self.offer_news(fresh, next_id, format!("Proposta por {name} recusada"), body, o.id);
             }
             SellerReply::Bored => {
                 let until = self.bored(o.id)?;
-                let body = format!(
+                let mut body = format!(
                     "O {seller_name} rejeitou mais uma proposta por {name} e cansou das negociações: não quer ouvir falar de propostas por ele até {}.",
                     cm_date(&until)
                 );
+                body.push_str(&self.blocked_line(o.person, &f, seller, t.fee)?);
                 self.offer_news(fresh, next_id, format!("{seller_name} rompe negociações por {name}"), body, o.id);
             }
         }

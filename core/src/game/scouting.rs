@@ -422,6 +422,24 @@ mod tests {
             assert!(titles.contains(&t), "{t}: {titles:?}");
         }
         assert!(card.sections.iter().all(|s| !s.lines.is_empty()), "{card:?}");
+        // A venda: quanto o clube aceitaria ou que não vende
+        let sale = card.sections.iter().find(|s| s.title == "Transferência").unwrap();
+        assert!(sale.lines.iter().any(|l| l.contains("uns €") || l.contains("sem contrato")), "{:?}", sale.lines);
+        // Um titular do Flamengo: o preço e a situação no clube
+        let star: i32 = g
+            .world
+            .conn
+            .query_row(
+                "SELECT p.id FROM people p JOIN players pl ON pl.person_id = p.id WHERE p.club_id = ? AND p.is_player = 1
+                 ORDER BY pl.current_ability DESC LIMIT 1",
+                [FLAMENGO],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let card = g.write_scout_card(star, "Olheiro Teste", 15, 15).unwrap();
+        let sale = card.sections.iter().find(|s| s.title == "Transferência").unwrap();
+        assert!(sale.lines.iter().any(|l| l.contains("a partir de uns") || l.contains("pelo menos uns")), "{:?}", sale.lines);
+        assert!(sale.lines.iter().any(|l| l.contains("Flamengo")), "{:?}", sale.lines);
         assert!(card.sections.iter().filter_map(|s| s.stars).all(|n| (1..=5).contains(&n)));
         assert_eq!(g.budget_for(far).unwrap().1, None);
         drop(g);

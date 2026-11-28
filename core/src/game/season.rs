@@ -68,7 +68,7 @@ pub struct DivisionStats {
 }
 
 /// Idade numa data ("AAAA-MM-DD").
-/// Potencial dos juniores por ponto das instalações de juniores do clube acima da média (4).
+/// Potencial dos juniores por ponto das instalações de juniores acima do normal para a reputação do clube.
 const YOUTH_FACILITIES: f64 = 0.8;
 /// Potencial dos juniores numa safra boa (+) ou fraca (−).
 const VINTAGE_PA: f64 = 12.0;
@@ -930,44 +930,92 @@ impl Game {
 
     // ---- Juniores (1 de março) ----
 
-    fn youth_intake(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
-        let year: i32 = self.date[0..4].parse().unwrap_or(0);
-        let mut rng = self.season_rng(0x1A7E);
+    /// O nível (PA médio) dos juniores de cada clube vivo num ano: (clube, nação, nível, safra).
+    fn youth_levels(&self, year: i32) -> Result<Vec<(i32, Option<i32>, f64, i32)>> {
         let sql = format!(
-            "SELECT id, nation_id, reputation, COALESCE(training, 4) FROM clubs WHERE division_id IN ({}) ORDER BY id",
+            "SELECT id, nation_id, COALESCE(reputation, 3000), COALESCE(training, 4) FROM clubs WHERE division_id IN ({}) ORDER BY id",
             self.managed_sql(None)
         );
-        let clubs: Vec<(i32, Option<i32>, Option<i32>, i32)> = self
+        let clubs: Vec<(i32, Option<i32>, i32, i32)> = self
             .world
             .conn
             .prepare(&sql)?
             .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
             .collect::<rusqlite::Result<_>>()?;
         let talent = self.nation_talent()?;
-        let mut factory = self.player_factory()?;
-        let mut ours = Vec::new();
+        let nation_of = |n: Option<i32>| n.and_then(|n| talent.get(&n)).copied().unwrap_or(0.0);
         // O investimento da direção nas camadas jovens (Reunião com a Direcção)
         let invested: i32 =
             self.world.conn.query_row("SELECT youth_level FROM board WHERE id = 1", [], |r| r.get(0)).optional()?.unwrap_or(0);
-        for (club, nation, reputation, training) in clubs {
-            // O potencial dos juniores vem da reputação do clube, que não muda no save. Medido no
-            // patch: PA médio dos 11 melhores ≈ 84 + 0,0114 × reputação (Série A ≈ 147, B ≈ 129,
-            // C ≈ 115). Tirado do próprio plantel haveria uma espiral (cada geração puxava a seguinte)
-            let mut level = 84.0 + 0.0114 * reputation.unwrap_or(3000) as f64;
-            if club == self.club_id {
-                level += super::board_meeting::YOUTH_PA * invested.min(super::board_meeting::YOUTH_MAX) as f64;
+        // A formação da nação e as instalações acompanham a reputação, que já está na base:
+        // contam só o desvio do que é normal para clubes dessa reputação
+        let nation_fit = linear_fit(&clubs.iter().map(|c| (c.2 as f64, nation_of(c.1))).collect::<Vec<_>>());
+        let training_fit = linear_fit(&clubs.iter().map(|c| (c.2 as f64, c.3 as f64)).collect::<Vec<_>>());
+        Ok(clubs
+            .into_iter()
+            .map(|(club, nation, reputation, training)| {
+                let rep = reputation as f64;
+                // Medido no patch: PA médio dos 11 melhores ≈ 84 + 0,0114 × reputação (Série A ≈ 147,
+                // B ≈ 129, C ≈ 115). Tirado do próprio plantel haveria uma espiral (cada geração puxava a seguinte)
+                let mut level = 84.0 + 0.0114 * rep;
+                if club == self.club_id {
+                    level += super::board_meeting::YOUTH_PA * invested.min(super::board_meeting::YOUTH_MAX) as f64;
+                }
+                level += nation_of(nation) - (nation_fit.0 + nation_fit.1 * rep);
+                level += YOUTH_FACILITIES * (training as f64 - (training_fit.0 + training_fit.1 * rep));
+                let vintage = self.vintage(club, year);
+                level += VINTAGE_PA * vintage as f64;
+                (club, nation, youth_curve(level), vintage)
+            })
+            .collect())
+    }
+
+    /// Saves de antes do 4.0 (save 81): sorteia de novo o PA dos juniores já criados com a conta
+    /// nova. São os que entraram num 1º de março com 16 anos e ainda estão no clube de origem.
+    pub(super) fn rebalance_youth(&mut self) -> Result<usize> {
+        let sql = format!(
+            "SELECT p.id, p.club_id, CAST(substr(p.club_joined, 1, 4) AS INTEGER), pl.current_ability
+             FROM people p JOIN players pl ON pl.person_id = p.id
+             WHERE p.is_player = 1 AND p.club_joined LIKE '%-03-01' AND substr(p.club_joined, 1, 4) >= '{}'
+               AND p.birth_year = CAST(substr(p.club_joined, 1, 4) AS INTEGER) - 16
+               AND p.id NOT IN (SELECT person_id FROM retired) AND p.id NOT IN (SELECT person_id FROM ghosts)
+             ORDER BY p.id",
+            self.first_year
+        );
+        let rows: Vec<(i32, i32, i32, i32)> = self
+            .world
+            .conn
+            .prepare(&sql)?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut levels: HashMap<i32, HashMap<i32, f64>> = HashMap::new();
+        let mut update = 0;
+        for (id, club, year, ca) in rows {
+            if let std::collections::hash_map::Entry::Vacant(e) = levels.entry(year) {
+                e.insert(self.youth_levels(year)?.into_iter().map(|l| (l.0, l.2)).collect());
             }
-            // 4.5: a formação da nação, as instalações de juniores (0–20, a média é 4) e a safra
-            level += nation.and_then(|n| talent.get(&n)).copied().unwrap_or(0.0);
-            level += YOUTH_FACILITIES * (training - 4) as f64;
-            let vintage = self.vintage(club, year);
-            level += VINTAGE_PA * vintage as f64;
+            // Clube que saiu das ligas vivas: fica como está
+            let Some(&level) = levels[&year].get(&club) else { continue };
+            let mut rng = ChaCha8Rng::seed_from_u64((self.seed as u64) ^ (id as u64).wrapping_mul(0x9E37_79B9) ^ 0x1A7E_0081);
+            let pa = youth_pa(level, ca, &mut rng).max(ca);
+            update += self.world.conn.execute("UPDATE players SET potential_ability = ? WHERE person_id = ?", params![pa, id])?;
+        }
+        Ok(update)
+    }
+
+    fn youth_intake(&mut self, fresh: &mut Vec<NewsItem>, next_id: &mut i32) -> Result<()> {
+        let year: i32 = self.date[0..4].parse().unwrap_or(0);
+        let mut rng = self.season_rng(0x1A7E);
+        let levels = self.youth_levels(year)?;
+        let mut factory = self.player_factory()?;
+        let mut ours = Vec::new();
+        for (club, nation, level, vintage) in levels {
             // Um júnior por ano e, a um em cada três clubes, um segundo; numa geração de ouro, mais dois
             let extra = if vintage > 0 { 2 } else { 0 };
             for _ in 0..1 + rng.next_u32().is_multiple_of(3) as u32 + extra {
                 let position = regen::random_position(&mut rng);
                 let ca = 25 + (rng.next_u32() % 31) as i32;
-                let pa = ((level * (0.75 + 0.5 * uniform(&mut rng))).round() as i32).clamp(ca + 10, 195);
+                let pa = youth_pa(level, ca, &mut rng);
                 let p = regen::NewPlayer {
                     club,
                     nation,
@@ -1005,6 +1053,32 @@ Têm 16 anos e contrato de três anos. Começam no time de reservas.",
     }
 }
 
+/// Acima deste nível dos juniores, cada ponto vale metade (os grandes da Europa não fazem só craques).
+const YOUTH_SOFT_CAP: f64 = 150.0;
+/// Chance de um júnior ser um craque fora da curva, venha de onde vier.
+const YOUTH_GEM: f64 = 0.015;
+
+fn youth_curve(level: f64) -> f64 {
+    if level > YOUTH_SOFT_CAP { YOUTH_SOFT_CAP + (level - YOUTH_SOFT_CAP) / 2.0 } else { level }
+}
+
+/// PA de um júnior: o nível do clube ±15% ou, raramente, um craque (165–200) de qualquer lado.
+fn youth_pa(level: f64, ca: i32, rng: &mut ChaCha8Rng) -> i32 {
+    if uniform(rng) < YOUTH_GEM {
+        return 165 + (rng.next_u32() % 36) as i32;
+    }
+    ((level * (0.85 + 0.3 * uniform(rng))).round() as i32).clamp(ca + 10, 195)
+}
+
+/// Reta dos mínimos quadrados (a, b) de y = a + b·x; sem variação em x, só a média.
+fn linear_fit(points: &[(f64, f64)]) -> (f64, f64) {
+    let n = points.len().max(1) as f64;
+    let (mx, my) = (points.iter().map(|p| p.0).sum::<f64>() / n, points.iter().map(|p| p.1).sum::<f64>() / n);
+    let var: f64 = points.iter().map(|p| (p.0 - mx).powi(2)).sum();
+    let b = if var > 0.0 { points.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum::<f64>() / var } else { 0.0 };
+    (my - b * mx, b)
+}
+
 /// PA de um jogador com PA "aleatório": um pouco acima do CA, com mais margem até aos 23 anos.
 /// O -2 do banco é o aleatório "alto": promessa com mais folga (CA + 25 a 60 até aos 23).
 fn random_potential(ca: i32, pa: Option<i32>, age: i32, rng: &mut ChaCha8Rng) -> i32 {
@@ -1025,6 +1099,20 @@ mod tests {
     use crate::date;
     use crate::league::{SERIE_B, SERIE_D};
     use crate::{NewGame, World};
+
+    #[test]
+    fn youth_potential_is_rarely_elite() {
+        let mut rng = ChaCha8Rng::seed_from_u64(7);
+        let share = |level: f64, rng: &mut ChaCha8Rng| {
+            (0..10_000).filter(|_| youth_pa(youth_curve(level), 40, rng) >= 185).count() as f64 / 10_000.0
+        };
+        // Um clube médio da Série A (~147) quase só dá craques pela sorte; o PSG (~187 antes da curva), uns 15%
+        assert!(share(147.0, &mut rng) < 0.015);
+        let psg = share(187.0, &mut rng);
+        assert!((0.08..0.22).contains(&psg), "{psg}");
+        assert_eq!(linear_fit(&[(0.0, 1.0), (2.0, 5.0)]), (1.0, 2.0));
+        assert_eq!(linear_fit(&[(3.0, 4.0), (3.0, 6.0)]), (5.0, 0.0));
+    }
 
     #[test]
     fn random_potential_minus_two_is_higher() {

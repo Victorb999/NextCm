@@ -186,6 +186,17 @@ fn capital(s: &str) -> String {
     c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str())
 }
 
+/// O dinheiro sem o ",0" dos milhões redondos (€24,0M → €24M).
+fn money(v: i64) -> String {
+    money_text(v).replace(",0M", "M")
+}
+
+/// Um valor "de olheiro": dois algarismos significativos (€12,4M → €12M, €356K → €360K).
+fn about(v: i64) -> i64 {
+    let step = 10f64.powi(((v.max(1) as f64).log10().floor() as i32 - 1).max(3));
+    ((v as f64 / step).round() * step) as i64
+}
+
 fn stars_from(d: f64) -> u8 {
     match d {
         d if d >= 10.0 => 5,
@@ -388,8 +399,8 @@ impl Game {
             if free {
                 lines.push(format!("{scout_short} lembra que {first} está sem contrato e pode assinar já."));
             } else if f.club != Some(self.club_id) {
-                if f.value > 0 {
-                    lines.push(format!("Calcula que ele vale cerca de {}.", money_text(f.value)));
+                if let Some(owner) = self.loan_of(person)?.map(|l| l.0).or(f.club) {
+                    lines.extend(self.sale_lines(person, f, owner, &first)?);
                 }
                 if let Some(exp) = f.expires.as_deref() {
                     let from = date::add_days(exp, -(super::contracts::PRECONTRACT_DAYS as i32)).unwrap_or_default();
@@ -429,6 +440,49 @@ impl Game {
         Ok(ScoutCard { scout: scout_name.into(), date: self.date.clone(), sections })
     }
 
+    /// O que o olheiro sabe da venda: o valor, quanto o clube aceitaria (o preço que a IA pede ao
+    /// treinador, arredondado) e como o clube vê o jogador — as mesmas contas de `seller_answers`.
+    fn sale_lines(&self, person: i32, f: &super::deals::Facts, owner: i32, first: &str) -> Result<Vec<String>> {
+        let club = self.club(owner).short_name;
+        let mut lines = Vec::new();
+        let asking = money(about(self.asking_price(person, f, owner)?));
+        if f.value > 0 {
+            lines.push(format!("Calcula que ele vale cerca de {}.", money(about(f.value))));
+        }
+        let sale = self.sale_view(person, f, owner)?;
+        let holdout = crate::willingness::holdout(&sale);
+        lines.push(if holdout.is_some() {
+            format!("O {club} pede pelo menos uns {asking} e, mesmo assim, deve recusar na maioria das vezes: pagar bem acima disso aumenta as chances.")
+        } else {
+            format!("O {club} deve aceitar uma proposta a partir de uns {asking}.")
+        });
+        lines.push(if sale.listed {
+            format!("O {club} colocou {first} na lista de transferências e quer vendê-lo.")
+        } else if sale.unhappy {
+            format!("{first} pediu para sair, e o {club} não deve criar problemas para vendê-lo.")
+        } else {
+            match holdout {
+                Some(crate::willingness::Holdout::Rival) => format!("Somos rivais do {club}, que cobra o dobro para nos vender alguém."),
+                Some(crate::willingness::Holdout::Star) => format!("O {club} considera {first} uma peça indispensável do elenco."),
+                Some(crate::willingness::Holdout::Short) => {
+                    format!("O {club} tem poucos para a posição de {first} e a janela fecha antes de ele poder repor.")
+                }
+                Some(crate::willingness::Holdout::Recent) => {
+                    format!("{first} chegou há pouco ao {club}, que não quer vendê-lo tão cedo.")
+                }
+                None if sale.starter => format!("{first} é titular no {club}, por isso o clube pede mais por ele."),
+                None => format!("{first} não é titular no {club}, que não deve criar problemas para vendê-lo."),
+            }
+        });
+        if sale.debt > 0 && !sale.listed {
+            lines.push(format!("O {club} está no vermelho e precisa de dinheiro: deve facilitar a venda."));
+        }
+        if let Some((other, fee)) = self.ai_agreement(person)? {
+            lines.push(format!("Atenção: o {club} já acertou a venda ao {} por {}.", self.club(other).short_name, money(fee)));
+        }
+        Ok(lines)
+    }
+
     /// Guarda o cartão (substitui o anterior do mesmo jogador).
     pub(super) fn keep_scout_card(&self, person: i32, card: &ScoutCard) -> Result<()> {
         let json = serde_json::to_string(card).map_err(|e| crate::Error::Invalid(e.to_string()))?;
@@ -443,5 +497,15 @@ impl Game {
         let json: Option<String> =
             self.world.conn.query_row("SELECT card FROM scout_cards WHERE person_id = ?", [person], |r| r.get(0)).optional()?;
         Ok(json.and_then(|j| serde_json::from_str(&j).ok()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn about_rounds_like_a_scout() {
+        assert_eq!(super::about(12_400_000), 12_000_000);
+        assert_eq!(super::about(356_000), 360_000);
+        assert_eq!(super::about(8_700), 9_000);
     }
 }

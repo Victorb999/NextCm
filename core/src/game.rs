@@ -17,6 +17,7 @@ use ts_rs::TS;
 use crate::engine;
 
 mod awards;
+mod blocked_move;
 mod board;
 mod board_meeting;
 mod career_marks;
@@ -197,7 +198,8 @@ pub use training::{AreaStrength, CoachAreas, TrainingPlan, TrainingView};
 /// 76: o relatório completo do olheiro (`scout_cards`), na aba Relatórios do perfil.
 /// 77: a prorrogação nos mata-matas (`fixtures.extra_time`).
 /// 78: a reputação de partida dos clubes (`clubs.base_reputation`); a de hoje muda no fim da temporada.
-pub const SAVE_VERSION: i32 = 80;
+/// 81: o PA dos juniores já criados sorteado de novo com a conta do 4.0 (`Game::rebalance_youth`).
+pub const SAVE_VERSION: i32 = 82;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -942,6 +944,7 @@ impl Game {
             tx.execute_batch(board::SHIFT_SCHEMA)?;
             tx.execute_batch(news_subs::NEWS_SUBS_SCHEMA)?;
             tx.execute_batch(news_archive::NEWS_ARCHIVE_SCHEMA)?;
+            tx.execute_batch(blocked_move::BLOCKED_SCHEMA)?;
             // O saldo do 1.º dia: o do banco escalado, até uma parte das receitas
             let banks: Vec<(i32, i64, i32, Option<i32>)> = tx
                 .prepare("SELECT id, cash, COALESCE(reputation, 0), division_id FROM clubs WHERE cash > 0")?
@@ -1596,6 +1599,18 @@ impl Game {
             world.conn.execute("UPDATE game SET version = 80", [])?;
             version = 80;
         }
+        // Save 81: o PA dos juniores com a conta nova (refeito depois de abrir o jogo)
+        let rebalance_youth = version == 80;
+        if version == 80 {
+            world.conn.execute("UPDATE game SET version = 81", [])?;
+            version = 81;
+        }
+        // Save 82: quem ficou insatisfeito porque o clube não o deixou sair
+        if version == 81 {
+            world.conn.execute_batch(blocked_move::BLOCKED_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 82", [])?;
+            version = 82;
+        }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
                 "Jogo salvo numa versão diferente do NextCM (formato {version}, esperado {SAVE_VERSION})."
@@ -1727,6 +1742,9 @@ impl Game {
         }
         // Saves de antes do PA "aleatório" sorteado ao criar o jogo
         if game.resolve_random_potential()? > 0 {
+            game.unsaved = true;
+        }
+        if rebalance_youth && game.rebalance_youth()? > 0 {
             game.unsaved = true;
         }
         // Saves de antes da direção (ou que ficaram sem ela): cria-a
