@@ -1033,6 +1033,7 @@ impl Game {
             // Como o CM ao começar: os atributos que o patch não define são gerados
             crate::progress::set("Completando os atributos dos jogadores…", 0.2);
             game.fill_missing_attributes()?;
+            game.resolve_random_potential()?;
             crate::progress::set("Sorteando os calendários…", 0.35);
             game.schedule_season(SeasonKind::Calendar, year, &mut fresh, &mut next_id)?;
             game.schedule_season(SeasonKind::European, year, &mut fresh, &mut next_id)?;
@@ -1717,6 +1718,10 @@ impl Game {
         game.league_modes = Game::load_league_modes(&game.world)?;
         // Saves de antes dos atributos gerados: completa-os uma vez
         if game.fill_missing_attributes()? > 0 {
+            game.unsaved = true;
+        }
+        // Saves de antes do PA "aleatório" sorteado ao criar o jogo
+        if game.resolve_random_potential()? > 0 {
             game.unsaved = true;
         }
         // Saves de antes da direção (ou que ficaram sem ela): cria-a
@@ -4978,6 +4983,8 @@ mod tests {
         let dir = temp_dir("preview");
         let palmeiras = 7568;
         let g = Game::create(&world, &dir, &new_game(palmeiras), 6).unwrap();
+        let random_pa: i64 = g.world.conn.query_row("SELECT COUNT(*) FROM players WHERE potential_ability < 0", [], |r| r.get(0)).unwrap();
+        assert_eq!(random_pa, 0, "o PA aleatório sorteia-se ao criar o jogo");
         let first = g.club_fixtures(palmeiras)[0].clone();
         let p = g.match_preview(first.id).unwrap();
         assert!(p.venue.is_some() && p.city.is_some());

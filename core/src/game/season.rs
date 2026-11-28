@@ -827,6 +827,29 @@ impl Game {
         Ok(())
     }
 
+    /// O PA "aleatório" do banco (-1, -2 no CM) sorteado de uma vez, ao criar o jogo (e nos saves
+    /// de antes): sem isso a lista mostrava o número cru até à primeira virada de temporada.
+    pub(super) fn resolve_random_potential(&mut self) -> Result<usize> {
+        let today = self.date.clone();
+        let mut rng = self.season_rng(0x9A7E);
+        type Row = (i32, Option<String>, Option<i32>, Option<i32>, Option<i32>);
+        let rows: Vec<Row> = self
+            .world
+            .conn
+            .prepare(
+                "SELECT p.id, p.birth_date, p.birth_year, pl.current_ability, pl.potential_ability FROM people p JOIN players pl ON pl.person_id = p.id
+                 WHERE pl.potential_ability < 0 ORDER BY p.id",
+            )?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut set = self.world.conn.prepare("UPDATE players SET potential_ability = ? WHERE person_id = ?")?;
+        for (id, birth, birth_year, ca, pa) in &rows {
+            let ca = ca.unwrap_or(1).max(1);
+            set.execute([random_potential(ca, *pa, age_on(birth.as_deref(), *birth_year, &today), &mut rng), *id])?;
+        }
+        Ok(rows.len())
+    }
+
     // ---- Evolução do CA (dia 1 de cada mês) ----
 
     fn develop(&mut self) -> Result<()> {
@@ -863,10 +886,7 @@ impl Game {
             // PA negativo = "aleatório" no CM: fica fixo na primeira vez
             let pa_new = match pa {
                 Some(p) if p > 0 => p.max(ca),
-                _ => {
-                    let extra = if age <= 23 { 10 + rng.next_u32() % 31 } else { rng.next_u32() % 8 };
-                    (ca + extra as i32).min(200)
-                }
+                _ => random_potential(ca, pa, age, &mut rng),
             };
             let keeper = gk.unwrap_or(0) >= 15;
             let gap = (pa_new - ca) as f64;
@@ -985,6 +1005,18 @@ Têm 16 anos e contrato de três anos. Começam no time de reservas.",
     }
 }
 
+/// PA de um jogador com PA "aleatório": um pouco acima do CA, com mais margem até aos 23 anos.
+/// O -2 do banco é o aleatório "alto": promessa com mais folga (CA + 25 a 60 até aos 23).
+fn random_potential(ca: i32, pa: Option<i32>, age: i32, rng: &mut ChaCha8Rng) -> i32 {
+    let extra = match (pa == Some(-2), age <= 23) {
+        (true, true) => 25 + rng.next_u32() % 36,
+        (true, false) => 5 + rng.next_u32() % 11,
+        (false, true) => 10 + rng.next_u32() % 31,
+        (false, false) => rng.next_u32() % 8,
+    };
+    (ca + extra as i32).min(200)
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -993,6 +1025,18 @@ mod tests {
     use crate::date;
     use crate::league::{SERIE_B, SERIE_D};
     use crate::{NewGame, World};
+
+    #[test]
+    fn random_potential_minus_two_is_higher() {
+        let mut rng = ChaCha8Rng::seed_from_u64(1);
+        for _ in 0..200 {
+            assert!((105..=140).contains(&random_potential(80, Some(-2), 18, &mut rng)));
+            assert!((90..=120).contains(&random_potential(80, Some(-1), 18, &mut rng)));
+            assert!((85..=95).contains(&random_potential(80, Some(-2), 28, &mut rng)));
+            assert!((80..=87).contains(&random_potential(80, Some(-1), 28, &mut rng)));
+        }
+        assert_eq!(random_potential(190, Some(-2), 18, &mut rng), 200);
+    }
 
     fn temp_dir(name: &str) -> crate::TempDir {
         crate::TempDir::new(format!("nextcm-season-{name}-{}", std::process::id()))
