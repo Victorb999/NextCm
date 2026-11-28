@@ -166,6 +166,10 @@ pub struct TransferView {
     /// Os Comentários do agente na proposta de transferência (FM08): o que o clube procura, a
     /// cláusula, o prazo e os extras. Vazio para os do treinador e os livres.
     pub comments: Vec<String>,
+    /// As condições da última proposta do treinador por ele (transferência e empréstimo): as da
+    /// contraproposta do clube, se a houve, ou as que o treinador ofereceu. Abrem o diálogo.
+    pub last_deal: Option<DealTerms>,
+    pub last_loan: Option<LoanTerms>,
 }
 
 /// Funções no clube ("Definir Função No Clube" do CM): chave, texto e peso (0 = a mais
@@ -352,6 +356,8 @@ pub(super) struct Offer {
     pub(super) apps_needed: i32,
     pub(super) caps_bonus: i64,
     pub(super) caps_needed: i32,
+    pub(super) firm: bool,
+    pub(super) deadline: i32,
     pub(super) public: bool,
     pub(super) exchange: Option<i32>,
 }
@@ -396,7 +402,7 @@ impl Facts {
     }
 }
 
-const OFFER_COLUMNS: &str = "id, kind, person_id, buyer, seller, fee, asked, status, answer_on, months, sell_on, apps_bonus, rounds, loan_months, wage_share, monthly_fee, option_fee, apps_needed, public, exchange, caps_bonus, caps_needed";
+const OFFER_COLUMNS: &str = "id, kind, person_id, buyer, seller, fee, asked, status, answer_on, months, sell_on, apps_bonus, rounds, loan_months, wage_share, monthly_fee, option_fee, apps_needed, public, exchange, caps_bonus, caps_needed, firm, deadline";
 
 fn offer_row(r: &rusqlite::Row) -> rusqlite::Result<Offer> {
     Ok(Offer {
@@ -422,6 +428,8 @@ fn offer_row(r: &rusqlite::Row) -> rusqlite::Result<Offer> {
         exchange: r.get(19)?,
         caps_bonus: r.get(20)?,
         caps_needed: r.get(21)?,
+        firm: r.get(22)?,
+        deadline: r.get(23)?,
     })
 }
 
@@ -1004,6 +1012,8 @@ impl Game {
             expenses: self.expenses(person, mine)?,
             clauses: self.clauses(person, mine)?,
             comments: if mine || f.is_free() || loan.is_some() { Vec::new() } else { self.offer_comments(person, &f)? },
+            last_deal: self.last_offer(person, "transfer")?.map(|o| o.deal_terms()),
+            last_loan: self.last_offer(person, "loan")?.map(|o| o.loan_terms()),
             person_id: person,
             mine,
             free: f.is_free(),
@@ -1484,6 +1494,11 @@ impl Game {
         Ok(if self.wants_exchange(club, &xf)? { xf.value as f64 * EXCHANGE_WORTH } else { 0.0 })
     }
 
+    /// A última proposta do treinador por um jogador (de um tipo), em aberto ou já respondida.
+    fn last_offer(&self, person: i32, kind: &str) -> Result<Option<Offer>> {
+        Ok(self.offers_where("person_id = ? AND buyer = ? AND kind = ?", params![person, self.club_id, kind])?.pop())
+    }
+
     /// A proposta do treinador por um jogador que espera a decisão dele (contraproposta do
     /// clube): a nova proposta substitui-a e conta como mais uma ronda.
     fn countered(&self, person: i32, kind: &str) -> Result<Option<Offer>> {
@@ -1565,7 +1580,7 @@ impl Game {
                     );
                     self.post_news_as("deal", format!("Proposta pública por {name}"), body);
                 }
-                let reply = self.reply_on(person, REPLY_DAYS);
+                let reply = self.reply_on(person, terms.reply_days());
                 let id = match countered {
                     Some(c) => {
                         self.world.conn.execute(
@@ -2440,7 +2455,10 @@ Confirme até {}.",
         let sale = self.sale_view(o.person, &f, seller)?;
         if let Some(why) = willingness::holdout(&sale) {
             let base = willingness::sale_terms(&sale).1;
-            let chance = willingness::sale_chance_for(base, t.fee as f64, asking as f64);
+            let mut chance = willingness::sale_chance_for(base, t.fee as f64, asking as f64);
+            if t.deadline == 1 {
+                chance *= super::negotiation::RUSHED;
+            }
             if uniform(&mut self.deal_rng(o.person, 0x401D ^ o.rounds as u64)) >= chance {
                 self.set_status(o.id, "rejected", None)?;
                 let mut body =
@@ -2464,6 +2482,14 @@ Confirme até {}.",
                     cm_date(&deadline)
                 );
                 self.offer_news(fresh, next_id, format!("Proposta por {name} aceito"), body, o.id);
+            }
+            // Não negociável: em vez da contraproposta, recusa
+            SellerReply::Counter(_) if t.firm => {
+                self.set_status(o.id, "rejected", None)?;
+                let mut body =
+                    format!("O {seller_name} recusou a sua proposta não negociável por {name} ({}): queria outras condições.", t.text());
+                body.push_str(&self.blocked_line(o.person, &f, seller, t.fee)?);
+                self.offer_news(fresh, next_id, format!("Proposta por {name} recusada"), body, o.id);
             }
             SellerReply::Counter(c) => {
                 self.set_terms(o.id, &c, &o.loan_terms())?;
@@ -3107,6 +3133,52 @@ mod tests {
     }
 
     #[test]
+    fn firm_offer_with_a_deadline() {
+        let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
+        let dir = crate::TempDir::new(format!("nextcm-firme-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let new = crate::NewGame {
+            save_name: "Firme".into(),
+            first_name: "Victor".into(),
+            last_name: "Araujo".into(),
+            birth_date: None,
+            nation_id: None,
+            club_id: PALMEIRAS,
+            leagues: Vec::new(),
+            start: Default::default(),
+            license: 0,
+            real_players: true,
+            masking: true,
+            experience: 0,
+            favourite_club: None,
+        };
+        let mut g = Game::create(&path, &dir, &new, 3).unwrap();
+        g.world.conn.execute("UPDATE clubs SET cash = 200000000 WHERE id = ?", [PALMEIRAS]).unwrap();
+        g.refresh_budgets().unwrap();
+        let targets = for_sale(&g);
+        // A mesma proposta que no `manager_buys_sells_and_renews` dá contraproposta
+        let (haggle, ask) = targets[1];
+        let terms = DealTerms { fee: (ask as f64 * 0.7) as i64 + 10_000, firm: true, deadline: 1, ..Default::default() };
+        assert!(g.make_offer(haggle, &DealTerms { deadline: 3, ..terms }).is_err(), "prazo de amanhã ou uma semana");
+        g.make_offer(haggle, &terms).unwrap();
+        let (answer, firm): (String, bool) = g
+            .world
+            .conn
+            .query_row("SELECT answer_on, firm FROM offers WHERE person_id = ? AND buyer = ?", params![haggle, PALMEIRAS], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert!(firm && answer <= date::add_days(&g.date, 1).unwrap(), "responde até amanhã: {answer}");
+        for _ in 0..2 {
+            g.advance_day().unwrap();
+        }
+        assert_eq!(g.transfer_view(haggle).unwrap().offer.map(|o| o.status), None, "não negociável: recusa em vez de contrapor");
+        assert!(g.news().iter().any(|n| n.body.contains("não negociável")));
+        drop(g);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn manager_buys_sells_and_renews() {
         let Some(path) = crate::World::locate(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))) else { return };
         let dir = crate::TempDir::new(format!("nextcm-negocios-{}", std::process::id()));
@@ -3344,7 +3416,13 @@ Palmeiras fez uma nova proposta."
         assert_eq!(g.facts(free).unwrap().unwrap().club, Some(rival));
 
         // Um emprestado ao treinador compra-se ao clube dono: a proposta vai para o Flamengo
-        let lent = for_sale(&g).into_iter().map(|t| t.0).find(|&id| g.open_offer(id).unwrap().is_none()).unwrap();
+        // (o triplo do valor tem de caber no orçamento da diretoria)
+        let budget = g.transfer_budget().unwrap();
+        let lent = for_sale(&g)
+            .into_iter()
+            .map(|t| t.0)
+            .find(|&id| g.open_offer(id).unwrap().is_none() && g.facts(id).unwrap().unwrap().value * 3 <= budget)
+            .unwrap();
         g.execute_loan(lent, FLAMENGO, PALMEIRAS, &LoanTerms::default()).unwrap();
         let view = g.transfer_view(lent).unwrap();
         assert!(view.can_offer && !view.mine, "comprável ao dono");

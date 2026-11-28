@@ -442,7 +442,7 @@ impl Game {
 
     /// O que o olheiro sabe da venda: o valor, quanto o clube aceitaria (o preço que a IA pede ao
     /// treinador, arredondado) e como o clube vê o jogador — as mesmas contas de `seller_answers`.
-    fn sale_lines(&self, person: i32, f: &super::deals::Facts, owner: i32, first: &str) -> Result<Vec<String>> {
+    pub(super) fn sale_lines(&self, person: i32, f: &super::deals::Facts, owner: i32, first: &str) -> Result<Vec<String>> {
         let club = self.club(owner).short_name;
         let mut lines = Vec::new();
         let asking = money(about(self.asking_price(person, f, owner)?));

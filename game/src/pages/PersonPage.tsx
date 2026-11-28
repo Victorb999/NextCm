@@ -5,6 +5,7 @@ import PersonalPanel from './person/PersonalPanel'
 import PersonHeader from './person/PersonHeader'
 import Profile from './person/Profile'
 import ScoutReport from './person/ScoutReport'
+import OfferDialog, { type OfferKind } from './person/OfferDialog'
 import { Binoculars, ChevronDown, FileSignature, HeartPulse, History, Medal, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
@@ -27,6 +28,9 @@ import { personActions, takePendingAct } from '../personActions'
 import { useGame } from '../game'
 import { useNav } from '../nav'
 import { money } from '../format'
+import type { DealTerms } from '../bindings/DealTerms'
+import type { LoanTerms } from '../bindings/LoanTerms'
+import { takePendingTerms } from '../transferTerms'
 
 const TABS = [
   { key: 'profile', label: 'Perfil Geral', icon: User },
@@ -51,6 +55,8 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
   // A situação de mercado do jogador (para o menu Acção) e o diálogo aberto
   const [market, setMarket] = useState<TransferView | null>(null)
   const [deal, setDeal] = useState<TransferAction | null>(null)
+  // A proposta por ele (o diálogo largo) e as condições com que abre
+  const [offering, setOffering] = useState<{ kind: OfferKind; deal?: DealTerms; loan?: LoanTerms } | null>(null)
   const [version, setVersion] = useState(0)
   const [text, setText] = useState<'nickname' | 'note' | null>(null)
   const [release, setRelease] = useState<string | null>(null)
@@ -191,7 +197,12 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
 
   const act = (k: string) => {
     if (k === 'contract' || k === 'renew') nav.go({ kind: 'contract', id })
-    else if (k === 'offer' || k === 'loan' || k === 'price' || k === 'shop') setDeal(k)
+    else if (k === 'offer' || k === 'loan') {
+      // As condições guardadas ("Nova Proposta") ou as da última proposta: a contraproposta do
+      // clube ou o que se ofereceu da vez que ele recusou
+      const p = takePendingTerms(id)
+      setOffering({ kind: k, deal: p?.deal ?? m?.lastDeal ?? undefined, loan: p?.loan ?? m?.lastLoan ?? undefined })
+    } else if (k === 'price' || k === 'shop') setDeal(k)
     // A opção de compra deixa a mensagem com o contrato a negociar: volta às Notícias
     else if (k === 'option') void api.exerciseOption(id).then(toNews, (e) => setError(String(e)))
     else if (k === 'nickname' || k === 'note') setText(k)
@@ -342,7 +353,12 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
             {game.mode === 'game' && person.player && !person.retired && (
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <Panel title="Mercado">
-                  <TransferTab personId={id} version={version} onChanged={() => void reload()} />
+                  <TransferTab
+                    personId={id}
+                    version={version}
+                    onChanged={() => void reload()}
+                    onAgain={(o) => setOffering(o.kind === 'loan' ? { kind: 'loan', loan: o.loan } : { kind: 'offer', deal: o.deal })}
+                  />
                   {buttonRow(marketButtons)}
                 </Panel>
                 {!!person.status?.unhappy.length && (
@@ -377,6 +393,23 @@ export default function PersonPage({ id, tab: startTab }: { id: number; tab?: st
         {person && !person.ghost && tab === 'scout' && <ScoutReport p={person} />}
       </div>
       <BottomBar onLeft={nav.canBack ? nav.back : undefined} onRight={nav.canForward ? nav.forward : undefined} />
+      {offering && market && person && (
+        <OfferDialog
+          key={`${offering.kind}-${version}`}
+          view={market}
+          name={person.name}
+          kind={offering.kind}
+          deal={offering.deal}
+          loan={offering.loan}
+          onCancel={() => setOffering(null)}
+          onSent={(v) => {
+            setOffering(null)
+            setMarket(v)
+            // A resposta chega às Notícias: volta à tela de onde se veio
+            toNews()
+          }}
+        />
+      )}
       {deal && market && person && (
         <TransferActions
           action={deal}

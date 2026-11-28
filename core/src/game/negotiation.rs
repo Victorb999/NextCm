@@ -52,6 +52,19 @@ const BORED_DAYS: i32 = 30;
 pub(super) const COUNTER_DAYS: i32 = 7;
 /// Dias para os clubes responderem (o primeiro e o último possíveis).
 pub(super) const REPLY_DAYS: (i32, i32) = (1, 4);
+/// Com o prazo de amanhã o clube decide sob pressão: quando resiste à venda, aceita 20% menos vezes.
+pub(super) const RUSHED: f64 = 0.8;
+
+impl DealTerms {
+    /// O dia da resposta pelo prazo escolhido (sem prazo, de 1 a 4 dias).
+    pub(super) fn reply_days(&self) -> (i32, i32) {
+        match self.deadline {
+            1 => (1, 1),
+            7 => (7, 7),
+            _ => REPLY_DAYS,
+        }
+    }
+}
 /// Empréstimos: quem não está nos `LOAN_KEEP` melhores do plantel pode sair; os que estão
 /// fora dos 18 melhores (e jovens, ou fora dos 22) saem com metade do salário pago, os outros
 /// só com o salário todo e 1% do valor por mês.
@@ -91,6 +104,12 @@ pub struct DealTerms {
     /// Um jogador do plantel do treinador que vai na troca.
     #[serde(default)]
     pub exchange: Option<i32>,
+    /// Não negociável: o clube só aceita ou recusa, sem contraproposta.
+    #[serde(default)]
+    pub firm: bool,
+    /// Prazo da decisão: 0 (o clube decide quando), 1 (amanhã, pressiona) ou 7 (uma semana).
+    #[serde(default)]
+    pub deadline: i32,
 }
 
 /// Condições de um pedido de empréstimo.
@@ -138,6 +157,9 @@ impl DealTerms {
         }
         if self.caps_bonus < 0 {
             return Err(Error::Invalid("O valor por jogos pela seleção não pode ser negativo.".into()));
+        }
+        if ![0, 1, 7].contains(&self.deadline) {
+            return Err(Error::Invalid("O prazo da decisão é amanhã ou uma semana.".into()));
         }
         Ok(())
     }
@@ -362,6 +384,8 @@ impl Offer {
             caps_needed: self.caps_needed,
             public: self.public,
             exchange: self.exchange,
+            firm: self.firm,
+            deadline: self.deadline,
         }
     }
 
@@ -386,7 +410,8 @@ impl Game {
     pub(super) fn set_terms(&self, id: i32, d: &DealTerms, l: &LoanTerms) -> Result<()> {
         self.world.conn.execute(
             "UPDATE offers SET fee = ?, months = ?, sell_on = ?, apps_bonus = ?, loan_months = ?, wage_share = ?, monthly_fee = ?,
-                    option_fee = ?, apps_needed = ?, public = ?, exchange = ?, caps_bonus = ?, caps_needed = ? WHERE id = ?",
+                    option_fee = ?, apps_needed = ?, public = ?, exchange = ?, caps_bonus = ?, caps_needed = ?, firm = ?, deadline = ?
+             WHERE id = ?",
             params![
                 d.fee,
                 d.months,
@@ -401,6 +426,8 @@ impl Game {
                 d.exchange,
                 d.caps_bonus,
                 d.caps(),
+                d.firm,
+                d.deadline,
                 id
             ],
         )?;

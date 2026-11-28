@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import type { DealTerms } from '../bindings/DealTerms'
 import type { ExchangeCandidate } from '../bindings/ExchangeCandidate'
-import type { LoanTerms } from '../bindings/LoanTerms'
 import { currency, money, moneyNext, wage } from '../format'
+import { INSTALMENTS, SELL_ON, nextCaps, nextGames } from '../transferTerms'
 import { DialogFrame, DialogRow, Overlay } from './Dialog'
 import MoneySelect from './MoneySelect'
 
@@ -77,7 +77,7 @@ export function FeeDialog({
 }
 
 /** − valor + a percorrer uma lista de opções (prestações, percentagens, durações). */
-function Choice<T>({ value, options, onChange }: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
+export function Choice<T>({ value, options, onChange }: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
   const i = Math.max(
     0,
     options.findIndex((o) => o[0] === value),
@@ -96,13 +96,6 @@ function Choice<T>({ value, options, onChange }: { value: T; options: [T, string
   )
 }
 
-const INSTALMENTS: [number, string][] = [
-  [0, '-'],
-  [6, '6 meses'],
-  [12, '12 meses'],
-  [24, '24 meses'],
-  [36, '36 meses'],
-]
 // Os valores da lista amarela do CM
 const PRESETS = [
   0, 100_000, 500_000, 1_000_000, 5_000_000, 15_000_000, 30_000_000, 50_000_000, 75_000_000, 100_000_000, 125_000_000, 150_000_000,
@@ -179,7 +172,7 @@ function OfferRow({ label, active, children }: { label: ReactNode; active: boole
 }
 
 /** − valor ▾ + em euros, com os passos do − / + e a lista amarela do ▾ (na moeda das Definições). */
-function MoneyCell({ value, onChange }: { value: number; onChange: (eur: number) => void }) {
+export function MoneyCell({ value, onChange }: { value: number; onChange: (eur: number) => void }) {
   const rate = currency().rate
   const step = (dir: 1 | -1) => onChange(Math.max(0, Math.round(moneyNext(Math.round(value * rate), dir) / rate)))
   // O campo que abriu a lista (null = fechada)
@@ -222,26 +215,12 @@ function MoneyCell({ value, onChange }: { value: number; onChange: (eur: number)
   )
 }
 
-/** 10 → 20 → ... → 50 → 10 jogos. */
-const nextGames = (n: number) => (n >= 50 ? 10 : n + 10)
-const nextCaps = (n: number) => (n >= 25 ? 5 : n + 5)
-
-const SELL_ON: [number, string][] = Array.from({ length: 11 }, (_, i) => [i * 5, i ? `${i * 5}%` : '-'])
-const LOAN_LENGTH: [number, string][] = [
-  [0, 'Fim da temporada'],
-  [6, '6 meses'],
-  [12, '1 ano'],
-]
-const WAGE_SHARE: [number, string][] = [0, 25, 50, 75, 100].map((v) => [v, `${v}%`])
-/** A taxa mensal do empréstimo, em % do salário do mês. */
-const FEE_PCT = [0, 10, 25, 50, 75, 100, 150, 200]
-
 /** Um jogador do treinador que pode ir na troca. */
 export type ExchangeOption = { id: number; name: string; position: string; age: number | null; wage: number | null }
 
 /** "Adicionar Jogador à Proposta" do CM: os jogadores do plantel que o clube aceita na
  *  troca, ou o aviso de que não tem interesse numa troca. */
-function ExchangePicker({
+export function ExchangePicker({
   club,
   squad,
   exchangeable,
@@ -559,79 +538,6 @@ export function ShopDialog({
             - O departamento administrativo vai enviar esta proposta a todos os clubes
             {rivals ? ' (menos os rivais)' : ''}. Você será avisado nos próximos dias se houver interesse.
           </div>
-        </div>
-        {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
-      </DialogFrame>
-    </Overlay>
-  )
-}
-
-/** Pedido de empréstimo: duração, parte do salário, taxa mensal e opção de compra. */
-export function LoanDialog({
-  name,
-  club,
-  wage,
-  weeklyWage,
-  initial,
-  error,
-  onCancel,
-  onOk,
-}: {
-  name: string
-  club: string
-  wage: string
-  /** O salário semanal em euros (o do banco), para a taxa mensal em %. */
-  weeklyWage: number
-  initial: LoanTerms
-  error?: string | null
-  onCancel: () => void
-  onOk: (t: LoanTerms) => void
-}) {
-  const [t, setT] = useState(initial)
-  const set = (p: Partial<LoanTerms>) => setT((old) => ({ ...old, ...p }))
-  useDialogKeys(onCancel, () => onOk(t))
-  // A taxa mensal em % do salário do mês (o core recebe o valor em euros)
-  const monthly = (weeklyWage * 52) / 12
-  const feeOf = (pct: number) => Math.round((monthly * pct) / 100)
-  // As percentagens e, se a taxa pedida (uma contraproposta) não for nenhuma delas, ela também
-  const feeOptions: [number, string][] = FEE_PCT.map((p): [number, string] => [feeOf(p), p === 0 ? '0%' : `${p}% (${money(feeOf(p))})`])
-  if (!feeOptions.some((o) => o[0] === t.monthlyFee)) {
-    const p = monthly > 0 ? Math.round((t.monthlyFee / monthly) * 100) : 0
-    feeOptions.push([t.monthlyFee, `${p}% (${money(t.monthlyFee)})`])
-    feeOptions.sort((a, b) => a[0] - b[0])
-  }
-  // "=": a taxa que cobre o resto do salário (o que o clube dono continua a pagar)
-  const cover = Math.max(0, 100 - t.wageShare)
-  return (
-    <Overlay>
-      <DialogFrame title={`Empréstimo de ${name}`} width={680} onCancel={onCancel} onOk={() => onOk(t)} cancelLabel="Atrás" okLabel="Pedir">
-        <div className="pb-2 text-[17px] leading-tight text-white">
-          {name}, {club}, ganha {wage}.
-        </div>
-        <div className="cm-zebra rounded [&>*]:px-2">
-          <DialogRow wide label="Duração">
-            <Choice value={t.months} options={LOAN_LENGTH} onChange={(months) => set({ months })} />
-          </DialogRow>
-          <DialogRow wide label="Salário Pago">
-            <Choice value={t.wageShare} options={WAGE_SHARE} onChange={(wageShare) => set({ wageShare })} />
-          </DialogRow>
-          <DialogRow wide label="Taxa Mensal">
-            <Choice value={t.monthlyFee} options={feeOptions} onChange={(monthlyFee) => set({ monthlyFee })} />
-            <button
-              className="cm-purple h-7 w-8"
-              title={`Taxa que cobre o resto do salário (${cover}%)`}
-              disabled={monthly <= 0}
-              onClick={() => set({ monthlyFee: feeOf(cover) })}
-            >
-              =
-            </button>
-          </DialogRow>
-          <DialogRow wide label="Opção de Compra">
-            <MoneySelect value={t.optionFee} onChange={(optionFee) => set({ optionFee })} />
-          </DialogRow>
-        </div>
-        <div className="pt-2 text-[15px] text-white">
-          Sem opção de compra, deixe o valor em zero. O {club} responde dentro de alguns dias.
         </div>
         {error && <div className="pt-2 text-[15px] font-bold text-[#ffb0a0]">{error}</div>}
       </DialogFrame>

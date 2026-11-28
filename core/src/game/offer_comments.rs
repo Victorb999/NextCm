@@ -81,6 +81,13 @@ impl Game {
             out.push(format!("Com {} anos, o {seller} deve pedir uma porcentagem da próxima venda.", f.age));
         }
         out.push("Valores por jogos ou jogos pela seleção contam menos do que o pagamento à vista.".into());
+        // O que o olheiro sabe da venda (o preço que o clube aceita e a situação): só com o
+        // relatório dele (conhecer o jogador não basta)
+        if self.scout_card(person)?.is_some() {
+            let first = self.person_name(person)?.split_whitespace().last().unwrap_or_default().to_string();
+            let owner = self.loan_of(person)?.map_or(club, |l| l.0);
+            out.extend(self.sale_lines(person, f, owner, &first)?.into_iter().filter(|l| !l.starts_with("Calcula")));
+        }
         if let Some(ends) = &f.expires {
             let left = date::parse(ends).unwrap_or(0) - date::parse(&self.date).unwrap_or(0);
             if (0..=super::contracts::PRECONTRACT_DAYS).contains(&(left as i64)) {
@@ -131,6 +138,11 @@ mod tests {
         assert!(view.comments.len() >= 4, "{:?}", view.comments);
         assert!(view.comments[0].contains("procura") || view.comments[0].contains("composto"));
         assert!(view.comments.iter().any(|c| c.contains("responde até")));
+        assert!(!view.comments.iter().any(|c| c.contains("uns €")), "sem relatório do olheiro, sem o preço: {:?}", view.comments);
+        // Com o relatório, o preço que o clube aceita
+        let card = g.write_scout_card(person, "Olheiro", 15, 15).unwrap();
+        g.keep_scout_card(person, &card).unwrap();
+        assert!(g.transfer_view(person).unwrap().comments.iter().any(|c| c.contains("uns €")));
         // Os do treinador não têm comentários
         let mine: i32 =
             g.world.conn.query_row("SELECT id FROM people WHERE club_id = 7568 AND is_player = 1 LIMIT 1", [], |r| r.get(0)).unwrap();

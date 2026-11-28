@@ -4,11 +4,12 @@ import type { ReactNode } from 'react'
 import { api } from '../api'
 import type { OfferView } from '../bindings/OfferView'
 import type { TransferView } from '../bindings/TransferView'
-import { cmDate, money, wage } from '../format'
+import { cmDate, money } from '../format'
 import { useGame } from '../game'
 import { useNav } from '../nav'
-import { budgetText } from '../transferTerms'
-import { LoanDialog, TransferOfferDialog } from './DealDialogs'
+import { setPendingAct } from '../personActions'
+import { setPendingTerms } from '../transferTerms'
+import { TransferOfferDialog } from './DealDialogs'
 import RenewalDialog from './RenewalDialog'
 import { GREEN_FIELD, Overlay } from './Dialog'
 import { Empty, Link } from './Screen'
@@ -17,20 +18,25 @@ import { Empty, Link } from './Screen'
 // disponibilidade, valor, propostas, interessados e o futuro, com a proposta em curso e os
 // botões dela. As acções (Abordar Para Comprar, as listas...) vêm do perfil.
 
-/** Botões de uma proposta (mensagens e perfil); "counter", "offer" e "negotiate" abrem diálogos. */
+/** Botões de uma proposta (mensagens e perfil); "counter" e "negotiate" abrem diálogos e
+ *  "offer" (Nova Proposta) a tela da proposta no perfil, com as condições anteriores. */
 export function OfferButtons({
   offer,
   onChange,
   onNegotiate,
+  onAgain,
   actionsTarget,
 }: {
   offer: OfferView
   onChange: (o: OfferView) => void
   onNegotiate: () => void
+  /** Já no perfil do jogador: abre lá a proposta (sem ele, vai para o perfil). */
+  onAgain?: (o: OfferView) => void
   /** Os botões noutro sítio (a barra da lista das Notícias, como no CM). */
   actionsTarget?: HTMLElement | null
 }) {
   const game = useGame()
+  const nav = useNav()
   const [error, setError] = useState<string | null>(null)
   const [counter, setCounter] = useState(false)
   const [renewal, setRenewal] = useState(false)
@@ -44,14 +50,11 @@ export function OfferButtons({
     : offer.fee > 0
       ? `Contratar ${offer.name} por ${money(offer.fee)}?`
       : `Contratar ${offer.name} a custo zero?`
-  // "Nova Proposta" / "Novo Pedido": a aba do jogador dá o valor e o orçamento
-  const [again, setAgain] = useState<TransferView | null>(null)
   const done = async (o: OfferView) => {
     onChange(o)
     setError(null)
     setCounter(false)
     setRenewal(false)
-    setAgain(null)
     const info = await api.gameInfo()
     if (info) game.update(info)
   }
@@ -69,22 +72,18 @@ export function OfferButtons({
       setError(String(e))
     }
   }
-  const resend = async (f: () => Promise<TransferView>) => {
-    try {
-      const v = await f()
-      await done(v.offer ?? (await api.offerView(offer.id)))
-    } catch (e) {
-      setError(String(e))
-    }
-  }
   const portal = (node: ReactNode) => (actionsTarget ? createPortal(node, actionsTarget) : node)
   const click = (key: string) => {
     if (asking && key === 'confirm') setConfirmSale(true)
     else if (key === 'counter') setCounter(true)
     else if (key === 'negotiate' && offer.kind === 'renewal') setRenewal(true)
     else if (key === 'negotiate') onNegotiate()
-    else if (key === 'offer') api.transferView(offer.personId).then(setAgain, (e) => setError(String(e)))
-    else void answer(key)
+    else if (key === 'offer' && onAgain) onAgain(offer)
+    else if (key === 'offer') {
+      setPendingTerms(offer.personId, offer.kind === 'loan' ? undefined : offer.deal, offer.kind === 'loan' ? offer.loan : undefined)
+      setPendingAct(offer.personId, offer.kind === 'loan' ? 'loan' : 'offer')
+      nav.go({ kind: 'person', id: offer.personId })
+    } else void answer(key)
   }
   return (
     <div>
@@ -157,37 +156,23 @@ export function OfferButtons({
         />
       )}
       {renewal && <RenewalDialog offer={offer} onCancel={() => setRenewal(false)} onDone={(o) => void done(o)} />}
-      {again && offer.kind === 'loan' && (
-        <LoanDialog
-          name={offer.name}
-          club={offer.seller?.shortName ?? ''}
-          wage={wage(again.wage, true)}
-          weeklyWage={again.wage}
-          initial={offer.loan}
-          error={error}
-          onCancel={() => setAgain(null)}
-          onOk={(t) => void resend(() => api.askLoan(offer.personId, t))}
-        />
-      )}
-      {again && offer.kind !== 'loan' && (
-        <TransferOfferDialog
-          name={offer.name}
-          club={offer.seller?.shortName ?? ''}
-          value={again.value}
-          budgetText={budgetText(again)}
-          comments={again.comments}
-          initial={offer.deal}
-          error={error}
-          onCancel={() => setAgain(null)}
-          onOk={(t) => void resend(() => api.makeOffer(offer.personId, t))}
-        />
-      )}
     </div>
   )
 }
 
 /** `version` muda depois de uma acção do menu Acção: a aba volta a carregar. */
-export default function TransferTab({ personId, version, onChanged }: { personId: number; version: number; onChanged: () => void }) {
+export default function TransferTab({
+  personId,
+  version,
+  onChanged,
+  onAgain,
+}: {
+  personId: number
+  version: number
+  onChanged: () => void
+  /** "Nova Proposta": a tela da proposta no perfil, com as condições anteriores. */
+  onAgain?: (o: OfferView) => void
+}) {
   const game = useGame()
   const nav = useNav()
   const [view, setView] = useState<TransferView | null>(null)
@@ -249,6 +234,7 @@ export default function TransferTab({ personId, version, onChanged }: { personId
               onChanged()
             }}
             onNegotiate={() => nav.go({ kind: 'contract', id: personId })}
+            onAgain={onAgain}
           />
         </div>
       )}

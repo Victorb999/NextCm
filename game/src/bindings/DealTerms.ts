@@ -35,4 +35,12 @@ public: boolean,
 /**
  * Um jogador do plantel do treinador que vai na troca.
  */
-exchange: number | null, };
+exchange: number | null, 
+/**
+ * Não negociável: o clube só aceita ou recusa, sem contraproposta.
+ */
+firm: boolean, 
+/**
+ * Prazo da decisão: 0 (o clube decide quando), 1 (amanhã, pressiona) ou 7 (uma semana).
+ */
+deadline: number, };

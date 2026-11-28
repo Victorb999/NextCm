@@ -199,7 +199,7 @@ pub use training::{AreaStrength, CoachAreas, TrainingPlan, TrainingView};
 /// 77: a prorrogação nos mata-matas (`fixtures.extra_time`).
 /// 78: a reputação de partida dos clubes (`clubs.base_reputation`); a de hoje muda no fim da temporada.
 /// 81: o PA dos juniores já criados sorteado de novo com a conta do 4.0 (`Game::rebalance_youth`).
-pub const SAVE_VERSION: i32 = 82;
+pub const SAVE_VERSION: i32 = 83;
 
 /// Save 49: cada instrução individual passa do jogador para a posição dele no onze (quem não
 /// estava no onze perde-as) e a coluna `person_id` passa a `slot`.
@@ -332,6 +332,12 @@ ALTER TABLE offers ADD COLUMN caps_bonus INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE offers ADD COLUMN caps_needed INTEGER NOT NULL DEFAULT 5;
 CREATE TABLE caps_bonus (person_id INTEGER PRIMARY KEY, payer INTEGER NOT NULL, payee INTEGER NOT NULL, amount INTEGER NOT NULL,
                          caps_at INTEGER NOT NULL, needed INTEGER NOT NULL);
+";
+
+/// Proposta não negociável e o prazo da decisão (save 83).
+const OFFER_FLEX_SCHEMA: &str = "
+ALTER TABLE offers ADD COLUMN firm INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE offers ADD COLUMN deadline INTEGER NOT NULL DEFAULT 0;
 ";
 
 /// Reservas (save 21).
@@ -914,6 +920,7 @@ impl Game {
             tx.execute_batch(LICENSE_SCHEMA)?;
             tx.execute_batch(EXPERIENCE_SCHEMA)?;
             tx.execute_batch(CAPS_BONUS_SCHEMA)?;
+            tx.execute_batch(OFFER_FLEX_SCHEMA)?;
             tx.execute_batch(DAY_PARTS_SCHEMA)?;
             tx.execute_batch(PROVOKE_SCHEMA)?;
             tx.execute_batch(MASKING_SCHEMA)?;
@@ -1610,6 +1617,12 @@ impl Game {
             world.conn.execute_batch(blocked_move::BLOCKED_SCHEMA)?;
             world.conn.execute("UPDATE game SET version = 82", [])?;
             version = 82;
+        }
+        // Save 83: a proposta não negociável e o prazo da decisão
+        if version == 82 {
+            world.conn.execute_batch(OFFER_FLEX_SCHEMA)?;
+            world.conn.execute("UPDATE game SET version = 83", [])?;
+            version = 83;
         }
         if version != SAVE_VERSION {
             return Err(Error::Invalid(format!(
