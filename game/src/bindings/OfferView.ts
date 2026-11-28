@@ -27,4 +27,8 @@ deal: DealTerms, loan: LoanTerms,
 /**
  * Propostas anteriores pelo jogador nesta negociação.
  */
-rounds: number, };
+rounds: number, 
+/**
+ * Renovação do treinador: as temporadas propostas.
+ */
+years: number, };

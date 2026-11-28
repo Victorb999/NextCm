@@ -366,7 +366,7 @@ export default function NewsPage({ latest, id }: { latest?: boolean; id?: number
                         } else nav.go({ kind: 'contract', id: offer.personId })
                       }}
                     />
-                    {offer.kind !== 'job' && (
+                    {offer.kind !== 'job' && offer.kind !== 'renewal' && (
                       <button className="cm-purple mt-1 h-7 min-w-36" onClick={() => nav.go({ kind: 'person', id: offer.personId })}>
                         Ver {offer.name}
                       </button>

@@ -9,6 +9,7 @@ import { useGame } from '../game'
 import { useNav } from '../nav'
 import { budgetText } from '../transferTerms'
 import { LoanDialog, TransferOfferDialog } from './DealDialogs'
+import RenewalDialog from './RenewalDialog'
 import { GREEN_FIELD, Overlay } from './Dialog'
 import { Empty, Link } from './Screen'
 
@@ -32,6 +33,7 @@ export function OfferButtons({
   const game = useGame()
   const [error, setError] = useState<string | null>(null)
   const [counter, setCounter] = useState(false)
+  const [renewal, setRenewal] = useState(false)
   // A venda ou a compra à espera do treinador: "Confirmar" abre a pergunta do CM (Não / Adiar / Sim)
   const [confirmSale, setConfirmSale] = useState(false)
   const selling = offer.incoming && offer.status === 'confirm'
@@ -48,6 +50,7 @@ export function OfferButtons({
     onChange(o)
     setError(null)
     setCounter(false)
+    setRenewal(false)
     setAgain(null)
     const info = await api.gameInfo()
     if (info) game.update(info)
@@ -78,6 +81,7 @@ export function OfferButtons({
   const click = (key: string) => {
     if (asking && key === 'confirm') setConfirmSale(true)
     else if (key === 'counter') setCounter(true)
+    else if (key === 'negotiate' && offer.kind === 'renewal') setRenewal(true)
     else if (key === 'negotiate') onNegotiate()
     else if (key === 'offer') api.transferView(offer.personId).then(setAgain, (e) => setError(String(e)))
     else void answer(key)
@@ -152,6 +156,7 @@ export function OfferButtons({
           onOk={(t) => void ask(t)}
         />
       )}
+      {renewal && <RenewalDialog offer={offer} onCancel={() => setRenewal(false)} onDone={(o) => void done(o)} />}
       {again && offer.kind === 'loan' && (
         <LoanDialog
           name={offer.name}

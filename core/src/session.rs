@@ -817,6 +817,11 @@ impl Session {
         self.game_mut()?.answer_offer(id, &key, fee)
     }
 
+    /// "Negociar" a renovação do treinador: o salário e as temporadas que ele pede.
+    pub fn ask_renewal(&mut self, id: i32, wage: i64, years: i32) -> Result<OfferView> {
+        self.game_mut()?.ask_renewal(id, wage, years)
+    }
+
     /// Entradas e saídas de um clube nos últimos 12 meses.
     /// A aba Transferências do clube, como no CM: a vista do menu Ver e a época.
     pub fn club_moves(&self, id: i32, view: String, season: Option<i32>) -> Result<crate::ClubMoves> {

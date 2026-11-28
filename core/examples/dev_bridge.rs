@@ -417,6 +417,11 @@ fn call(session: &mut Session, cmd: &str, args: &Value) -> Result<Value, String>
             let key = args["key"].as_str().ok_or("falta key")?.to_string();
             out(serde_json::to_value(session.answer_offer(id()?, key, args["fee"].as_i64()).map_err(e)?))
         }
+        "ask_renewal" => {
+            let wage = args["wage"].as_i64().ok_or("falta wage")?;
+            let years = args["years"].as_i64().ok_or("falta years")? as i32;
+            out(serde_json::to_value(session.ask_renewal(id()?, wage, years).map_err(e)?))
+        }
         "club_transfers" => out(serde_json::to_value(session.club_transfers(id()?).map_err(e)?)),
         "recall_loan" => out(serde_json::to_value(session.recall_loan(id()?).map_err(e)?)),
         "send_back_loan" => out(serde_json::to_value(session.send_back_loan(id()?).map_err(e)?)),

@@ -1081,6 +1081,10 @@ impl Game {
             if new.start == StartSeason::Brazil {
                 game.play_to_brazil_start()?;
             }
+            // O salário do treinador pelo tamanho do clube
+            let wage = game.coach_wage(game.club_id)?;
+            game.world.conn.execute("UPDATE people SET wage = ? WHERE id = ?", params![wage, game.manager_id])?;
+            game.extend_expired_coaches()?;
             // As primeiras mensagens, como no FM08: a direcção, os media e o adjunto
             for n in game.first_messages(new.favourite_club)? {
                 game.news.insert(0, n);
@@ -1749,6 +1753,10 @@ impl Game {
                 params![format!("{}-06-30", year + 1), manager_id, game.date],
             )? > 0
         {
+            game.unsaved = true;
+        }
+        // Saves de antes dos contratos dos técnicos da IA: os vencidos ganham mais um ano
+        if game.extend_expired_coaches()? > 0 {
             game.unsaved = true;
         }
         if redraw {

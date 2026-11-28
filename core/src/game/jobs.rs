@@ -156,7 +156,7 @@ impl Game {
             .optional()?)
     }
 
-    fn ai_confidence(&self, club: i32) -> Result<i32> {
+    pub(super) fn ai_confidence(&self, club: i32) -> Result<i32> {
         Ok(self
             .world
             .conn
@@ -389,9 +389,12 @@ impl Game {
                 )
                 .optional()?;
             let Some((id, coach_name)) = coach else { continue };
-            self.world
-                .conn
-                .execute("UPDATE people SET club_id = ?, club_job = 5, club_joined = ? WHERE id = ?", params![club, self.date, id])?;
+            // Contrato de duas temporadas, com o salário de treinador do clube
+            let year: i32 = self.date[..4].parse().unwrap_or(0);
+            self.world.conn.execute(
+                "UPDATE people SET club_id = ?, club_job = 5, club_joined = ?, contract_expires = ?, wage = ? WHERE id = ?",
+                params![club, self.date, format!("{}-06-30", year + 2), self.coach_wage(club)?, id],
+            )?;
             self.log_staff_move(id, None, Some(club))?;
             self.world.conn.execute("DELETE FROM vacancies WHERE club_id = ?", [club])?;
             self.world.conn.execute("INSERT OR REPLACE INTO ai_boards (club_id, confidence) VALUES (?, ?)", params![club, AI_START])?;
@@ -466,7 +469,7 @@ impl Game {
     }
 
     /// Um despedimento ou uma contratação neste clube interessa ao treinador?
-    fn newsworthy(&self, club: i32) -> Result<bool> {
+    pub(super) fn newsworthy(&self, club: i32) -> Result<bool> {
         let same: bool = self.world.conn.query_row(
             "SELECT COALESCE((SELECT division_id FROM clubs WHERE id = ?) = (SELECT division_id FROM clubs WHERE id = ?), 0)",
             params![club, self.club_id],

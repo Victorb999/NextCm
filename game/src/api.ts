@@ -295,6 +295,8 @@ export const api = {
   offerView: (id: number) => call<OfferView>('offer_view', { id }),
   /** Responder a uma proposta: accept, reject, counter (com fee), pay, withdraw. */
   answerOffer: (id: number, key: string, fee: number | null) => call<OfferView>('answer_offer', { id, key, fee }),
+  /** "Negociar" a renovação do treinador com a Diretoria. */
+  askRenewal: (id: number, wage: number, years: number) => call<OfferView>('ask_renewal', { id, wage, years }),
   /** "Observar Jogador": devolve a frase com a data do relatório. */
   scoutPlayer: (id: number) => call<string>('scout_player', { id }),
   scoutList: (slot: number) => call<ScoutList>('scout_list', { slot }),

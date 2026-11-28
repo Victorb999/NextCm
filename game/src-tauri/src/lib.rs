@@ -208,6 +208,7 @@ session_command!(negotiate(id: i32, role: String, wage: i64, bonus: i64, years: 
 session_command!(set_listing(id: i32, transfer: bool, loan: bool, asking: Option<i64>) -> TransferView);
 session_command!(offer_view(id: i32) -> OfferView);
 session_command!(answer_offer(id: i32, key: String, fee: Option<i64>) -> OfferView);
+session_command!(ask_renewal(id: i32, wage: i64, years: i32) -> OfferView);
 session_command!(scout_player(id: i32) -> String);
 session_command!(scout_list(slot: i32) -> ScoutList);
 session_command!(report_staff(kind: String) -> Vec<ReportStaff>);
@@ -475,6 +476,7 @@ pub fn run() {
             set_listing,
             offer_view,
             answer_offer,
+            ask_renewal,
             scout_player,
             scout_list,
             report_staff,

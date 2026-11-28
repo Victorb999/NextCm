@@ -90,6 +90,8 @@ pub struct OfferView {
     pub loan: LoanTerms,
     /// Propostas anteriores pelo jogador nesta negociação.
     pub rounds: i32,
+    /// Renovação do treinador: as temporadas propostas.
+    pub years: i32,
 }
 
 /// Um jogador do treinador que o clube vendedor aceita na troca: o valor de mercado e o que
@@ -1294,21 +1296,15 @@ impl Game {
                 "rejected" => (format!("{name} recusou a proposta."), Vec::new()),
                 _ => ("Negociações terminadas.".into(), Vec::new()),
             },
-            _ if o.kind == "renewal" => match o.status.as_str() {
-                "pending" => {
-                    let years = o.asked.unwrap_or(1);
-                    (
-                        format!(
-                            "A Diretoria propõe mais {years} {} com {} por semana. Responda até {until}.",
-                            if years == 1 { "temporada" } else { "temporadas" },
-                            money_text(o.fee)
-                        ),
-                        vec![action("accept", "Aceitar"), action("reject", "Recusar")],
-                    )
-                }
-                "done" => ("Contrato renovado.".into(), Vec::new()),
-                _ => ("Proposta encerrada.".into(), Vec::new()),
-            },
+            _ if o.kind == "renewal" => {
+                let (text, open) = Game::renewal_view(&o, &until);
+                let actions = if open {
+                    vec![action("accept", "Aceitar"), action("negotiate", "Negociar"), action("reject", "Recusar")]
+                } else {
+                    Vec::new()
+                };
+                (text, actions)
+            }
             _ if o.kind == "job" => match o.status.as_str() {
                 "applied" => (format!("Você se candidatou à vaga no {}; a resposta chega em {until}.", buyer.name), Vec::new()),
                 "pending" => (
@@ -1380,6 +1376,7 @@ impl Game {
             (_, "withdrawn") => ("Proposta retirada.".into(), Vec::new()),
             _ => ("Negócio desfeito.".into(), Vec::new()),
         };
+        let years = if o.kind == "renewal" { o.asked.unwrap_or(1) as i32 } else { 0 };
         Ok(OfferView {
             id,
             kind: o.kind,
@@ -1395,6 +1392,7 @@ impl Game {
             deal,
             loan: loan_terms,
             rounds: o.rounds,
+            years,
         })
     }
 
