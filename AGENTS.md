@@ -40,6 +40,7 @@ Core em Rust, desktop em Tauri 2, interface em React + TypeScript + Tailwind, da
 | `core/src/game/scout_tasks.rs` | Tarefas dos olheiros (Designar Olheiro) e as listas das abas Olheiro #1–#7 |
 | `core/src/game/discipline.rs` | Disciplinar Jogador, elogiar e criticar na imprensa (`player_log`) |
 | `core/src/game/jobs.rs` | Empregos: treinadores da IA e despedimentos, lugares vagos, candidaturas, mudar de clube, desemprego |
+| `core/src/game/manager_contract.rs` | Contrato do treinador: a Diretoria propõe a renovação 4 meses antes do fim (`offers.kind = 'renewal'`), ou avisa que não renova; no fim, sai do clube |
 | `core/src/game/reserves.rs` | Equipa de reservas: despromover e promover |
 | `core/src/game/reserve_matches.rs`, `reserve_report.rs` | Jogos das reservas e o onze do adjunto (ritmo, banco); o relatório mensal de quem sobe e quem desce |
 | `core/src/game/competition_stats.rs` | Golos esperados: a aba Estatísticas da competição e os últimos jogos na Análise |

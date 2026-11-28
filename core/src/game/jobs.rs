@@ -297,9 +297,11 @@ impl Game {
         )?;
         self.world.conn.execute("DELETE FROM vacancies WHERE club_id = ?", [club])?;
         self.world.conn.execute("DELETE FROM ai_boards WHERE club_id = ?", [club])?;
+        // Contrato novo: duas temporadas, com o salário de treinador do clube
+        let year: i32 = self.date[..4].parse().unwrap_or(0);
         self.world.conn.execute(
-            "UPDATE people SET club_id = ?, club_job = 5, club_joined = ? WHERE id = ?",
-            params![club, self.date, self.manager_id],
+            "UPDATE people SET club_id = ?, club_job = 5, club_joined = ?, contract_expires = ?, wage = ? WHERE id = ?",
+            params![club, self.date, format!("{}-06-30", year + 2), self.coach_wage(club)?, self.manager_id],
         )?;
         self.log_staff_move(self.manager_id, (!self.sacked()).then_some(old), Some(club))?;
         for s in self.squads.states.values_mut() {

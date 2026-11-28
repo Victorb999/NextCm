@@ -46,6 +46,7 @@ mod league_meeting;
 mod leagues;
 mod lineup_check;
 mod manager_career;
+mod manager_contract;
 mod manager_table;
 mod market;
 mod market_view;
@@ -1740,6 +1741,16 @@ impl Game {
         {
             game.unsaved = true;
         }
+        // Saves de antes da renovação do treinador: um contrato já vencido vai até o próximo 30/6
+        let year: i32 = game.date[..4].parse().unwrap_or(0);
+        if !game.sacked()
+            && game.world.conn.execute(
+                "UPDATE people SET contract_expires = ? WHERE id = ? AND contract_expires < ?",
+                params![format!("{}-06-30", year + 1), manager_id, game.date],
+            )? > 0
+        {
+            game.unsaved = true;
+        }
         if redraw {
             let (mut fresh, mut next_id) = (Vec::new(), game.news.iter().map(|n| n.id).max().unwrap_or(0) + 1);
             let year = game.season();
@@ -2064,6 +2075,7 @@ impl Game {
             self.opponent_report(fresh, next_id)?;
         }
         self.jobs_day(fresh, next_id)?;
+        self.manager_contract_day(fresh, next_id)?;
         // As transferências acertadas e as reformas do player_setup.cfg
         self.setup_day(fresh, next_id)?;
         // Amigáveis: os que chocam com jogos oficiais saem; os convites dos outros clubes

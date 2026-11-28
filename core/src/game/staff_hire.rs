@@ -203,7 +203,7 @@ impl Game {
     }
 
     /// O salário médio de um jogador do plantel de um clube (a base dos salários do staff).
-    fn average_wage(&self, club: i32) -> Result<f64> {
+    pub(super) fn average_wage(&self, club: i32) -> Result<f64> {
         let (bill, n): (i64, i64) = self.world.conn.query_row(
             "SELECT COALESCE(SUM(wage), 0), COUNT(*) FROM people WHERE club_id = ? AND is_player = 1",
             [club],

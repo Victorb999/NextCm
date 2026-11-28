@@ -117,18 +117,25 @@ impl Game {
         Ok(())
     }
 
-    /// "Rescindir com Clube": sai do clube por vontade própria e fica sem emprego.
-    pub fn resign(&mut self) -> Result<String> {
-        if self.sacked() {
-            return Err(Error::Invalid("Você está sem clube.".into()));
-        }
-        let club = self.club(self.club_id).name;
+    /// O treinador sai do clube e fica sem emprego (rescisão ou fim de contrato).
+    pub(super) fn leave_club(&mut self) -> Result<()> {
         self.world.conn.execute("UPDATE board SET sacked = 1 WHERE id = 1", [])?;
         self.world.conn.execute("UPDATE people SET club_id = NULL, club_job = NULL WHERE id = ?", [self.manager_id])?;
         self.log_staff_move(self.manager_id, Some(self.club_id), None)?;
         self.world.conn.execute("INSERT OR REPLACE INTO vacancies (club_id, since) VALUES (?, ?)", params![self.club_id, self.date])?;
         self.career_leave()?;
         self.selection = None;
+        self.unsaved = true;
+        Ok(())
+    }
+
+    /// "Rescindir com Clube": sai do clube por vontade própria e fica sem emprego.
+    pub fn resign(&mut self) -> Result<String> {
+        if self.sacked() {
+            return Err(Error::Invalid("Você está sem clube.".into()));
+        }
+        let club = self.club(self.club_id).name;
+        self.leave_club()?;
         let text = format!("Você rescindiu o contrato com o {club}. Procure um novo clube em Informação de Empregos.");
         self.post_news_as("jobs", format!("Saída do {club}"), text.clone());
         self.unsaved = true;

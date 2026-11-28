@@ -170,7 +170,7 @@ fn start_funds(cash: i64) -> i64 {
 }
 
 /// Um salário arredondado para baixo (às centenas até €10K, aos milhares depois).
-fn round_wage(v: i64) -> i64 {
+pub(super) fn round_wage(v: i64) -> i64 {
     if v < 10_000 { v / 100 * 100 } else { v / 1000 * 1000 }
 }
 
